@@ -1,3 +1,24 @@
+/**
+ * Inspection creation service.
+ *
+ * Orchestrates the full creation flow:
+ * 1. Store raw source event in `inspection_source_events`
+ * 2. Normalize property snapshot (immutable at creation time)
+ * 3. Generate dynamic sections from payload rules
+ * 4. Create parent `inspections` record with:
+ *    - property_snapshot_json
+ *    - inspector_id   (assigned at creation time by admin or resolved from HubSpot)
+ *    - executive_id   (assigned at creation time by admin or resolved from HubSpot)
+ *    - status = 'assigned' if both IDs present, else 'pending_assignment'
+ * 5. Create concrete `inspection_sections` rows
+ * 6. Create `inspection_field_values` for each section
+ * 7. Mark source event as completed
+ *
+ * IMPORTANT: `executive_id` is set HERE during creation. It must not be null
+ * when the inspection reaches the review stage, otherwise the executive
+ * RLS policies will block access.
+ */
+
 import { supabase } from '@/integrations/supabase/client';
 import { generateSections, normalizePropertySnapshot } from './inspection-generator';
 import type { PropertyPayload } from './types';
@@ -27,7 +48,20 @@ export async function createInspectionFromPayload(
   // 3. Generate sections
   const generatedSections = generateSections(payload);
 
-  // 4. Create parent inspection
+  // 4. Resolve inspector and executive IDs
+  const inspectorId = payload.inspector?.id || null;
+  const executiveId = payload.executive?.id || null;
+
+  /**
+   * STATUS LOGIC:
+   * - If both inspector and executive are assigned → 'assigned'
+   * - Otherwise → 'pending_assignment' (admin must resolve manually)
+   */
+  const hasValidInspector = inspectorId && inspectorId !== 'REPLACE_WITH_REAL_ID';
+  const hasValidExecutive = executiveId && executiveId !== 'REPLACE_WITH_REAL_ID';
+  const status = hasValidInspector && hasValidExecutive ? 'assigned' : 'pending_assignment';
+
+  // 5. Create parent inspection
   const { data: inspection, error: inspError } = await supabase
     .from('inspections')
     .insert({
@@ -40,9 +74,9 @@ export async function createInspectionFromPayload(
       property_type: payload.property_type ?? null,
       inspection_type: payload.inspection_type,
       hubspot_property_id: payload.hubspot_property_id ?? null,
-      inspector_id: payload.inspector?.id && payload.inspector.id !== 'REPLACE_WITH_REAL_ID' ? payload.inspector.id : null,
-      executive_id: payload.executive?.id && payload.executive.id !== 'REPLACE_WITH_REAL_ID' ? payload.executive.id : null,
-      status: payload.inspector?.id && payload.inspector.id !== 'REPLACE_WITH_REAL_ID' ? 'assigned' : 'pending',
+      inspector_id: hasValidInspector ? inspectorId : null,
+      executive_id: hasValidExecutive ? executiveId : null,
+      status,
       scheduled_at: payload.scheduled_at ?? null,
       property_snapshot_json: snapshot as unknown as Json,
       generated_structure_json: { sections: generatedSections } as unknown as Json,
@@ -53,7 +87,7 @@ export async function createInspectionFromPayload(
 
   if (inspError) throw new Error(`Inspection error: ${inspError.message}`);
 
-  // 5. Create concrete sections
+  // 6. Create concrete sections
   for (const section of generatedSections) {
     const { data: sectionData, error: secError } = await supabase
       .from('inspection_sections')
@@ -70,7 +104,7 @@ export async function createInspectionFromPayload(
 
     if (secError) throw new Error(`Section error: ${secError.message}`);
 
-    // 6. Create field values
+    // 7. Create field values
     if (section.fields.length > 0) {
       const fieldRows = section.fields.map((f) => ({
         inspection_id: inspection.id,
@@ -92,7 +126,7 @@ export async function createInspectionFromPayload(
     }
   }
 
-  // 7. Mark source event as completed
+  // 8. Mark source event as completed
   await supabase
     .from('inspection_source_events')
     .update({ processing_status: 'completed', processed_at: new Date().toISOString() })

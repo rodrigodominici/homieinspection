@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
+import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { LogOut, MapPin, ArrowRight } from 'lucide-react';
 
@@ -28,19 +29,18 @@ export default function InspectorDashboard() {
 
       if (!inspData) { setLoading(false); return; }
 
-      // Get section counts
       const withProgress = await Promise.all(
         (inspData as unknown as Inspection[]).map(async (insp) => {
           const { data: sections } = await supabase
             .from('inspection_sections')
-            .select('id, status')
-            .eq('inspection_id', insp.id)
-            .eq('is_visible', true);
-          const secs = (sections ?? []) as unknown as InspectionSection[];
+            .select('id, status, is_visible')
+            .eq('inspection_id', insp.id);
+          const secs = (sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible'>[];
+          const progress = calculateProgress(secs);
           return {
             ...insp,
-            totalSections: secs.length,
-            completedSections: secs.filter((s) => s.status === 'completed' || s.status === 'reviewed').length,
+            totalSections: progress.total,
+            completedSections: progress.completed,
           };
         })
       );
@@ -88,9 +88,7 @@ export default function InspectorDashboard() {
           <>
             {activeInspections.length > 0 && (
               <section>
-                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Activas
-                </h2>
+                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Activas</h2>
                 <div className="space-y-3">
                   {activeInspections.map((insp) => (
                     <InspectionCard key={insp.id} inspection={insp} />
@@ -100,9 +98,7 @@ export default function InspectorDashboard() {
             )}
             {otherInspections.length > 0 && (
               <section>
-                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Otras
-                </h2>
+                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Otras</h2>
                 <div className="space-y-3">
                   {otherInspections.map((insp) => (
                     <InspectionCard key={insp.id} inspection={insp} />

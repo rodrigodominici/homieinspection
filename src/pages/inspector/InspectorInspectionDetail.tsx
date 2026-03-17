@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
+import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { ArrowLeft, MapPin, Building, CheckCircle2 } from 'lucide-react';
 
@@ -43,9 +44,8 @@ export default function InspectorInspectionDetail() {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
 
-  const completedCount = sections.filter((s) => s.status === 'completed' || s.status === 'reviewed').length;
-  const progress = sections.length > 0 ? Math.round((completedCount / sections.length) * 100) : 0;
-  const allCompleted = completedCount === sections.length && sections.length > 0;
+  const progress = calculateProgress(sections);
+  const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
   const handleStart = async () => {
@@ -56,7 +56,6 @@ export default function InspectorInspectionDetail() {
         .eq('id', inspection.id);
       setInspection({ ...inspection, status: 'in_progress' });
     }
-    // Navigate to first incomplete section
     const firstIncomplete = sections.find((s) => s.status !== 'completed' && s.status !== 'reviewed');
     if (firstIncomplete) {
       navigate(`/inspector/inspection/${inspection.id}/section/${firstIncomplete.id}`);
@@ -65,6 +64,14 @@ export default function InspectorInspectionDetail() {
     }
   };
 
+  /**
+   * HANDOFF LOGIC:
+   * When the inspector submits, the inspection status changes to 'submitted'.
+   * Because executive_id was set at creation time, the executive's RLS policy
+   * (executive_id = auth.uid()) will now include this inspection in their
+   * SELECT queries. The executive dashboard filters for status='submitted'
+   * or 'in_review', so the inspection appears in their review queue automatically.
+   */
   const handleSubmit = async () => {
     const { error } = await supabase
       .from('inspections')
@@ -77,7 +84,7 @@ export default function InspectorInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Inspección enviada', description: 'Enviada para revisión' });
+      toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
       navigate('/inspector');
     }
   };
@@ -101,7 +108,6 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
-        {/* Property summary */}
         <Card className="border-0 ring-1 ring-border/50 shadow-sm">
           <CardContent className="py-4 space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -115,19 +121,17 @@ export default function InspectorInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* Progress */}
         <Card className="border-0 ring-1 ring-border/50 shadow-sm">
           <CardContent className="py-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Progreso</span>
-              <span className="text-sm text-muted-foreground">{completedCount} de {sections.length}</span>
+              <span className="text-sm text-muted-foreground">{progress.completed} de {progress.total}</span>
             </div>
-            <Progress value={progress} className="h-3" />
-            <p className="text-right text-xs text-muted-foreground mt-1">{progress}%</p>
+            <Progress value={progress.percent} className="h-3" />
+            <p className="text-right text-xs text-muted-foreground mt-1">{progress.percent}%</p>
           </CardContent>
         </Card>
 
-        {/* Section list */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Secciones</h3>
           {sections.map((section, idx) => (
@@ -155,7 +159,6 @@ export default function InspectorInspectionDetail() {
         </div>
       </main>
 
-      {/* Sticky bottom */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
         {canSubmit ? (
           <Button onClick={handleSubmit} className="w-full h-12" size="lg">

@@ -8,7 +8,8 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   role: UserRole | null;
-  loading: boolean;
+  loading: boolean;          // true during initial auth check
+  profileLoading: boolean;   // true while fetching profile after auth resolves
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<void>;
   signOut: () => Promise<void>;
@@ -21,14 +22,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (data) setProfile(data as Profile);
+    setProfileLoading(true);
+    try {
+      // Retry up to 3 times with small delay — the trigger may not have
+      // committed the profile row yet on fresh signups.
+      let attempts = 0;
+      let data: Profile | null = null;
+      while (attempts < 3) {
+        const res = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (res.data) {
+          data = res.data as Profile;
+          break;
+        }
+        attempts++;
+        if (attempts < 3) await new Promise((r) => setTimeout(r, 1000));
+      }
+      setProfile(data);
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -37,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Use setTimeout to avoid deadlock with Supabase auth
           setTimeout(() => fetchProfile(session.user.id), 0);
         } else {
           setProfile(null);
@@ -87,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         role: profile?.role ?? null,
         loading,
+        profileLoading,
         signIn,
         signUp,
         signOut,
