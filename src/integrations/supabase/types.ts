@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      external_user_mappings: {
+        Row: {
+          created_at: string
+          hubspot_email: string | null
+          hubspot_user_id: string | null
+          id: string
+          is_active: boolean
+          profile_id: string | null
+          provider: string
+          role_hint: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hubspot_email?: string | null
+          hubspot_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          profile_id?: string | null
+          provider?: string
+          role_hint?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hubspot_email?: string | null
+          hubspot_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          profile_id?: string | null
+          provider?: string
+          role_hint?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_user_mappings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_field_values: {
         Row: {
           field_key: string
