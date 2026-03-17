@@ -99,6 +99,9 @@ export default function AdminDashboard() {
             <Link to="/admin/templates">
               <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><Layers className="h-3.5 w-3.5" /> Templates</Button>
             </Link>
+            <Link to="/admin/generation-rules">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><BookOpen className="h-3.5 w-3.5" /> Reglas</Button>
+            </Link>
             <span className="text-sm text-muted-foreground">{profile?.full_name}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
