@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateSections, normalizePropertySnapshot } from './inspection-generator';
 import type { PropertyPayload } from './types';
+import type { Json } from '@/integrations/supabase/types';
 
 export async function createInspectionFromPayload(
   payload: PropertyPayload,
@@ -12,7 +13,7 @@ export async function createInspectionFromPayload(
     .insert({
       source: 'manual',
       hubspot_property_id: payload.hubspot_property_id ?? null,
-      payload_json: payload as unknown as Record<string, unknown>,
+      payload_json: payload as unknown as Json,
       processing_status: 'processing',
     })
     .select()
@@ -39,12 +40,12 @@ export async function createInspectionFromPayload(
       property_type: payload.property_type ?? null,
       inspection_type: payload.inspection_type,
       hubspot_property_id: payload.hubspot_property_id ?? null,
-      inspector_id: payload.inspector?.id !== 'REPLACE_WITH_REAL_ID' ? payload.inspector?.id : null,
-      executive_id: payload.executive?.id !== 'REPLACE_WITH_REAL_ID' ? payload.executive?.id : null,
+      inspector_id: payload.inspector?.id && payload.inspector.id !== 'REPLACE_WITH_REAL_ID' ? payload.inspector.id : null,
+      executive_id: payload.executive?.id && payload.executive.id !== 'REPLACE_WITH_REAL_ID' ? payload.executive.id : null,
       status: payload.inspector?.id && payload.inspector.id !== 'REPLACE_WITH_REAL_ID' ? 'assigned' : 'pending',
       scheduled_at: payload.scheduled_at ?? null,
-      property_snapshot_json: snapshot,
-      generated_structure_json: { sections: generatedSections },
+      property_snapshot_json: snapshot as unknown as Json,
+      generated_structure_json: { sections: generatedSections } as unknown as Json,
       created_by: createdBy,
     })
     .select()
@@ -80,7 +81,7 @@ export async function createInspectionFromPayload(
         group_key: f.group_key,
         sort_order: f.sort_order,
         is_visible: true,
-        value_json: f.options_json ? { options: f.options_json } : null,
+        value_json: f.options_json ? ({ options: f.options_json } as unknown as Json) : null,
       }));
 
       const { error: fieldError } = await supabase
