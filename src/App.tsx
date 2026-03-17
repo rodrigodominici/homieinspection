@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCreateInspection from "./pages/admin/AdminCreateInspection";
+import AdminConfig from "./pages/admin/AdminConfig";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDetail";
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
