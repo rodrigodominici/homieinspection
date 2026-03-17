@@ -90,8 +90,14 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/admin/config">
-              <Button variant="ghost" size="icon"><Settings className="h-4 w-4" /></Button>
+            <Link to="/admin/users">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" /> Usuarios</Button>
+            </Link>
+            <Link to="/admin/mappings">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><Database className="h-3.5 w-3.5" /> Mappings</Button>
+            </Link>
+            <Link to="/admin/templates">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><Layers className="h-3.5 w-3.5" /> Templates</Button>
             </Link>
             <span className="text-sm text-muted-foreground">{profile?.full_name}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
