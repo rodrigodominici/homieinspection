@@ -123,15 +123,15 @@ export default function AdminTemplates() {
     if (secRulesText.trim()) {
       try { rules = JSON.parse(secRulesText); } catch { toast({ title: 'JSON inválido en reglas', variant: 'destructive' }); setSaving(false); return; }
     }
-    const { error } = await supabase.from('inspection_template_sections').insert({
+    const { error } = await supabase.from('inspection_template_sections').insert([{
       template_id: selectedTemplate.id,
       section_key: secKey,
       section_title: secTitle,
       section_type: secType,
       sort_order: sections.length,
       is_repeatable: secRepeatable,
-      visibility_rules: rules,
-    });
+      visibility_rules: rules as unknown as import('@/integrations/supabase/types').Json,
+    }]);
     setSaving(false);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
