@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, Profile } from '@/lib/types';
-import { Plus, LogOut, ClipboardList, FileSearch, Clock, UserCheck, AlertCircle, Settings } from 'lucide-react';
+import { Plus, LogOut, ClipboardList, FileSearch, Clock, UserCheck, AlertCircle, Users, Database, Layers } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { profile, signOut } = useAuth();
