@@ -4,6 +4,7 @@ export type UserRole = 'admin' | 'inspector' | 'executive';
 
 export type InspectionStatus =
   | 'pending'
+  | 'pending_assignment'
   | 'assigned'
   | 'in_progress'
   | 'submitted'
