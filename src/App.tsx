@@ -18,6 +18,7 @@ import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDeta
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
 import ExecutiveDashboard from "./pages/executive/ExecutiveDashboard";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
+import AdminGenerationRules from "./pages/admin/AdminGenerationRules";
 
 const queryClient = new QueryClient();
 
