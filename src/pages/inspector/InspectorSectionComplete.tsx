@@ -164,6 +164,8 @@ export default function InspectorSectionComplete() {
       toast({ title: 'Error', variant: 'destructive' });
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
+      // Guard: ensure parent inspection status is coherent
+      if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
       // Navigate to next
       goNext();
     }
