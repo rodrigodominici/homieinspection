@@ -11,6 +11,7 @@ import { SectionStatusBadge } from '@/components/StatusBadge';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
 import { ArrowLeft, ArrowRight, Camera, Check, X, Loader2, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 
 export default function InspectorSectionComplete() {
   const { id: inspectionId, sectionId } = useParams<{ id: string; sectionId: string }>();
@@ -75,11 +76,13 @@ export default function InspectorSectionComplete() {
   const handleChipChange = (fieldId: string, value: string) => {
     setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, value_text: value } : f));
     saveField(fieldId, value);
-    // Also update section status to in_progress
+    // Also update section status to in_progress and ensure parent consistency
     if (section?.status === 'not_started' || section?.status === 'needs_changes') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
       setSection((prev) => prev ? { ...prev, status: 'in_progress' } : prev);
     }
+    // Guard: ensure parent inspection moves to in_progress if still stale
+    if (inspectionId) ensureInspectionStatusConsistency(inspectionId);
   };
 
   // Handle text change (debounced)
@@ -161,6 +164,8 @@ export default function InspectorSectionComplete() {
       toast({ title: 'Error', variant: 'destructive' });
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
+      // Guard: ensure parent inspection status is coherent
+      if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
       // Navigate to next
       goNext();
     }
