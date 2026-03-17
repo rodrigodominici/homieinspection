@@ -18,6 +18,7 @@ import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDeta
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
 import ExecutiveDashboard from "./pages/executive/ExecutiveDashboard";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
+import AdminGenerationRules from "./pages/admin/AdminGenerationRules";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/mappings" element={<ProtectedRoute allowedRoles={['admin']}><AdminMappings /></ProtectedRoute>} />
             <Route path="/admin/templates" element={<ProtectedRoute allowedRoles={['admin']}><AdminTemplates /></ProtectedRoute>} />
+            <Route path="/admin/generation-rules" element={<ProtectedRoute allowedRoles={['admin']}><AdminGenerationRules /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />

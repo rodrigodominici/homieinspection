@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, Profile } from '@/lib/types';
-import { Plus, LogOut, ClipboardList, FileSearch, Clock, UserCheck, AlertCircle, Users, Database, Layers } from 'lucide-react';
+import { Plus, LogOut, ClipboardList, FileSearch, Clock, UserCheck, AlertCircle, Users, Database, Layers, BookOpen } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { profile, signOut } = useAuth();
@@ -98,6 +98,9 @@ export default function AdminDashboard() {
             </Link>
             <Link to="/admin/templates">
               <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><Layers className="h-3.5 w-3.5" /> Templates</Button>
+            </Link>
+            <Link to="/admin/generation-rules">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs"><BookOpen className="h-3.5 w-3.5" /> Reglas</Button>
             </Link>
             <span className="text-sm text-muted-foreground">{profile?.full_name}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
