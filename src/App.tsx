@@ -12,7 +12,11 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminInspections from "./pages/admin/AdminInspections";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminSchedule from "./pages/admin/AdminSchedule";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
+import InspectorPastInspections from "./pages/inspector/InspectorPastInspections";
+import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
+import InspectorProfile from "./pages/inspector/InspectorProfile";
 import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDetail";
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
@@ -36,9 +40,13 @@ const App = () => (
             <Route path="/admin/inspections" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspections /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
+            <Route path="/admin/schedule" element={<ProtectedRoute allowedRoles={['admin']}><AdminSchedule /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
+            <Route path="/inspector/past" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorPastInspections /></ProtectedRoute>} />
+            <Route path="/inspector/all" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorAllInspections /></ProtectedRoute>} />
+            <Route path="/inspector/profile" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorProfile /></ProtectedRoute>} />
             <Route path="/inspector/inspection/:id" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorInspectionDetail /></ProtectedRoute>} />
             <Route path="/inspector/inspection/:id/section/:sectionId" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorSectionComplete /></ProtectedRoute>} />
             
