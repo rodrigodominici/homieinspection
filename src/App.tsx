@@ -14,6 +14,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminSchedule from "./pages/admin/AdminSchedule";
 import AdminInspectionDetail from "./pages/admin/AdminInspectionDetail";
+import AdminRepairCatalog from "./pages/admin/AdminRepairCatalog";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorPastInspections from "./pages/inspector/InspectorPastInspections";
 import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
@@ -23,6 +24,7 @@ import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete
 import InspectorCalendar from "./pages/inspector/InspectorCalendar";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
+import OwnerReport from "./pages/public/OwnerReport";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
             <Route path="/admin/schedule" element={<ProtectedRoute allowedRoles={['admin']}><AdminSchedule /></ProtectedRoute>} />
+            <Route path="/admin/catalog" element={<ProtectedRoute allowedRoles={['admin']}><AdminRepairCatalog /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
@@ -57,6 +60,9 @@ const App = () => (
             {/* Executive routes */}
             <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
             <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
+            
+            {/* Public routes */}
+            <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

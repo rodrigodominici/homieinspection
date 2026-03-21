@@ -12,13 +12,14 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ClipboardList, Users, Settings, LogOut, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, Settings, LogOut, CalendarClock, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Inspecciones', url: '/admin/inspections', icon: ClipboardList },
   { title: 'Agenda', url: '/admin/schedule', icon: CalendarClock },
+  { title: 'Catálogo', url: '/admin/catalog', icon: Wrench },
   { title: 'Usuarios', url: '/admin/users', icon: Users },
   { title: 'Configuración', url: '/admin/settings', icon: Settings },
 ];
