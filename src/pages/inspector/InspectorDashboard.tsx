@@ -204,7 +204,7 @@ function NextInspectionHero({ inspection: insp }: { inspection: InspectionWithPr
             <span>{insp.completedSections} de {insp.totalSections} secciones</span>
             <span className="font-medium">{progress}%</span>
           </div>
-          <Progress value={progress} className="h-2.5 rounded-full" />
+          <Progress value={progress} className={cn("h-2.5 rounded-full", progress === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
         </div>
 
         {/* Actions */}
