@@ -176,3 +176,67 @@ export interface PropertyPayload {
   inspector?: { id: string; name: string; email: string };
   executive?: { id: string; name: string; email: string };
 }
+
+export interface RepairCatalogCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface RepairCatalogItem {
+  id: string;
+  name: string;
+  owner_friendly_name: string | null;
+  category_id: string;
+  description: string | null;
+  unit: string;
+  pricing_type: 'fixed' | 'per_unit' | 'per_m2';
+  base_price: number;
+  currency: string;
+  market: string | null;
+  is_active: boolean;
+  internal_notes: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  category?: RepairCatalogCategory;
+}
+
+export interface InspectionRepairItem {
+  id: string;
+  inspection_id: string;
+  inspection_section_id: string;
+  repair_catalog_item_id: string | null;
+  title_snapshot: string;
+  owner_friendly_name_snapshot: string | null;
+  description_snapshot: string | null;
+  category_snapshot: string | null;
+  unit: string;
+  pricing_type: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number; // generated column, read-only
+  notes: string | null;
+  visible_to_owner: boolean;
+  sort_order: number;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InspectionReportVersion {
+  id: string;
+  inspection_id: string;
+  version_number: number;
+  status: string;
+  public_token: string | null;
+  normalized_payload: Record<string, unknown>;
+  is_latest: boolean;
+  created_at: string;
+  executive?: { id: string; name: string; email: string };
+}
