@@ -134,7 +134,7 @@ export default function InspectorSectionComplete() {
       setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
       if (!photoError && photoData) {
         setPhotos((prev) => [...prev, photoData as unknown as InspectionPhoto]);
-        toast({ title: 'Foto subida' });
+        
       }
     }
     e.target.value = '';
