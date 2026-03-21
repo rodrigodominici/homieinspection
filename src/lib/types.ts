@@ -171,6 +171,8 @@ export interface PropertyPayload {
   tower?: string;
   recipient_email?: string;
   scheduled_at?: string;
+  fecha_recoleccion_llaves?: string;
+  hora_recoleccion_llaves?: string;
   inspector?: { id: string; name: string; email: string };
   executive?: { id: string; name: string; email: string };
 }

@@ -455,6 +455,8 @@ export function normalizePropertySnapshot(payload: PropertyPayload): Record<stri
     has_front_yard: payload.has_front_yard ?? false,
     tower: payload.tower,
     scheduled_at: payload.scheduled_at,
+    fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
+    hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
   };
 }
 
@@ -480,6 +482,8 @@ export const EXAMPLE_PAYLOADS = {
     tower: "2",
     recipient_email: "rosangel.gutierrez@homie.test",
     scheduled_at: "2026-03-20T15:00:00Z",
+    fecha_recoleccion_llaves: "2026-03-20",
+    hora_recoleccion_llaves: "15:00",
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
     executive: { id: "REPLACE_WITH_REAL_ID", name: "Executive Demo", email: "executive@homie.test" },
   },
