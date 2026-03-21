@@ -5,10 +5,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
-import type { Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto, InspectionReview } from '@/lib/types';
-import { ArrowLeft, CheckCircle2, RotateCcw, MessageSquare, MapPin, Building } from 'lucide-react';
+import { calculateProgress } from '@/lib/inspection-utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import type { Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto } from '@/lib/types';
+import { ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function ExecutiveReviewDetail() {
@@ -37,7 +50,6 @@ export default function ExecutiveReviewDetail() {
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
 
-      // Batch fetch fields and photos
       const secIds = secList.map((s) => s.id);
       if (secIds.length > 0) {
         const { data: fields } = await supabase
@@ -59,7 +71,6 @@ export default function ExecutiveReviewDetail() {
         setPhotosBySection(pMap);
       }
 
-      // Mark as in_review
       if (insp && (insp as unknown as Inspection).status === 'submitted') {
         await supabase.from('inspections').update({ status: 'in_review' }).eq('id', id!);
       }
@@ -73,17 +84,11 @@ export default function ExecutiveReviewDetail() {
     setSubmitting(true);
     const { error } = await supabase
       .from('inspections')
-      .update({
-        status: 'approved',
-        approved_at: new Date().toISOString(),
-        approved_by: profile?.id,
-      })
+      .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: profile?.id })
       .eq('id', id!);
-
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      // Mark all sections as reviewed
       await supabase
         .from('inspection_sections')
         .update({ status: 'reviewed', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() })
@@ -99,10 +104,7 @@ export default function ExecutiveReviewDetail() {
       toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
       return;
     }
-
     setSubmitting(true);
-
-    // Create revision_request comments
     for (const secId of selectedReturnSections) {
       const comment = returnComments[secId];
       if (comment?.trim()) {
@@ -114,11 +116,8 @@ export default function ExecutiveReviewDetail() {
           created_by: profile?.id,
         });
       }
-      // Mark section as needs_changes
       await supabase.from('inspection_sections').update({ status: 'needs_changes' }).eq('id', secId);
     }
-
-    // Update inspection status
     await supabase.from('inspections').update({ status: 'needs_changes' }).eq('id', id!);
     toast({ title: 'Devuelta para cambios' });
     navigate('/executive');
@@ -134,8 +133,26 @@ export default function ExecutiveReviewDetail() {
     });
   };
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
+          <div className="container flex h-16 items-center gap-4">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+        </header>
+        <div className="container max-w-6xl py-6 space-y-4">
+          <Skeleton className="h-24 rounded-xl" />
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
+
+  const progress = calculateProgress(sections);
 
   const statusLabel = (value: string | null) => {
     if (!value) return null;
@@ -162,110 +179,154 @@ export default function ExecutiveReviewDetail() {
         </div>
       </header>
 
-      <main className="container max-w-4xl py-6 space-y-6">
-        {/* Property summary */}
-        <Card className="border-0 ring-1 ring-border/50 shadow-sm">
-          <CardContent className="py-4 grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>{inspection.address}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Building className="h-4 w-4 text-muted-foreground" />
-              <span>{inspection.typology} · {inspection.property_type} · {inspection.inspection_type}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sections review */}
-        {sections.map((section) => {
-          const sFields = fieldsBySection[section.id] ?? [];
-          const sPhotos = photosBySection[section.id] ?? [];
-          const sStatusFields = sFields.filter((f) => f.group_key === 'status');
-          const sObservation = sFields.find((f) => f.group_key === 'observation');
-          const hasMalo = sStatusFields.some((f) => f.value_text === 'malo');
-
-          return (
-            <Card
-              key={section.id}
-              className={cn(
-                'border-0 ring-1 shadow-sm',
-                hasMalo ? 'ring-status-bad/30 border-l-4 border-l-status-bad' : 'ring-border/50'
-              )}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{section.section_title}</CardTitle>
-                  <SectionStatusBadge status={section.status} />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Status fields */}
-                {sStatusFields.map((f) => {
-                  const label = statusLabel(f.value_text);
-                  return (
-                    <div key={f.id} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{f.field_label}</span>
-                      {label && <span className={label.className}>{label.text}</span>}
-                    </div>
-                  );
-                })}
-
-                {/* Other non-status/non-photo fields */}
-                {sFields.filter((f) => f.group_key !== 'status' && f.group_key !== 'photo' && f.value_text).map((f) => (
-                  <div key={f.id} className="text-sm">
-                    <span className="text-muted-foreground">{f.field_label}: </span>
-                    <span>{f.value_text}</span>
+      <div className="container max-w-6xl py-6">
+        {/* Two-column layout on desktop */}
+        <div className="lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
+          {/* Left sticky summary */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 space-y-4">
+              <Card className="border-0 ring-1 ring-border shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-caption">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>{inspection.address}</span>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2 text-caption">
+                    <Building className="h-4 w-4 text-muted-foreground" />
+                    <span>{inspection.typology} · {inspection.property_type}</span>
+                  </div>
+                  <div className="border-t pt-3">
+                    <p className="text-caption text-muted-foreground mb-1">Progreso</p>
+                    <p className="text-h4 font-bold">{progress.percent}%</p>
+                    <p className="text-tiny text-muted-foreground">{progress.completed} de {progress.total} secciones</p>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Photos */}
-                {sPhotos.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {sPhotos.map((p) => (
-                      <img
-                        key={p.id}
-                        src={p.public_url ?? ''}
-                        alt={p.caption ?? ''}
-                        className="aspect-square rounded-lg object-cover"
-                      />
+              {/* Section nav */}
+              <Card className="border-0 ring-1 ring-border shadow-sm">
+                <CardContent className="p-4">
+                  <p className="text-caption font-medium text-muted-foreground mb-2">Secciones</p>
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {sections.map((s) => (
+                      <a
+                        key={s.id}
+                        href={`#section-${s.id}`}
+                        className="flex items-center justify-between py-1.5 px-2 rounded-lg text-caption hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="truncate">{s.section_title}</span>
+                        <SectionStatusBadge status={s.status} />
+                      </a>
                     ))}
                   </div>
-                )}
+                </CardContent>
+              </Card>
+            </div>
+          </aside>
 
-                {/* Return mode: select + comment */}
-                {returnMode && (
-                  <div className="mt-3 pt-3 border-t space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedReturnSections.has(section.id)}
-                        onChange={() => toggleReturnSection(section.id)}
-                        className="rounded"
-                      />
-                      <span className="text-sm font-medium">Marcar para corrección</span>
-                    </label>
-                    {selectedReturnSections.has(section.id) && (
-                      <Textarea
-                        placeholder="Comentario de corrección..."
-                        value={returnComments[section.id] ?? ''}
-                        onChange={(e) => setReturnComments((prev) => ({ ...prev, [section.id]: e.target.value }))}
-                        rows={2}
-                        className="text-sm"
-                      />
-                    )}
-                  </div>
-                )}
+          {/* Right scrollable review feed */}
+          <div className="space-y-4">
+            {/* Mobile-only summary */}
+            <Card className="border-0 ring-1 ring-border shadow-sm lg:hidden">
+              <CardContent className="p-4 grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 text-caption">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{inspection.address}</span>
+                </div>
+                <div className="flex items-center gap-2 text-caption">
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  <span>{inspection.typology} · {inspection.property_type}</span>
+                </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </main>
+
+            {/* Section cards */}
+            {sections.map((section) => {
+              const sFields = fieldsBySection[section.id] ?? [];
+              const sPhotos = photosBySection[section.id] ?? [];
+              const sStatusFields = sFields.filter((f) => f.group_key === 'status');
+              const hasMalo = sStatusFields.some((f) => f.value_text === 'malo');
+
+              return (
+                <Card
+                  key={section.id}
+                  id={`section-${section.id}`}
+                  className={cn(
+                    'border-0 ring-1 shadow-sm scroll-mt-20',
+                    hasMalo ? 'ring-status-bad/30 border-l-4 border-l-status-bad' : 'ring-border'
+                  )}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-body-lg">{section.section_title}</CardTitle>
+                      <SectionStatusBadge status={section.status} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {sStatusFields.map((f) => {
+                      const label = statusLabel(f.value_text);
+                      return (
+                        <div key={f.id} className="flex items-center justify-between text-caption">
+                          <span className="text-muted-foreground">{f.field_label}</span>
+                          {label && <span className={label.className}>{label.text}</span>}
+                        </div>
+                      );
+                    })}
+
+                    {sFields.filter((f) => f.group_key !== 'status' && f.group_key !== 'photo' && f.value_text).map((f) => (
+                      <div key={f.id} className="text-caption">
+                        <span className="text-muted-foreground">{f.field_label}: </span>
+                        <span>{f.value_text}</span>
+                      </div>
+                    ))}
+
+                    {sPhotos.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {sPhotos.map((p) => (
+                          <img
+                            key={p.id}
+                            src={p.public_url ?? ''}
+                            alt={p.caption ?? ''}
+                            className="aspect-square rounded-xl object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {returnMode && (
+                      <div className="mt-3 pt-3 border-t space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedReturnSections.has(section.id)}
+                            onChange={() => toggleReturnSection(section.id)}
+                            className="rounded"
+                          />
+                          <span className="text-caption font-medium">Marcar para corrección</span>
+                        </label>
+                        {selectedReturnSections.has(section.id) && (
+                          <Textarea
+                            placeholder="Comentario de corrección..."
+                            value={returnComments[section.id] ?? ''}
+                            onChange={(e) => setReturnComments((prev) => ({ ...prev, [section.id]: e.target.value }))}
+                            rows={2}
+                            className="text-caption"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* Sticky actions */}
       {['submitted', 'in_review'].includes(inspection.status) && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-          <div className="container max-w-4xl flex gap-3">
+          <div className="container max-w-6xl flex gap-3">
             {returnMode ? (
               <>
                 <Button variant="outline" onClick={() => setReturnMode(false)} className="flex-1" disabled={submitting}>
@@ -281,9 +342,25 @@ export default function ExecutiveReviewDetail() {
                 <Button variant="outline" onClick={() => setReturnMode(true)} className="flex-1">
                   <RotateCcw className="mr-2 h-4 w-4" /> Devolver
                 </Button>
-                <Button onClick={handleApprove} className="flex-1 bg-status-good hover:bg-status-good/90" disabled={submitting}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" /> Aprobar
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="flex-1 bg-status-good hover:bg-status-good/90" disabled={submitting}>
+                      <CheckCircle2 className="mr-2 h-4 w-4" /> Aprobar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción marcará la inspección como aprobada y todas las secciones como revisadas.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleApprove}>Aprobar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </>
             )}
           </div>

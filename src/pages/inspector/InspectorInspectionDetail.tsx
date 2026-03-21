@@ -6,10 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBadge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
+import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { ArrowLeft, MapPin, Building, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Building, ArrowRight, Send } from 'lucide-react';
 
 export default function InspectorInspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +40,7 @@ export default function InspectorInspectionDetail() {
         .select('*')
         .eq('id', id!)
         .single();
-      setInspection(insp as unknown as Inspection);
+      let inspObj = insp as unknown as Inspection;
 
       const { data: secs } = await supabase
         .from('inspection_sections')
@@ -35,13 +48,41 @@ export default function InspectorInspectionDetail() {
         .eq('inspection_id', id!)
         .eq('is_visible', true)
         .order('sort_order');
-      setSections((secs ?? []) as unknown as InspectionSection[]);
+      const secList = (secs ?? []) as unknown as InspectionSection[];
+      setSections(secList);
+
+      // Guard on hydration: fix stale parent status
+      if (inspObj) {
+        const newStatus = await ensureInspectionStatusConsistency(id!);
+        if (newStatus && newStatus !== inspObj.status) {
+          inspObj = { ...inspObj, status: newStatus as Inspection['status'] };
+        }
+      }
+
+      setInspection(inspObj);
       setLoading(false);
     };
     fetch();
   }, [id]);
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
+          <div className="flex h-16 items-center gap-3 px-4">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+        </header>
+        <div className="px-4 py-4 space-y-4">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-20 rounded-2xl" />
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+        </div>
+      </div>
+    );
+  }
+
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
 
   const progress = calculateProgress(sections);
@@ -64,15 +105,10 @@ export default function InspectorInspectionDetail() {
     }
   };
 
-  /**
-   * HANDOFF LOGIC:
-   * When the inspector submits, the inspection status changes to 'submitted'.
-   * Because executive_id was set at creation time, the executive's RLS policy
-   * (executive_id = auth.uid()) will now include this inspection in their
-   * SELECT queries. The executive dashboard filters for status='submitted'
-   * or 'in_review', so the inspection appears in their review queue automatically.
-   */
   const handleSubmit = async () => {
+    // Guard before submit
+    await ensureInspectionStatusConsistency(inspection.id);
+
     const { error } = await supabase
       .from('inspections')
       .update({
@@ -89,10 +125,8 @@ export default function InspectorInspectionDetail() {
     }
   };
 
-  const snapshot = inspection.property_snapshot_json as Record<string, unknown>;
-
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-28">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
         <div className="flex h-16 items-center gap-3 px-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/inspector')}>
@@ -108,47 +142,50 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
-        <Card className="border-0 ring-1 ring-border/50 shadow-sm">
-          <CardContent className="py-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {/* Property summary */}
+        <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2 text-caption text-muted-foreground">
               <MapPin className="h-4 w-4" />
               <span>{inspection.address ?? 'Sin dirección'}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-caption text-muted-foreground">
               <Building className="h-4 w-4" />
               <span>{inspection.typology} · {inspection.property_type} · {inspection.inspection_type}</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 ring-1 ring-border/50 shadow-sm">
-          <CardContent className="py-4">
+        {/* Progress */}
+        <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Progreso</span>
-              <span className="text-sm text-muted-foreground">{progress.completed} de {progress.total}</span>
+              <span className="text-body font-medium">Progreso</span>
+              <span className="text-caption text-muted-foreground">{progress.completed} de {progress.total}</span>
             </div>
-            <Progress value={progress.percent} className="h-3" />
-            <p className="text-right text-xs text-muted-foreground mt-1">{progress.percent}%</p>
+            <Progress value={progress.percent} className="h-3 rounded-full" />
+            <p className="text-right text-tiny text-muted-foreground mt-1">{progress.percent}%</p>
           </CardContent>
         </Card>
 
+        {/* Sections */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Secciones</h3>
+          <h3 className="text-caption font-medium text-muted-foreground uppercase tracking-wider">Secciones</h3>
           {sections.map((section, idx) => (
             <button
               key={section.id}
               onClick={() => navigate(`/inspector/inspection/${inspection.id}/section/${section.id}`)}
               className="w-full text-left"
             >
-              <Card className="border-0 ring-1 ring-border/50 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99]">
-                <CardContent className="py-3 flex items-center justify-between">
+              <Card className="border-0 ring-1 ring-border shadow-sm hover:shadow-md transition-shadow active:scale-[0.99] rounded-2xl">
+                <CardContent className="p-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-sm font-medium">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-caption font-semibold">
                       {idx + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{section.section_title}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{section.section_type.replace('_', ' ')}</p>
+                      <p className="font-medium text-body">{section.section_title}</p>
+                      <p className="text-tiny text-muted-foreground capitalize">{section.section_type.replace('_', ' ')}</p>
                     </div>
                   </div>
                   <SectionStatusBadge status={section.status} />
@@ -159,16 +196,37 @@ export default function InspectorInspectionDetail() {
         </div>
       </main>
 
+      {/* Sticky bottom bar — primary CTA is always "Continuar" */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        {canSubmit ? (
-          <Button onClick={handleSubmit} className="w-full h-12" size="lg">
-            <CheckCircle2 className="mr-2 h-5 w-5" /> Enviar para Revisión
-          </Button>
-        ) : (
-          <Button onClick={handleStart} className="w-full h-12" size="lg">
+        <div className="space-y-2">
+          <Button onClick={handleStart} className="w-full h-12 rounded-xl text-body" size="lg">
+            <ArrowRight className="mr-2 h-5 w-5" />
             {inspection.status === 'assigned' ? 'Iniciar Inspección' : 'Continuar Inspección'}
           </Button>
-        )}
+
+          {/* Submit only when all sections completed — secondary action */}
+          {canSubmit && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="w-full h-10 rounded-xl text-caption" size="sm">
+                  <Send className="mr-2 h-4 w-4" /> Enviar para Revisión
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión. No podrás hacer cambios hasta que se te devuelva.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
     </div>
   );
