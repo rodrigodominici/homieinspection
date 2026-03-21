@@ -264,7 +264,7 @@ function InspectionCard({ inspection: insp }: { inspection: InspectionWithProgre
               <span>{insp.completedSections} de {insp.totalSections} secciones</span>
               <span className="font-medium">{progress}%</span>
             </div>
-            <Progress value={progress} className="h-2 rounded-full" />
+            <Progress value={progress} className={cn("h-2 rounded-full", progress === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
           </div>
         </CardContent>
       </Card>
