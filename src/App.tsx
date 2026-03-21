@@ -13,6 +13,7 @@ import AdminInspections from "./pages/admin/AdminInspections";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminSchedule from "./pages/admin/AdminSchedule";
+import AdminInspectionDetail from "./pages/admin/AdminInspectionDetail";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorPastInspections from "./pages/inspector/InspectorPastInspections";
 import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
@@ -20,7 +21,6 @@ import InspectorProfile from "./pages/inspector/InspectorProfile";
 import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDetail";
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
 import InspectorCalendar from "./pages/inspector/InspectorCalendar";
-import AdminInspectionDetail from "./pages/admin/AdminInspectionDetail";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
 
@@ -40,12 +40,14 @@ const App = () => (
             {/* Admin routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/inspections" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspections /></ProtectedRoute>} />
+            <Route path="/admin/inspections/:id" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspectionDetail /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
             <Route path="/admin/schedule" element={<ProtectedRoute allowedRoles={['admin']}><AdminSchedule /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
+            <Route path="/inspector/calendar" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorCalendar /></ProtectedRoute>} />
             <Route path="/inspector/past" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorPastInspections /></ProtectedRoute>} />
             <Route path="/inspector/all" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorAllInspections /></ProtectedRoute>} />
             <Route path="/inspector/profile" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorProfile /></ProtectedRoute>} />
