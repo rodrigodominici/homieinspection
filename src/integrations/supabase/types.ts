@@ -142,6 +142,7 @@ export type Database = {
           storage_bucket: string
           storage_path: string
           uploaded_by: string | null
+          visible_to_owner: boolean
         }
         Insert: {
           caption?: string | null
@@ -156,6 +157,7 @@ export type Database = {
           storage_bucket?: string
           storage_path: string
           uploaded_by?: string | null
+          visible_to_owner?: boolean
         }
         Update: {
           caption?: string | null
@@ -170,6 +172,7 @@ export type Database = {
           storage_bucket?: string
           storage_path?: string
           uploaded_by?: string | null
+          visible_to_owner?: boolean
         }
         Relationships: [
           {
@@ -195,14 +198,119 @@ export type Database = {
           },
         ]
       }
+      inspection_repair_items: {
+        Row: {
+          category_snapshot: string | null
+          created_at: string
+          created_by: string | null
+          description_snapshot: string | null
+          id: string
+          inspection_id: string
+          inspection_section_id: string
+          notes: string | null
+          owner_friendly_name_snapshot: string | null
+          pricing_type: string
+          quantity: number
+          repair_catalog_item_id: string | null
+          sort_order: number
+          subtotal: number | null
+          title_snapshot: string
+          unit: string
+          unit_price: number
+          updated_at: string
+          updated_by: string | null
+          visible_to_owner: boolean
+        }
+        Insert: {
+          category_snapshot?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_snapshot?: string | null
+          id?: string
+          inspection_id: string
+          inspection_section_id: string
+          notes?: string | null
+          owner_friendly_name_snapshot?: string | null
+          pricing_type?: string
+          quantity?: number
+          repair_catalog_item_id?: string | null
+          sort_order?: number
+          subtotal?: number | null
+          title_snapshot: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible_to_owner?: boolean
+        }
+        Update: {
+          category_snapshot?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_snapshot?: string | null
+          id?: string
+          inspection_id?: string
+          inspection_section_id?: string
+          notes?: string | null
+          owner_friendly_name_snapshot?: string | null
+          pricing_type?: string
+          quantity?: number
+          repair_catalog_item_id?: string | null
+          sort_order?: number
+          subtotal?: number | null
+          title_snapshot?: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible_to_owner?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_repair_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_repair_items_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_repair_items_inspection_section_id_fkey"
+            columns: ["inspection_section_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_repair_items_repair_catalog_item_id_fkey"
+            columns: ["repair_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "repair_catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_repair_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_report_versions: {
         Row: {
           created_at: string
           id: string
           inspection_id: string
+          is_latest: boolean
           normalized_payload: Json
           public_token: string | null
-          published_url: string | null
           status: string
           version_number: number
         }
@@ -210,9 +318,9 @@ export type Database = {
           created_at?: string
           id?: string
           inspection_id: string
+          is_latest?: boolean
           normalized_payload: Json
           public_token?: string | null
-          published_url?: string | null
           status: string
           version_number: number
         }
@@ -220,9 +328,9 @@ export type Database = {
           created_at?: string
           id?: string
           inspection_id?: string
+          is_latest?: boolean
           normalized_payload?: Json
           public_token?: string | null
-          published_url?: string | null
           status?: string
           version_number?: number
         }
@@ -710,11 +818,118 @@ export type Database = {
         }
         Relationships: []
       }
+      repair_catalog_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      repair_catalog_items: {
+        Row: {
+          base_price: number
+          category_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          id: string
+          internal_notes: string | null
+          is_active: boolean
+          market: string | null
+          name: string
+          owner_friendly_name: string | null
+          pricing_type: string
+          unit: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          base_price?: number
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          internal_notes?: string | null
+          is_active?: boolean
+          market?: string | null
+          name: string
+          owner_friendly_name?: string | null
+          pricing_type?: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          base_price?: number
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          internal_notes?: string | null
+          is_active?: boolean
+          market?: string | null
+          name?: string
+          owner_friendly_name?: string | null
+          pricing_type?: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_catalog_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "repair_catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_catalog_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_catalog_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_published_report: {
+        Args: { p_property_id: string; p_token: string }
+        Returns: Json
+      }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
     }
