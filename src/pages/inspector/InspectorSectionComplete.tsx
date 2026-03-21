@@ -436,29 +436,14 @@ export default function InspectorSectionComplete() {
             <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
           </Button>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                className="flex-1 h-12 rounded-xl"
-                variant={section.status === 'completed' ? 'secondary' : 'default'}
-              >
-                <Check className="mr-1 h-4 w-4" />
-                {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Completar sección?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Marcar "{section.section_title}" como completada. Podrás volver a editarla después si es necesario.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleMarkComplete}>Completar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            className="flex-1 h-12 rounded-xl"
+            variant={section.status === 'completed' ? 'secondary' : 'default'}
+            onClick={section.status !== 'completed' ? handleMarkComplete : undefined}
+          >
+            <Check className="mr-1 h-4 w-4" />
+            {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
+          </Button>
 
           <Button
             variant="outline"

@@ -12,6 +12,7 @@ import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ArrowRight, CalendarClock, Navigation, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
