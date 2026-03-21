@@ -7,45 +7,46 @@
 @layer base {
   :root {
     /* Homie brand — #525EA2 = hsl(231, 32%, 48%) */
-    --background: 220 20% 97%;
-    --foreground: 231 30% 15%;
+    --background: 230 25% 97%;       /* #F6F7FB */
+    --foreground: 220 26% 14%;       /* #1F2937 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 231 30% 15%;
+    --card: 0 0% 100%;               /* #FFFFFF */
+    --card-foreground: 220 26% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 231 30% 15%;
+    --popover-foreground: 220 26% 14%;
 
-    --primary: 231 32% 48%;
+    --primary: 231 32% 48%;           /* #525EA2 */
     --primary-foreground: 0 0% 100%;
+    --primary-soft: 228 40% 95%;      /* #EEF1F8 */
 
-    --secondary: 231 20% 94%;
+    --secondary: 210 40% 98%;         /* #F8FAFC */
     --secondary-foreground: 231 32% 30%;
 
     --muted: 220 15% 93%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 9% 46%;   /* #6B7280 */
 
     --accent: 231 25% 90%;
     --accent-foreground: 231 32% 30%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 24 85% 57%;        /* #ED8735 — danger */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
+    --border: 220 13% 91%;            /* #E5E7EB */
+    --input: 220 13% 91%;
     --ring: 231 32% 48%;
 
     --radius: 0.75rem;
 
     /* Status colors */
-    --status-good: 152 60% 42%;
-    --status-good-bg: 152 60% 95%;
-    --status-regular: 38 92% 50%;
-    --status-regular-bg: 38 92% 95%;
-    --status-bad: 0 72% 51%;
-    --status-bad-bg: 0 72% 95%;
-    --status-na: 220 10% 58%;
-    --status-na-bg: 220 10% 95%;
+    --status-good: 170 60% 34%;       /* #238D7E */
+    --status-good-bg: 170 40% 95%;
+    --status-regular: 37 91% 62%;      /* #F6B248 */
+    --status-regular-bg: 37 91% 96%;
+    --status-bad: 24 85% 57%;          /* #ED8735 */
+    --status-bad-bg: 24 85% 96%;
+    --status-na: 0 5% 42%;             /* #736464 */
+    --status-na-bg: 0 5% 95%;
 
     /* Sidebar */
     --sidebar-background: 231 30% 15%;
@@ -70,6 +71,7 @@
 
     --primary: 231 45% 65%;
     --primary-foreground: 231 30% 8%;
+    --primary-soft: 231 25% 18%;
 
     --secondary: 231 20% 18%;
     --secondary-foreground: 220 15% 85%;
@@ -80,12 +82,21 @@
     --accent: 231 20% 20%;
     --accent-foreground: 220 15% 85%;
 
-    --destructive: 0 62% 40%;
+    --destructive: 24 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 231 15% 20%;
     --input: 231 15% 20%;
     --ring: 231 45% 65%;
+
+    --status-good: 170 50% 40%;
+    --status-good-bg: 170 30% 15%;
+    --status-regular: 37 80% 55%;
+    --status-regular-bg: 37 40% 15%;
+    --status-bad: 24 70% 50%;
+    --status-bad-bg: 24 40% 15%;
+    --status-na: 0 5% 50%;
+    --status-na-bg: 0 5% 18%;
 
     --sidebar-background: 231 30% 6%;
     --sidebar-foreground: 231 10% 85%;
@@ -107,4 +118,16 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
   }
+}
+
+/* Typography scale utilities */
+@layer utilities {
+  .text-h1 { @apply text-[32px] font-bold leading-tight; }
+  .text-h2 { @apply text-[24px] font-bold leading-tight; }
+  .text-h3 { @apply text-[20px] font-semibold leading-snug; }
+  .text-h4 { @apply text-[18px] font-semibold leading-snug; }
+  .text-body-lg { @apply text-[16px] font-medium leading-normal; }
+  .text-body { @apply text-[14px] font-normal leading-normal; }
+  .text-caption { @apply text-[12px] font-normal leading-normal; }
+  .text-tiny { @apply text-[11px] font-normal leading-normal; }
 }

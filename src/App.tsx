@@ -9,16 +9,14 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminCreateInspection from "./pages/admin/AdminCreateInspection";
+import AdminInspections from "./pages/admin/AdminInspections";
 import AdminUsers from "./pages/admin/AdminUsers";
-import AdminMappings from "./pages/admin/AdminMappings";
-import AdminTemplates from "./pages/admin/AdminTemplates";
+import AdminSettings from "./pages/admin/AdminSettings";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDetail";
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
-import ExecutiveDashboard from "./pages/executive/ExecutiveDashboard";
+import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
-import AdminGenerationRules from "./pages/admin/AdminGenerationRules";
 
 const queryClient = new QueryClient();
 
@@ -35,12 +33,9 @@ const App = () => (
             
             {/* Admin routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/create" element={<ProtectedRoute allowedRoles={['admin']}><AdminCreateInspection /></ProtectedRoute>} />
-            <Route path="/admin/inspection/:id" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/inspections" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspections /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
-            <Route path="/admin/mappings" element={<ProtectedRoute allowedRoles={['admin']}><AdminMappings /></ProtectedRoute>} />
-            <Route path="/admin/templates" element={<ProtectedRoute allowedRoles={['admin']}><AdminTemplates /></ProtectedRoute>} />
-            <Route path="/admin/generation-rules" element={<ProtectedRoute allowedRoles={['admin']}><AdminGenerationRules /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
@@ -48,7 +43,7 @@ const App = () => (
             <Route path="/inspector/inspection/:id/section/:sectionId" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorSectionComplete /></ProtectedRoute>} />
             
             {/* Executive routes */}
-            <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveDashboard /></ProtectedRoute>} />
+            <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
             <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
