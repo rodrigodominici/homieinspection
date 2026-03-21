@@ -1,9 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarClock, History, ClipboardList, User } from 'lucide-react';
+import { CalendarDays, History, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
-  { key: 'upcoming', label: 'Próximas', icon: CalendarClock, path: '/inspector' },
+  { key: 'calendar', label: 'Calendario', icon: CalendarDays, path: '/inspector/calendar' },
   { key: 'past', label: 'Pasadas', icon: History, path: '/inspector/past' },
   { key: 'inspections', label: 'Inspecciones', icon: ClipboardList, path: '/inspector/all' },
   { key: 'profile', label: 'Perfil', icon: User, path: '/inspector/profile' },
@@ -14,10 +14,11 @@ export default function InspectorBottomNav() {
   const navigate = useNavigate();
 
   const activeKey = (() => {
+    if (location.pathname === '/inspector/calendar') return 'calendar';
     if (location.pathname === '/inspector/past') return 'past';
     if (location.pathname === '/inspector/all') return 'inspections';
     if (location.pathname === '/inspector/profile') return 'profile';
-    if (location.pathname === '/inspector') return 'upcoming';
+    if (location.pathname === '/inspector') return 'calendar';
     return '';
   })();
 

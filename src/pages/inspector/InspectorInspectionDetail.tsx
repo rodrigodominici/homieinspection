@@ -152,8 +152,8 @@ export default function InspectorInspectionDetail() {
               <span className="text-body font-medium">Progreso</span>
               <span className="text-caption text-muted-foreground">{progress.completed} de {progress.total}</span>
             </div>
-            <Progress value={progress.percent} className="h-3 rounded-full" />
-            <p className="text-right text-tiny text-muted-foreground mt-1">{progress.percent}%</p>
+            <Progress value={progress.percent} className={cn("h-3 rounded-full", progress.percent === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
+            <p className={cn("text-right text-tiny mt-1", progress.percent === 100 ? "text-status-good font-semibold" : "text-muted-foreground")}>{progress.percent}%</p>
             {!allCompleted && (
               <p className="text-tiny text-muted-foreground mt-2">Completa todas las secciones antes de enviar</p>
             )}

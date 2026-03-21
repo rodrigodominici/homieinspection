@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
@@ -15,13 +16,26 @@ import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import AdminLayout from '@/components/AdminLayout';
 import type { Inspection, Profile } from '@/lib/types';
-import { UserCheck, AlertCircle, Zap } from 'lucide-react';
+import { UserCheck, AlertCircle, Zap, Search, ExternalLink } from 'lucide-react';
 
 const payloadOptions = [
   { key: 'studio', label: 'Estudio — 0D 1B, terraza + logia' },
   { key: 'twoBedTwoBath', label: '2D 2B — con bodega y estacionamiento' },
   { key: 'houseWithYard', label: 'Casa 3D 2B — con antejardín' },
   { key: 'fullFeatures', label: '4D 4B — todas las características' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Todos los estados' },
+  { value: 'pending_assignment', label: 'Sin Asignar' },
+  { value: 'assigned', label: 'Asignada' },
+  { value: 'in_progress', label: 'En Progreso' },
+  { value: 'submitted', label: 'Enviada' },
+  { value: 'in_review', label: 'En Revisión' },
+  { value: 'needs_changes', label: 'Necesita Cambios' },
+  { value: 'approved', label: 'Aprobada' },
+  { value: 'published', label: 'Publicada' },
+  { value: 'sent', label: 'Enviada al cliente' },
 ];
 
 export default function AdminInspections() {
@@ -35,6 +49,9 @@ export default function AdminInspections() {
   const [executives, setExecutives] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [inspectorFilter, setInspectorFilter] = useState<string>('all');
+  const [executiveFilter, setExecutiveFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Assignment state
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -115,9 +132,21 @@ export default function AdminInspections() {
   };
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
-  const filteredInspections = statusFilter === 'all'
-    ? inspections
-    : inspections.filter((i) => i.status === statusFilter);
+
+  // Apply all filters
+  const filteredInspections = inspections.filter((i) => {
+    if (statusFilter !== 'all' && i.status !== statusFilter) return false;
+    if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
+    if (executiveFilter !== 'all' && i.executive_id !== executiveFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchAddr = (i.address ?? '').toLowerCase().includes(q);
+      const matchPropId = i.property_id.toLowerCase().includes(q);
+      const matchName = (i.property_name ?? '').toLowerCase().includes(q);
+      if (!matchAddr && !matchPropId && !matchName) return false;
+    }
+    return true;
+  });
 
   return (
     <AdminLayout>
@@ -133,20 +162,46 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por dirección, ID de propiedad o nombre..."
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar por estado" /></SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="pending_assignment">Sin Asignar</SelectItem>
-                  <SelectItem value="assigned">Asignada</SelectItem>
-                  <SelectItem value="in_progress">En Progreso</SelectItem>
-                  <SelectItem value="submitted">Enviada</SelectItem>
-                  <SelectItem value="in_review">En Revisión</SelectItem>
-                  <SelectItem value="approved">Aprobada</SelectItem>
+                  {STATUS_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <span className="text-caption text-muted-foreground">{filteredInspections.length} inspecciones</span>
+              <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los inspectores</SelectItem>
+                  {inspectors.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                  {executives.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-caption text-muted-foreground">{filteredInspections.length} resultados</span>
             </div>
 
             {loading ? (
@@ -156,23 +211,28 @@ export default function AdminInspections() {
             ) : filteredInspections.length === 0 ? (
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No hay inspecciones con este filtro
+                  No hay inspecciones con estos filtros
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
                 {filteredInspections.map((insp) => (
-                  <Card key={insp.id} className="border-0 ring-1 ring-border shadow-sm">
+                  <Card key={insp.id} className="border-0 ring-1 ring-border shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="py-4">
                       <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p className="font-medium">{insp.property_name ?? insp.property_id}</p>
-                          <p className="text-caption text-muted-foreground">{insp.address}</p>
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+                          <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <InspectionStatusBadge status={insp.status} />
                             <span className="text-tiny text-muted-foreground">{insp.inspection_type} · {insp.market}</span>
                           </div>
                         </div>
+                        <Link to={`/admin/inspections/${insp.id}`}>
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <ExternalLink className="h-3.5 w-3.5" /> Ver / Editar
+                          </Button>
+                        </Link>
                       </div>
                     </CardContent>
                   </Card>

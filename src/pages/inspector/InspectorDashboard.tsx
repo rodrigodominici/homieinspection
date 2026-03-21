@@ -12,6 +12,7 @@ import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ArrowRight, CalendarClock, Navigation, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
@@ -204,7 +205,7 @@ function NextInspectionHero({ inspection: insp }: { inspection: InspectionWithPr
             <span>{insp.completedSections} de {insp.totalSections} secciones</span>
             <span className="font-medium">{progress}%</span>
           </div>
-          <Progress value={progress} className="h-2.5 rounded-full" />
+          <Progress value={progress} className={cn("h-2.5 rounded-full", progress === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
         </div>
 
         {/* Actions */}
@@ -264,7 +265,7 @@ function InspectionCard({ inspection: insp }: { inspection: InspectionWithProgre
               <span>{insp.completedSections} de {insp.totalSections} secciones</span>
               <span className="font-medium">{progress}%</span>
             </div>
-            <Progress value={progress} className="h-2 rounded-full" />
+            <Progress value={progress} className={cn("h-2 rounded-full", progress === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
           </div>
         </CardContent>
       </Card>

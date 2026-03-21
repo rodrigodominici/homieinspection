@@ -134,7 +134,7 @@ export default function InspectorSectionComplete() {
       setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
       if (!photoError && photoData) {
         setPhotos((prev) => [...prev, photoData as unknown as InspectionPhoto]);
-        toast({ title: 'Foto subida' });
+        
       }
     }
     e.target.value = '';
@@ -156,7 +156,7 @@ export default function InspectorSectionComplete() {
       toast({ title: 'Error', variant: 'destructive' });
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
-      toast({ title: 'Sección completada' });
+      setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
       if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
       goNext();
     }
@@ -436,29 +436,14 @@ export default function InspectorSectionComplete() {
             <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
           </Button>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                className="flex-1 h-12 rounded-xl"
-                variant={section.status === 'completed' ? 'secondary' : 'default'}
-              >
-                <Check className="mr-1 h-4 w-4" />
-                {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Completar sección?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Marcar "{section.section_title}" como completada. Podrás volver a editarla después si es necesario.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleMarkComplete}>Completar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            className="flex-1 h-12 rounded-xl"
+            variant={section.status === 'completed' ? 'secondary' : 'default'}
+            onClick={section.status !== 'completed' ? handleMarkComplete : undefined}
+          >
+            <Check className="mr-1 h-4 w-4" />
+            {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
+          </Button>
 
           <Button
             variant="outline"
