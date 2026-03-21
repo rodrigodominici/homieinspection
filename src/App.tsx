@@ -19,6 +19,8 @@ import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
 import InspectorProfile from "./pages/inspector/InspectorProfile";
 import InspectorInspectionDetail from "./pages/inspector/InspectorInspectionDetail";
 import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete";
+import InspectorCalendar from "./pages/inspector/InspectorCalendar";
+import AdminInspectionDetail from "./pages/admin/AdminInspectionDetail";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
 

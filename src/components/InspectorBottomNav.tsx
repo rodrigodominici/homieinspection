@@ -14,10 +14,11 @@ export default function InspectorBottomNav() {
   const navigate = useNavigate();
 
   const activeKey = (() => {
+    if (location.pathname === '/inspector/calendar') return 'calendar';
     if (location.pathname === '/inspector/past') return 'past';
     if (location.pathname === '/inspector/all') return 'inspections';
     if (location.pathname === '/inspector/profile') return 'profile';
-    if (location.pathname === '/inspector') return 'upcoming';
+    if (location.pathname === '/inspector') return 'calendar';
     return '';
   })();
 
