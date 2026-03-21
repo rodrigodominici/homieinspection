@@ -130,4 +130,5 @@
   .text-body { @apply text-[14px] font-normal leading-normal; }
   .text-caption { @apply text-[12px] font-normal leading-normal; }
   .text-tiny { @apply text-[11px] font-normal leading-normal; }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
