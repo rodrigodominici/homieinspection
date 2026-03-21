@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarClock, History, ClipboardList, User } from 'lucide-react';
+import { CalendarDays, History, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
