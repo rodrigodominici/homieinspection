@@ -1,164 +1,106 @@
 
 
-# Refined Plan: Full UX/UI + Product Refactor
+# Plan: Mobile Calendar, Admin Calendar, Progress Fix, Friction Reduction, Admin Improvements
 
-## Overview
+## 1. Inspector Mobile Agenda Calendar
 
-This plan incorporates all 8 refinements from the user's feedback into the previously approved architecture. No database changes needed.
+**New file:** `src/pages/inspector/InspectorCalendar.tsx`
 
----
+Mobile agenda-style calendar grouped by date. Sections: "Hoy", "Mañana", "Próximas", "Sin programar". Each date group shows inspection cards with property name, address, time, status badge, "Abrir" and "Cómo llegar" CTAs.
 
-## 1. Design System Foundation
+**Changes:**
+- Add route `/inspector/calendar` in `App.tsx`
+- Update `InspectorBottomNav.tsx`: replace "Próximas" tab with a "Calendario" tab pointing to `/inspector/calendar` (icon: `CalendarDays`)
+- Keep `/inspector` (dashboard) as the home with the hero card, but the bottom nav calendar tab goes to the dedicated agenda view
 
-**Files:** `src/index.css`, new `src/lib/design-tokens.ts`
+## 2. Admin Desktop Calendar (Google Calendar-inspired)
 
-- Update CSS custom properties to match the specified color tokens exactly:
-  - Success: `#238D7E`, Warning: `#F6B248`, Danger: `#ED8735`, Neutral: `#736464`
-  - Background: `#F6F7FB`, Primary soft: `#EEF1F8`
-- Add radius scale tokens (10/12/16/24/32/999px)
-- Add typography scale utilities
-- Create `design-tokens.ts` for programmatic access
+**Refactor:** `src/pages/admin/AdminSchedule.tsx`
 
----
+Replace the current simple list with a week-view calendar layout:
+- 7-column grid for the week (Mon–Sun)
+- Time slots on left axis (8:00–20:00)
+- Inspection cards positioned by scheduled time within day columns
+- Each card shows property name, inspector name, status badge
+- Navigation: previous/next week arrows, "Hoy" button
+- Fallback: unscheduled inspections listed below the grid
+- Filter by inspector dropdown
 
-## 2. Admin IA Restructure
+## 3. Fix Progress Bug — 100% Not Reached
 
-**Sidebar navigation with 4 items:** Dashboard, Inspections, Users, Settings
+**Root cause investigation needed.** The `calculateProgress` function looks correct. The likely bug is that when `handleMarkComplete` runs, the local `allSections` state is stale — it was fetched on mount but the section status update happens via DB only, and the progress on the dashboard/detail is calculated from a separate fetch.
 
-### 2a. AdminLayout (new `src/components/AdminLayout.tsx`)
-- Fixed left sidebar with logo, nav items, sign out
-- Content area to the right
+**Fix in `InspectorSectionComplete.tsx`:**
+- After `handleMarkComplete` succeeds, update the local `allSections` state to reflect the completed section before navigating away
+- This ensures if the user goes back, the progress recalculates correctly
 
-### 2b. AdminDashboard (`/admin`)
-- Stat cards + recent inspections summary
-- Uses AdminLayout
+**Fix in `InspectorInspectionDetail.tsx`:**
+- Re-fetch sections when the component mounts (already does this), but also when navigating back from section completion. Add a re-fetch trigger.
 
-### 2c. AdminInspections (`/admin/inspections`) — new file
-Three clear sub-views via tabs or segmented control:
-- **All Inspections** — full list with status filters
-- **Pending Assignment** — inspections missing inspector/executive, with inline assignment UI
-- **Manual Creation** — payload ingestion + generation (absorbs current AdminCreateInspection)
+**Fix in progress display — green at 100%:**
+- In `Progress` component usage across `InspectorDashboard`, `InspectorInspectionDetail`, and inspection cards: add conditional class `[&>div]:bg-[#238D7E]` when `progress.percent === 100`
+- Also change the percentage text to green when 100%
 
-### 2d. AdminUsers (`/admin/users`) — refactored
-Three sub-views via tabs:
-- **Internal Users** — list/edit/activate profiles
-- **HubSpot Links** — linked external mappings (currently in AdminMappings)
-- **Unresolved Identities** — unlinked mappings needing admin action
+## 4. Reduce Friction: Remove Confirmation + Toast on Step Completion
 
-Absorbs AdminMappings content. AdminMappings route removed.
+**Edit `InspectorSectionComplete.tsx`:**
+- Remove the `AlertDialog` wrapping the "Completar" button (lines 439-461)
+- Replace with a direct `Button` that calls `handleMarkComplete` immediately
+- Remove `toast({ title: 'Sección completada' })` from `handleMarkComplete` (line 159)
+- Keep the subtle inline state change (button becomes "Completada ✓" with secondary variant)
+- Remove `toast({ title: 'Foto subida' })` (line 137) — photos already show visually in the grid
 
-### 2e. Settings (`/admin/settings`) — new file
-Read-only visibility only. Two sections:
-- **Current Generation Rules** — the existing AdminGenerationRules content rendered as structured cards (Fixed Sections, Repeatable Sections, Conditional Sections, Property-Based Rules). No editable template concepts.
-- **Product Logic / Help** — link to docs/PRODUCT_LOGIC.md content or inline summary
+**Keep confirmation only for:**
+- Photo delete (already has inline button, consider adding confirmation)
+- Submit inspection (already has AlertDialog in detail page)
 
-AdminTemplates and AdminGenerationRules standalone routes removed.
+## 5. Admin Improvements: Filters, Search, Editing
 
-### Route changes in App.tsx
-- Add: `/admin/inspections`, `/admin/settings`
-- Remove: `/admin/mappings`, `/admin/templates`, `/admin/generation-rules`, `/admin/create`
-- Keep: `/admin/users`
+**Edit `AdminInspections.tsx`:**
 
----
+Add to the "All Inspections" tab:
+- **Search input** for address and property ID (client-side filter on `address` and `property_id` fields)
+- **Filter by inspector** dropdown (populate from profiles)
+- **Filter by executive** dropdown (populate from profiles)
+- Add status options: `needs_changes`, `published`, `sent` to the existing status filter
+- Each inspection card gets a "Ver / Editar" button linking to a detail/edit view
 
-## 3. Inspector Mobile-Native UX
+**New file:** `src/pages/admin/AdminInspectionDetail.tsx`
+- Admin inspection detail page at `/admin/inspections/:id`
+- Shows all inspection data with editable fields:
+  - Inspector/Executive assignment (dropdowns)
+  - Scheduling fields (date/time)
+  - Status override
+- Section list with expandable section data
+- Property snapshot (read-only)
+- Route added to `App.tsx`
 
-### 3a. InspectorDashboard
-- Full-bleed cards with larger touch targets
-- Skeleton loaders while fetching
-- Empty state illustration
-- Progress always shows "X de Y secciones" + percentage
+## 6. Better Admin Dashboard
 
-### 3b. InspectorInspectionDetail
-- Property summary card
-- Progress card
-- Section list as tappable cards
-- **Sticky bottom CTA = "Continuar"** (primary action always)
-- "Enviar para Revisión" only appears as a secondary action in a final review/summary state when all sections are completed — not as the main sticky CTA
-
-### 3c. InspectorSectionComplete
-- Status chips: **2x2 grid, minimum 56px height, large selected state, single-tap** (current implementation uses `h-14` = 56px and grid-cols-2 — verify and enforce)
-- Sticky bottom action bar (Anterior / Siguiente / Completar)
-- Toast notifications for save/upload
-- Confirmation dialog before "Completar Sección"
-- Photo grid with upload states
-
----
-
-## 4. Executive UX
-
-### 4a. Rename ExecutiveDashboard → ExecutiveReviewQueue
-- File: rename `src/pages/executive/ExecutiveDashboard.tsx` → `src/pages/executive/ExecutiveReviewQueue.tsx`
-- Route stays `/executive`
-- Page title: "Cola de Revisión"
-- Structured table layout: property, market, typology, inspector, submitted date, status, Review CTA
-
-### 4b. ExecutiveReviewDetail — improve with two-column layout on desktop
-- Left sticky summary panel
-- Right scrollable review feed
-
----
-
-## 5. Progress + Status Consistency — Verify & Harden
-
-**Do not treat as already solved.** Specific actions:
-
-### 5a. Verify guard triggers in all paths
-The `ensureInspectionStatusConsistency()` must run on:
-- Chip change in InspectorSectionComplete ✓ (line 85)
-- Mark complete in InspectorSectionComplete ✓ (line 168)
-- Submit in InspectorInspectionDetail — **add guard call before submit**
-- Dashboard/detail hydration — **add guard call on load** in InspectorDashboard and InspectorInspectionDetail when sections are fetched
-
-### 5b. Add guard on data load
-In InspectorDashboard: after fetching sections for each inspection, call `ensureInspectionStatusConsistency(insp.id)` if progress > 0 and status is stale.
-
-In InspectorInspectionDetail: after fetching sections, call the guard.
-
-### 5c. Verify with edge cases
-- New inspection with 0 sections → status stays pending, progress 0% ✓
-- Inspection with 1+ active sections → must be in_progress minimum
-- All sections completed but not submitted → must be in_progress, not pending
-
----
-
-## 6. Auth Flow
-Current implementation is already resilient (profileLoading, retry, fallback states). Minor polish:
-- Add skeleton loader in loading states instead of "Loading..." text
-
----
-
-## 7. Update docs/PRODUCT_LOGIC.md
-Add sections for:
-- Manual staged testing model
-- Admin IA structure rationale
-- Current MVP limitations
-
----
+**Edit `AdminDashboard.tsx`:**
+- Fetch ALL inspections (remove `limit(10)`)
+- Fetch profiles for inspector/executive names
+- Add new stat cards: Total, Pending, In Progress, Submitted, Approved
+- Add "Pending by Inspector" card: grouped count list
+- Add "Pending by Executive" card: grouped count list
+- Add "Upcoming Schedule" card: next 5 scheduled inspections
+- Add "Unassigned Alerts" card: inspections missing assignment
+- Each recent inspection card links to `/admin/inspections/:id`
 
 ## Files Summary
 
 | Action | File |
 |---|---|
-| Create | `src/lib/design-tokens.ts` |
-| Create | `src/components/AdminLayout.tsx` |
-| Create | `src/pages/admin/AdminInspections.tsx` |
-| Create | `src/pages/admin/AdminSettings.tsx` |
-| Create | `src/pages/executive/ExecutiveReviewQueue.tsx` |
-| Edit | `src/index.css` (design tokens) |
-| Edit | `src/App.tsx` (routes) |
-| Edit | `src/pages/admin/AdminDashboard.tsx` (use AdminLayout) |
-| Edit | `src/pages/admin/AdminUsers.tsx` (add HubSpot tabs) |
-| Edit | `src/pages/inspector/InspectorDashboard.tsx` (native UX + guard on load) |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` (sticky CTA = Continue, guard on load) |
-| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` (enforce 56px chips) |
-| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` (two-column) |
-| Edit | `docs/PRODUCT_LOGIC.md` |
-| Delete | `src/pages/admin/AdminMappings.tsx` |
-| Delete | `src/pages/admin/AdminTemplates.tsx` |
-| Delete | `src/pages/admin/AdminGenerationRules.tsx` |
-| Delete | `src/pages/admin/AdminCreateInspection.tsx` (absorbed into AdminInspections) |
-| Delete | `src/pages/executive/ExecutiveDashboard.tsx` (replaced by ExecutiveReviewQueue) |
+| Create | `src/pages/inspector/InspectorCalendar.tsx` |
+| Create | `src/pages/admin/AdminInspectionDetail.tsx` |
+| Edit | `src/App.tsx` (2 new routes) |
+| Edit | `src/components/InspectorBottomNav.tsx` (calendar tab) |
+| Edit | `src/pages/admin/AdminSchedule.tsx` (week-view calendar) |
+| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` (remove confirmation dialog + toast) |
+| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` (green progress at 100%) |
+| Edit | `src/pages/inspector/InspectorDashboard.tsx` (green progress at 100%) |
+| Edit | `src/pages/admin/AdminInspections.tsx` (search, filters, edit links) |
+| Edit | `src/pages/admin/AdminDashboard.tsx` (operational dashboard) |
 
-~18 files touched. No database migrations needed.
+~10 files. No database migrations needed.
 
