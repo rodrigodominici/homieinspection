@@ -455,6 +455,8 @@ export function normalizePropertySnapshot(payload: PropertyPayload): Record<stri
     has_front_yard: payload.has_front_yard ?? false,
     tower: payload.tower,
     scheduled_at: payload.scheduled_at,
+    fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
+    hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
   };
 }
 
