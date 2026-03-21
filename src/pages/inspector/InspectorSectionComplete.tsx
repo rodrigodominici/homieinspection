@@ -156,7 +156,7 @@ export default function InspectorSectionComplete() {
       toast({ title: 'Error', variant: 'destructive' });
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
-      toast({ title: 'Sección completada' });
+      setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
       if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
       goNext();
     }
