@@ -3,7 +3,7 @@ import { CalendarDays, History, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
-  { key: 'upcoming', label: 'Próximas', icon: CalendarClock, path: '/inspector' },
+  { key: 'calendar', label: 'Calendario', icon: CalendarDays, path: '/inspector/calendar' },
   { key: 'past', label: 'Pasadas', icon: History, path: '/inspector/past' },
   { key: 'inspections', label: 'Inspecciones', icon: ClipboardList, path: '/inspector/all' },
   { key: 'profile', label: 'Perfil', icon: User, path: '/inspector/profile' },
