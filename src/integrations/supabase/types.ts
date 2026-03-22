@@ -58,6 +58,54 @@ export type Database = {
           },
         ]
       }
+      inspection_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          inspection_id: string
+          new_status: string | null
+          note: string | null
+          performed_by: string | null
+          previous_status: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          inspection_id: string
+          new_status?: string | null
+          note?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          new_status?: string | null
+          note?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_audit_log_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_audit_log_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_field_values: {
         Row: {
           field_key: string
