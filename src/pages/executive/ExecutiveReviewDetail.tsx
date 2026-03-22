@@ -317,7 +317,13 @@ export default function ExecutiveReviewDetail() {
     }
 
     // Update inspection status
-    await supabase.from('inspections').update({ status: 'published', approved_at: new Date().toISOString(), approved_by: profile?.id }).eq('id', id!);
+    await supabase.from('inspections').update({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      owner_url_generated_at: new Date().toISOString(),
+      approved_at: new Date().toISOString(),
+      approved_by: profile?.id,
+    }).eq('id', id!);
 
     const url = `${window.location.origin}/reportes/${inspection.property_id}/${publicToken}`;
     setPublishedUrl(url);

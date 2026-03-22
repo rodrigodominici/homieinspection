@@ -691,22 +691,28 @@ export type Database = {
           address: string | null
           approved_at: string | null
           approved_by: string | null
+          budget_completed_at: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
+          current_stage: string
           executive_id: string | null
           generated_structure_json: Json | null
           hubspot_property_id: string | null
           id: string
+          inspection_completed_at: string | null
           inspection_type: string
           inspector_id: string | null
           last_active_at: string | null
           last_active_section_id: string | null
           market: string
+          owner_url_generated_at: string | null
           property_id: string
           property_name: string | null
           property_snapshot_json: Json
           property_type: string | null
+          published_at: string | null
+          review_completed_at: string | null
           scheduled_at: string | null
           source_event_id: string | null
           started_at: string | null
@@ -720,22 +726,28 @@ export type Database = {
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          budget_completed_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_stage?: string
           executive_id?: string | null
           generated_structure_json?: Json | null
           hubspot_property_id?: string | null
           id?: string
+          inspection_completed_at?: string | null
           inspection_type: string
           inspector_id?: string | null
           last_active_at?: string | null
           last_active_section_id?: string | null
           market: string
+          owner_url_generated_at?: string | null
           property_id: string
           property_name?: string | null
           property_snapshot_json: Json
           property_type?: string | null
+          published_at?: string | null
+          review_completed_at?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null
           started_at?: string | null
@@ -749,22 +761,28 @@ export type Database = {
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          budget_completed_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_stage?: string
           executive_id?: string | null
           generated_structure_json?: Json | null
           hubspot_property_id?: string | null
           id?: string
+          inspection_completed_at?: string | null
           inspection_type?: string
           inspector_id?: string | null
           last_active_at?: string | null
           last_active_section_id?: string | null
           market?: string
+          owner_url_generated_at?: string | null
           property_id?: string
           property_name?: string | null
           property_snapshot_json?: Json
           property_type?: string | null
+          published_at?: string | null
+          review_completed_at?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null
           started_at?: string | null
