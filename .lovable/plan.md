@@ -1,240 +1,112 @@
 
 
-# Refined Plan: Executive Review + Repair Catalog + Owner Report
+# Plan: Admin Operational Workflow Orchestrator
 
-## Refinements Applied
+## Overview
 
-All 9 user refinements are incorporated below.
+Replace the current simple Admin Inspection Detail page with a full lifecycle orchestration view. Add an audit log table for state changes.
 
 ---
 
-## 1. Database Migrations
-
-### Migration 1: `repair_catalog_categories` (normalized categories)
+## 1. Database Migration: `inspection_audit_log`
 
 ```sql
-CREATE TABLE public.repair_catalog_categories (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL UNIQUE,
-  sort_order integer NOT NULL DEFAULT 0,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.repair_catalog_categories ENABLE ROW LEVEL SECURITY;
--- Admin full access
--- Authenticated read
-```
-
-### Migration 2: `repair_catalog_items`
-
-```sql
-CREATE TABLE public.repair_catalog_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  owner_friendly_name text,
-  category_id uuid NOT NULL REFERENCES repair_catalog_categories(id),
-  description text,
-  unit text NOT NULL DEFAULT 'unit',
-  pricing_type text NOT NULL DEFAULT 'fixed',
-  base_price numeric(12,2) NOT NULL DEFAULT 0,
-  currency text NOT NULL DEFAULT 'MXN',
-  market text,
-  is_active boolean NOT NULL DEFAULT true,
-  internal_notes text,
-  created_by uuid REFERENCES profiles(id),
-  updated_by uuid REFERENCES profiles(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
--- RLS: admin full, executive SELECT where is_active=true
-```
-
-### Migration 3: `inspection_repair_items`
-
-```sql
-CREATE TABLE public.inspection_repair_items (
+CREATE TABLE public.inspection_audit_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   inspection_id uuid NOT NULL REFERENCES inspections(id) ON DELETE CASCADE,
-  inspection_section_id uuid NOT NULL REFERENCES inspection_sections(id) ON DELETE CASCADE,
-  repair_catalog_item_id uuid REFERENCES repair_catalog_items(id),
-  title_snapshot text NOT NULL,
-  owner_friendly_name_snapshot text,
-  description_snapshot text,
-  category_snapshot text,
-  unit text NOT NULL DEFAULT 'unit',
-  pricing_type text NOT NULL DEFAULT 'fixed',
-  quantity numeric(10,2) NOT NULL DEFAULT 1,
-  unit_price numeric(12,2) NOT NULL DEFAULT 0,
-  subtotal numeric(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
-  notes text,
-  visible_to_owner boolean NOT NULL DEFAULT true,
-  sort_order integer NOT NULL DEFAULT 0,
-  created_by uuid REFERENCES profiles(id),
-  updated_by uuid REFERENCES profiles(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  previous_status text,
+  new_status text,
+  action text NOT NULL,
+  performed_by uuid REFERENCES profiles(id),
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
--- RLS: admin full, executive CRUD on assigned inspections
-```
-
-Key: `subtotal` is a **generated column** — always `quantity * unit_price`, never manually set.
-
-### Migration 4: Add `is_latest` + remove `published_url` from `inspection_report_versions`
-
-```sql
-ALTER TABLE inspection_report_versions
-  ADD COLUMN is_latest boolean NOT NULL DEFAULT false,
-  DROP COLUMN IF EXISTS published_url;
-```
-
-No anonymous SELECT policy on this table. Instead, a secure RPC.
-
-### Migration 5: Add `visible_to_owner` to `inspection_photos`
-
-```sql
-ALTER TABLE inspection_photos
-  ADD COLUMN visible_to_owner boolean NOT NULL DEFAULT true;
-```
-
-For MVP, all photos default to visible. Executives can toggle off specific photos during review.
-
-### Migration 6: Public report RPC (security definer)
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_published_report(p_property_id text, p_token text)
-RETURNS jsonb
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  result jsonb;
-  v_inspection_id uuid;
-  v_version_id uuid;
-BEGIN
-  SELECT irv.id, irv.inspection_id INTO v_version_id, v_inspection_id
-  FROM inspection_report_versions irv
-  JOIN inspections i ON i.id = irv.inspection_id
-  WHERE irv.public_token = p_token
-    AND i.property_id = p_property_id
-    AND irv.status = 'published'
-    AND irv.is_latest = true;
-
-  IF v_version_id IS NULL THEN
-    RETURN NULL;
-  END IF;
-
-  SELECT irv.normalized_payload INTO result
-  FROM inspection_report_versions irv
-  WHERE irv.id = v_version_id;
-
-  RETURN result;
-END;
-$$;
-```
-
-Anonymous users call this RPC only — no direct table access.
-
-### Migration 7: Executives can INSERT report versions
-
-```sql
-CREATE POLICY "Executives can insert report versions for assigned inspections"
-ON inspection_report_versions FOR INSERT TO authenticated
-WITH CHECK (EXISTS (
-  SELECT 1 FROM inspections WHERE id = inspection_report_versions.inspection_id AND executive_id = auth.uid()
-));
-
-CREATE POLICY "Executives can update report versions for assigned inspections"
-ON inspection_report_versions FOR UPDATE TO authenticated
-USING (EXISTS (
-  SELECT 1 FROM inspections WHERE id = inspection_report_versions.inspection_id AND executive_id = auth.uid()
-));
+ALTER TABLE public.inspection_audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can manage audit log" ON public.inspection_audit_log
+  FOR ALL TO authenticated USING (has_role(auth.uid(), 'admin'));
 ```
 
 ---
 
-## 2. Types Update (`src/lib/types.ts`)
+## 2. Rewrite `AdminInspectionDetail.tsx`
 
-Add interfaces:
-- `RepairCatalogCategory`
-- `RepairCatalogItem` (with `category_id` referencing categories)
-- `InspectionRepairItem` (subtotal is read-only/computed)
-- `InspectionReportVersion` (with `is_latest`, no `published_url`)
+### Top Summary Bar
+Property name, property ID, current status badge, inspector name, executive name, scheduled date/time.
 
----
+### Workflow Timeline (vertical stepper)
+10 stages rendered as a vertical timeline. Each stage shows:
+- Stage name
+- Status indicator (completed / current / pending)
+- Timestamp (from inspection record fields: `created_at`, `started_at`, `completed_at`, `approved_at`, etc.)
+- Responsible user
+- Available action button(s)
 
-## 3. Admin Repair Catalog (`src/pages/admin/AdminRepairCatalog.tsx`)
+Stages and their data sources:
 
-- CRUD for categories (small manager at top or side panel)
-- CRUD for catalog items with category dropdown (normalized, not free-text)
-- Filter by category, market, active status
-- Search by name
-- Route: `/admin/catalog`, added to AdminLayout sidebar
+| # | Stage | Status logic | Actions |
+|---|---|---|---|
+| 1 | Payload recibido | `source_event_id` exists | View payload (expandable JSON) |
+| 2 | Inspección generada | `sections.length > 0` | Regenerate sections (destructive, with confirm) |
+| 3 | Asignación completa | `inspector_id && executive_id` both set | Assign/reassign dropdowns |
+| 4 | Ejecución inspector | status >= `in_progress` | View section progress |
+| 5 | Enviada a revisión | status >= `submitted` | Force submit if stuck |
+| 6 | Revisión ejecutivo | status >= `in_review` | View review state |
+| 7 | Presupuesto | repair items exist | View budget summary |
+| 8 | Publicación | report version exists | Publish / republish |
+| 9 | URL propietario | `public_token` exists | Show URL + copy button |
+| 10 | Enviada/Compartida | status === `sent` | Mark as sent |
 
----
+### Detail Tabs (below timeline)
+Four tabs using the existing Tabs component:
 
-## 4. Executive Review Detail — Full Refactor (`src/pages/executive/ExecutiveReviewDetail.tsx`)
+1. **Payload** — Shows `property_snapshot_json` and source event `payload_json` as formatted JSON viewers
+2. **Inspección** — Sections list with status badges, progress bar, field values summary per section
+3. **Revisión Ejecutivo** — Per-section: final observation, internal notes, photo count, repair items count
+4. **Presupuesto & Publicación** — Budget table (repairs grouped by section with subtotals/total), published versions list, copy link CTA
 
-Per section, load and support editing:
-1. **Inspector observation** — read-only from field_values
-2. **Internal comments** — load existing from `inspection_reviews` where `comment_type='internal_note'`, editable textarea, save/update
-3. **Final public observation** — load from `inspection_sections.final_observation`, editable textarea, save
-4. **Photo visibility** — toggle `visible_to_owner` per photo
-5. **Repair items** — load existing `inspection_repair_items` for this section:
-   - Edit quantity, unit_price, notes, visibility, reorder
-   - Delete items
-   - "Add repair" button opens catalog search drawer
-   - Section subtotal shown (sum of generated subtotals)
+### Admin Actions
+Each action that changes status will:
+1. Update the inspection record
+2. Insert a row into `inspection_audit_log` with previous/new status, `performed_by = auth.uid()`, and optional note
+3. Refresh local state
 
-At inspection level:
-- Grand total budget card
-- **Publish CTA** with validations
+Key actions:
+- **Assign/Reassign** inspector and executive (inline dropdowns + save)
+- **Force advance status** — dropdown of valid next statuses + confirm dialog
+- **Regenerate sections** — calls `generateSections()` from payload, deletes old sections/fields, creates new ones (confirm dialog, destructive)
+- **Publish/Republish** — builds `normalized_payload`, creates new version with `is_latest`, copies URL
+- **Mark as sent** — sets status to `sent`
+- **Copy owner URL** — constructs `/reportes/{property_id}/{public_token}` client-side
 
-### Publish validations (minimum)
-Before publishing, check:
-- At least one section has a `final_observation`
-- At least one repair item exists (or explicitly allow empty budget)
-- No sections in `needs_changes` status
-- Show validation errors if not met
-
-### Publish logic
-1. Build `normalized_payload` JSON: property snapshot, sections with final_observations, visible photos (`visible_to_owner = true`), visible repair items with subtotals
-2. Generate `public_token = crypto.randomUUID()`
-3. Determine `version_number = max(existing) + 1`
-4. Set previous `is_latest = false` for this inspection
-5. Insert new version with `is_latest = true`, `status = 'published'`
-6. Update inspection status to `published`
-7. Construct shareable URL client-side: `/reportes/{property_id}/{public_token}`
-8. Show copyable link
-
----
-
-## 5. Owner-Facing Public Page (`src/pages/public/OwnerReport.tsx`)
-
-- Route: `/reportes/:propertyId/:token` (no ProtectedRoute)
-- Calls RPC `get_published_report(propertyId, token)` — no direct table access
-- Two tabs: **Reporte de Inspección** | **Presupuesto**
-- Reporte: property summary, per-section final observations + visible photos
-- Presupuesto: repairs grouped by section, quantities, prices, subtotals, grand total
-- Responsive, standalone branded page, no sidebar
+### Audit Log Panel
+Collapsible section at the bottom showing all `inspection_audit_log` entries for this inspection, ordered by `created_at desc`. Shows: action, previous → new status, user name, timestamp, note.
 
 ---
 
-## 6. Route & Nav Updates
+## 3. Data Fetching
 
-**`App.tsx`:**
-- Add `/admin/catalog` (admin protected)
-- Add `/reportes/:propertyId/:token` (public)
-
-**`AdminLayout.tsx`:**
-- Add "Catálogo" nav item
+On mount, fetch in parallel:
+- `inspections` by id (with joined profiles for inspector/executive names via separate query)
+- `inspection_sections` for this inspection
+- `inspection_field_values` for all section IDs
+- `inspection_photos` for all section IDs
+- `inspection_repair_items` for this inspection
+- `inspection_report_versions` for this inspection
+- `inspection_source_events` by `source_event_id`
+- `inspection_reviews` for all section IDs
+- `inspection_audit_log` for this inspection
+- `profiles` (active, for assignment dropdowns)
 
 ---
 
-## 7. Fix Build Error
+## 4. Helper: `logAuditEntry`
 
-`InspectorInspectionDetail.tsx` — the file has only one `cn` import (line 27). Will do a clean rewrite of the import block to clear the stale TS error.
+A simple utility function used inline:
+```ts
+async function logAuditEntry(inspectionId, previousStatus, newStatus, action, performedBy, note?)
+```
+
+Called before every status-changing operation.
 
 ---
 
@@ -242,19 +114,8 @@ Before publishing, check:
 
 | Action | File |
 |---|---|
-| Migration | `repair_catalog_categories` table + RLS |
-| Migration | `repair_catalog_items` table + RLS |
-| Migration | `inspection_repair_items` table (generated subtotal) + RLS |
-| Migration | `inspection_report_versions`: add `is_latest`, drop `published_url`, exec INSERT/UPDATE policies |
-| Migration | `inspection_photos`: add `visible_to_owner` |
-| Migration | `get_published_report` RPC (security definer) |
-| Create | `src/pages/admin/AdminRepairCatalog.tsx` |
-| Create | `src/pages/public/OwnerReport.tsx` |
-| Edit | `src/lib/types.ts` (new interfaces) |
-| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` (full refactor) |
-| Edit | `src/App.tsx` (new routes) |
-| Edit | `src/components/AdminLayout.tsx` (catalog nav) |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` (fix import) |
+| Migration | Create `inspection_audit_log` table + RLS |
+| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` |
 
-~13 files, 6-7 migrations.
+2 changes total. No new routes needed (route already exists).
 
