@@ -232,27 +232,27 @@ export default function AdminInspectionDetail() {
       if (sectionIds.length > 0) {
         promises.push(
           supabase.from('inspection_field_values').select('*').eq('inspection_id', id).order('sort_order')
-            .then(r => setFieldValues((r.data ?? []) as unknown as InspectionFieldValue[])),
+            .then(r => { setFieldValues((r.data ?? []) as unknown as InspectionFieldValue[]); }),
           supabase.from('inspection_photos').select('*').eq('inspection_id', id).order('sort_order')
-            .then(r => setPhotos((r.data ?? []) as unknown as InspectionPhoto[])),
+            .then(r => { setPhotos((r.data ?? []) as unknown as InspectionPhoto[]); }),
           supabase.from('inspection_reviews').select('*').eq('inspection_id', id).order('created_at', { ascending: false })
-            .then(r => setReviews((r.data ?? []) as unknown as InspectionReview[])),
+            .then(r => { setReviews((r.data ?? []) as unknown as InspectionReview[]); }),
         );
       }
 
       promises.push(
         supabase.from('inspection_repair_items').select('*').eq('inspection_id', id).order('sort_order')
-          .then(r => setRepairItems((r.data ?? []) as unknown as InspectionRepairItem[])),
+          .then(r => { setRepairItems((r.data ?? []) as unknown as InspectionRepairItem[]); }),
         supabase.from('inspection_report_versions').select('*').eq('inspection_id', id).order('version_number', { ascending: false })
-          .then(r => setReportVersions((r.data ?? []) as unknown as InspectionReportVersion[])),
+          .then(r => { setReportVersions((r.data ?? []) as unknown as InspectionReportVersion[]); }),
         supabase.from('inspection_audit_log').select('*').eq('inspection_id', id).order('created_at', { ascending: false })
-          .then(r => setAuditLog((r.data ?? []) as unknown as AuditLogEntry[])),
+          .then(r => { setAuditLog((r.data ?? []) as unknown as AuditLogEntry[]); }),
       );
 
       if (insp.source_event_id) {
         promises.push(
           supabase.from('inspection_source_events').select('*').eq('id', insp.source_event_id).single()
-            .then(r => setSourceEvent(r.data as Record<string, unknown> | null)),
+            .then(r => { setSourceEvent(r.data as Record<string, unknown> | null); }),
         );
       }
 
