@@ -59,6 +59,8 @@ export interface Profile {
   updated_at: string;
 }
 
+export type WorkflowStage = 'inspection' | 'review' | 'budget' | 'share';
+
 export interface Inspection {
   id: string;
   source_event_id: string | null;
@@ -74,10 +76,16 @@ export interface Inspection {
   inspector_id: string | null;
   executive_id: string | null;
   status: InspectionStatus;
+  current_stage: WorkflowStage;
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   approved_at: string | null;
+  inspection_completed_at: string | null;
+  review_completed_at: string | null;
+  budget_completed_at: string | null;
+  published_at: string | null;
+  owner_url_generated_at: string | null;
   property_snapshot_json: Record<string, unknown>;
   generated_structure_json: Record<string, unknown> | null;
   last_active_section_id: string | null;
