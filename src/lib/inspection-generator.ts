@@ -528,6 +528,8 @@ export const EXAMPLE_PAYLOADS = {
     has_parking: true,
     has_front_yard: true,
     scheduled_at: "2026-03-25T14:00:00Z",
+    fecha_recoleccion_llaves: "2026-03-25",
+    hora_recoleccion_llaves: "14:00",
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
     executive: { id: "REPLACE_WITH_REAL_ID", name: "Executive Demo", email: "executive@homie.test" },
   },
