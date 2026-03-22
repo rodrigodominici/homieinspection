@@ -17,48 +17,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
-  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile
+  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage
 } from '@/lib/types';
 import {
-  ArrowLeft, MapPin, Save, Check, Circle, Clock, ChevronDown, Copy,
-  RefreshCw, Send, User, Shield, FileText, DollarSign, ExternalLink,
-  AlertTriangle, Package, Eye, History
+  ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
+  AlertTriangle, Package, Eye, History, FileText, Shield, DollarSign,
+  ExternalLink, Share2, CheckCircle2, Link2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-/* ─── Status constants ─── */
-const STATUS_ORDER = [
-  'pending', 'pending_assignment', 'assigned', 'in_progress', 'submitted',
-  'in_review', 'needs_changes', 'approved', 'published', 'sent',
+/* ─── Workflow stages ─── */
+const WORKFLOW_STAGES: { key: WorkflowStage; label: string; icon: React.ElementType }[] = [
+  { key: 'inspection', label: 'Inspección', icon: Eye },
+  { key: 'review', label: 'Revisión', icon: Shield },
+  { key: 'budget', label: 'Presupuesto', icon: DollarSign },
+  { key: 'share', label: 'Compartir', icon: Share2 },
 ];
 
+const STAGE_ORDER: WorkflowStage[] = ['inspection', 'review', 'budget', 'share'];
+
+function stageIndex(s: WorkflowStage) {
+  return STAGE_ORDER.indexOf(s);
+}
+
+/* ─── Status constants (for force advance / legacy) ─── */
 const ALL_STATUSES = [
   'pending_assignment', 'assigned', 'in_progress', 'submitted',
-  'in_review', 'needs_changes', 'approved', 'published', 'sent',
+  'in_review', 'needs_changes', 'approved', 'published',
 ];
-
-/* ─── Stage definitions ─── */
-interface WorkflowStage {
-  key: string;
-  label: string;
-  icon: React.ElementType;
-  isCompleted: (ctx: StageContext) => boolean;
-  isCurrent: (ctx: StageContext) => boolean;
-  getTimestamp: (ctx: StageContext) => string | null;
-  getUser: (ctx: StageContext) => string | null;
-}
-
-interface StageContext {
-  inspection: Inspection;
-  sections: InspectionSection[];
-  repairItems: InspectionRepairItem[];
-  reportVersions: InspectionReportVersion[];
-  sourceEvent: Record<string, unknown> | null;
-  inspectorName: string | null;
-  executiveName: string | null;
-}
 
 interface AuditLogEntry {
   id: string;
@@ -69,109 +57,7 @@ interface AuditLogEntry {
   performed_by: string | null;
   note: string | null;
   created_at: string;
-  performer?: Profile;
 }
-
-function statusIndex(s: string) {
-  const idx = STATUS_ORDER.indexOf(s);
-  return idx === -1 ? 0 : idx;
-}
-
-const STAGES: WorkflowStage[] = [
-  {
-    key: 'payload',
-    label: 'Payload recibido',
-    icon: Package,
-    isCompleted: (c) => !!c.inspection.source_event_id,
-    isCurrent: () => false,
-    getTimestamp: (c) => c.inspection.created_at,
-    getUser: () => null,
-  },
-  {
-    key: 'generated',
-    label: 'Inspección generada',
-    icon: FileText,
-    isCompleted: (c) => c.sections.length > 0,
-    isCurrent: (c) => c.sections.length === 0 && !!c.inspection.source_event_id,
-    getTimestamp: (c) => c.sections.length > 0 ? c.inspection.created_at : null,
-    getUser: () => null,
-  },
-  {
-    key: 'assignment',
-    label: 'Asignación completa',
-    icon: User,
-    isCompleted: (c) => !!c.inspection.inspector_id && !!c.inspection.executive_id,
-    isCurrent: (c) => c.sections.length > 0 && (!c.inspection.inspector_id || !c.inspection.executive_id),
-    getTimestamp: (c) => (!!c.inspection.inspector_id && !!c.inspection.executive_id) ? c.inspection.updated_at : null,
-    getUser: () => null,
-  },
-  {
-    key: 'execution',
-    label: 'Ejecución inspector',
-    icon: Eye,
-    isCompleted: (c) => statusIndex(c.inspection.status) >= statusIndex('submitted'),
-    isCurrent: (c) => c.inspection.status === 'in_progress' || c.inspection.status === 'assigned',
-    getTimestamp: (c) => c.inspection.started_at,
-    getUser: (c) => c.inspectorName,
-  },
-  {
-    key: 'submitted',
-    label: 'Enviada a revisión',
-    icon: Send,
-    isCompleted: (c) => statusIndex(c.inspection.status) >= statusIndex('submitted'),
-    isCurrent: () => false,
-    getTimestamp: (c) => c.inspection.completed_at,
-    getUser: (c) => c.inspectorName,
-  },
-  {
-    key: 'review',
-    label: 'Revisión ejecutivo',
-    icon: Shield,
-    isCompleted: (c) => statusIndex(c.inspection.status) >= statusIndex('approved'),
-    isCurrent: (c) => c.inspection.status === 'in_review' || c.inspection.status === 'submitted',
-    getTimestamp: (c) => c.inspection.approved_at,
-    getUser: (c) => c.executiveName,
-  },
-  {
-    key: 'budget',
-    label: 'Presupuesto',
-    icon: DollarSign,
-    isCompleted: (c) => c.repairItems.length > 0,
-    isCurrent: (c) => statusIndex(c.inspection.status) >= statusIndex('in_review') && c.repairItems.length === 0,
-    getTimestamp: () => null,
-    getUser: (c) => c.executiveName,
-  },
-  {
-    key: 'publication',
-    label: 'Publicación',
-    icon: ExternalLink,
-    isCompleted: (c) => c.reportVersions.length > 0,
-    isCurrent: (c) => c.inspection.status === 'approved' && c.reportVersions.length === 0,
-    getTimestamp: (c) => c.reportVersions[0]?.created_at ?? null,
-    getUser: () => null,
-  },
-  {
-    key: 'owner_url',
-    label: 'URL propietario',
-    icon: Copy,
-    isCompleted: (c) => c.reportVersions.some(v => !!v.public_token),
-    isCurrent: () => false,
-    getTimestamp: (c) => {
-      const v = c.reportVersions.find(v => !!v.public_token);
-      return v?.created_at ?? null;
-    },
-    getUser: () => null,
-  },
-  {
-    key: 'sent',
-    label: 'Enviada / Compartida',
-    icon: Check,
-    isCompleted: (c) => c.inspection.status === 'sent',
-    isCurrent: (c) => c.inspection.status === 'published',
-    getTimestamp: () => null,
-    getUser: () => null,
-  },
-];
 
 /* ─── Main component ─── */
 export default function AdminInspectionDetail() {
@@ -194,7 +80,6 @@ export default function AdminInspectionDetail() {
   const [saving, setSaving] = useState(false);
 
   // Editable fields
-  const [editStatus, setEditStatus] = useState('');
   const [editInspector, setEditInspector] = useState('');
   const [editExecutive, setEditExecutive] = useState('');
   const [editScheduledAt, setEditScheduledAt] = useState('');
@@ -203,6 +88,9 @@ export default function AdminInspectionDetail() {
   const [forceStatusOpen, setForceStatusOpen] = useState(false);
   const [forceStatusValue, setForceStatusValue] = useState('');
   const [forceNote, setForceNote] = useState('');
+
+  // Publish state
+  const [publishing, setPublishing] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
@@ -220,16 +108,13 @@ export default function AdminInspectionDetail() {
     setAllProfiles(profs);
 
     if (insp) {
-      setEditStatus(insp.status);
       setEditInspector(insp.inspector_id ?? '');
       setEditExecutive(insp.executive_id ?? '');
       setEditScheduledAt(insp.scheduled_at ? insp.scheduled_at.slice(0, 16) : '');
 
-      // Parallel fetch of related data
-      const sectionIds = secs.map(s => s.id);
       const promises: Promise<void>[] = [];
 
-      if (sectionIds.length > 0) {
+      if (secs.length > 0) {
         promises.push(
           Promise.resolve(supabase.from('inspection_field_values').select('*').eq('inspection_id', id).order('sort_order'))
             .then(r => { setFieldValues((r.data ?? []) as unknown as InspectionFieldValue[]); }),
@@ -276,13 +161,32 @@ export default function AdminInspectionDetail() {
     });
   }
 
-  /* ─── Save handler ─── */
+  /* ─── Stage advancement ─── */
+  const advanceStage = async (fromStage: WorkflowStage, toStage: WorkflowStage, extraUpdates: Record<string, unknown> = {}) => {
+    if (!inspection) return;
+    setSaving(true);
+    const timestampField = `${fromStage}_completed_at`;
+    const updates: Record<string, unknown> = {
+      current_stage: toStage,
+      [timestampField]: new Date().toISOString(),
+      ...extraUpdates,
+    };
+    const { error } = await supabase.from('inspections').update(updates).eq('id', inspection.id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      await logAudit('stage_advance', fromStage, toStage);
+      toast({ title: `Avanzado a: ${WORKFLOW_STAGES.find(s => s.key === toStage)?.label}` });
+      await fetchAll();
+    }
+    setSaving(false);
+  };
+
+  /* ─── Save assignment/schedule ─── */
   const handleSave = async () => {
     if (!inspection) return;
     setSaving(true);
-    const oldStatus = inspection.status;
     const updates: Record<string, unknown> = {
-      status: editStatus,
       inspector_id: editInspector || null,
       executive_id: editExecutive || null,
       scheduled_at: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
@@ -291,9 +195,6 @@ export default function AdminInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      if (oldStatus !== editStatus) {
-        await logAudit('status_change', oldStatus, editStatus);
-      }
       if (inspection.inspector_id !== (editInspector || null) || inspection.executive_id !== (editExecutive || null)) {
         await logAudit('assignment_change', null, null, `Inspector: ${editInspector || 'none'}, Executive: ${editExecutive || 'none'}`);
       }
@@ -321,16 +222,91 @@ export default function AdminInspectionDetail() {
     setSaving(false);
   };
 
-  /* ─── Mark as sent ─── */
-  const handleMarkSent = async () => {
+  /* ─── Publish ─── */
+  const handlePublish = async () => {
     if (!inspection) return;
-    const old = inspection.status;
-    const { error } = await supabase.from('inspections').update({ status: 'sent' }).eq('id', inspection.id);
-    if (!error) {
-      await logAudit('mark_sent', old, 'sent');
-      toast({ title: 'Marcada como enviada' });
-      await fetchAll();
+    setPublishing(true);
+
+    // Build normalized payload
+    const visibleRepairs = repairItems.filter(r => r.visible_to_owner);
+    const visiblePhotos = photos.filter((p: any) => p.visible_to_owner !== false);
+
+    const payload = {
+      property: {
+        property_id: inspection.property_id,
+        property_name: inspection.property_name,
+        address: inspection.address,
+        market: inspection.market,
+        typology: inspection.typology,
+        property_type: inspection.property_type,
+        inspection_type: inspection.inspection_type,
+      },
+      sections: sections.filter(s => s.is_visible).map(s => ({
+        id: s.id,
+        title: s.section_title,
+        type: s.section_type,
+        final_observation: s.final_observation,
+        photos: visiblePhotos
+          .filter(p => p.inspection_section_id === s.id)
+          .map(p => ({ id: p.id, url: p.public_url, caption: p.caption })),
+        repairs: visibleRepairs
+          .filter(r => r.inspection_section_id === s.id)
+          .map(r => ({
+            name: r.owner_friendly_name_snapshot || r.title_snapshot,
+            description: r.description_snapshot,
+            category: r.category_snapshot,
+            unit: r.unit,
+            quantity: r.quantity,
+            unit_price: r.unit_price,
+            subtotal: r.subtotal,
+          })),
+      })),
+      budget_total: visibleRepairs.reduce((sum, r) => sum + Number(r.subtotal ?? r.quantity * r.unit_price), 0),
+      published_at: new Date().toISOString(),
+    };
+
+    // Get next version
+    const { data: existing } = await supabase
+      .from('inspection_report_versions')
+      .select('version_number')
+      .eq('inspection_id', id!)
+      .order('version_number', { ascending: false })
+      .limit(1);
+    const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
+
+    // Set previous versions to not latest
+    await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
+
+    // Insert new version
+    const publicToken = crypto.randomUUID();
+    const { error } = await supabase.from('inspection_report_versions').insert({
+      inspection_id: id!,
+      version_number: nextVersion,
+      status: 'published',
+      public_token: publicToken,
+      normalized_payload: payload as any,
+      is_latest: true,
+    });
+
+    if (error) {
+      toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
+      setPublishing(false);
+      return;
     }
+
+    // Update inspection
+    await supabase.from('inspections').update({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      owner_url_generated_at: new Date().toISOString(),
+      approved_at: new Date().toISOString(),
+      approved_by: profile?.id,
+    }).eq('id', inspection.id);
+
+    await logAudit('publish', inspection.status, 'published', `v${nextVersion}`);
+    toast({ title: `Reporte v${nextVersion} publicado` });
+    await fetchAll();
+    setPublishing(false);
   };
 
   /* ─── Copy owner URL ─── */
@@ -354,8 +330,9 @@ export default function AdminInspectionDetail() {
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
-
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
+  const isPublished = inspection?.status === 'published';
+  const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
 
   if (loading) {
     return (
@@ -377,16 +354,6 @@ export default function AdminInspectionDetail() {
     );
   }
 
-  const stageCtx: StageContext = {
-    inspection,
-    sections,
-    repairItems,
-    reportVersions,
-    sourceEvent,
-    inspectorName,
-    executiveName,
-  };
-
   return (
     <AdminLayout>
       <div className="p-4 md:p-6 max-w-6xl space-y-6">
@@ -396,8 +363,8 @@ export default function AdminInspectionDetail() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-h3 truncate">{inspection.property_name ?? inspection.property_id}</h1>
-            <p className="text-caption text-muted-foreground flex items-center gap-1">
+            <h1 className="text-xl font-semibold truncate">{inspection.property_name ?? inspection.property_id}</h1>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" /> {inspection.address ?? 'Sin dirección'}
             </p>
           </div>
@@ -422,86 +389,152 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* ─── Workflow Timeline ─── */}
+        {/* ─── 4-Stage Workflow Stepper ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-body-lg flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" />
               Flujo de Trabajo
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="relative ml-4">
-              {/* vertical line */}
-              <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-border" />
-              {STAGES.map((stage, i) => {
-                const completed = stage.isCompleted(stageCtx);
-                const current = stage.isCurrent(stageCtx);
-                const ts = stage.getTimestamp(stageCtx);
-                const user = stage.getUser(stageCtx);
+            {/* Horizontal stepper */}
+            <div className="flex items-center gap-0">
+              {WORKFLOW_STAGES.map((stage, i) => {
+                const currentIdx = stageIndex(currentStage);
+                const thisIdx = stageIndex(stage.key);
+                const isCompleted = thisIdx < currentIdx || (stage.key === 'share' && isPublished);
+                const isCurrent = stage.key === currentStage && !isPublished;
+                const isPending = thisIdx > currentIdx && !(stage.key === 'share' && isPublished);
                 const Icon = stage.icon;
+
+                // Get timestamp
+                let timestamp: string | null = null;
+                if (stage.key === 'inspection') timestamp = inspection.inspection_completed_at;
+                else if (stage.key === 'review') timestamp = inspection.review_completed_at;
+                else if (stage.key === 'budget') timestamp = inspection.budget_completed_at;
+                else if (stage.key === 'share') timestamp = inspection.published_at;
+
                 return (
-                  <div key={stage.key} className="relative flex items-start gap-4 pb-5 last:pb-0">
-                    {/* dot */}
-                    <div className={cn(
-                      'relative z-10 flex items-center justify-center w-6 h-6 rounded-full border-2 shrink-0',
-                      completed
-                        ? 'bg-primary border-primary text-primary-foreground'
-                        : current
-                          ? 'bg-background border-primary text-primary animate-pulse'
-                          : 'bg-muted border-border text-muted-foreground'
-                    )}>
-                      {completed ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
-                    </div>
-                    {/* content */}
-                    <div className="flex-1 min-w-0 -mt-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={cn('text-sm font-medium', completed ? 'text-foreground' : current ? 'text-primary' : 'text-muted-foreground')}>
-                          {stage.label}
+                  <div key={stage.key} className="flex items-center flex-1 last:flex-initial">
+                    <div className="flex flex-col items-center gap-1.5 min-w-0">
+                      {/* Circle */}
+                      <div className={cn(
+                        'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all',
+                        isCompleted
+                          ? 'bg-primary border-primary text-primary-foreground'
+                          : isCurrent
+                            ? 'bg-background border-primary text-primary ring-4 ring-primary/20'
+                            : 'bg-muted border-border text-muted-foreground'
+                      )}>
+                        {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                      </div>
+                      {/* Label */}
+                      <span className={cn(
+                        'text-xs font-medium text-center',
+                        isCompleted ? 'text-foreground' : isCurrent ? 'text-primary' : 'text-muted-foreground'
+                      )}>
+                        {stage.label}
+                      </span>
+                      {/* Timestamp */}
+                      {timestamp && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {format(new Date(timestamp), 'dd MMM HH:mm', { locale: es })}
                         </span>
-                        {current && <span className="text-[10px] uppercase tracking-wider font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">Actual</span>}
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-caption text-muted-foreground">
-                        {ts && <span>{format(new Date(ts), 'dd MMM yyyy HH:mm', { locale: es })}</span>}
-                        {user && <span>· {user}</span>}
-                      </div>
-                      {/* stage-specific actions */}
-                      {stage.key === 'owner_url' && ownerUrl && (
-                        <Button variant="outline" size="sm" className="mt-2 gap-1.5 h-7 text-xs" onClick={copyOwnerUrl}>
-                          <Copy className="h-3 w-3" /> Copiar URL
-                        </Button>
                       )}
-                      {stage.key === 'sent' && current && (
-                        <Button variant="outline" size="sm" className="mt-2 gap-1.5 h-7 text-xs" onClick={handleMarkSent}>
-                          <Send className="h-3 w-3" /> Marcar como enviada
-                        </Button>
+                      {isCurrent && (
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                          Actual
+                        </span>
+                      )}
+                      {isPublished && stage.key === 'share' && (
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                          Publicado
+                        </span>
                       )}
                     </div>
+                    {/* Connector line */}
+                    {i < WORKFLOW_STAGES.length - 1 && (
+                      <div className={cn(
+                        'flex-1 h-0.5 mx-2 mt-[-2rem]',
+                        thisIdx < currentIdx ? 'bg-primary' : 'bg-border'
+                      )} />
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Stage action buttons */}
+            <div className="mt-6 flex flex-wrap gap-2">
+              {currentStage === 'inspection' && !isPublished && (
+                <Button onClick={() => advanceStage('inspection', 'review', { status: 'in_review' })} disabled={saving} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> Completar Inspección
+                </Button>
+              )}
+              {currentStage === 'review' && !isPublished && (
+                <Button onClick={() => advanceStage('review', 'budget')} disabled={saving} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> Completar Revisión
+                </Button>
+              )}
+              {currentStage === 'budget' && !isPublished && (
+                <Button onClick={() => advanceStage('budget', 'share')} disabled={saving} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> Completar Presupuesto
+                </Button>
+              )}
+              {currentStage === 'share' && !isPublished && (
+                <Button onClick={handlePublish} disabled={publishing} className="gap-2">
+                  <ExternalLink className="h-4 w-4" /> {publishing ? 'Publicando...' : 'Publicar y Generar URL'}
+                </Button>
+              )}
+              {isPublished && ownerUrl && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button onClick={copyOwnerUrl} variant="outline" className="gap-2">
+                    <Copy className="h-4 w-4" /> Copiar URL Propietario
+                  </Button>
+                  <Button variant="outline" className="gap-2" asChild>
+                    <a href={ownerUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" /> Abrir Reporte
+                    </a>
+                  </Button>
+                  <Button onClick={handlePublish} variant="ghost" disabled={publishing} className="gap-2 text-muted-foreground">
+                    <ExternalLink className="h-4 w-4" /> {publishing ? 'Republicando...' : 'Republicar'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Post-publish info */}
+            {isPublished && ownerUrl && (
+              <div className="mt-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span className="font-medium text-green-800 dark:text-green-300">Reporte publicado</span>
+                </div>
+                <div className="flex items-center gap-2 bg-background rounded-md border px-3 py-2">
+                  <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate flex-1 font-mono">{ownerUrl}</span>
+                  <Button variant="ghost" size="sm" onClick={copyOwnerUrl} className="shrink-0 h-7">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {reportVersions.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Versión actual: v{reportVersions[0].version_number} · {format(new Date(reportVersions[0].created_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* ─── Admin Actions Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-body-lg">Acciones Administrativas</CardTitle>
+            <CardTitle className="text-base">Acciones Administrativas</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={editStatus} onValueChange={setEditStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ALL_STATUSES.map(s => (
-                      <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Fecha/Hora programada</Label>
                 <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
@@ -570,12 +603,6 @@ export default function AdminInspectionDetail() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-
-              {ownerUrl && (
-                <Button variant="outline" className="gap-2" onClick={copyOwnerUrl}>
-                  <Copy className="h-4 w-4" /> Copiar URL Propietario
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -593,7 +620,7 @@ export default function AdminInspectionDetail() {
           <TabsContent value="payload">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-body-lg">Property Snapshot</CardTitle>
+                <CardTitle className="text-base">Property Snapshot</CardTitle>
               </CardHeader>
               <CardContent>
                 <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-96">
@@ -604,7 +631,7 @@ export default function AdminInspectionDetail() {
             {sourceEvent && (
               <Card className="border-0 ring-1 ring-border shadow-sm mt-4">
                 <CardHeader>
-                  <CardTitle className="text-body-lg">Source Event Payload</CardTitle>
+                  <CardTitle className="text-base">Source Event Payload</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-96">
@@ -619,7 +646,7 @@ export default function AdminInspectionDetail() {
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-body-lg">Secciones ({sections.length})</CardTitle>
+                <CardTitle className="text-base">Secciones ({sections.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
                 {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
@@ -632,32 +659,28 @@ export default function AdminInspectionDetail() {
                   return (
                     <Collapsible key={sec.id}>
                       <CollapsibleTrigger className="flex items-center gap-3 w-full py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
-                        <span className="text-caption text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
+                        <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium">{sec.section_title}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          {total > 0 && (
-                            <span className="text-[10px] font-medium text-muted-foreground">{pct}%</span>
-                          )}
+                          {total > 0 && <span className="text-[10px] font-medium text-muted-foreground">{pct}%</span>}
                           <SectionStatusBadge status={sec.status} />
                           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pl-11 pr-3 pb-3">
                         <div className="space-y-1.5">
-                          {/* Progress bar */}
                           {total > 0 && (
                             <div className="w-full bg-muted rounded-full h-1.5">
                               <div className="bg-primary rounded-full h-1.5 transition-all" style={{ width: `${pct}%` }} />
                             </div>
                           )}
-                          <p className="text-caption text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {filled}/{total} campos · {secPhotos.length} fotos
                           </p>
-                          {/* field summary */}
                           {secFields.filter(f => f.value_text).slice(0, 5).map(f => (
-                            <div key={f.id} className="flex gap-2 text-caption">
+                            <div key={f.id} className="flex gap-2 text-xs">
                               <span className="text-muted-foreground shrink-0">{f.field_label}:</span>
                               <span className="truncate">{f.value_text}</span>
                             </div>
@@ -675,7 +698,7 @@ export default function AdminInspectionDetail() {
           <TabsContent value="review">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-body-lg">Revisión Ejecutivo</CardTitle>
+                <CardTitle className="text-base">Revisión Ejecutivo</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones.</p>}
@@ -695,7 +718,7 @@ export default function AdminInspectionDetail() {
                           <p className="text-sm">{sec.final_observation}</p>
                         </div>
                       )}
-                      <div className="flex gap-4 text-caption text-muted-foreground">
+                      <div className="flex gap-4 text-xs text-muted-foreground">
                         <span>{secReviews.length} notas</span>
                         <span>{secPhotos.length} fotos</span>
                         <span>{secRepairs.length} reparaciones</span>
@@ -703,7 +726,7 @@ export default function AdminInspectionDetail() {
                       {secReviews.length > 0 && (
                         <div className="space-y-1">
                           {secReviews.map(r => (
-                            <div key={r.id} className="text-caption border-l-2 border-primary/30 pl-2">
+                            <div key={r.id} className="text-xs border-l-2 border-primary/30 pl-2">
                               <span className="text-muted-foreground">[{r.comment_type}]</span> {r.comment}
                             </div>
                           ))}
@@ -719,12 +742,11 @@ export default function AdminInspectionDetail() {
           {/* ── Budget tab ── */}
           <TabsContent value="budget">
             <div className="space-y-4">
-              {/* Budget table */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-body-lg flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center justify-between">
                     <span>Presupuesto</span>
-                    <span className="text-h4 text-primary">${budgetTotal.toLocaleString('es-CL')}</span>
+                    <span className="text-lg font-semibold text-primary">${budgetTotal.toLocaleString('es-CL')}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -734,7 +756,7 @@ export default function AdminInspectionDetail() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b text-left text-caption text-muted-foreground">
+                          <tr className="border-b text-left text-xs text-muted-foreground">
                             <th className="pb-2 pr-2">Ítem</th>
                             <th className="pb-2 pr-2">Sección</th>
                             <th className="pb-2 pr-2 text-right">Cant.</th>
@@ -749,9 +771,9 @@ export default function AdminInspectionDetail() {
                               <tr key={item.id} className="border-b last:border-0">
                                 <td className="py-2 pr-2">
                                   <span className="font-medium">{item.title_snapshot}</span>
-                                  {item.notes && <p className="text-caption text-muted-foreground">{item.notes}</p>}
+                                  {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
                                 </td>
-                                <td className="py-2 pr-2 text-caption text-muted-foreground">{sec?.section_title ?? '—'}</td>
+                                <td className="py-2 pr-2 text-xs text-muted-foreground">{sec?.section_title ?? '—'}</td>
                                 <td className="py-2 pr-2 text-right">{item.quantity}</td>
                                 <td className="py-2 pr-2 text-right">${Number(item.unit_price).toLocaleString('es-CL')}</td>
                                 <td className="py-2 text-right font-medium">${(item.subtotal ?? item.quantity * item.unit_price).toLocaleString('es-CL')}</td>
@@ -768,7 +790,7 @@ export default function AdminInspectionDetail() {
               {/* Published versions */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-body-lg">Versiones Publicadas</CardTitle>
+                  <CardTitle className="text-base">Versiones Publicadas</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {reportVersions.length === 0 ? (
@@ -780,7 +802,7 @@ export default function AdminInspectionDetail() {
                           v{v.version_number}
                         </span>
                         {v.is_latest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
-                        <span className="text-caption text-muted-foreground flex-1">
+                        <span className="text-xs text-muted-foreground flex-1">
                           {format(new Date(v.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
                         </span>
                         {v.public_token && (
@@ -811,7 +833,7 @@ export default function AdminInspectionDetail() {
           <Card className="border-0 ring-1 ring-border shadow-sm">
             <CollapsibleTrigger className="w-full">
               <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
-                <CardTitle className="text-body-lg flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
                   Log de Auditoría ({auditLog.length})
                 </CardTitle>
@@ -832,10 +854,10 @@ export default function AdminInspectionDetail() {
                           {entry.previous_status && entry.new_status && (
                             <span className="text-muted-foreground"> · {entry.previous_status} → {entry.new_status}</span>
                           )}
-                          {entry.note && <p className="text-caption text-muted-foreground mt-0.5">{entry.note}</p>}
+                          {entry.note && <p className="text-xs text-muted-foreground mt-0.5">{entry.note}</p>}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-caption text-muted-foreground">{performer?.full_name ?? 'Sistema'}</p>
+                          <p className="text-xs text-muted-foreground">{performer?.full_name ?? 'Sistema'}</p>
                           <p className="text-[10px] text-muted-foreground">{format(new Date(entry.created_at), 'dd/MM HH:mm')}</p>
                         </div>
                       </div>
