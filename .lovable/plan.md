@@ -1,112 +1,88 @@
 
 
-# Plan: Admin Operational Workflow Orchestrator
+# Plan: 4-Stage Workflow with Share as Final Stage
 
 ## Overview
 
-Replace the current simple Admin Inspection Detail page with a full lifecycle orchestration view. Add an audit log table for state changes.
+Replace the 10-stage vertical timeline with a strict 4-stage model (`inspection` → `review` → `budget` → `share`). Add `current_stage` and milestone timestamps to the database. Rewrite the Admin Inspection Detail stepper and stage panels. Keep `sent` in legacy data but remove it from new UI transitions.
 
 ---
 
-## 1. Database Migration: `inspection_audit_log`
+## 1. Database Migration
+
+Add columns to `inspections`:
 
 ```sql
-CREATE TABLE public.inspection_audit_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  inspection_id uuid NOT NULL REFERENCES inspections(id) ON DELETE CASCADE,
-  previous_status text,
-  new_status text,
-  action text NOT NULL,
-  performed_by uuid REFERENCES profiles(id),
-  note text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.inspection_audit_log ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Admins can manage audit log" ON public.inspection_audit_log
-  FOR ALL TO authenticated USING (has_role(auth.uid(), 'admin'));
+ALTER TABLE inspections
+  ADD COLUMN current_stage text NOT NULL DEFAULT 'inspection',
+  ADD COLUMN inspection_completed_at timestamptz,
+  ADD COLUMN review_completed_at timestamptz,
+  ADD COLUMN budget_completed_at timestamptz,
+  ADD COLUMN published_at timestamptz,
+  ADD COLUMN owner_url_generated_at timestamptz;
 ```
+
+No enum constraint — just a text field. Allowed new values: `inspection`, `review`, `budget`, `share`. Legacy `sent` values in `status` field remain untouched.
 
 ---
 
-## 2. Rewrite `AdminInspectionDetail.tsx`
+## 2. Types Update (`src/lib/types.ts`)
 
-### Top Summary Bar
-Property name, property ID, current status badge, inspector name, executive name, scheduled date/time.
+- Add `current_stage` and 5 milestone timestamp fields to `Inspection` interface
+- Keep `sent` in `InspectionStatus` for backward compatibility (legacy data)
 
-### Workflow Timeline (vertical stepper)
-10 stages rendered as a vertical timeline. Each stage shows:
-- Stage name
-- Status indicator (completed / current / pending)
-- Timestamp (from inspection record fields: `created_at`, `started_at`, `completed_at`, `approved_at`, etc.)
-- Responsible user
-- Available action button(s)
+---
 
-Stages and their data sources:
+## 3. Admin Inspection Detail — Full Rewrite
 
-| # | Stage | Status logic | Actions |
+### Replace 10-stage `STAGES` with 4 stages
+
+| Stage | Label | Completed | Current |
 |---|---|---|---|
-| 1 | Payload recibido | `source_event_id` exists | View payload (expandable JSON) |
-| 2 | Inspección generada | `sections.length > 0` | Regenerate sections (destructive, with confirm) |
-| 3 | Asignación completa | `inspector_id && executive_id` both set | Assign/reassign dropdowns |
-| 4 | Ejecución inspector | status >= `in_progress` | View section progress |
-| 5 | Enviada a revisión | status >= `submitted` | Force submit if stuck |
-| 6 | Revisión ejecutivo | status >= `in_review` | View review state |
-| 7 | Presupuesto | repair items exist | View budget summary |
-| 8 | Publicación | report version exists | Publish / republish |
-| 9 | URL propietario | `public_token` exists | Show URL + copy button |
-| 10 | Enviada/Compartida | status === `sent` | Mark as sent |
+| `inspection` | Inspección | `inspection_completed_at` set | `current_stage === 'inspection'` |
+| `review` | Revisión | `review_completed_at` set | `current_stage === 'review'` |
+| `budget` | Presupuesto | `budget_completed_at` set | `current_stage === 'budget'` |
+| `share` | Compartir | `published_at` set | `current_stage === 'share'` |
 
-### Detail Tabs (below timeline)
-Four tabs using the existing Tabs component:
+Exactly one stage is "current" at a time.
 
-1. **Payload** — Shows `property_snapshot_json` and source event `payload_json` as formatted JSON viewers
-2. **Inspección** — Sections list with status badges, progress bar, field values summary per section
-3. **Revisión Ejecutivo** — Per-section: final observation, internal notes, photo count, repair items count
-4. **Presupuesto & Publicación** — Budget table (repairs grouped by section with subtotals/total), published versions list, copy link CTA
+### Stage action buttons
 
-### Admin Actions
-Each action that changes status will:
-1. Update the inspection record
-2. Insert a row into `inspection_audit_log` with previous/new status, `performed_by = auth.uid()`, and optional note
-3. Refresh local state
+- **Inspection**: "Completar inspección" → `current_stage='review'`, `inspection_completed_at=now()`, `status='in_review'`
+- **Review**: "Completar revisión" → `current_stage='budget'`, `review_completed_at=now()`
+- **Budget**: "Completar presupuesto" → `current_stage='share'`, `budget_completed_at=now()`
+- **Share**: Two internal views:
+  - **Pre-publish**: Shows report preview summary, "Publicar y generar URL" button. On click: creates report version, sets `published_at`, `owner_url_generated_at`, `status='published'`.
+  - **Post-publish**: Shows green "Publicado" confirmation, generated URL, copy link button, open report link, version info. Optional "Republicar" action for future use.
 
-Key actions:
-- **Assign/Reassign** inspector and executive (inline dropdowns + save)
-- **Force advance status** — dropdown of valid next statuses + confirm dialog
-- **Regenerate sections** — calls `generateSections()` from payload, deletes old sections/fields, creates new ones (confirm dialog, destructive)
-- **Publish/Republish** — builds `normalized_payload`, creates new version with `is_latest`, copies URL
-- **Mark as sent** — sets status to `sent`
-- **Copy owner URL** — constructs `/reportes/{property_id}/{public_token}` client-side
+### Remove from new UI
 
-### Audit Log Panel
-Collapsible section at the bottom showing all `inspection_audit_log` entries for this inspection, ordered by `created_at desc`. Shows: action, previous → new status, user name, timestamp, note.
+- `handleMarkSent` function
+- `sent` from `ALL_STATUSES` array (force advance options)
+- All 10 old stage definitions
+- Old `owner_url` and `sent` stage entries
 
----
+### Keep
 
-## 3. Data Fetching
+- Top summary bar
+- Admin actions bar (assignments, schedule, force advance — without `sent` option)
+- Detail tabs (Payload, Inspección, Revisión, Presupuesto)
+- Audit log panel
+- `sent` stays in `InspectionStatus` type and `STATUS_ORDER` for backward compat with legacy data display
 
-On mount, fetch in parallel:
-- `inspections` by id (with joined profiles for inspector/executive names via separate query)
-- `inspection_sections` for this inspection
-- `inspection_field_values` for all section IDs
-- `inspection_photos` for all section IDs
-- `inspection_repair_items` for this inspection
-- `inspection_report_versions` for this inspection
-- `inspection_source_events` by `source_event_id`
-- `inspection_reviews` for all section IDs
-- `inspection_audit_log` for this inspection
-- `profiles` (active, for assignment dropdowns)
+### Status sync on stage advancement
+
+When `current_stage` changes, also update `status`:
+- `inspection` → keeps current status (assigned/in_progress)
+- `review` → `status = 'in_review'`
+- `budget` → keeps `in_review`
+- `share` (on publish) → `status = 'published'`
 
 ---
 
-## 4. Helper: `logAuditEntry`
+## 4. Executive Review Detail — Minor alignment
 
-A simple utility function used inline:
-```ts
-async function logAuditEntry(inspectionId, previousStatus, newStatus, action, performedBy, note?)
-```
-
-Called before every status-changing operation.
+Remove any `sent`-related logic from new transitions. Ensure publish sets `status = 'published'` (not `sent`). No stage stepper added to executive view.
 
 ---
 
@@ -114,8 +90,10 @@ Called before every status-changing operation.
 
 | Action | File |
 |---|---|
-| Migration | Create `inspection_audit_log` table + RLS |
-| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` |
+| Migration | Add `current_stage` + 5 timestamp columns to `inspections` |
+| Edit | `src/lib/types.ts` — add new fields to Inspection |
+| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` — 4-stage stepper with pre/post-publish Share |
+| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` — remove `sent` from new transitions |
 
-2 changes total. No new routes needed (route already exists).
+4 changes total.
 
