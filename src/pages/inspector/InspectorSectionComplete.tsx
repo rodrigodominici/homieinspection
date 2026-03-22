@@ -21,7 +21,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Camera, Check, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 
@@ -387,18 +388,13 @@ export default function InspectorSectionComplete() {
           <CardContent className="p-4">
             <p className="text-body font-medium mb-3">Fotos</p>
             <div className="grid grid-cols-3 gap-2">
-              <label className="aspect-square rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                <Camera className="h-6 w-6 text-muted-foreground" />
-                <span className="text-tiny text-muted-foreground mt-1">Añadir</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  capture="environment"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-              </label>
+              <PhotoUploadSheet onFiles={(files) => {
+                // Re-use existing handler by creating a synthetic-like flow
+                const dt = new DataTransfer();
+                Array.from(files).forEach((f) => dt.items.add(f));
+                const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                handlePhotoUpload(synth);
+              }} />
               {Array.from(uploading).map((uid) => (
                 <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
                   <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
