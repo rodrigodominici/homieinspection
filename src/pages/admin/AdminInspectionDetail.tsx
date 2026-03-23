@@ -815,6 +815,9 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
+        {/* ─── Property Briefing Card ─── */}
+        <PropertyBriefingCard inspection={inspection} />
+
         {/* ─── Detail Tabs ─── */}
         <Tabs defaultValue="inspection" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto">
