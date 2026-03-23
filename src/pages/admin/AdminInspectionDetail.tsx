@@ -1037,7 +1037,7 @@ export default function AdminInspectionDetail() {
               </Card>
 
               {/* Per-section budget */}
-              {sections.map(section => {
+              {operationalSections.map(section => {
                 const sRepairs = repairsBySection[section.id] ?? [];
                 const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
 
