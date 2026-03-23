@@ -44,6 +44,7 @@ export default function InspectorInspectionDetail() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSignature, setShowSignature] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
