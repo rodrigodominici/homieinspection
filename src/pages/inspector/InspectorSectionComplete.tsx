@@ -444,39 +444,46 @@ export default function InspectorSectionComplete() {
 
       {/* Sticky bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t space-y-2">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={goPrev}
-            disabled={!prevSection}
-            className="flex-1 h-12 rounded-xl"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
-          </Button>
+        {(() => {
+          const completed = isSectionCompleted(section.status);
+          const isLast = !nextSection;
+          return (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={goPrev}
+                  disabled={!prevSection}
+                  className="flex-1 h-12 rounded-xl"
+                >
+                  <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
+                </Button>
 
-          <Button
-            className="flex-1 h-12 rounded-xl"
-            variant={section.status === 'completed' ? 'secondary' : 'default'}
-            onClick={section.status !== 'completed' ? handleMarkComplete : undefined}
-          >
-            <Check className="mr-1 h-4 w-4" />
-            {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={goNext}
-            disabled={!nextSection}
-            className="flex-1 h-12 rounded-xl"
-          >
-            Siguiente <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
-        <div className="text-center text-tiny text-muted-foreground">
-          {saveStatus === 'saving' && <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</span>}
-          {saveStatus === 'saved' && <span className="text-status-good">✓ Guardado</span>}
-          {saveStatus === 'error' && <span className="text-destructive">Error al guardar</span>}
-        </div>
+                {!completed ? (
+                  <Button
+                    className="flex-1 h-12 rounded-xl"
+                    onClick={handleMarkComplete}
+                  >
+                    Completar sección
+                  </Button>
+                ) : (
+                  <Button
+                    className="flex-1 h-12 rounded-xl"
+                    onClick={isLast ? () => navigate(`/inspector/inspection/${inspectionId}`) : goNext}
+                  >
+                    {isLast ? 'Finalizar inspección' : 'Siguiente'}
+                    {!isLast && <ArrowRight className="ml-1 h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+              <div className="text-center text-tiny text-muted-foreground">
+                {saveStatus === 'saving' && <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</span>}
+                {saveStatus === 'saved' && <span className="text-status-good">✓ Guardado</span>}
+                {saveStatus === 'error' && <span className="text-destructive">Error al guardar</span>}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
