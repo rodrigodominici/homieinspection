@@ -168,8 +168,8 @@ export default function InspectorInspectionDetail() {
         <div className="space-y-2">
           <h3 className="text-caption font-medium text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {
-            const isCompleted = section.status === 'completed' || section.status === 'reviewed';
-            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => s.status === 'completed' || s.status === 'reviewed'));
+            const isCompleted = isSectionCompleted(section.status);
+            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
             return (
               <button
                 key={section.id}
