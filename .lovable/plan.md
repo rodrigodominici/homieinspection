@@ -1,90 +1,65 @@
 
 
-# Plan: Admin Full Workflow Control + Delete + Progress Fix
+# Plan: Remove `Datos de la Propiedad` from Operational Flow
 
-## Overview
+## Problem
 
-Upgrade the Admin Inspection Detail to support full end-to-end workflow execution (matching executive capabilities), add inspection deletion, and fix the false progress calculation.
+`calculateProgress()` counts ALL visible sections including `property_data` (type `property_meta`). This section is contextual, not operational — it inflates the total count and can prevent 100% completion.
 
----
+The inspector detail already filters it from the rendered list (`workSections`), but progress is calculated BEFORE that filter. Admin doesn't filter it at all.
 
-## 1. Fix false progress in Admin Inspection tab (lines 654-658)
+## Changes
 
-**Root cause**: The admin calculates section progress as `filled fields / total fields` where `filled = fields with value_text or value_json`. Pre-generated fields have default values, so newly created inspections show non-zero progress.
+### 1. `src/lib/inspection-utils.ts` — Exclude `property_meta` from progress
 
-**Fix**: Replace the per-section field-counting progress with section-level completion status. Use `isSectionCompleted(sec.status)` from `section-completion.ts`. Show `0%` / `Pendiente` for sections that haven't been explicitly completed. Remove the per-field progress bar from the section collapsible — show only the section status badge.
+Update `calculateProgress` to accept sections with `section_type` and filter out `property_meta` sections before counting.
 
----
+```typescript
+const NON_OPERATIONAL_TYPES = new Set(['property_meta']);
 
-## 2. Add executive-like review/budget capabilities to Admin
+export function calculateProgress(
+  sections: Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]
+): ProgressResult {
+  const operational = sections.filter(
+    (s) => s.is_visible && !NON_OPERATIONAL_TYPES.has(s.section_type)
+  );
+  // ... rest unchanged
+}
+```
 
-Port the executive's per-section editing capabilities into the Admin's **Revisión** and **Presupuesto** tabs:
+This single change fixes progress everywhere — inspector, admin, executive — since they all use this function.
 
-### Revisión tab — per section:
-- Show inspector's field values (read-only summary)
-- Internal note textarea + save button
-- Final observation textarea + save button
-- Photo thumbnails with visibility toggle (eye icon)
-- Existing review comments list
+### 2. `src/pages/inspector/InspectorInspectionDetail.tsx` — Already correct
 
-### Presupuesto tab — per section:
-- "Agregar reparación" button → opens catalog sheet
-- List of repair items with inline-editable quantity, price, notes
-- Delete repair item button
-- Visibility toggle per item
-- Section subtotal + grand total
+- Already renders `PropertyBriefingCard` separately
+- Already filters `workSections` for the section list
+- Progress fix comes from the utility change above
+- No code changes needed beyond ensuring `section_type` is included in the query (it already selects `*`)
 
-### Implementation approach:
-Reuse the same Supabase calls already in `ExecutiveReviewDetail.tsx` (save internal note, save final observation, toggle photo visibility, catalog sheet, add/update/delete repair items). Copy the logic into `AdminInspectionDetail.tsx` since admin already has full RLS access.
+### 3. `src/pages/admin/AdminInspectionDetail.tsx` — Filter property_data from section lists
 
-### New state variables needed:
-- `internalNotes: Record<string, string>`
-- `finalObservations: Record<string, string>`
-- `savingField: string | null`
-- `catalogOpen`, `catalogSearch`, `catalogItems`, `catalogSectionId`
-- `repairsBySection` (reorganize existing flat `repairItems`)
+- In the Inspection tab section list, filter out `property_meta` sections so `Datos de la Propiedad` no longer appears as a numbered step
+- Add `PropertyBriefingCard` at the top of the Overview tab (already has `inspection` object with snapshot data)
+- In Review and Budget tabs, also filter out `property_meta` sections (no review/budget needed for contextual data)
+- Admin can still edit property fields via the existing Overview tab fields (address, market, typology, etc.)
 
-### New functions:
-- `saveInternalNote(sectionId)`
-- `saveFinalObservation(sectionId)`
-- `togglePhotoVisibility(photo)`
-- `openCatalog(sectionId)`
-- `addRepairFromCatalog(item)`
-- `updateRepairItem(id, field, value)`
-- `deleteRepairItem(id)`
+### 4. Callers of `calculateProgress` — Update type signatures
 
----
+All callers already pass full section objects (select `*`), so `section_type` is already available. The only change is the Pick type in the function signature.
 
-## 3. Add delete inspection capability
-
-### UI:
-- Add a "Eliminar inspección" danger button in the Admin Actions bar
-- Wrapped in an `AlertDialog` with:
-  - Title: "¿Eliminar esta inspección?"
-  - Description: warns about cascading data removal
-  - Cancel + destructive Confirm button
-
-### Implementation:
-- Delete related records in order (field_values, photos, reviews, repair_items, sections, audit_log, report_versions, then the inspection itself)
-- On success, navigate back to `/admin/inspections`
-- Log is not needed since the inspection itself is being deleted
-
-### Database:
-No migration needed — admin has full RLS access. Cascade deletes are done via ordered delete statements (no FK cascades are set up, so we delete manually).
-
----
-
-## 4. Reorganize data loading
-
-Restructure `fetchAll` to also group data by section (matching executive pattern) so the review/budget tabs can render per-section data efficiently. Initialize `finalObservations` and `internalNotes` state from loaded data.
-
----
+Affected files that call `calculateProgress`:
+- `InspectorDashboard.tsx` — currently selects only `id, status, is_visible`. Need to add `section_type` to the select.
+- `InspectorAllInspections.tsx` — same fix: add `section_type` to select.
+- `ExecutiveReviewDetail.tsx` — already selects `*`, no change needed.
 
 ## Files Summary
 
 | Action | File |
 |---|---|
-| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` — add executive capabilities, delete, fix progress |
+| Edit | `src/lib/inspection-utils.ts` — filter out `property_meta` |
+| Edit | `src/pages/inspector/InspectorDashboard.tsx` — add `section_type` to section select |
+| Edit | `src/pages/inspector/InspectorAllInspections.tsx` — add `section_type` to section select |
+| Edit | `src/pages/admin/AdminInspectionDetail.tsx` — filter property_meta from section lists, add PropertyBriefingCard to overview |
 
-1 file change.
+4 file changes.
 
