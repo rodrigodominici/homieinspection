@@ -41,6 +41,7 @@ export default function InspectorSectionComplete() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
