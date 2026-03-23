@@ -1339,6 +1339,16 @@ export default function AdminInspectionDetail() {
             </CollapsibleContent>
           </Card>
         </Collapsible>
+
+        {/* ─── Photo Lightbox ─── */}
+        {photoLightbox && (
+          <Dialog open={!!photoLightbox} onOpenChange={(o) => !o && setPhotoLightbox(null)}>
+            <DialogContent className="max-w-2xl">
+              <img src={photoLightbox.public_url ?? ''} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
+              {photoLightbox.caption && <p className="text-caption text-muted-foreground text-center">{photoLightbox.caption}</p>}
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* ─── Catalog Sheet ─── */}
