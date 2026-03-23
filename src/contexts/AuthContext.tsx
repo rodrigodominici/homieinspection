@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;          // true during initial auth check
   profileLoading: boolean;   // true while fetching profile after auth resolves
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
