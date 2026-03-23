@@ -886,7 +886,7 @@ export default function AdminInspectionDetail() {
             )}
           </TabsContent>
 
-          {/* ── Inspection tab — FIXED progress: uses section status, not field counts ── */}
+          {/* ── Inspection tab — full inline editing ── */}
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
@@ -898,6 +898,10 @@ export default function AdminInspectionDetail() {
                   const secFields = fieldsBySection[sec.id] ?? [];
                   const secPhotos = (photosBySection[sec.id] ?? []);
                   const completed = isSectionCompleted(sec.status);
+                  const statusFields = secFields.filter(f => f.group_key === 'status');
+                  const obsField = secFields.find(f => f.group_key === 'observation');
+                  const otherFields = secFields.filter(f => f.group_key !== 'status' && f.group_key !== 'observation' && f.group_key !== 'photo');
+
                   return (
                     <Collapsible key={sec.id}>
                       <CollapsibleTrigger className="flex items-center gap-3 w-full py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
@@ -906,25 +910,139 @@ export default function AdminInspectionDetail() {
                           <span className="text-sm font-medium">{sec.section_title}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={cn('text-[10px] font-medium', completed ? 'text-green-600' : 'text-muted-foreground')}>
+                          <span className={cn('text-[10px] font-medium', completed ? 'text-status-good' : 'text-muted-foreground')}>
                             {completed ? '100%' : '0%'}
                           </span>
                           <SectionStatusBadge status={sec.status} />
                           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="pl-11 pr-3 pb-3">
-                        <div className="space-y-1.5">
-                          <p className="text-xs text-muted-foreground">
-                            {secFields.length} campos · {secPhotos.length} fotos
-                          </p>
-                          {secFields.filter(f => f.value_text).slice(0, 5).map(f => (
-                            <div key={f.id} className="flex gap-2 text-xs">
-                              <span className="text-muted-foreground shrink-0">{f.field_label}:</span>
-                              <span className="truncate">{f.value_text}</span>
-                            </div>
-                          ))}
+                      <CollapsibleContent className="pl-11 pr-3 pb-4 space-y-4">
+                        {/* Section status toggle */}
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant={completed ? 'outline' : 'default'}
+                            onClick={async () => {
+                              const newStatus = completed ? 'not_started' : 'completed';
+                              await supabase.from('inspection_sections').update({ status: newStatus }).eq('id', sec.id);
+                              toast({ title: completed ? 'Sección reabierta' : 'Sección completada' });
+                              await fetchAll();
+                            }}>
+                            {completed ? 'Reabrir' : 'Marcar completada'}
+                          </Button>
                         </div>
+
+                        {/* Status fields — clickable chips */}
+                        {statusFields.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
+                            {statusFields.map(f => (
+                              <div key={f.id} className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-muted-foreground w-32 shrink-0">{f.field_label}</span>
+                                {['bueno', 'regular', 'malo', 'no_aplica'].map(val => (
+                                  <button key={val}
+                                    onClick={async () => {
+                                      await supabase.from('inspection_field_values').update({ value_text: val, updated_by: profile?.id }).eq('id', f.id);
+                                      await fetchAll();
+                                    }}
+                                    className={cn(
+                                      'px-2.5 py-1 rounded-full text-tiny font-medium border transition-colors',
+                                      f.value_text === val
+                                        ? val === 'bueno' ? 'bg-status-good-bg text-status-good border-status-good/30'
+                                          : val === 'regular' ? 'bg-status-regular-bg text-status-regular border-status-regular/30'
+                                          : val === 'malo' ? 'bg-status-bad-bg text-status-bad border-status-bad/30'
+                                          : 'bg-status-na-bg text-status-na border-status-na/30'
+                                        : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                                    )}>
+                                    {val === 'no_aplica' ? 'N/A' : val.charAt(0).toUpperCase() + val.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Text fields — editable */}
+                        {otherFields.map(f => (
+                          <div key={f.id} className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">{f.field_label}</Label>
+                            <Input
+                              value={f.value_text ?? ''}
+                              className="h-8 text-xs"
+                              onBlur={async (e) => {
+                                if (e.target.value !== (f.value_text ?? '')) {
+                                  await supabase.from('inspection_field_values').update({ value_text: e.target.value || null, updated_by: profile?.id }).eq('id', f.id);
+                                  await fetchAll();
+                                }
+                              }}
+                              onChange={(e) => {
+                                setFieldValues(prev => prev.map(fv => fv.id === f.id ? { ...fv, value_text: e.target.value } : fv));
+                                setFieldsBySection(prev => ({
+                                  ...prev,
+                                  [sec.id]: (prev[sec.id] ?? []).map(fv => fv.id === f.id ? { ...fv, value_text: e.target.value } : fv),
+                                }));
+                              }}
+                            />
+                          </div>
+                        ))}
+
+                        {/* Observation — editable textarea */}
+                        {obsField && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Observación del inspector</Label>
+                            <Textarea
+                              value={obsField.value_text ?? ''}
+                              rows={2}
+                              className="text-xs"
+                              onBlur={async (e) => {
+                                if (e.target.value !== (obsField.value_text ?? '')) {
+                                  await supabase.from('inspection_field_values').update({ value_text: e.target.value || null, updated_by: profile?.id }).eq('id', obsField.id);
+                                  await fetchAll();
+                                }
+                              }}
+                              onChange={(e) => {
+                                setFieldValues(prev => prev.map(fv => fv.id === obsField.id ? { ...fv, value_text: e.target.value } : fv));
+                                setFieldsBySection(prev => ({
+                                  ...prev,
+                                  [sec.id]: (prev[sec.id] ?? []).map(fv => fv.id === obsField.id ? { ...fv, value_text: e.target.value } : fv),
+                                }));
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Photos — grid with view, visibility toggle, delete */}
+                        {secPhotos.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos ({secPhotos.length})</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {secPhotos.map(p => {
+                                const visible = (p as any).visible_to_owner !== false;
+                                return (
+                                  <div key={p.id} className="relative group">
+                                    <img
+                                      src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                      className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
+                                      onClick={() => setPhotoLightbox(p)}
+                                    />
+                                    <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => togglePhotoVisibility(p)}
+                                        className="p-1 rounded-md bg-background/80">
+                                        {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
+                                      </button>
+                                      <button onClick={async () => {
+                                        await supabase.from('inspection_photos').delete().eq('id', p.id);
+                                        toast({ title: 'Foto eliminada' });
+                                        await fetchAll();
+                                      }} className="p-1 rounded-md bg-background/80 text-destructive">
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </CollapsibleContent>
                     </Collapsible>
                   );
