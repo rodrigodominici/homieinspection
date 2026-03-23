@@ -182,6 +182,17 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
+        {/* Signature step overlay */}
+        {showSignature && (
+          <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">
+            <div className="max-w-md mx-auto">
+              <SignaturePad
+                onConfirm={handleSignatureConfirm}
+                onCancel={() => setShowSignature(false)}
+              />
+            </div>
+          </div>
+        )}
         {/* Property Briefing Card — read-only payload data */}
         <PropertyBriefingCard inspection={inspection} />
 
