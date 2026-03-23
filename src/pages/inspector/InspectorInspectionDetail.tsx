@@ -113,11 +113,14 @@ export default function InspectorInspectionDetail() {
 
   const handleSubmit = async () => {
     await ensureInspectionStatusConsistency(inspection.id);
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from('inspections')
       .update({
         status: 'submitted',
-        completed_at: new Date().toISOString(),
+        current_stage: 'review',
+        inspection_completed_at: now,
+        completed_at: now,
         submitted_by: profile?.id,
       })
       .eq('id', inspection.id);
