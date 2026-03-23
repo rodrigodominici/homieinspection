@@ -26,7 +26,7 @@ import { isSectionCompleted } from '@/lib/section-completion';
 import { calculateProgress } from '@/lib/inspection-utils';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
-  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem
+  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
 } from '@/lib/types';
 import {
   ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
