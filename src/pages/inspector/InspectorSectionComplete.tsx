@@ -86,6 +86,7 @@ export default function InspectorSectionComplete() {
 
   const handleChipChange = (fieldId: string, value: string) => {
     setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, value_text: value } : f));
+    setValidationError(null);
     saveField(fieldId, value);
     if (section?.status === 'not_started' || section?.status === 'needs_changes') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
