@@ -152,6 +152,13 @@ export default function InspectorSectionComplete() {
   };
 
   const handleMarkComplete = async () => {
+    const result = canCompleteSection(section?.section_type ?? '', fields);
+    if (!result.valid) {
+      setValidationError(result.reason ?? 'Completa los campos requeridos');
+      return;
+    }
+    setValidationError(null);
+
     const { error } = await supabase
       .from('inspection_sections')
       .update({ status: 'completed' })
@@ -162,7 +169,12 @@ export default function InspectorSectionComplete() {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
       if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
-      goNext();
+      // Auto-advance only if not the last section
+      if (nextSection) {
+        goNext();
+      } else {
+        navigate(`/inspector/inspection/${inspectionId}`);
+      }
     }
   };
 
