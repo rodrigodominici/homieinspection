@@ -510,9 +510,11 @@ export default function AdminInspectionDetail() {
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
+  const operationalSections = sections.filter(s => s.section_type !== 'property_meta');
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
+  const progress = calculateProgress(sections);
 
   const filteredCatalog = catalogItems.filter((i) =>
     !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
