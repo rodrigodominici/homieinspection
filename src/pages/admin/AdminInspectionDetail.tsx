@@ -202,6 +202,8 @@ export default function AdminInspectionDetail() {
           .then(r => { setReportVersions((r.data ?? []) as unknown as InspectionReportVersion[]); }),
         Promise.resolve(supabase.from('inspection_audit_log').select('*').eq('inspection_id', id).order('created_at', { ascending: false }))
           .then(r => { setAuditLog((r.data ?? []) as unknown as AuditLogEntry[]); }),
+        Promise.resolve(supabase.from('inspection_signatures').select('*').eq('inspection_id', id).order('created_at', { ascending: false }).limit(1))
+          .then(r => { setSignature((r.data?.[0] as unknown as InspectionSignature) ?? null); }),
       );
 
       if (insp.source_event_id) {
