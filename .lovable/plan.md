@@ -1,88 +1,85 @@
 
 
-# Plan: 4-Stage Workflow with Share as Final Stage
+# Plan: Fix Section Completion Logic and Inspector Flow
 
 ## Overview
 
-Replace the 10-stage vertical timeline with a strict 4-stage model (`inspection` → `review` → `budget` → `share`). Add `current_stage` and milestone timestamps to the database. Rewrite the Admin Inspection Detail stepper and stage panels. Keep `sent` in legacy data but remove it from new UI transitions.
+Centralize section completion validation into a reusable helper, fix the bottom bar UX, handle last-section finalization, and ensure submit updates `current_stage`.
 
 ---
 
-## 1. Database Migration
+## 1. New helper: `src/lib/section-completion.ts`
 
-Add columns to `inspections`:
+Create a centralized utility with:
 
-```sql
-ALTER TABLE inspections
-  ADD COLUMN current_stage text NOT NULL DEFAULT 'inspection',
-  ADD COLUMN inspection_completed_at timestamptz,
-  ADD COLUMN review_completed_at timestamptz,
-  ADD COLUMN budget_completed_at timestamptz,
-  ADD COLUMN published_at timestamptz,
-  ADD COLUMN owner_url_generated_at timestamptz;
+```typescript
+canCompleteSection(sectionType: string, fieldValues: FieldValue[]): { valid: boolean; reason?: string }
 ```
 
-No enum constraint — just a text field. Allowed new values: `inspection`, `review`, `budget`, `share`. Legacy `sent` values in `status` field remain untouched.
+**MVP rules:**
+- For standard sections: at least one `group_key === 'status'` field must have a non-null `value_text`
+- Photos: optional
+- Observations: optional
+- If no status fields exist for the section type, completion is always allowed (non-standard sections)
+
+Also export:
+```typescript
+isSectionCompleted(sectionStatus: string): boolean
+// returns true if status is 'completed' or 'reviewed'
+```
+
+This replaces scattered inline checks across components.
 
 ---
 
-## 2. Types Update (`src/lib/types.ts`)
+## 2. `InspectorSectionComplete.tsx` — Bottom bar redesign
 
-- Add `current_stage` and 5 milestone timestamp fields to `Inspection` interface
-- Keep `sent` in `InspectionStatus` for backward compatibility (legacy data)
+**Replace the current 3-button layout** (Anterior / Completar|Completada✓ / Siguiente) with:
 
----
+### If section is NOT completed:
+- Left: "Anterior" (disabled if first section)
+- Right: "Completar sección" (primary). On click:
+  1. Call `canCompleteSection()` — if invalid, show inline validation error (red text below status chips: "Selecciona un estado para continuar")
+  2. If valid, save status to `completed`, then auto-advance to next section (or navigate to detail if last)
 
-## 3. Admin Inspection Detail — Full Rewrite
+### If section IS already completed:
+- Completion badge shown in the **header** next to section title (the existing `SectionStatusBadge` already does this)
+- Left: "Anterior"
+- Right: If last section → "Finalizar inspección" (navigates to detail page). Otherwise → "Siguiente"
 
-### Replace 10-stage `STAGES` with 4 stages
-
-| Stage | Label | Completed | Current |
-|---|---|---|---|
-| `inspection` | Inspección | `inspection_completed_at` set | `current_stage === 'inspection'` |
-| `review` | Revisión | `review_completed_at` set | `current_stage === 'review'` |
-| `budget` | Presupuesto | `budget_completed_at` set | `current_stage === 'budget'` |
-| `share` | Compartir | `published_at` set | `current_stage === 'share'` |
-
-Exactly one stage is "current" at a time.
-
-### Stage action buttons
-
-- **Inspection**: "Completar inspección" → `current_stage='review'`, `inspection_completed_at=now()`, `status='in_review'`
-- **Review**: "Completar revisión" → `current_stage='budget'`, `review_completed_at=now()`
-- **Budget**: "Completar presupuesto" → `current_stage='share'`, `budget_completed_at=now()`
-- **Share**: Two internal views:
-  - **Pre-publish**: Shows report preview summary, "Publicar y generar URL" button. On click: creates report version, sets `published_at`, `owner_url_generated_at`, `status='published'`.
-  - **Post-publish**: Shows green "Publicado" confirmation, generated URL, copy link button, open report link, version info. Optional "Republicar" action for future use.
-
-### Remove from new UI
-
-- `handleMarkSent` function
-- `sent` from `ALL_STATUSES` array (force advance options)
-- All 10 old stage definitions
-- Old `owner_url` and `sent` stage entries
-
-### Keep
-
-- Top summary bar
-- Admin actions bar (assignments, schedule, force advance — without `sent` option)
-- Detail tabs (Payload, Inspección, Revisión, Presupuesto)
-- Audit log panel
-- `sent` stays in `InspectionStatus` type and `STATUS_ORDER` for backward compat with legacy data display
-
-### Status sync on stage advancement
-
-When `current_stage` changes, also update `status`:
-- `inspection` → keeps current status (assigned/in_progress)
-- `review` → `status = 'in_review'`
-- `budget` → keeps `in_review`
-- `share` (on publish) → `status = 'published'`
+### Validation feedback:
+- Add a `validationError` state string
+- Clear it when a status chip is selected
+- Show it inline below the status chips card when set
 
 ---
 
-## 4. Executive Review Detail — Minor alignment
+## 3. `InspectorInspectionDetail.tsx` — Bottom CTA and submit logic
 
-Remove any `sent`-related logic from new transitions. Ensure publish sets `status = 'published'` (not `sent`). No stage stepper added to executive view.
+### Bottom bar:
+- If `allCompleted` → show only "Revisar y enviar" as primary CTA (triggers submit dialog)
+- If not all completed → show "Continuar Inspección" / "Iniciar Inspección" as today
+
+### Submit handler update:
+Add `current_stage` and `inspection_completed_at` to the update:
+```typescript
+await supabase.from('inspections').update({
+  status: 'submitted',
+  current_stage: 'review',
+  inspection_completed_at: new Date().toISOString(),
+  completed_at: new Date().toISOString(),
+  submitted_by: profile?.id,
+}).eq('id', inspection.id);
+```
+
+---
+
+## 4. Progress and status consistency
+
+- `calculateProgress` already filters by `is_visible` — no change needed
+- `allCompleted` in detail page already uses `progress.completed === progress.total` — correct
+- The `ensureInspectionStatusConsistency` guard already auto-transitions stale statuses to `in_progress` — correct
+- Green progress bar at 100% already implemented — keep as-is
 
 ---
 
@@ -90,10 +87,9 @@ Remove any `sent`-related logic from new transitions. Ensure publish sets `statu
 
 | Action | File |
 |---|---|
-| Migration | Add `current_stage` + 5 timestamp columns to `inspections` |
-| Edit | `src/lib/types.ts` — add new fields to Inspection |
-| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` — 4-stage stepper with pre/post-publish Share |
-| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` — remove `sent` from new transitions |
+| Create | `src/lib/section-completion.ts` — `canCompleteSection()` + `isSectionCompleted()` |
+| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` — new bottom bar, inline validation, last-section handling |
+| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — conditional CTA, submit updates `current_stage` |
 
-4 changes total.
+3 changes total.
 
