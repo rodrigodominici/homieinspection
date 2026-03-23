@@ -1,12 +1,11 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function Index() {
   const { session, profile, loading, profileLoading } = useAuth();
 
-  // Initial auth check
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -15,10 +14,8 @@ export default function Index() {
     );
   }
 
-  // Not authenticated
   if (!session) return <Navigate to="/auth" replace />;
 
-  // Profile is still being fetched after auth resolved
   if (profileLoading || (!profile && !profileLoading && loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -32,16 +29,18 @@ export default function Index() {
     );
   }
 
-  // Profile is missing or has no role
-  if (!profile || !profile.role) {
+  // Pending approval or no profile
+  if (!profile || profile.role === 'pending' || profile.approval_status !== 'approved') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <Card className="w-full max-w-sm border-0 ring-1 ring-border/50 shadow-lg">
           <CardContent className="py-8 flex flex-col items-center gap-3 text-center">
-            <AlertCircle className="h-8 w-8 text-status-regular" />
-            <p className="font-medium">Tu cuenta existe pero aún no tiene un rol asignado.</p>
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-status-regular-bg">
+              <span className="text-xl">⏳</span>
+            </div>
+            <p className="font-medium">Tu cuenta está pendiente de aprobación</p>
             <p className="text-sm text-muted-foreground">
-              Contacta al administrador para que te asigne un rol.
+              Un administrador revisará tu solicitud y te asignará un rol.
             </p>
           </CardContent>
         </Card>
@@ -49,7 +48,6 @@ export default function Index() {
     );
   }
 
-  // Redirect by role
   switch (profile.role) {
     case 'admin':
       return <Navigate to="/admin" replace />;
