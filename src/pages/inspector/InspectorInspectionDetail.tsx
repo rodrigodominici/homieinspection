@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { isSectionCompleted } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import {
   AlertDialog,
@@ -112,11 +113,14 @@ export default function InspectorInspectionDetail() {
 
   const handleSubmit = async () => {
     await ensureInspectionStatusConsistency(inspection.id);
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from('inspections')
       .update({
         status: 'submitted',
-        completed_at: new Date().toISOString(),
+        current_stage: 'review',
+        inspection_completed_at: now,
+        completed_at: now,
         submitted_by: profile?.id,
       })
       .eq('id', inspection.id);
@@ -164,8 +168,8 @@ export default function InspectorInspectionDetail() {
         <div className="space-y-2">
           <h3 className="text-caption font-medium text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {
-            const isCompleted = section.status === 'completed' || section.status === 'reviewed';
-            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => s.status === 'completed' || s.status === 'reviewed'));
+            const isCompleted = isSectionCompleted(section.status);
+            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
             return (
               <button
                 key={section.id}
@@ -203,34 +207,32 @@ export default function InspectorInspectionDetail() {
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        <div className="space-y-2">
+        {allCompleted && canSubmit ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button className="w-full h-12 rounded-xl text-body bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" size="lg">
+                <Send className="mr-2 h-5 w-5" /> Revisar y enviar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
           <Button onClick={handleStart} className="w-full h-12 rounded-xl text-body" size="lg">
             <ArrowRight className="mr-2 h-5 w-5" />
             {inspection.status === 'assigned' ? 'Iniciar Inspección' : 'Continuar Inspección'}
           </Button>
-
-          {canSubmit && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full h-10 rounded-xl text-caption" size="sm">
-                  <Send className="mr-2 h-4 w-4" /> Enviar para Revisión
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

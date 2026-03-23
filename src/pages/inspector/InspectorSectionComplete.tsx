@@ -21,10 +21,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { canCompleteSection, isSectionCompleted } from '@/lib/section-completion';
 
 export default function InspectorSectionComplete() {
   const { id: inspectionId, sectionId } = useParams<{ id: string; sectionId: string }>();
@@ -40,6 +41,7 @@ export default function InspectorSectionComplete() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function InspectorSectionComplete() {
 
   const handleChipChange = (fieldId: string, value: string) => {
     setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, value_text: value } : f));
+    setValidationError(null);
     saveField(fieldId, value);
     if (section?.status === 'not_started' || section?.status === 'needs_changes') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
@@ -149,6 +152,13 @@ export default function InspectorSectionComplete() {
   };
 
   const handleMarkComplete = async () => {
+    const result = canCompleteSection(section?.section_type ?? '', fields);
+    if (!result.valid) {
+      setValidationError(result.reason ?? 'Completa los campos requeridos');
+      return;
+    }
+    setValidationError(null);
+
     const { error } = await supabase
       .from('inspection_sections')
       .update({ status: 'completed' })
@@ -159,7 +169,12 @@ export default function InspectorSectionComplete() {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
       if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
-      goNext();
+      // Auto-advance only if not the last section
+      if (nextSection) {
+        goNext();
+      } else {
+        navigate(`/inspector/inspection/${inspectionId}`);
+      }
     }
   };
 
@@ -299,6 +314,13 @@ export default function InspectorSectionComplete() {
           );
         })}
 
+        {/* Inline validation error for status chips */}
+        {validationError && (
+          <div className="flex items-center gap-2 px-1">
+            <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+            <p className="text-caption text-destructive font-medium">{validationError}</p>
+          </div>
+        )}
         {/* Technical fields */}
         {technicalFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
@@ -422,39 +444,46 @@ export default function InspectorSectionComplete() {
 
       {/* Sticky bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t space-y-2">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={goPrev}
-            disabled={!prevSection}
-            className="flex-1 h-12 rounded-xl"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
-          </Button>
+        {(() => {
+          const completed = isSectionCompleted(section.status);
+          const isLast = !nextSection;
+          return (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={goPrev}
+                  disabled={!prevSection}
+                  className="flex-1 h-12 rounded-xl"
+                >
+                  <ArrowLeft className="mr-1 h-4 w-4" /> Anterior
+                </Button>
 
-          <Button
-            className="flex-1 h-12 rounded-xl"
-            variant={section.status === 'completed' ? 'secondary' : 'default'}
-            onClick={section.status !== 'completed' ? handleMarkComplete : undefined}
-          >
-            <Check className="mr-1 h-4 w-4" />
-            {section.status === 'completed' ? 'Completada ✓' : 'Completar'}
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={goNext}
-            disabled={!nextSection}
-            className="flex-1 h-12 rounded-xl"
-          >
-            Siguiente <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
-        <div className="text-center text-tiny text-muted-foreground">
-          {saveStatus === 'saving' && <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</span>}
-          {saveStatus === 'saved' && <span className="text-status-good">✓ Guardado</span>}
-          {saveStatus === 'error' && <span className="text-destructive">Error al guardar</span>}
-        </div>
+                {!completed ? (
+                  <Button
+                    className="flex-1 h-12 rounded-xl"
+                    onClick={handleMarkComplete}
+                  >
+                    Completar sección
+                  </Button>
+                ) : (
+                  <Button
+                    className="flex-1 h-12 rounded-xl"
+                    onClick={isLast ? () => navigate(`/inspector/inspection/${inspectionId}`) : goNext}
+                  >
+                    {isLast ? 'Finalizar inspección' : 'Siguiente'}
+                    {!isLast && <ArrowRight className="ml-1 h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+              <div className="text-center text-tiny text-muted-foreground">
+                {saveStatus === 'saving' && <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</span>}
+                {saveStatus === 'saved' && <span className="text-status-good">✓ Guardado</span>}
+                {saveStatus === 'error' && <span className="text-destructive">Error al guardar</span>}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
