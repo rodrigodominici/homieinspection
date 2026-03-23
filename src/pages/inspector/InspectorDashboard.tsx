@@ -55,9 +55,9 @@ export default function InspectorDashboard() {
         (inspData as unknown as Inspection[]).map(async (insp) => {
           const { data: sections } = await supabase
             .from('inspection_sections')
-            .select('id, status, is_visible')
+            .select('id, status, is_visible, section_type')
             .eq('inspection_id', insp.id);
-          const secs = (sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible'>[];
+          const secs = (sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[];
           const progress = calculateProgress(secs);
 
           if (progress.completed > 0 && ['pending', 'assigned', 'pending_assignment'].includes(insp.status)) {

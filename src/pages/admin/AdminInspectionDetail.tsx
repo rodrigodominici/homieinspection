@@ -21,7 +21,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
+import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted } from '@/lib/section-completion';
+import { calculateProgress } from '@/lib/inspection-utils';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem

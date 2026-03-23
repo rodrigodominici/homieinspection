@@ -10,6 +10,9 @@ import type { InspectionSection } from './types';
 
 const COMPLETED_STATUSES = new Set(['completed', 'reviewed']);
 
+/** Section types that are contextual / non-operational and must NOT count toward progress. */
+const NON_OPERATIONAL_TYPES = new Set(['property_meta']);
+
 export interface ProgressResult {
   total: number;
   completed: number;
@@ -17,22 +20,22 @@ export interface ProgressResult {
 }
 
 /**
- * Calculate inspection progress from visible sections.
+ * Calculate inspection progress from visible **operational** sections.
  *
- * Only sections whose `is_visible` flag is true are counted.
+ * Sections whose `section_type` is in `NON_OPERATIONAL_TYPES` (e.g. `property_meta`)
+ * are excluded — they represent contextual data, not inspector work.
+ *
  * A section counts as "completed" when its status is either
  * `completed` or `reviewed`.
- *
- * Statuses that do NOT count as completed:
- * - not_started
- * - assigned
- * - in_progress
- * - needs_changes
  */
-export function calculateProgress(sections: Pick<InspectionSection, 'status' | 'is_visible'>[]): ProgressResult {
-  const visible = sections.filter((s) => s.is_visible);
-  const total = visible.length;
-  const completed = visible.filter((s) => COMPLETED_STATUSES.has(s.status)).length;
+export function calculateProgress(
+  sections: Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]
+): ProgressResult {
+  const operational = sections.filter(
+    (s) => s.is_visible && !NON_OPERATIONAL_TYPES.has(s.section_type)
+  );
+  const total = operational.length;
+  const completed = operational.filter((s) => COMPLETED_STATUSES.has(s.status)).length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { total, completed, percent };
 }
