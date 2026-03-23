@@ -21,10 +21,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { canCompleteSection, isSectionCompleted } from '@/lib/section-completion';
 
 export default function InspectorSectionComplete() {
   const { id: inspectionId, sectionId } = useParams<{ id: string; sectionId: string }>();
