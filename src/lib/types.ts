@@ -1,6 +1,6 @@
 // Core domain types for Homie Inspection
 
-export type UserRole = 'admin' | 'inspector' | 'executive';
+export type UserRole = 'admin' | 'inspector' | 'executive' | 'pending';
 
 export type InspectionStatus =
   | 'pending'
@@ -54,9 +54,23 @@ export interface Profile {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  approval_status?: string;
   market: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InspectionSignature {
+  id: string;
+  inspection_id: string;
+  signer_type: string;
+  signer_name: string | null;
+  signature_data: string | null;
+  signature_status: 'signed' | 'refused' | 'unavailable';
+  skip_reason: string | null;
+  signed_at: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export type WorkflowStage = 'inspection' | 'review' | 'budget' | 'share';

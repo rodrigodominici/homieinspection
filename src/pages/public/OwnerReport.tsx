@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Building, Calendar, FileText, DollarSign } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ReportPayload {
   property: {
@@ -38,6 +36,13 @@ interface ReportPayload {
   published_at: string;
 }
 
+/* Lightweight CSS shimmer — avoids importing Skeleton component */
+function Shimmer({ className }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded-xl bg-muted ${className ?? ''}`} />
+  );
+}
+
 export default function OwnerReport() {
   const { propertyId, token } = useParams<{ propertyId: string; token: string }>();
   const [report, setReport] = useState<ReportPayload | null>(null);
@@ -60,13 +65,23 @@ export default function OwnerReport() {
     fetch();
   }, [propertyId, token]);
 
+  // Memoized derived data
+  const sectionsWithObservations = useMemo(
+    () => report?.sections.filter((s) => s.final_observation || s.photos.length > 0) ?? [],
+    [report]
+  );
+  const sectionsWithRepairs = useMemo(
+    () => report?.sections.filter((s) => s.repairs.length > 0) ?? [],
+    [report]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto p-6 space-y-4">
-          <Skeleton className="h-12 w-48" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Shimmer className="h-12 w-48" />
+          <Shimmer className="h-32" />
+          <Shimmer className="h-64" />
         </div>
       </div>
     );
@@ -86,9 +101,7 @@ export default function OwnerReport() {
     );
   }
 
-  const { property, sections, budget_total, published_at } = report;
-  const sectionsWithRepairs = sections.filter((s) => s.repairs.length > 0);
-  const sectionsWithObservations = sections.filter((s) => s.final_observation || s.photos.length > 0);
+  const { property, budget_total, published_at } = report;
 
   return (
     <div className="min-h-screen bg-background">
@@ -147,8 +160,15 @@ export default function OwnerReport() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {section.photos.map((photo) => (
                           <div key={photo.id} className="space-y-1">
-                            <img src={photo.url ?? ''} alt={photo.caption ?? ''}
-                              className="aspect-square rounded-xl object-cover w-full" loading="lazy" />
+                            <img
+                              src={photo.url ?? ''}
+                              alt={photo.caption ?? ''}
+                              className="aspect-square rounded-xl object-cover w-full"
+                              loading="lazy"
+                              decoding="async"
+                              width={400}
+                              height={400}
+                            />
                             {photo.caption && <p className="text-tiny text-muted-foreground">{photo.caption}</p>}
                           </div>
                         ))}

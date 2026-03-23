@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;          // true during initial auth check
   profileLoading: boolean;   // true while fetching profile after auth resolves
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -81,12 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
+  const signUp = async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, role },
+        data: { full_name: fullName, role: 'pending' },
       },
     });
     if (error) throw error;

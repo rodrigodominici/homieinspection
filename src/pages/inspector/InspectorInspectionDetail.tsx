@@ -12,6 +12,7 @@ import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import { isSectionCompleted } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
+import SignaturePad from '@/components/SignaturePad';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ export default function InspectorInspectionDetail() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSignature, setShowSignature] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -111,8 +113,29 @@ export default function InspectorInspectionDetail() {
     }
   };
 
-  const handleSubmit = async () => {
-    await ensureInspectionStatusConsistency(inspection.id);
+  const handleSignatureConfirm = async (data: {
+    signature_data: string | null;
+    signature_status: 'signed' | 'refused' | 'unavailable';
+    signer_name: string;
+    skip_reason: string | null;
+  }) => {
+    // Delete previous signature if exists (one active per inspection)
+    await supabase.from('inspection_signatures').delete().eq('inspection_id', inspection!.id);
+    await supabase.from('inspection_signatures').insert({
+      inspection_id: inspection!.id,
+      signer_name: data.signer_name || null,
+      signature_data: data.signature_data,
+      signature_status: data.signature_status,
+      skip_reason: data.skip_reason,
+      created_by: profile?.id,
+    });
+    setShowSignature(false);
+    // Now submit
+    await doSubmit();
+  };
+
+  const doSubmit = async () => {
+    await ensureInspectionStatusConsistency(inspection!.id);
     const now = new Date().toISOString();
     const { error } = await supabase
       .from('inspections')
@@ -123,13 +146,18 @@ export default function InspectorInspectionDetail() {
         completed_at: now,
         submitted_by: profile?.id,
       })
-      .eq('id', inspection.id);
+      .eq('id', inspection!.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
       navigate('/inspector');
     }
+  };
+
+  const handleSubmit = async () => {
+    // Show signature step first
+    setShowSignature(true);
   };
 
   return (
@@ -146,6 +174,17 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
+        {/* Signature step overlay */}
+        {showSignature && (
+          <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">
+            <div className="max-w-md mx-auto">
+              <SignaturePad
+                onConfirm={handleSignatureConfirm}
+                onCancel={() => setShowSignature(false)}
+              />
+            </div>
+          </div>
+        )}
         {/* Property Briefing Card — read-only payload data */}
         <PropertyBriefingCard inspection={inspection} />
 
