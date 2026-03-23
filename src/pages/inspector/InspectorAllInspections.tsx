@@ -26,8 +26,8 @@ export default function InspectorAllInspections() {
       const withProgress = await Promise.all(
         (data as unknown as Inspection[]).map(async (insp) => {
           const { data: sections } = await supabase
-            .from('inspection_sections').select('id, status, is_visible').eq('inspection_id', insp.id);
-          const progress = calculateProgress((sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible'>[]);
+            .from('inspection_sections').select('id, status, is_visible, section_type').eq('inspection_id', insp.id);
+          const progress = calculateProgress((sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]);
           return { ...insp, totalSections: progress.total, completedSections: progress.completed };
         })
       );

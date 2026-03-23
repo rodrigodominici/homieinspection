@@ -21,7 +21,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
+import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted } from '@/lib/section-completion';
+import { calculateProgress } from '@/lib/inspection-utils';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem
@@ -508,9 +510,11 @@ export default function AdminInspectionDetail() {
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
+  const operationalSections = sections.filter(s => s.section_type !== 'property_meta');
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
+  const progress = calculateProgress(sections);
 
   const filteredCatalog = catalogItems.filter((i) =>
     !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
@@ -811,6 +815,9 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
+        {/* ─── Property Briefing Card ─── */}
+        <PropertyBriefingCard inspection={inspection} />
+
         {/* ─── Detail Tabs ─── */}
         <Tabs defaultValue="inspection" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto">
@@ -850,11 +857,11 @@ export default function AdminInspectionDetail() {
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base">Secciones ({sections.length})</CardTitle>
+                <CardTitle className="text-base">Secciones ({operationalSections.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
-                {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
-                {sections.map((sec, idx) => {
+                {operationalSections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
+                {operationalSections.map((sec, idx) => {
                   const secFields = fieldsBySection[sec.id] ?? [];
                   const secPhotos = (photosBySection[sec.id] ?? []);
                   const completed = isSectionCompleted(sec.status);
@@ -896,12 +903,12 @@ export default function AdminInspectionDetail() {
           {/* ── Review tab — full executive capabilities ── */}
           <TabsContent value="review">
             <div className="space-y-4">
-              {sections.length === 0 && (
+              {operationalSections.length === 0 && (
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardContent className="p-4"><p className="text-sm text-muted-foreground">No hay secciones.</p></CardContent>
                 </Card>
               )}
-              {sections.map(section => {
+              {operationalSections.map(section => {
                 const sFields = fieldsBySection[section.id] ?? [];
                 const sPhotos = photosBySection[section.id] ?? [];
                 const sReviews = reviewsBySection[section.id] ?? [];
@@ -1030,7 +1037,7 @@ export default function AdminInspectionDetail() {
               </Card>
 
               {/* Per-section budget */}
-              {sections.map(section => {
+              {operationalSections.map(section => {
                 const sRepairs = repairsBySection[section.id] ?? [];
                 const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
 
