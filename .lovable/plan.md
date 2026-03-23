@@ -1,85 +1,82 @@
 
 
-# Plan: Fix Section Completion Logic and Inspector Flow
+# Plan: Admin Full Workflow Control + Delete + Progress Fix
 
 ## Overview
 
-Centralize section completion validation into a reusable helper, fix the bottom bar UX, handle last-section finalization, and ensure submit updates `current_stage`.
+Upgrade the Admin Inspection Detail to support full end-to-end workflow execution (matching executive capabilities), add inspection deletion, and fix the false progress calculation.
 
 ---
 
-## 1. New helper: `src/lib/section-completion.ts`
+## 1. Fix false progress in Admin Inspection tab (lines 654-658)
 
-Create a centralized utility with:
+**Root cause**: The admin calculates section progress as `filled fields / total fields` where `filled = fields with value_text or value_json`. Pre-generated fields have default values, so newly created inspections show non-zero progress.
 
-```typescript
-canCompleteSection(sectionType: string, fieldValues: FieldValue[]): { valid: boolean; reason?: string }
-```
-
-**MVP rules:**
-- For standard sections: at least one `group_key === 'status'` field must have a non-null `value_text`
-- Photos: optional
-- Observations: optional
-- If no status fields exist for the section type, completion is always allowed (non-standard sections)
-
-Also export:
-```typescript
-isSectionCompleted(sectionStatus: string): boolean
-// returns true if status is 'completed' or 'reviewed'
-```
-
-This replaces scattered inline checks across components.
+**Fix**: Replace the per-section field-counting progress with section-level completion status. Use `isSectionCompleted(sec.status)` from `section-completion.ts`. Show `0%` / `Pendiente` for sections that haven't been explicitly completed. Remove the per-field progress bar from the section collapsible — show only the section status badge.
 
 ---
 
-## 2. `InspectorSectionComplete.tsx` — Bottom bar redesign
+## 2. Add executive-like review/budget capabilities to Admin
 
-**Replace the current 3-button layout** (Anterior / Completar|Completada✓ / Siguiente) with:
+Port the executive's per-section editing capabilities into the Admin's **Revisión** and **Presupuesto** tabs:
 
-### If section is NOT completed:
-- Left: "Anterior" (disabled if first section)
-- Right: "Completar sección" (primary). On click:
-  1. Call `canCompleteSection()` — if invalid, show inline validation error (red text below status chips: "Selecciona un estado para continuar")
-  2. If valid, save status to `completed`, then auto-advance to next section (or navigate to detail if last)
+### Revisión tab — per section:
+- Show inspector's field values (read-only summary)
+- Internal note textarea + save button
+- Final observation textarea + save button
+- Photo thumbnails with visibility toggle (eye icon)
+- Existing review comments list
 
-### If section IS already completed:
-- Completion badge shown in the **header** next to section title (the existing `SectionStatusBadge` already does this)
-- Left: "Anterior"
-- Right: If last section → "Finalizar inspección" (navigates to detail page). Otherwise → "Siguiente"
+### Presupuesto tab — per section:
+- "Agregar reparación" button → opens catalog sheet
+- List of repair items with inline-editable quantity, price, notes
+- Delete repair item button
+- Visibility toggle per item
+- Section subtotal + grand total
 
-### Validation feedback:
-- Add a `validationError` state string
-- Clear it when a status chip is selected
-- Show it inline below the status chips card when set
+### Implementation approach:
+Reuse the same Supabase calls already in `ExecutiveReviewDetail.tsx` (save internal note, save final observation, toggle photo visibility, catalog sheet, add/update/delete repair items). Copy the logic into `AdminInspectionDetail.tsx` since admin already has full RLS access.
 
----
+### New state variables needed:
+- `internalNotes: Record<string, string>`
+- `finalObservations: Record<string, string>`
+- `savingField: string | null`
+- `catalogOpen`, `catalogSearch`, `catalogItems`, `catalogSectionId`
+- `repairsBySection` (reorganize existing flat `repairItems`)
 
-## 3. `InspectorInspectionDetail.tsx` — Bottom CTA and submit logic
-
-### Bottom bar:
-- If `allCompleted` → show only "Revisar y enviar" as primary CTA (triggers submit dialog)
-- If not all completed → show "Continuar Inspección" / "Iniciar Inspección" as today
-
-### Submit handler update:
-Add `current_stage` and `inspection_completed_at` to the update:
-```typescript
-await supabase.from('inspections').update({
-  status: 'submitted',
-  current_stage: 'review',
-  inspection_completed_at: new Date().toISOString(),
-  completed_at: new Date().toISOString(),
-  submitted_by: profile?.id,
-}).eq('id', inspection.id);
-```
+### New functions:
+- `saveInternalNote(sectionId)`
+- `saveFinalObservation(sectionId)`
+- `togglePhotoVisibility(photo)`
+- `openCatalog(sectionId)`
+- `addRepairFromCatalog(item)`
+- `updateRepairItem(id, field, value)`
+- `deleteRepairItem(id)`
 
 ---
 
-## 4. Progress and status consistency
+## 3. Add delete inspection capability
 
-- `calculateProgress` already filters by `is_visible` — no change needed
-- `allCompleted` in detail page already uses `progress.completed === progress.total` — correct
-- The `ensureInspectionStatusConsistency` guard already auto-transitions stale statuses to `in_progress` — correct
-- Green progress bar at 100% already implemented — keep as-is
+### UI:
+- Add a "Eliminar inspección" danger button in the Admin Actions bar
+- Wrapped in an `AlertDialog` with:
+  - Title: "¿Eliminar esta inspección?"
+  - Description: warns about cascading data removal
+  - Cancel + destructive Confirm button
+
+### Implementation:
+- Delete related records in order (field_values, photos, reviews, repair_items, sections, audit_log, report_versions, then the inspection itself)
+- On success, navigate back to `/admin/inspections`
+- Log is not needed since the inspection itself is being deleted
+
+### Database:
+No migration needed — admin has full RLS access. Cascade deletes are done via ordered delete statements (no FK cascades are set up, so we delete manually).
+
+---
+
+## 4. Reorganize data loading
+
+Restructure `fetchAll` to also group data by section (matching executive pattern) so the review/budget tabs can render per-section data efficiently. Initialize `finalObservations` and `internalNotes` state from loaded data.
 
 ---
 
@@ -87,9 +84,7 @@ await supabase.from('inspections').update({
 
 | Action | File |
 |---|---|
-| Create | `src/lib/section-completion.ts` — `canCompleteSection()` + `isSectionCompleted()` |
-| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` — new bottom bar, inline validation, last-section handling |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — conditional CTA, submit updates `current_stage` |
+| Rewrite | `src/pages/admin/AdminInspectionDetail.tsx` — add executive capabilities, delete, fix progress |
 
-3 changes total.
+1 file change.
 
