@@ -857,11 +857,11 @@ export default function AdminInspectionDetail() {
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base">Secciones ({sections.length})</CardTitle>
+                <CardTitle className="text-base">Secciones ({operationalSections.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
-                {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
-                {sections.map((sec, idx) => {
+                {operationalSections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
+                {operationalSections.map((sec, idx) => {
                   const secFields = fieldsBySection[sec.id] ?? [];
                   const secPhotos = (photosBySection[sec.id] ?? []);
                   const completed = isSectionCompleted(sec.status);
