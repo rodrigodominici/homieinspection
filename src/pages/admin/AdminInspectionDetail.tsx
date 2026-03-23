@@ -822,6 +822,35 @@ export default function AdminInspectionDetail() {
         {/* ─── Property Briefing Card ─── */}
         <PropertyBriefingCard inspection={inspection} />
 
+        {/* ─── Signature Status ─── */}
+        {signature && (
+          <Card className="border-0 ring-1 ring-border shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Firma del Inquilino</p>
+              {signature.signature_status === 'signed' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium bg-status-good-bg text-status-good">Firmado</span>
+                    {signature.signer_name && <span className="text-caption">{signature.signer_name}</span>}
+                  </div>
+                  {signature.signature_data && (
+                    <img src={signature.signature_data} alt="Firma" className="h-20 rounded-lg border bg-white" />
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium',
+                    signature.signature_status === 'refused' ? 'bg-status-bad-bg text-status-bad' : 'bg-status-regular-bg text-status-regular'
+                  )}>
+                    {signature.signature_status === 'refused' ? 'Se negó a firmar' : 'No disponible'}
+                  </span>
+                  {signature.skip_reason && <p className="text-caption text-muted-foreground">{signature.skip_reason}</p>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* ─── Detail Tabs ─── */}
         <Tabs defaultValue="inspection" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto">
