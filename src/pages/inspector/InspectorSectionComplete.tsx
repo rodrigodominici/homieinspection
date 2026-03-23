@@ -314,6 +314,13 @@ export default function InspectorSectionComplete() {
           );
         })}
 
+        {/* Inline validation error for status chips */}
+        {validationError && (
+          <div className="flex items-center gap-2 px-1">
+            <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+            <p className="text-caption text-destructive font-medium">{validationError}</p>
+          </div>
+        )}
         {/* Technical fields */}
         {technicalFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
