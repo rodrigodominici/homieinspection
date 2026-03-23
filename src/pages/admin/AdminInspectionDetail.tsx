@@ -6,23 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
+import { isSectionCompleted } from '@/lib/section-completion';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
-  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage
+  InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem
 } from '@/lib/types';
 import {
   ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
-  AlertTriangle, Package, Eye, History, FileText, Shield, DollarSign,
-  ExternalLink, Share2, CheckCircle2, Link2
+  AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
+  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -42,7 +49,6 @@ function stageIndex(s: WorkflowStage) {
   return STAGE_ORDER.indexOf(s);
 }
 
-/* ─── Status constants (for force advance / legacy) ─── */
 const ALL_STATUSES = [
   'pending_assignment', 'assigned', 'in_progress', 'submitted',
   'in_review', 'needs_changes', 'approved', 'published',
@@ -57,6 +63,16 @@ interface AuditLogEntry {
   performed_by: string | null;
   note: string | null;
   created_at: string;
+}
+
+/* ─── groupBy helper ─── */
+function groupBy<T extends { inspection_section_id: string }>(arr: T[]): Record<string, T[]> {
+  const map: Record<string, T[]> = {};
+  for (const item of arr) {
+    if (!map[item.inspection_section_id]) map[item.inspection_section_id] = [];
+    map[item.inspection_section_id].push(item);
+  }
+  return map;
 }
 
 /* ─── Main component ─── */
@@ -79,6 +95,12 @@ export default function AdminInspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Grouped data for review/budget tabs
+  const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
+  const [photosBySection, setPhotosBySection] = useState<Record<string, InspectionPhoto[]>>({});
+  const [reviewsBySection, setReviewsBySection] = useState<Record<string, InspectionReview[]>>({});
+  const [repairsBySection, setRepairsBySection] = useState<Record<string, InspectionRepairItem[]>>({});
+
   // Editable fields
   const [editInspector, setEditInspector] = useState('');
   const [editExecutive, setEditExecutive] = useState('');
@@ -91,6 +113,20 @@ export default function AdminInspectionDetail() {
 
   // Publish state
   const [publishing, setPublishing] = useState(false);
+
+  // Delete state
+  const [deleting, setDeleting] = useState(false);
+
+  // Review/budget editing state (executive capabilities)
+  const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
+  const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
+  const [savingField, setSavingField] = useState<string | null>(null);
+
+  // Catalog drawer
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogItems, setCatalogItems] = useState<RepairCatalogItem[]>([]);
+  const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
@@ -112,22 +148,52 @@ export default function AdminInspectionDetail() {
       setEditExecutive(insp.executive_id ?? '');
       setEditScheduledAt(insp.scheduled_at ? insp.scheduled_at.slice(0, 16) : '');
 
+      // Init final observations
+      const obsMap: Record<string, string> = {};
+      secs.forEach((s) => { obsMap[s.id] = s.final_observation ?? ''; });
+      setFinalObservations(obsMap);
+
       const promises: Promise<void>[] = [];
+      const secIds = secs.map(s => s.id);
 
       if (secs.length > 0) {
         promises.push(
           Promise.resolve(supabase.from('inspection_field_values').select('*').eq('inspection_id', id).order('sort_order'))
-            .then(r => { setFieldValues((r.data ?? []) as unknown as InspectionFieldValue[]); }),
+            .then(r => {
+              const fvs = (r.data ?? []) as unknown as InspectionFieldValue[];
+              setFieldValues(fvs);
+              setFieldsBySection(groupBy(fvs));
+            }),
           Promise.resolve(supabase.from('inspection_photos').select('*').eq('inspection_id', id).order('sort_order'))
-            .then(r => { setPhotos((r.data ?? []) as unknown as InspectionPhoto[]); }),
+            .then(r => {
+              const ps = (r.data ?? []) as unknown as InspectionPhoto[];
+              setPhotos(ps);
+              setPhotosBySection(groupBy(ps));
+            }),
           Promise.resolve(supabase.from('inspection_reviews').select('*').eq('inspection_id', id).order('created_at', { ascending: false }))
-            .then(r => { setReviews((r.data ?? []) as unknown as InspectionReview[]); }),
+            .then(r => {
+              const rvs = (r.data ?? []) as unknown as InspectionReview[];
+              setReviews(rvs);
+              setReviewsBySection(groupBy(rvs));
+              // Init internal notes
+              const notesMap: Record<string, string> = {};
+              for (const rv of rvs) {
+                if (rv.comment_type === 'internal_note' && !notesMap[rv.inspection_section_id]) {
+                  notesMap[rv.inspection_section_id] = rv.comment;
+                }
+              }
+              setInternalNotes(notesMap);
+            }),
         );
       }
 
       promises.push(
         Promise.resolve(supabase.from('inspection_repair_items').select('*').eq('inspection_id', id).order('sort_order'))
-          .then(r => { setRepairItems((r.data ?? []) as unknown as InspectionRepairItem[]); }),
+          .then(r => {
+            const rps = (r.data ?? []) as unknown as InspectionRepairItem[];
+            setRepairItems(rps);
+            setRepairsBySection(groupBy(rps));
+          }),
         Promise.resolve(supabase.from('inspection_report_versions').select('*').eq('inspection_id', id).order('version_number', { ascending: false }))
           .then(r => { setReportVersions((r.data ?? []) as unknown as InspectionReportVersion[]); }),
         Promise.resolve(supabase.from('inspection_audit_log').select('*').eq('inspection_id', id).order('created_at', { ascending: false }))
@@ -222,12 +288,34 @@ export default function AdminInspectionDetail() {
     setSaving(false);
   };
 
+  /* ─── Delete inspection ─── */
+  const handleDelete = async () => {
+    if (!inspection) return;
+    setDeleting(true);
+    try {
+      // Delete related records in order (no FK cascades)
+      await supabase.from('inspection_field_values').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_photos').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_reviews').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_repair_items').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_report_versions').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_audit_log').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_sections').delete().eq('inspection_id', inspection.id);
+      const { error } = await supabase.from('inspections').delete().eq('id', inspection.id);
+      if (error) throw error;
+      toast({ title: 'Inspección eliminada' });
+      navigate('/admin/inspections');
+    } catch (err: any) {
+      toast({ title: 'Error al eliminar', description: err.message, variant: 'destructive' });
+    }
+    setDeleting(false);
+  };
+
   /* ─── Publish ─── */
   const handlePublish = async () => {
     if (!inspection) return;
     setPublishing(true);
 
-    // Build normalized payload
     const visibleRepairs = repairItems.filter(r => r.visible_to_owner);
     const visiblePhotos = photos.filter((p: any) => p.visible_to_owner !== false);
 
@@ -245,7 +333,7 @@ export default function AdminInspectionDetail() {
         id: s.id,
         title: s.section_title,
         type: s.section_type,
-        final_observation: s.final_observation,
+        final_observation: finalObservations[s.id]?.trim() || s.final_observation || null,
         photos: visiblePhotos
           .filter(p => p.inspection_section_id === s.id)
           .map(p => ({ id: p.id, url: p.public_url, caption: p.caption })),
@@ -265,7 +353,6 @@ export default function AdminInspectionDetail() {
       published_at: new Date().toISOString(),
     };
 
-    // Get next version
     const { data: existing } = await supabase
       .from('inspection_report_versions')
       .select('version_number')
@@ -274,10 +361,8 @@ export default function AdminInspectionDetail() {
       .limit(1);
     const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
 
-    // Set previous versions to not latest
     await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
 
-    // Insert new version
     const publicToken = crypto.randomUUID();
     const { error } = await supabase.from('inspection_report_versions').insert({
       inspection_id: id!,
@@ -294,7 +379,6 @@ export default function AdminInspectionDetail() {
       return;
     }
 
-    // Update inspection
     await supabase.from('inspections').update({
       status: 'published',
       published_at: new Date().toISOString(),
@@ -307,6 +391,88 @@ export default function AdminInspectionDetail() {
     toast({ title: `Reporte v${nextVersion} publicado` });
     await fetchAll();
     setPublishing(false);
+  };
+
+  /* ─── Review/Budget executive functions ─── */
+  const saveInternalNote = async (sectionId: string) => {
+    setSavingField(sectionId + '-note');
+    const note = internalNotes[sectionId]?.trim();
+    if (!note) { setSavingField(null); return; }
+    await supabase.from('inspection_reviews').insert({
+      inspection_id: id!, inspection_section_id: sectionId,
+      comment_type: 'internal_note', comment: note, created_by: profile?.id,
+    });
+    toast({ title: 'Nota guardada' });
+    setSavingField(null);
+    await fetchAll();
+  };
+
+  const saveFinalObservation = async (sectionId: string) => {
+    setSavingField(sectionId + '-obs');
+    await supabase.from('inspection_sections').update({
+      final_observation: finalObservations[sectionId]?.trim() || null,
+    }).eq('id', sectionId);
+    toast({ title: 'Observación guardada' });
+    setSavingField(null);
+  };
+
+  const togglePhotoVisibility = async (photo: InspectionPhoto) => {
+    const current = (photo as any).visible_to_owner ?? true;
+    await supabase.from('inspection_photos').update({ visible_to_owner: !current }).eq('id', photo.id);
+    const { data } = await supabase.from('inspection_photos').select('*').eq('inspection_section_id', photo.inspection_section_id).order('sort_order');
+    setPhotosBySection((prev) => ({ ...prev, [photo.inspection_section_id]: (data ?? []) as unknown as InspectionPhoto[] }));
+  };
+
+  const openCatalog = async (sectionId: string) => {
+    setCatalogSectionId(sectionId);
+    setCatalogSearch('');
+    const { data } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
+    setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
+    setCatalogOpen(true);
+  };
+
+  const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
+    if (!catalogSectionId) return;
+    const existingRepairs = repairsBySection[catalogSectionId] ?? [];
+    await supabase.from('inspection_repair_items').insert({
+      inspection_id: id!,
+      inspection_section_id: catalogSectionId,
+      repair_catalog_item_id: catalogItem.id,
+      title_snapshot: catalogItem.name,
+      owner_friendly_name_snapshot: catalogItem.owner_friendly_name,
+      description_snapshot: catalogItem.description,
+      category_snapshot: catalogItem.category?.name ?? null,
+      unit: catalogItem.unit,
+      pricing_type: catalogItem.pricing_type,
+      quantity: 1,
+      unit_price: catalogItem.base_price,
+      notes: null,
+      visible_to_owner: true,
+      sort_order: existingRepairs.length,
+      created_by: profile?.id,
+      updated_by: profile?.id,
+    });
+    setCatalogOpen(false);
+    toast({ title: 'Reparación agregada' });
+    await refreshRepairs();
+  };
+
+  const updateRepairItem = async (repairId: string, field: string, value: any) => {
+    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id }).eq('id', repairId);
+    await refreshRepairs();
+  };
+
+  const deleteRepairItem = async (repairId: string) => {
+    await supabase.from('inspection_repair_items').delete().eq('id', repairId);
+    toast({ title: 'Reparación eliminada' });
+    await refreshRepairs();
+  };
+
+  const refreshRepairs = async () => {
+    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
+    const rps = (data ?? []) as unknown as InspectionRepairItem[];
+    setRepairItems(rps);
+    setRepairsBySection(groupBy(rps));
   };
 
   /* ─── Copy owner URL ─── */
@@ -324,6 +490,18 @@ export default function AdminInspectionDetail() {
     }
   };
 
+  /* ─── Status label helper ─── */
+  const statusLabel = (value: string | null) => {
+    if (!value) return null;
+    const labels: Record<string, { text: string; className: string }> = {
+      bueno: { text: 'Bueno', className: 'text-green-600' },
+      regular: { text: 'Regular', className: 'text-yellow-600' },
+      malo: { text: 'Malo', className: 'text-red-600 font-semibold' },
+      no_aplica: { text: 'No Aplica', className: 'text-muted-foreground' },
+    };
+    return labels[value] ?? { text: value, className: '' };
+  };
+
   /* ─── Derived data ─── */
   const inspectors = allProfiles.filter(p => p.role === 'inspector');
   const executives = allProfiles.filter(p => p.role === 'executive');
@@ -333,6 +511,10 @@ export default function AdminInspectionDetail() {
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
+
+  const filteredCatalog = catalogItems.filter((i) =>
+    !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -398,17 +580,14 @@ export default function AdminInspectionDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            {/* Horizontal stepper */}
             <div className="flex items-center gap-0">
               {WORKFLOW_STAGES.map((stage, i) => {
                 const currentIdx = stageIndex(currentStage);
                 const thisIdx = stageIndex(stage.key);
                 const isCompleted = thisIdx < currentIdx || (stage.key === 'share' && isPublished);
                 const isCurrent = stage.key === currentStage && !isPublished;
-                const isPending = thisIdx > currentIdx && !(stage.key === 'share' && isPublished);
                 const Icon = stage.icon;
 
-                // Get timestamp
                 let timestamp: string | null = null;
                 if (stage.key === 'inspection') timestamp = inspection.inspection_completed_at;
                 else if (stage.key === 'review') timestamp = inspection.review_completed_at;
@@ -418,7 +597,6 @@ export default function AdminInspectionDetail() {
                 return (
                   <div key={stage.key} className="flex items-center flex-1 last:flex-initial">
                     <div className="flex flex-col items-center gap-1.5 min-w-0">
-                      {/* Circle */}
                       <div className={cn(
                         'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all',
                         isCompleted
@@ -429,14 +607,12 @@ export default function AdminInspectionDetail() {
                       )}>
                         {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                       </div>
-                      {/* Label */}
                       <span className={cn(
                         'text-xs font-medium text-center',
                         isCompleted ? 'text-foreground' : isCurrent ? 'text-primary' : 'text-muted-foreground'
                       )}>
                         {stage.label}
                       </span>
-                      {/* Timestamp */}
                       {timestamp && (
                         <span className="text-[10px] text-muted-foreground">
                           {format(new Date(timestamp), 'dd MMM HH:mm', { locale: es })}
@@ -453,7 +629,6 @@ export default function AdminInspectionDetail() {
                         </span>
                       )}
                     </div>
-                    {/* Connector line */}
                     {i < WORKFLOW_STAGES.length - 1 && (
                       <div className={cn(
                         'flex-1 h-0.5 mx-2 mt-[-2rem]',
@@ -603,6 +778,35 @@ export default function AdminInspectionDetail() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* Delete inspection */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="gap-2 ml-auto">
+                    <Trash2 className="h-4 w-4" /> Eliminar Inspección
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar esta inspección?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta acción es irreversible. Se eliminarán permanentemente todas las secciones,
+                      campos, fotos, reparaciones, revisiones, versiones de reporte y registros de auditoría
+                      asociados a esta inspección.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
@@ -642,7 +846,7 @@ export default function AdminInspectionDetail() {
             )}
           </TabsContent>
 
-          {/* ── Inspection tab ── */}
+          {/* ── Inspection tab — FIXED progress: uses section status, not field counts ── */}
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
@@ -651,11 +855,9 @@ export default function AdminInspectionDetail() {
               <CardContent className="space-y-1">
                 {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
                 {sections.map((sec, idx) => {
-                  const secFields = fieldValues.filter(fv => fv.inspection_section_id === sec.id);
-                  const secPhotos = photos.filter(p => p.inspection_section_id === sec.id);
-                  const filled = secFields.filter(f => f.value_text || f.value_json).length;
-                  const total = secFields.length;
-                  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+                  const secFields = fieldsBySection[sec.id] ?? [];
+                  const secPhotos = (photosBySection[sec.id] ?? []);
+                  const completed = isSectionCompleted(sec.status);
                   return (
                     <Collapsible key={sec.id}>
                       <CollapsibleTrigger className="flex items-center gap-3 w-full py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
@@ -664,20 +866,17 @@ export default function AdminInspectionDetail() {
                           <span className="text-sm font-medium">{sec.section_title}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          {total > 0 && <span className="text-[10px] font-medium text-muted-foreground">{pct}%</span>}
+                          <span className={cn('text-[10px] font-medium', completed ? 'text-green-600' : 'text-muted-foreground')}>
+                            {completed ? '100%' : '0%'}
+                          </span>
                           <SectionStatusBadge status={sec.status} />
                           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pl-11 pr-3 pb-3">
                         <div className="space-y-1.5">
-                          {total > 0 && (
-                            <div className="w-full bg-muted rounded-full h-1.5">
-                              <div className="bg-primary rounded-full h-1.5 transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                          )}
                           <p className="text-xs text-muted-foreground">
-                            {filled}/{total} campos · {secPhotos.length} fotos
+                            {secFields.length} campos · {secPhotos.length} fotos
                           </p>
                           {secFields.filter(f => f.value_text).slice(0, 5).map(f => (
                             <div key={f.id} className="flex gap-2 text-xs">
@@ -694,98 +893,212 @@ export default function AdminInspectionDetail() {
             </Card>
           </TabsContent>
 
-          {/* ── Review tab ── */}
+          {/* ── Review tab — full executive capabilities ── */}
           <TabsContent value="review">
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Revisión Ejecutivo</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {sections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones.</p>}
-                {sections.map(sec => {
-                  const secReviews = reviews.filter(r => r.inspection_section_id === sec.id);
-                  const secRepairs = repairItems.filter(r => r.inspection_section_id === sec.id);
-                  const secPhotos = photos.filter(p => p.inspection_section_id === sec.id);
-                  return (
-                    <div key={sec.id} className="border rounded-lg p-3 space-y-2">
+            <div className="space-y-4">
+              {sections.length === 0 && (
+                <Card className="border-0 ring-1 ring-border shadow-sm">
+                  <CardContent className="p-4"><p className="text-sm text-muted-foreground">No hay secciones.</p></CardContent>
+                </Card>
+              )}
+              {sections.map(section => {
+                const sFields = fieldsBySection[section.id] ?? [];
+                const sPhotos = photosBySection[section.id] ?? [];
+                const sReviews = reviewsBySection[section.id] ?? [];
+                const sStatusFields = sFields.filter((f) => f.group_key === 'status');
+                const hasMalo = sStatusFields.some((f) => f.value_text === 'malo');
+                const inspectorObs = sFields.find((f) => f.group_key === 'observation')?.value_text;
+
+                return (
+                  <Card key={section.id}
+                    className={cn('border-0 ring-1 shadow-sm', hasMalo ? 'ring-red-300 border-l-4 border-l-red-500' : 'ring-border')}>
+                    <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{sec.section_title}</span>
-                        <SectionStatusBadge status={sec.status} />
+                        <CardTitle className="text-sm">{section.section_title}</CardTitle>
+                        <SectionStatusBadge status={section.status} />
                       </div>
-                      {sec.final_observation && (
-                        <div className="bg-muted/40 rounded-lg p-2.5">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Observación final</p>
-                          <p className="text-sm">{sec.final_observation}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Status fields */}
+                      {sStatusFields.map((f) => {
+                        const label = statusLabel(f.value_text);
+                        return (
+                          <div key={f.id} className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">{f.field_label}</span>
+                            {label && <span className={label.className}>{label.text}</span>}
+                          </div>
+                        );
+                      })}
+
+                      {/* Other fields */}
+                      {sFields.filter((f) => f.group_key !== 'status' && f.group_key !== 'photo' && f.group_key !== 'observation' && f.value_text).map((f) => (
+                        <div key={f.id} className="text-xs">
+                          <span className="text-muted-foreground">{f.field_label}: </span>
+                          <span>{f.value_text}</span>
+                        </div>
+                      ))}
+
+                      {/* Inspector observation */}
+                      {inspectorObs && (
+                        <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Observación del Inspector</p>
+                          <p className="text-xs">{inspectorObs}</p>
                         </div>
                       )}
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>{secReviews.length} notas</span>
-                        <span>{secPhotos.length} fotos</span>
-                        <span>{secRepairs.length} reparaciones</span>
+
+                      {/* Photos with visibility toggles */}
+                      {sPhotos.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos ({sPhotos.length})</p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {sPhotos.map((p) => {
+                              const visible = (p as any).visible_to_owner !== false;
+                              return (
+                                <div key={p.id} className="relative group">
+                                  <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                    className={cn('aspect-square rounded-xl object-cover', !visible && 'opacity-40')} />
+                                  <button onClick={() => togglePhotoVisibility(p)}
+                                    className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {visible ? <Eye className="h-3.5 w-3.5 text-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Internal note */}
+                      <div className="border-t pt-3 space-y-2">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Comentario Interno</p>
+                        <Textarea
+                          value={internalNotes[section.id] ?? ''}
+                          onChange={(e) => setInternalNotes((p) => ({ ...p, [section.id]: e.target.value }))}
+                          placeholder="Nota interna (no visible al propietario)..."
+                          rows={2} className="text-xs"
+                        />
+                        <Button size="sm" variant="outline" onClick={() => saveInternalNote(section.id)}
+                          disabled={savingField === section.id + '-note'}>
+                          Guardar nota
+                        </Button>
                       </div>
-                      {secReviews.length > 0 && (
-                        <div className="space-y-1">
-                          {secReviews.map(r => (
+
+                      {/* Final observation (public) */}
+                      <div className="border-t pt-3 space-y-2">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Observación Final <Badge variant="secondary" className="text-[10px] ml-1">Pública</Badge>
+                        </p>
+                        <Textarea
+                          value={finalObservations[section.id] ?? ''}
+                          onChange={(e) => setFinalObservations((p) => ({ ...p, [section.id]: e.target.value }))}
+                          placeholder="Observación visible para el propietario..."
+                          rows={3} className="text-xs"
+                        />
+                        <Button size="sm" variant="outline" onClick={() => saveFinalObservation(section.id)}
+                          disabled={savingField === section.id + '-obs'}>
+                          Guardar observación
+                        </Button>
+                      </div>
+
+                      {/* Existing reviews */}
+                      {sReviews.length > 0 && (
+                        <div className="border-t pt-3 space-y-1">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Historial de notas</p>
+                          {sReviews.map(r => (
                             <div key={r.id} className="text-xs border-l-2 border-primary/30 pl-2">
                               <span className="text-muted-foreground">[{r.comment_type}]</span> {r.comment}
                             </div>
                           ))}
                         </div>
                       )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </TabsContent>
 
-          {/* ── Budget tab ── */}
+          {/* ── Budget tab — full executive capabilities ── */}
           <TabsContent value="budget">
             <div className="space-y-4">
+              {/* Grand total card */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span>Presupuesto</span>
-                    <span className="text-lg font-semibold text-primary">${budgetTotal.toLocaleString('es-CL')}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {repairItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay ítems de reparación.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b text-left text-xs text-muted-foreground">
-                            <th className="pb-2 pr-2">Ítem</th>
-                            <th className="pb-2 pr-2">Sección</th>
-                            <th className="pb-2 pr-2 text-right">Cant.</th>
-                            <th className="pb-2 pr-2 text-right">Precio</th>
-                            <th className="pb-2 text-right">Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {repairItems.map(item => {
-                            const sec = sections.find(s => s.id === item.inspection_section_id);
-                            return (
-                              <tr key={item.id} className="border-b last:border-0">
-                                <td className="py-2 pr-2">
-                                  <span className="font-medium">{item.title_snapshot}</span>
-                                  {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-                                </td>
-                                <td className="py-2 pr-2 text-xs text-muted-foreground">{sec?.section_title ?? '—'}</td>
-                                <td className="py-2 pr-2 text-right">{item.quantity}</td>
-                                <td className="py-2 pr-2 text-right">${Number(item.unit_price).toLocaleString('es-CL')}</td>
-                                <td className="py-2 text-right font-medium">${(item.subtotal ?? item.quantity * item.unit_price).toLocaleString('es-CL')}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                <CardContent className="p-4 flex items-center justify-between">
+                  <span className="text-sm font-medium">Total Presupuesto</span>
+                  <span className="text-lg font-semibold text-primary font-mono">${budgetTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                 </CardContent>
               </Card>
+
+              {/* Per-section budget */}
+              {sections.map(section => {
+                const sRepairs = repairsBySection[section.id] ?? [];
+                const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
+
+                return (
+                  <Card key={section.id} className="border-0 ring-1 ring-border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">{section.section_title}</CardTitle>
+                        <Button size="sm" variant="outline" onClick={() => openCatalog(section.id)}>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {sRepairs.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Sin reparaciones en esta sección.</p>
+                      )}
+                      {sRepairs.map((repair) => (
+                        <div key={repair.id} className={cn('rounded-lg border p-3 space-y-2', !repair.visible_to_owner && 'opacity-50 border-dashed')}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{repair.title_snapshot}</p>
+                              {repair.category_snapshot && <p className="text-[10px] text-muted-foreground">{repair.category_snapshot}</p>}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => updateRepairItem(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
+                                className="p-1 rounded hover:bg-muted/50">
+                                {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                              </button>
+                              <button onClick={() => deleteRepairItem(repair.id)}
+                                className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-[10px]">Cantidad</Label>
+                              <Input type="number" step="0.01" value={repair.quantity}
+                                onChange={(e) => updateRepairItem(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="h-8 text-xs" />
+                            </div>
+                            <div>
+                              <Label className="text-[10px]">Precio unit.</Label>
+                              <Input type="number" step="0.01" value={repair.unit_price}
+                                onChange={(e) => updateRepairItem(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                className="h-8 text-xs" />
+                            </div>
+                            <div>
+                              <Label className="text-[10px]">Subtotal</Label>
+                              <p className="h-8 flex items-center text-xs font-mono font-medium">
+                                ${Number(repair.subtotal ?? repair.quantity * repair.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          </div>
+                          <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
+                            onChange={(e) => updateRepairItem(repair.id, 'notes', e.target.value || null)} />
+                        </div>
+                      ))}
+                      {sectionSubtotal > 0 && (
+                        <div className="flex justify-end text-xs font-medium font-mono pt-1">
+                          Subtotal: ${sectionSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {/* Published versions */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -869,6 +1182,38 @@ export default function AdminInspectionDetail() {
           </Card>
         </Collapsible>
       </div>
+
+      {/* ─── Catalog Sheet ─── */}
+      <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Catálogo de Reparaciones</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar reparación..." value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {filteredCatalog.map((item) => (
+                <button key={item.id} onClick={() => addRepairFromCatalog(item)}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors space-y-1">
+                  <p className="text-xs font-medium">{item.name}</p>
+                  {item.owner_friendly_name && <p className="text-[10px] text-muted-foreground">{item.owner_friendly_name}</p>}
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <Badge variant="secondary" className="text-[10px]">{item.category?.name}</Badge>
+                    <span className="font-mono">${Number(item.base_price).toFixed(2)} / {item.unit}</span>
+                  </div>
+                </button>
+              ))}
+              {filteredCatalog.length === 0 && (
+                <p className="text-center text-muted-foreground text-xs py-8">No se encontraron reparaciones</p>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminLayout>
   );
 }
