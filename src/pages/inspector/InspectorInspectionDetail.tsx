@@ -207,34 +207,32 @@ export default function InspectorInspectionDetail() {
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        <div className="space-y-2">
+        {allCompleted && canSubmit ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button className="w-full h-12 rounded-xl text-body bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" size="lg">
+                <Send className="mr-2 h-5 w-5" /> Revisar y enviar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
           <Button onClick={handleStart} className="w-full h-12 rounded-xl text-body" size="lg">
             <ArrowRight className="mr-2 h-5 w-5" />
             {inspection.status === 'assigned' ? 'Iniciar Inspección' : 'Continuar Inspección'}
           </Button>
-
-          {canSubmit && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full h-10 rounded-xl text-caption" size="sm">
-                  <Send className="mr-2 h-4 w-4" /> Enviar para Revisión
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
