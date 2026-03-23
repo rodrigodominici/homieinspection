@@ -517,6 +517,53 @@ export type Database = {
           },
         ]
       }
+      inspection_signatures: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          inspection_id: string
+          signature_data: string | null
+          signature_status: string
+          signed_at: string | null
+          signer_name: string | null
+          signer_type: string
+          skip_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id: string
+          signature_data?: string | null
+          signature_status?: string
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_type?: string
+          skip_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id?: string
+          signature_data?: string | null
+          signature_status?: string
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_type?: string
+          skip_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_signatures_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_source_events: {
         Row: {
           error_message: string | null
@@ -853,6 +900,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approval_status: string
           created_at: string
           email: string
           full_name: string
@@ -863,6 +911,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_status?: string
           created_at?: string
           email: string
           full_name: string
@@ -873,6 +922,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_status?: string
           created_at?: string
           email?: string
           full_name?: string
