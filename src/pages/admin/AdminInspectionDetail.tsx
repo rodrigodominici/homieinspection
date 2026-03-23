@@ -94,8 +94,10 @@ export default function AdminInspectionDetail() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [sourceEvent, setSourceEvent] = useState<Record<string, unknown> | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [signature, setSignature] = useState<InspectionSignature | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [photoLightbox, setPhotoLightbox] = useState<InspectionPhoto | null>(null);
 
   // Grouped data for review/budget tabs
   const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
