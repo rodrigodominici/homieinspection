@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { isSectionCompleted } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import {
   AlertDialog,
