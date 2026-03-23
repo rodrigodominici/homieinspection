@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
-import { Pencil, UserCheck, UserX, Plus, Link2, Unlink } from 'lucide-react';
+import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ExternalMapping {
@@ -26,12 +26,19 @@ interface ExternalMapping {
   updated_at: string;
 }
 
+const BUSINESS_ROLES: { value: string; label: string }[] = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'inspector', label: 'Inspector' },
+  { value: 'executive', label: 'Executive' },
+];
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [mappings, setMappings] = useState<ExternalMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState('users');
 
   // Edit dialog
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
@@ -61,20 +68,55 @@ export default function AdminUsers() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const filtered = filterRole === 'all' ? profiles : profiles.filter((p) => p.role === filterRole);
+  const pendingProfiles = profiles.filter(p => (p.approval_status ?? 'pending') === 'pending');
+  const filtered = filterRole === 'all'
+    ? profiles.filter(p => p.role !== 'pending')
+    : profiles.filter((p) => p.role === filterRole);
   const linkedMappings = mappings.filter((m) => m.profile_id);
   const unresolvedMappings = mappings.filter((m) => !m.profile_id);
 
-  const handleToggleActive = async (p: Profile) => {
-    const { error } = await supabase.from('profiles').update({ is_active: !p.is_active }).eq('id', p.id);
+  /* ─── User actions ─── */
+  const handleApprove = async (p: Profile, role: UserRole) => {
+    if (role === 'pending') {
+      toast({ title: 'Asigna un rol antes de aprobar', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from('profiles').update({
+      role, is_active: true, approval_status: 'approved',
+    }).eq('id', p.id);
+    setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setProfiles((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
-    toast({ title: p.is_active ? 'Usuario desactivado' : 'Usuario activado' });
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, role, is_active: true, approval_status: 'approved' } : x));
+    toast({ title: `${p.full_name} aprobado como ${role}` });
+  };
+
+  const handleReject = async (p: Profile) => {
+    const { error } = await supabase.from('profiles').update({
+      approval_status: 'rejected', is_active: false,
+    }).eq('id', p.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, approval_status: 'rejected', is_active: false } : x));
+    toast({ title: `${p.full_name} rechazado` });
+  };
+
+  const handleDeactivate = async (p: Profile) => {
+    const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', p.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, is_active: false } : x));
+    toast({ title: 'Usuario desactivado' });
+  };
+
+  const handleActivate = async (p: Profile) => {
+    const { error } = await supabase.from('profiles').update({ is_active: true }).eq('id', p.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, is_active: true } : x));
+    toast({ title: 'Usuario activado' });
   };
 
   const handleEditOpen = (p: Profile) => {
     setEditingProfile(p);
-    setEditRole(p.role);
+    setEditRole(p.role === 'pending' ? 'inspector' : p.role);
     setEditName(p.full_name);
     setEditMarket(p.market ?? '');
   };
@@ -88,13 +130,14 @@ export default function AdminUsers() {
       .eq('id', editingProfile.id);
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setProfiles((prev) =>
-      prev.map((x) => x.id === editingProfile.id ? { ...x, role: editRole, full_name: editName, market: editMarket || null } : x)
+    setProfiles(prev =>
+      prev.map(x => x.id === editingProfile.id ? { ...x, role: editRole, full_name: editName, market: editMarket || null } : x)
     );
     setEditingProfile(null);
     toast({ title: 'Usuario actualizado' });
   };
 
+  /* ─── Mapping handlers ─── */
   const handleCreateMapping = async () => {
     if (!newEmail && !newHubspotId) { toast({ title: 'Ingresa email o ID', variant: 'destructive' }); return; }
     setSaving(true);
@@ -118,7 +161,7 @@ export default function AdminUsers() {
     const { error } = await supabase.from('external_user_mappings').update({ profile_id: linkProfileId }).eq('id', linkingMapping.id);
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMappings((prev) => prev.map((m) => m.id === linkingMapping.id ? { ...m, profile_id: linkProfileId } : m));
+    setMappings(prev => prev.map(m => m.id === linkingMapping.id ? { ...m, profile_id: linkProfileId } : m));
     setLinkingMapping(null);
     toast({ title: 'Vinculado' });
   };
@@ -126,13 +169,13 @@ export default function AdminUsers() {
   const handleUnlink = async (mapping: ExternalMapping) => {
     const { error } = await supabase.from('external_user_mappings').update({ profile_id: null }).eq('id', mapping.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMappings((prev) => prev.map((m) => m.id === mapping.id ? { ...m, profile_id: null } : m));
+    setMappings(prev => prev.map(m => m.id === mapping.id ? { ...m, profile_id: null } : m));
     toast({ title: 'Desvinculado' });
   };
 
   const profileName = (id: string | null) => {
     if (!id) return null;
-    return profiles.find((p) => p.id === id)?.full_name ?? id.slice(0, 8);
+    return profiles.find(p => p.id === id)?.full_name ?? id.slice(0, 8);
   };
 
   const roleBadge = (role: string) => {
@@ -140,10 +183,24 @@ export default function AdminUsers() {
       admin: 'bg-primary/10 text-primary',
       inspector: 'bg-status-regular-bg text-status-regular',
       executive: 'bg-status-good-bg text-status-good',
+      pending: 'bg-muted text-muted-foreground',
     };
     return (
       <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium', colors[role] ?? 'bg-muted text-muted-foreground')}>
-        {role}
+        {role === 'pending' ? 'Sin rol' : role}
+      </span>
+    );
+  };
+
+  const approvalBadge = (status: string | undefined) => {
+    if (!status || status === 'approved') return null;
+    const colors: Record<string, string> = {
+      pending: 'bg-status-regular-bg text-status-regular',
+      rejected: 'bg-status-bad-bg text-status-bad',
+    };
+    return (
+      <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium', colors[status] ?? 'bg-muted text-muted-foreground')}>
+        {status === 'pending' ? 'Pendiente' : 'Rechazado'}
       </span>
     );
   };
@@ -153,23 +210,54 @@ export default function AdminUsers() {
       <div className="p-6 max-w-6xl space-y-6">
         <h1 className="text-h2">Usuarios</h1>
 
-        <Tabs defaultValue="users">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="users">Usuarios Internos ({profiles.length})</TabsTrigger>
+            <TabsTrigger value="pending" className="gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Pendientes ({pendingProfiles.length})
+            </TabsTrigger>
+            <TabsTrigger value="users">Usuarios Internos ({profiles.filter(p => p.role !== 'pending').length})</TabsTrigger>
             <TabsTrigger value="hubspot">HubSpot Links ({linkedMappings.length})</TabsTrigger>
             <TabsTrigger value="unresolved">Sin Vincular ({unresolvedMappings.length})</TabsTrigger>
           </TabsList>
 
-          {/* Internal Users Tab */}
+          {/* ─── Pending Approval Tab ─── */}
+          <TabsContent value="pending" className="space-y-4 mt-4">
+            {pendingProfiles.length === 0 ? (
+              <Card className="border-0 ring-1 ring-border shadow-sm">
+                <div className="py-12 text-center text-muted-foreground">No hay usuarios pendientes de aprobación.</div>
+              </Card>
+            ) : (
+              <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nombre</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Fecha</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingProfiles.map(p => (
+                        <PendingUserRow key={p.id} profile={p} onApprove={handleApprove} onReject={handleReject} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* ─── Internal Users Tab ─── */}
           <TabsContent value="users" className="space-y-4 mt-4">
             <div className="flex items-center gap-3">
               <Select value={filterRole} onValueChange={setFilterRole}>
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="inspector">Inspector</SelectItem>
-                  <SelectItem value="executive">Executive</SelectItem>
+                  {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               <span className="text-caption text-muted-foreground">{filtered.length} usuarios</span>
@@ -199,19 +287,28 @@ export default function AdminUsers() {
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
                           <td className="py-3 px-4 text-muted-foreground">{p.market ?? '—'}</td>
                           <td className="py-3 px-4">
-                            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium',
-                              p.is_active ? 'bg-status-good-bg text-status-good' : 'bg-muted text-muted-foreground')}>
-                              {p.is_active ? 'Activo' : 'Inactivo'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium',
+                                p.is_active ? 'bg-status-good-bg text-status-good' : 'bg-muted text-muted-foreground')}>
+                                {p.is_active ? 'Activo' : 'Inactivo'}
+                              </span>
+                              {approvalBadge(p.approval_status)}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditOpen(p)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleActive(p)}>
-                                {p.is_active ? <UserX className="h-3.5 w-3.5 text-status-bad" /> : <UserCheck className="h-3.5 w-3.5 text-status-good" />}
-                              </Button>
+                              {p.is_active ? (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeactivate(p)}>
+                                  <UserX className="h-3.5 w-3.5 text-status-bad" />
+                                </Button>
+                              ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleActivate(p)}>
+                                  <UserCheck className="h-3.5 w-3.5 text-status-good" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -223,7 +320,7 @@ export default function AdminUsers() {
             )}
           </TabsContent>
 
-          {/* HubSpot Links Tab */}
+          {/* ─── HubSpot Links Tab ─── */}
           <TabsContent value="hubspot" className="space-y-4 mt-4">
             <div className="flex justify-end">
               <Button size="sm" onClick={() => setCreating(true)}>
@@ -232,9 +329,7 @@ export default function AdminUsers() {
             </div>
             {linkedMappings.length === 0 ? (
               <Card className="border-0 ring-1 ring-border shadow-sm">
-                <div className="py-12 text-center text-muted-foreground">
-                  No hay mappings vinculados.
-                </div>
+                <div className="py-12 text-center text-muted-foreground">No hay mappings vinculados.</div>
               </Card>
             ) : (
               <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
@@ -272,13 +367,11 @@ export default function AdminUsers() {
             )}
           </TabsContent>
 
-          {/* Unresolved Tab */}
+          {/* ─── Unresolved Tab ─── */}
           <TabsContent value="unresolved" className="space-y-4 mt-4">
             {unresolvedMappings.length === 0 ? (
               <Card className="border-0 ring-1 ring-border shadow-sm">
-                <div className="py-12 text-center text-muted-foreground">
-                  Todas las identidades están vinculadas.
-                </div>
+                <div className="py-12 text-center text-muted-foreground">Todas las identidades están vinculadas.</div>
               </Card>
             ) : (
               <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
@@ -337,9 +430,7 @@ export default function AdminUsers() {
                 <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="inspector">Inspector</SelectItem>
-                    <SelectItem value="executive">Executive</SelectItem>
+                    {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -433,5 +524,44 @@ export default function AdminUsers() {
         </Dialog>
       )}
     </AdminLayout>
+  );
+}
+
+/* ─── Pending user row with inline role selector ─── */
+function PendingUserRow({ profile, onApprove, onReject }: {
+  profile: Profile;
+  onApprove: (p: Profile, role: UserRole) => void;
+  onReject: (p: Profile) => void;
+}) {
+  const [role, setRole] = useState<UserRole>('inspector');
+
+  return (
+    <tr className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+      <td className="py-3 px-4 font-medium">{profile.full_name}</td>
+      <td className="py-3 px-4 text-muted-foreground">{profile.email}</td>
+      <td className="py-3 px-4 text-muted-foreground text-caption">
+        {new Date(profile.created_at).toLocaleDateString('es-MX')}
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex items-center justify-end gap-2">
+          <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+            <SelectTrigger className="w-[130px] h-8 text-caption">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="inspector">Inspector</SelectItem>
+              <SelectItem value="executive">Executive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="default" className="gap-1 h-8" onClick={() => onApprove(profile, role)}>
+            <ShieldCheck className="h-3.5 w-3.5" /> Aprobar
+          </Button>
+          <Button size="sm" variant="ghost" className="gap-1 h-8 text-status-bad" onClick={() => onReject(profile)}>
+            <ShieldX className="h-3.5 w-3.5" /> Rechazar
+          </Button>
+        </div>
+      </td>
+    </tr>
   );
 }
