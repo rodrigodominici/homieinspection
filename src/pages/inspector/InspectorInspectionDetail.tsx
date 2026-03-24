@@ -37,24 +37,19 @@ export default function InspectorInspectionDetail() {
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSignature, setShowSignature] = useState(false);
+  const [signatureResolved, setSignatureResolved] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: insp } = await supabase
-        .from('inspections')
-        .select('*')
-        .eq('id', id!)
-        .single();
+    const fetchData = async () => {
+      const [{ data: insp }, { data: secs }, { data: sig }] = await Promise.all([
+        supabase.from('inspections').select('*').eq('id', id!).single(),
+        supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
+        supabase.from('inspection_signatures').select('id').eq('inspection_id', id!).limit(1),
+      ]);
       let inspObj = insp as unknown as Inspection;
-
-      const { data: secs } = await supabase
-        .from('inspection_sections')
-        .select('*')
-        .eq('inspection_id', id!)
-        .eq('is_visible', true)
-        .order('sort_order');
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
+      setSignatureResolved((sig ?? []).length > 0);
 
       if (inspObj) {
         const newStatus = await ensureInspectionStatusConsistency(id!);
@@ -66,7 +61,7 @@ export default function InspectorInspectionDetail() {
       setInspection(inspObj);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [id]);
 
   if (loading) {
@@ -130,8 +125,7 @@ export default function InspectorInspectionDetail() {
       created_by: profile?.id,
     });
     setShowSignature(false);
-    // Now submit
-    await doSubmit();
+    setSignatureResolved(true);
   };
 
   const doSubmit = async () => {
@@ -155,8 +149,7 @@ export default function InspectorInspectionDetail() {
     }
   };
 
-  const handleSubmit = async () => {
-    // Show signature step first
+  const handleOpenSignature = () => {
     setShowSignature(true);
   };
 
@@ -244,9 +237,9 @@ export default function InspectorInspectionDetail() {
         </div>
       </main>
 
-      {/* Sticky bottom bar */}
+      {/* Sticky bottom bar — 3 states */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        {allCompleted && canSubmit ? (
+        {allCompleted && canSubmit && signatureResolved ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button className="w-full h-12 rounded-xl text-body bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" size="lg">
@@ -262,10 +255,14 @@ export default function InspectorInspectionDetail() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleSubmit}>Enviar</AlertDialogAction>
+                <AlertDialogAction onClick={doSubmit}>Enviar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        ) : allCompleted && canSubmit && !signatureResolved ? (
+          <Button onClick={handleOpenSignature} className="w-full h-12 rounded-xl text-body" size="lg" variant="default">
+            <CheckCircle2 className="mr-2 h-5 w-5" /> Firma del inquilino
+          </Button>
         ) : (
           <Button onClick={handleStart} className="w-full h-12 rounded-xl text-body" size="lg">
             <ArrowRight className="mr-2 h-5 w-5" />
