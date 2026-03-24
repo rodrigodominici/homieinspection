@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto, InspectionRepairItem, RepairCatalogItem, InspectionReview } from '@/lib/types';
-import { ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2, Eye, EyeOff, Send, Link2, Copy, DollarSign, Search } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2, Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function ExecutiveReviewDetail() {
@@ -57,6 +57,7 @@ export default function ExecutiveReviewDetail() {
   // Publish result
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [signatureRecord, setSignatureRecord] = useState<{ signature_status: string; signer_name: string | null; skip_reason: string | null } | null>(null);
 
   const fetchAll = useCallback(async () => {
     const { data: insp } = await supabase.from('inspections').select('*').eq('id', id!).single();
@@ -104,6 +105,16 @@ export default function ExecutiveReviewDetail() {
         }
       }
       setInternalNotes(notesMap);
+    }
+
+    // Fetch signature
+    const { data: sigData } = await supabase
+      .from('inspection_signatures')
+      .select('signature_status, signer_name, skip_reason')
+      .eq('inspection_id', id!)
+      .limit(1);
+    if (sigData && sigData.length > 0) {
+      setSignatureRecord(sigData[0] as any);
     }
 
     // Auto-transition to in_review
@@ -508,6 +519,39 @@ export default function ExecutiveReviewDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Tenant signature status */}
+            {signatureRecord && (
+              <Card className="border-0 ring-1 ring-border shadow-sm">
+                <CardContent className="p-4 flex items-center gap-3">
+                  {signatureRecord.signature_status === 'signed' ? (
+                    <>
+                      <PenLine className="h-4 w-4 text-[hsl(var(--status-good))]" />
+                      <div>
+                        <p className="text-caption font-medium text-[hsl(var(--status-good))]">Firmado</p>
+                        {signatureRecord.signer_name && <p className="text-tiny text-muted-foreground">{signatureRecord.signer_name}</p>}
+                      </div>
+                    </>
+                  ) : signatureRecord.signature_status === 'refused' ? (
+                    <>
+                      <XCircle className="h-4 w-4 text-[hsl(var(--status-bad))]" />
+                      <div>
+                        <p className="text-caption font-medium text-[hsl(var(--status-bad))]">Se negó a firmar</p>
+                        {signatureRecord.skip_reason && <p className="text-tiny text-muted-foreground">{signatureRecord.skip_reason}</p>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-[hsl(var(--status-regular))]" />
+                      <div>
+                        <p className="text-caption font-medium text-[hsl(var(--status-regular))]">No disponible</p>
+                        {signatureRecord.skip_reason && <p className="text-tiny text-muted-foreground">{signatureRecord.skip_reason}</p>}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Section cards */}
             {sections.map((section) => {
