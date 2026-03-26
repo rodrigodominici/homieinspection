@@ -258,7 +258,7 @@ export function generateSections(payload: PropertyPayload): GeneratedSection[] {
   });
 
   // Living / Studio
-  if (payload.typology?.toLowerCase() === 'estudio') {
+  if (payload.bedrooms_count === 0 || payload.typology?.toLowerCase() === 'estudio') {
     sections.push({
       section_key: 'living_dormitorio',
       section_title: 'Living / Dormitorio',
