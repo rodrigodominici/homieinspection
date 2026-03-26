@@ -6,7 +6,7 @@
  * uses the exact same formula.
  */
 
-import type { InspectionSection } from './types';
+import type { Inspection, InspectionSection } from './types';
 
 const COMPLETED_STATUSES = new Set(['completed', 'reviewed']);
 
@@ -38,4 +38,16 @@ export function calculateProgress(
   const completed = operational.filter((s) => COMPLETED_STATUSES.has(s.status)).length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { total, completed, percent };
+}
+
+/**
+ * Merge property_snapshot_json with property_overrides_json for display.
+ *
+ * The original snapshot is immutable for traceability. Admin edits are stored
+ * in `property_overrides_json` and applied on top.
+ */
+export function getEffectiveSnapshot(inspection: Inspection): Record<string, unknown> {
+  const snapshot = inspection.property_snapshot_json as Record<string, unknown>;
+  const overrides = inspection.property_overrides_json as Record<string, unknown> | null;
+  return overrides ? { ...snapshot, ...overrides } : snapshot;
 }

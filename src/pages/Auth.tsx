@@ -39,9 +39,20 @@ export default function Auth() {
         await signIn(email, password);
       }
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      // Root-cause debug for "No API key found" error
+      if (message.includes('API key')) {
+        console.error('[Auth] API key error — env check:', {
+          hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
+          hasKey: !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          isSignUp: isSignUp,
+        });
+      }
       toast({
         title: 'Error',
-        description: err instanceof Error ? err.message : 'Something went wrong',
+        description: message.includes('API key')
+          ? 'Error de conexión con el servidor. Intenta de nuevo.'
+          : message,
         variant: 'destructive',
       });
     } finally {

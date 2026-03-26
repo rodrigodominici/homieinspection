@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
 import { CalendarDays, MapPin, Clock, Navigation, ArrowRight } from 'lucide-react';
 
@@ -15,7 +16,7 @@ interface CalendarInspection extends Inspection {
 }
 
 function getScheduleDatetime(insp: Inspection): Date | null {
-  const snapshot = insp.property_snapshot_json as Record<string, unknown>;
+  const snapshot = getEffectiveSnapshot(insp);
   const fecha = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const hora = snapshot?.hora_recoleccion_llaves as string | undefined;
   if (fecha) {
@@ -154,6 +155,8 @@ export default function InspectorCalendar() {
 
 function AgendaCard({ inspection: insp }: { inspection: CalendarInspection }) {
   const address = insp.address ?? 'Sin dirección';
+  const snapshot = getEffectiveSnapshot(insp);
+  const comuna = insp.market === 'CL' ? (snapshot?.comuna as string) ?? null : null;
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-all">
@@ -163,7 +166,7 @@ function AgendaCard({ inspection: insp }: { inspection: CalendarInspection }) {
             <p className="font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
             <div className="flex items-center gap-1 text-caption text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{address}</span>
+              <span className="truncate">{address}{comuna ? ` · ${comuna}` : ''}</span>
             </div>
           </div>
           <InspectionStatusBadge status={insp.status} />

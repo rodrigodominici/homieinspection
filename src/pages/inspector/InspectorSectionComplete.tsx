@@ -106,39 +106,76 @@ export default function InspectorSectionComplete() {
     saveField(fieldId, value);
   };
 
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1920;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
+          else { width = Math.round((width * MAX) / height); height = MAX; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.8);
+      };
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !inspectionId || !sectionId || !section) return;
+
+    if (!navigator.onLine) {
+      toast({ title: 'Sin conexión', description: 'Foto no subida. Intenta de nuevo cuando tengas conexión.', variant: 'destructive' });
+      return;
+    }
+
     for (const file of Array.from(files)) {
       const fileId = crypto.randomUUID();
       setUploading((prev) => new Set(prev).add(fileId));
-      const ext = file.name.split('.').pop() || 'jpg';
-      const path = `inspections/${inspectionId}/${section.section_key}/${fileId}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('inspection-photos').upload(path, file);
-      if (uploadError) {
-        toast({ title: 'Error subiendo foto', description: uploadError.message, variant: 'destructive' });
+
+      try {
+        const compressed = await compressImage(file);
+        const path = `inspections/${inspectionId}/${section.section_key}/${fileId}.jpg`;
+        const { error: uploadError } = await supabase.storage.from('inspection-photos').upload(path, compressed, { contentType: 'image/jpeg' });
+        if (uploadError) {
+          if (!navigator.onLine) {
+            toast({ title: 'Sin conexión', description: 'Foto no subida. Intenta de nuevo cuando tengas conexión.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Error subiendo foto', description: uploadError.message, variant: 'destructive' });
+          }
+          setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
+        const { data: photoData, error: photoError } = await supabase
+          .from('inspection_photos')
+          .insert({
+            inspection_id: inspectionId,
+            inspection_section_id: sectionId,
+            group_key: 'photo',
+            storage_bucket: 'inspection-photos',
+            storage_path: path,
+            public_url: urlData.publicUrl,
+            uploaded_by: profile?.id,
+            sort_order: photos.length,
+          })
+          .select()
+          .single();
         setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
-        continue;
-      }
-      const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
-      const { data: photoData, error: photoError } = await supabase
-        .from('inspection_photos')
-        .insert({
-          inspection_id: inspectionId,
-          inspection_section_id: sectionId,
-          group_key: 'photo',
-          storage_bucket: 'inspection-photos',
-          storage_path: path,
-          public_url: urlData.publicUrl,
-          uploaded_by: profile?.id,
-          sort_order: photos.length,
-        })
-        .select()
-        .single();
-      setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
-      if (!photoError && photoData) {
-        setPhotos((prev) => [...prev, photoData as unknown as InspectionPhoto]);
-        
+        if (!photoError && photoData) {
+          setPhotos((prev) => [...prev, photoData as unknown as InspectionPhoto]);
+        }
+      } catch {
+        toast({ title: 'Error de red', description: 'Foto no subida. Verifica tu conexión e intenta de nuevo.', variant: 'destructive' });
+        setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
       }
     }
     e.target.value = '';
@@ -152,7 +189,12 @@ export default function InspectorSectionComplete() {
   };
 
   const handleMarkComplete = async () => {
-    const result = canCompleteSection(section?.section_type ?? '', fields);
+    const result = canCompleteSection(
+      section?.section_type ?? '',
+      fields,
+      section?.section_key,
+      photos.length,
+    );
     if (!result.valid) {
       setValidationError(result.reason ?? 'Completa los campos requeridos');
       return;

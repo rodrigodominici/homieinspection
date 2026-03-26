@@ -744,6 +744,8 @@ export type Database = {
           created_by: string | null
           current_stage: string
           executive_id: string | null
+          fecha_devolucion_llave: string | null
+          fecha_devolucion_llave_sync_status: string
           generated_structure_json: Json | null
           hubspot_property_id: string | null
           id: string
@@ -756,6 +758,7 @@ export type Database = {
           owner_url_generated_at: string | null
           property_id: string
           property_name: string | null
+          property_overrides_json: Json | null
           property_snapshot_json: Json
           property_type: string | null
           published_at: string | null
@@ -779,6 +782,8 @@ export type Database = {
           created_by?: string | null
           current_stage?: string
           executive_id?: string | null
+          fecha_devolucion_llave?: string | null
+          fecha_devolucion_llave_sync_status?: string
           generated_structure_json?: Json | null
           hubspot_property_id?: string | null
           id?: string
@@ -791,6 +796,7 @@ export type Database = {
           owner_url_generated_at?: string | null
           property_id: string
           property_name?: string | null
+          property_overrides_json?: Json | null
           property_snapshot_json: Json
           property_type?: string | null
           published_at?: string | null
@@ -814,6 +820,8 @@ export type Database = {
           created_by?: string | null
           current_stage?: string
           executive_id?: string | null
+          fecha_devolucion_llave?: string | null
+          fecha_devolucion_llave_sync_status?: string
           generated_structure_json?: Json | null
           hubspot_property_id?: string | null
           id?: string
@@ -826,6 +834,7 @@ export type Database = {
           owner_url_generated_at?: string | null
           property_id?: string
           property_name?: string | null
+          property_overrides_json?: Json | null
           property_snapshot_json?: Json
           property_type?: string | null
           published_at?: string | null

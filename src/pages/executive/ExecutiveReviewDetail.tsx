@@ -554,7 +554,7 @@ export default function ExecutiveReviewDetail() {
             )}
 
             {/* Section cards */}
-            {sections.map((section) => {
+            {sections.filter(s => s.section_type !== 'handover_meta').map((section) => {
               const sFields = fieldsBySection[section.id] ?? [];
               const sPhotos = photosBySection[section.id] ?? [];
               const sRepairs = repairsBySection[section.id] ?? [];

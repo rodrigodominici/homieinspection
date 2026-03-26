@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted } from '@/lib/section-completion';
-import { calculateProgress } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
@@ -717,6 +717,66 @@ export default function AdminInspectionDetail() {
             <CardTitle className="text-base">Acciones Administrativas</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
+            {/* Fecha devolución llave */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
+              <div className="space-y-2">
+                <Label>Fecha devolución llave</Label>
+                <Input
+                  type="date"
+                  value={inspection.fecha_devolucion_llave ?? ''}
+                  onChange={async (e) => {
+                    const val = e.target.value || null;
+                    await supabase.from('inspections').update({
+                      fecha_devolucion_llave: val,
+                      fecha_devolucion_llave_sync_status: val ? 'pending' : 'not_applicable',
+                    }).eq('id', inspection.id);
+                    await logAudit('set_fecha_devolucion', null, null, `fecha_devolucion_llave: ${val}`);
+                    toast({ title: 'Fecha guardada' });
+                    await fetchAll();
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Estado sync</Label>
+                <div className="flex items-center gap-2 h-10">
+                  {(() => {
+                    const status = inspection.fecha_devolucion_llave_sync_status ?? 'not_applicable';
+                    const styles: Record<string, string> = {
+                      not_applicable: 'bg-muted text-muted-foreground',
+                      pending: 'bg-status-regular-bg text-status-regular',
+                      synced: 'bg-status-good-bg text-status-good',
+                      failed: 'bg-status-bad-bg text-status-bad',
+                    };
+                    const labels: Record<string, string> = {
+                      not_applicable: 'N/A',
+                      pending: 'Pendiente',
+                      synced: 'Sincronizado',
+                      failed: 'Error',
+                    };
+                    return (
+                      <Badge className={styles[status]}>{labels[status]}</Badge>
+                    );
+                  })()}
+                  {inspection.fecha_devolucion_llave_sync_status === 'failed' && (
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      await supabase.from('inspections').update({ fecha_devolucion_llave_sync_status: 'pending' }).eq('id', inspection.id);
+                      toast({ title: 'Reintentando sync...' });
+                      await fetchAll();
+                    }}>Reintentar</Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Pre-inspection property editing */}
+            {['pending_assignment', 'assigned'].includes(inspection.status) && (
+              <PropertyOverrideEditor inspection={inspection} onSave={async (overrides) => {
+                await supabase.from('inspections').update({ property_overrides_json: overrides as any }).eq('id', inspection.id);
+                await logAudit('property_override', null, null, JSON.stringify(overrides));
+                toast({ title: 'Datos de propiedad actualizados' });
+                await fetchAll();
+              }} />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Fecha/Hora programada</Label>
@@ -1188,7 +1248,7 @@ export default function AdminInspectionDetail() {
               </Card>
 
               {/* Per-section budget */}
-              {operationalSections.map(section => {
+              {operationalSections.filter(s => s.section_type !== 'handover_meta').map(section => {
                 const sRepairs = repairsBySection[section.id] ?? [];
                 const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
 
@@ -1392,6 +1452,64 @@ function SummaryItem({ label, value, muted }: { label: string; value: string; mu
     <div className="space-y-0.5">
       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
       <p className={cn('text-sm font-medium truncate', muted && 'text-muted-foreground')}>{value}</p>
+    </div>
+  );
+}
+
+/* ─── Property Override Editor ─── */
+function PropertyOverrideEditor({ inspection, onSave }: { inspection: Inspection; onSave: (overrides: Record<string, unknown>) => Promise<void> }) {
+  const snapshot = inspection.property_snapshot_json as Record<string, unknown>;
+  const overrides = (inspection.property_overrides_json ?? {}) as Record<string, unknown>;
+  const effective = { ...snapshot, ...overrides };
+
+  const [bedrooms, setBedrooms] = useState(String(effective.bedrooms_count ?? ''));
+  const [bathrooms, setBathrooms] = useState(String(effective.bathrooms_count ?? ''));
+  const [tower, setTower] = useState(String(effective.tower ?? ''));
+  const [hasParking, setHasParking] = useState(Boolean(effective.has_parking));
+  const [hasStorage, setHasStorage] = useState(Boolean(effective.has_storage));
+  const [saving, setSaving] = useState(false);
+
+  const changed = Number(bedrooms) !== Number(snapshot.bedrooms_count) || Number(bathrooms) !== Number(snapshot.bathrooms_count);
+
+  return (
+    <div className="border-t pt-4 space-y-3">
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Editar Datos de Propiedad (pre-inspección)</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Dormitorios</Label>
+          <Input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Baños</Label>
+          <Input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Torre</Label>
+          <Input value={tower} onChange={(e) => setTower(e.target.value)} className="h-8 text-xs" />
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={hasParking} onChange={(e) => setHasParking(e.target.checked)} className="rounded" /> Estacionamiento</label>
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={hasStorage} onChange={(e) => setHasStorage(e.target.checked)} className="rounded" /> Bodega</label>
+      </div>
+      {changed && (
+        <p className="text-tiny text-status-regular flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" /> Los cambios en dormitorios/baños no regeneran secciones existentes automáticamente.
+        </p>
+      )}
+      <Button size="sm" disabled={saving} onClick={async () => {
+        setSaving(true);
+        await onSave({
+          bedrooms_count: Number(bedrooms) || 0,
+          bathrooms_count: Number(bathrooms) || 0,
+          tower: tower || null,
+          has_parking: hasParking,
+          has_storage: hasStorage,
+        });
+        setSaving(false);
+      }}>
+        {saving ? 'Guardando...' : 'Guardar cambios de propiedad'}
+      </Button>
     </div>
   );
 }

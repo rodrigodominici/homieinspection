@@ -46,6 +46,8 @@ export type CommentType = 'internal_note' | 'revision_request' | 'final_observat
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+export type KeyReturnSyncStatus = 'not_applicable' | 'pending' | 'synced' | 'failed';
+
 export type PhotoUploadStatus = 'uploading' | 'uploaded' | 'failed';
 
 export interface Profile {
@@ -101,7 +103,10 @@ export interface Inspection {
   published_at: string | null;
   owner_url_generated_at: string | null;
   property_snapshot_json: Record<string, unknown>;
+  property_overrides_json: Record<string, unknown> | null;
   generated_structure_json: Record<string, unknown> | null;
+  fecha_devolucion_llave: string | null;
+  fecha_devolucion_llave_sync_status: KeyReturnSyncStatus;
   last_active_section_id: string | null;
   last_active_at: string | null;
   created_by: string | null;
@@ -191,6 +196,7 @@ export interface PropertyPayload {
   has_parking?: boolean;
   has_front_yard?: boolean;
   tower?: string;
+  comuna?: string;
   recipient_email?: string;
   scheduled_at?: string;
   fecha_recoleccion_llaves?: string;
