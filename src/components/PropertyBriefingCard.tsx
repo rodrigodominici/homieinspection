@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
 import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash } from 'lucide-react';
 
@@ -13,9 +14,8 @@ function getGoogleMapsUrl(address: string) {
 }
 
 export default function PropertyBriefingCard({ inspection }: Props) {
-  const snapshot = inspection.property_snapshot_json as Record<string, unknown>;
+  const snapshot = getEffectiveSnapshot(inspection);
   const address = inspection.address ?? (snapshot?.address as string) ?? null;
-  const typology = inspection.typology ?? (snapshot?.typology as string) ?? null;
   const propertyType = inspection.property_type ?? (snapshot?.property_type as string) ?? null;
   const tower = (snapshot?.tower as string) ?? null;
   const market = inspection.market;
@@ -49,9 +49,6 @@ export default function PropertyBriefingCard({ inspection }: Props) {
         <div className="grid grid-cols-2 gap-3">
           {inspection.property_id && (
             <InfoBlock icon={Hash} label="ID Propiedad" value={inspection.property_id} />
-          )}
-          {typology && (
-            <InfoBlock icon={Building} label="Tipología" value={typology} />
           )}
           {propertyType && (
             <InfoBlock icon={Home} label="Tipo" value={propertyType} />
