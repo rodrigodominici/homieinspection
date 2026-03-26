@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { calculateProgress } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
@@ -21,7 +21,7 @@ interface InspectionWithProgress extends Inspection {
 }
 
 function getScheduleDatetime(insp: Inspection): Date | null {
-  const snapshot = insp.property_snapshot_json as Record<string, unknown>;
+  const snapshot = getEffectiveSnapshot(insp);
   const fecha = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const hora = snapshot?.hora_recoleccion_llaves as string | undefined;
   if (fecha) {

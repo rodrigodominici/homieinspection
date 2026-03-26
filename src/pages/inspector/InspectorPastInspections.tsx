@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
 import { MapPin, Clock, History } from 'lucide-react';
 
@@ -47,7 +48,7 @@ export default function InspectorPastInspections() {
           </div>
         ) : (
           inspections.map((insp) => {
-            const snapshot = insp.property_snapshot_json as Record<string, unknown>;
+            const snapshot = getEffectiveSnapshot(insp);
             const fecha = (snapshot?.fecha_recoleccion_llaves as string) ?? null;
             return (
               <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
