@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, Profile } from '@/lib/types';
 import { ChevronLeft, ChevronRight, MapPin, User, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,7 +53,7 @@ export default function AdminSchedule() {
       ]);
 
       const items = ((inspRes.data ?? []) as unknown as (Inspection & { inspector: { full_name: string } | null })[]).map((insp) => {
-        const snapshot = insp.property_snapshot_json as Record<string, unknown>;
+        const snapshot = getEffectiveSnapshot(insp);
         const fecha = snapshot?.fecha_recoleccion_llaves as string | undefined;
         const hora = snapshot?.hora_recoleccion_llaves as string | undefined;
         let scheduleDatetime: Date | null = null;

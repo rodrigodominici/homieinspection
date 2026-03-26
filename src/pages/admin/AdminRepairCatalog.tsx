@@ -326,12 +326,26 @@ export default function AdminRepairCatalog() {
                 </div>
                 <div className="space-y-2">
                   <Label>Moneda</Label>
-                  <Input value={itemForm.currency} onChange={(e) => setItemForm((p) => ({ ...p, currency: e.target.value }))} />
+                  <Select value={itemForm.currency} onValueChange={(v) => setItemForm((p) => ({ ...p, currency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MXN">MXN</SelectItem>
+                      <SelectItem value="CLP">CLP</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Mercado</Label>
-                <Input value={itemForm.market} onChange={(e) => setItemForm((p) => ({ ...p, market: e.target.value }))} placeholder="Ej: CDMX" />
+                <Select value={itemForm.market || 'none'} onValueChange={(v) => setItemForm((p) => ({ ...p, market: v === 'none' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar mercado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin mercado</SelectItem>
+                    <SelectItem value="MX">MX</SelectItem>
+                    <SelectItem value="CL">CL</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Notas internas</Label>

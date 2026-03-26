@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, Profile } from '@/lib/types';
-import { ClipboardList, Clock, FileSearch, AlertCircle, Plus, User, CalendarClock, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Clock, FileSearch, AlertCircle, Plus, User, CalendarClock, AlertTriangle, Key } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
   const now = new Date();
   const upcoming = inspections
     .filter(i => {
-      const snap = i.property_snapshot_json as Record<string, unknown>;
+      const snap = getEffectiveSnapshot(i);
       const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
       if (fecha) {
         const dt = new Date(`${fecha}T${(snap?.hora_recoleccion_llaves as string) || '00:00'}`);
@@ -62,6 +63,11 @@ export default function AdminDashboard() {
       return i.scheduled_at ? new Date(i.scheduled_at) >= now : false;
     })
     .slice(0, 5);
+
+  // Missing return key: finished but no fecha_devolucion_llave
+  const missingReturnKey = inspections.filter(
+    i => ['submitted', 'in_review', 'approved', 'published'].includes(i.status) && !i.fecha_devolucion_llave
+  );
 
   // Unassigned
   const unassigned = inspections.filter(i => !i.inspector_id || !i.executive_id).slice(0, 5);
@@ -158,6 +164,25 @@ export default function AdminDashboard() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Missing Return Key Alert */}
+              {missingReturnKey.length > 0 && (
+                <Card className="border-0 ring-1 ring-status-regular/30 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Key className="h-4 w-4 text-status-regular" /> Sin Devolución de Llave ({missingReturnKey.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {missingReturnKey.slice(0, 5).map(insp => (
+                      <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1 hover:bg-muted/30 rounded px-1 -mx-1">
+                        <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+                        <p className="text-tiny text-muted-foreground truncate">{insp.address}</p>
+                      </Link>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Upcoming + Recent in two columns */}
