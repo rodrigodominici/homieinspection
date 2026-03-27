@@ -437,26 +437,26 @@ export default function ExecutiveReviewDetail() {
               <div className="flex items-center gap-2">
                 <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
                 <InspectionStatusBadge status={inspection.status} />
-                {isPublished ? (
-                  <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30 text-tiny">
-                    Publicado
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600">
-                    Sin publicar
-                  </Badge>
-                )}
               </div>
               <p className="text-tiny text-muted-foreground truncate">{inspection.address}</p>
             </div>
-            {/* Quick actions */}
+            {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
               {isPublished && (
-                <Button variant="outline" size="sm" onClick={() => {
-                  window.open(`/reportes/${inspection.property_id}`, '_blank');
-                }}>
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    window.open(`/reportes/${inspection.property_id}`, '_blank');
+                  }}>
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const url = `${window.location.origin}/reportes/${inspection.property_id}`;
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado' });
+                  }}>
+                    <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar link
+                  </Button>
+                </>
               )}
               {isPublished ? (
                 <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
