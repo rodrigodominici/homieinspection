@@ -10,8 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AdminLayout from '@/components/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Contractor } from '@/lib/types';
-import { Info, Lock, Repeat, Eye, GitBranch, BookOpen, HardHat, Plus, Trash2 } from 'lucide-react';
+import { Info, Lock, Repeat, Eye, GitBranch, BookOpen } from 'lucide-react';
 
 const FIXED_SECTIONS = [
   'Datos de propiedad', 'Persona que entrega', 'Acceso', 'Cocina',
