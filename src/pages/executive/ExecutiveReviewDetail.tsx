@@ -1092,86 +1092,97 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repair items with dual pricing */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Reparaciones</p>
-          <Button size="sm" variant="outline" onClick={onOpenCatalog}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-          </Button>
-        </div>
-
-        {repairs.map((repair) => (
-          <div key={repair.id} className={cn('rounded-lg border p-3 space-y-2', !repair.visible_to_owner && 'opacity-50 border-dashed')}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-caption font-medium">{repair.title_snapshot}</p>
-                {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
-                  {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                </button>
-                <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+      {/* Repair items — prominent card */}
+      <Card className="border-l-4 border-l-primary ring-1 ring-border shadow-sm">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-primary" />
+              <p className="text-body-lg font-semibold">Reparaciones</p>
+              {repairs.length > 0 && (
+                <Badge variant="secondary" className="text-tiny">{repairs.length} items</Badge>
+              )}
             </div>
-            {/* Editable description */}
-            <Textarea value={repair.description_snapshot ?? ''} rows={2} className="text-tiny"
-              placeholder="Descripción de reparación..."
-              onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)} 
-              onChange={(e) => {/* controlled locally via defaultValue pattern - using onBlur */}} 
-              defaultValue={repair.description_snapshot ?? ''}
-              key={`desc-${repair.id}`}
-            />
-            <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
-              <div>
-                <Label className="text-tiny">Cantidad</Label>
-                <Input type="number" step="0.01" value={repair.quantity}
-                  onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                  className="h-8 text-caption" />
+            <Button size="sm" onClick={onOpenCatalog}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+            </Button>
+          </div>
+
+          {repairs.length === 0 && (
+            <p className="text-caption text-muted-foreground text-center py-4">Sin reparaciones en esta sección</p>
+          )}
+
+          {repairs.map((repair) => (
+            <div key={repair.id} className={cn('rounded-lg border-2 p-3 space-y-2', !repair.visible_to_owner ? 'opacity-50 border-dashed' : 'border-border')}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-caption font-medium">{repair.title_snapshot}</p>
+                  {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
+                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                  <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <Label className="text-tiny">Precio cliente</Label>
-                <Input type="number" step="1" value={repair.unit_price}
-                  onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                  className="h-8 text-caption" />
-              </div>
-              {hasContractor && (
+              {/* Editable description */}
+              <Textarea rows={2} className="text-tiny"
+                placeholder="Descripción de reparación..."
+                onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
+                defaultValue={repair.description_snapshot ?? ''}
+                key={`desc-${repair.id}`}
+              />
+              <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
-                  <Label className="text-tiny">Precio contratista</Label>
-                  <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
-                    onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                  <Label className="text-tiny">Cantidad</Label>
+                  <Input type="number" step="0.01" value={repair.quantity}
+                    onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
                     className="h-8 text-caption" />
                 </div>
-              )}
-              <div>
-                <Label className="text-tiny">Subtotal</Label>
-                <p className="h-8 flex items-center text-caption font-mono font-medium">
-                  {fmtCurrency(repair.quantity * repair.unit_price)}
-                </p>
-              </div>
-              {hasContractor && (
                 <div>
-                  <Label className="text-tiny text-muted-foreground">Utilidad</Label>
-                  <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
-                    {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
+                  <Label className="text-tiny">Precio cliente</Label>
+                  <Input type="number" step="1" value={repair.unit_price}
+                    onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                    className="h-8 text-caption" />
+                </div>
+                {hasContractor && (
+                  <div>
+                    <Label className="text-tiny">Precio contratista</Label>
+                    <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
+                      onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                      className="h-8 text-caption" />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-tiny">Subtotal</Label>
+                  <p className="h-8 flex items-center text-caption font-mono font-medium">
+                    {fmtCurrency(repair.quantity * repair.unit_price)}
                   </p>
                 </div>
-              )}
+                {hasContractor && (
+                  <div>
+                    <Label className="text-tiny text-muted-foreground">Utilidad</Label>
+                    <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
+                      {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
+                onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
             </div>
-            <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
-              onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
-          </div>
-        ))}
+          ))}
 
-        {sectionSubtotalClient > 0 && (
-          <div className="flex justify-end text-caption font-medium font-mono">
-            Subtotal: {fmtCurrency(sectionSubtotalClient)}
-          </div>
-        )}
-      </div>
+          {sectionSubtotalClient > 0 && (
+            <div className="flex justify-end text-body font-semibold font-mono pt-1 border-t">
+              Subtotal: {fmtCurrency(sectionSubtotalClient)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Return mode */}
       {returnMode && (
