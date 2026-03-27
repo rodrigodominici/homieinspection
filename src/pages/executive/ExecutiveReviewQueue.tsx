@@ -215,7 +215,7 @@ export default function ExecutiveReviewQueue() {
         ) : (
           <>
             {/* KPI cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard label="Pendientes de inicio" value={kpis.pending} icon={<Clock className="h-4 w-4" />} color="muted" />
               <KPICard label="En progreso" value={kpis.inProgress} icon={<Play className="h-4 w-4" />} color="regular" />
               <KPICard label="Listas para revisión" value={kpis.forReview} icon={<FileSearch className="h-4 w-4" />} color="primary" />
@@ -386,13 +386,8 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                 <InspectionStatusBadge status={insp.status} />
-                {isPublished && (
-                  <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] text-tiny border-0">
-                    Publicado
-                  </Badge>
-                )}
                 {missingObs > 0 && !isPublished && ['submitted', 'in_review', 'approved'].includes(insp.status) && (
-                  <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600">
+                  <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))]">
                     <AlertTriangle className="mr-1 h-3 w-3" />{missingObs} obs. pendientes
                   </Badge>
                 )}
