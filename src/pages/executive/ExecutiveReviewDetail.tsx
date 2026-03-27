@@ -29,7 +29,8 @@ import type {
 import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
-  AlertTriangle, ExternalLink, RefreshCw, Clock,
+  AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
+  ChevronLeft, ChevronRight, ZoomIn,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -533,6 +534,29 @@ export default function ExecutiveReviewDetail() {
               {lastActiveRelative && <span className="text-muted-foreground">· {lastActiveRelative}</span>}
             </div>
           </div>
+
+          {/* Row 3: Blocker indicators */}
+          {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
+            <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
+              {missingSections.length > 0 && (
+                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  {missingSections.length} observaciones finales pendientes
+                </Badge>
+              )}
+              {allRepairs.length > 0 && !selectedContractorId && (
+                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))] bg-[hsl(var(--status-regular))]/5">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  Sin contratista asignado
+                </Badge>
+              )}
+              {!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status) && (
+                <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600 bg-amber-50">
+                  Sin publicar
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -541,38 +565,67 @@ export default function ExecutiveReviewDetail() {
         {/* LEFT SIDEBAR: Section nav */}
         <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
           <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Secciones</p>
-          {/* Signature status */}
+          {/* Signature compliance block */}
           {signatureRecord && (
-            <div className={cn('px-2 py-1.5 rounded-lg text-tiny flex items-center gap-1.5 mb-2',
-              signatureRecord.signature_status === 'signed' ? 'bg-[hsl(var(--status-good))]/10 text-[hsl(var(--status-good))]'
-              : signatureRecord.signature_status === 'refused' ? 'bg-[hsl(var(--status-bad))]/10 text-[hsl(var(--status-bad))]'
-              : 'bg-[hsl(var(--status-regular))]/10 text-[hsl(var(--status-regular))]'
+            <Card className={cn('mb-3 border-0 ring-1 shadow-sm',
+              signatureRecord.signature_status === 'signed' ? 'ring-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good))]/5'
+              : signatureRecord.signature_status === 'refused' ? 'ring-[hsl(var(--status-bad))]/30 bg-[hsl(var(--status-bad))]/5'
+              : 'ring-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/5'
             )}>
-              {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3 w-3" /> :
-               signatureRecord.signature_status === 'refused' ? <XCircle className="h-3 w-3" /> :
-               <AlertTriangle className="h-3 w-3" />}
-              <span>Firma: {signatureRecord.signature_status === 'signed' ? 'Firmado' :
-                signatureRecord.signature_status === 'refused' ? 'Rechazada' : 'No disponible'}</span>
-            </div>
+              <CardContent className="p-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 text-tiny font-medium">
+                  {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
+                   signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
+                   <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
+                  <span>Firma del inquilino</span>
+                </div>
+                <p className="text-tiny text-muted-foreground">
+                  {signatureRecord.signature_status === 'signed'
+                    ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
+                    : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
+                    : 'Inquilino no disponible'}
+                </p>
+                {signatureRecord.skip_reason && (
+                  <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
+                )}
+              </CardContent>
+            </Card>
           )}
           {operationalSections.map((s) => {
             const isActive = s.id === activeSectionId;
             const needsObs = requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim();
+            const photoCount = (photosBySection[s.id] ?? []).length;
+            const repairCount = (repairsBySection[s.id] ?? []).length;
             return (
               <button key={s.id} onClick={() => setActiveSectionId(s.id)}
                 className={cn(
-                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors flex items-center gap-2',
+                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors',
                   isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
                 )}>
-                <span className="flex-1 truncate">{s.section_title}</span>
-                {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
-                <SectionStatusBadge status={s.status} />
+                <div className="flex items-center gap-1.5">
+                  <span className="flex-1 truncate">{s.section_title}</span>
+                  {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
+                  <SectionStatusBadge status={s.status} />
+                </div>
+                {/* Indicator row */}
+                <div className="flex items-center gap-2 mt-0.5 text-tiny text-muted-foreground">
+                  {photoCount > 0 && (
+                    <span className="flex items-center gap-0.5"><Camera className="h-3 w-3" />{photoCount}</span>
+                  )}
+                  {repairCount > 0 && (
+                    <span className="flex items-center gap-0.5"><Wrench className="h-3 w-3" />{repairCount}</span>
+                  )}
+                  {needsObs && (
+                    <span className="text-[hsl(var(--status-bad))]">Bloquea publicación</span>
+                  )}
+                </div>
               </button>
             );
           })}
           {/* Missing observations summary */}
           {missingSections.length > 0 && (
             <div className="mt-3 px-2 py-2 rounded-lg bg-[hsl(var(--status-bad))]/5 text-tiny text-[hsl(var(--status-bad))]">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
               Faltan observaciones en {missingSections.length} secciones
             </div>
           )}
@@ -608,124 +661,104 @@ export default function ExecutiveReviewDetail() {
         {/* RIGHT PANEL: Photos + financial summary */}
         <aside className="border-l bg-card overflow-y-auto p-4 space-y-4">
           {activeSection && (
-            <>
-              {/* Photos */}
-              <div>
-                <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                  Fotos ({(photosBySection[activeSection.id] ?? []).length})
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(photosBySection[activeSection.id] ?? []).map((p) => {
-                    const visible = (p as any).visible_to_owner !== false;
-                    return (
-                      <div key={p.id} className="relative group">
-                        <img src={p.public_url ?? ''} alt={p.caption ?? ''}
-                          className={cn('aspect-square rounded-lg object-cover w-full', !visible && 'opacity-40')} />
-                        <button onClick={() => togglePhotoVisibility(p)}
-                          className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
-                        </button>
-                      </div>
-                    );
-                  })}
+            <PhotoPanel
+              photos={photosBySection[activeSection.id] ?? []}
+              onToggleVisibility={togglePhotoVisibility}
+            />
+          )}
+
+          {/* Financial summary — always visible */}
+          <Card className="border-0 ring-1 ring-border shadow-sm">
+            <CardContent className="p-3 space-y-2">
+              <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Resumen Financiero</p>
+              <div className="space-y-1.5 text-caption">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Depósito en garantía</span>
+                  <span className="font-mono font-medium">{warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}</span>
                 </div>
-                {(photosBySection[activeSection.id] ?? []).length === 0 && (
-                  <p className="text-tiny text-muted-foreground py-4 text-center">Sin fotos</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Presupuesto cliente</span>
+                  <span className="font-mono font-medium">{fmtCurrency(clientTotal)}</span>
+                </div>
+                {depositDiff !== null && (
+                  <div className="flex justify-between border-t pt-1">
+                    <span className="text-muted-foreground">Diferencia</span>
+                    <span className={cn('font-mono font-medium', depositDiff >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                      {depositDiff >= 0 ? '+' : ''}{fmtCurrency(depositDiff)}
+                    </span>
+                  </div>
+                )}
+                {depositDiff !== null && (
+                  <Badge variant="outline" className={cn('text-tiny mt-1',
+                    depositDiff >= 0 ? 'border-[hsl(var(--status-good))]/30 text-[hsl(var(--status-good))]'
+                      : 'border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))]'
+                  )}>
+                    {depositDiff >= 0 ? 'Cubierto por depósito' : 'Excede depósito'}
+                  </Badge>
+                )}
+                {selectedContractorId && (
+                  <>
+                    <div className="border-t pt-1.5 mt-1.5" />
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Contratista</span>
+                      <span>{contractors.find(c => c.id === selectedContractorId)?.name ?? '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Costo contratista</span>
+                      <span className="font-mono">{fmtCurrency(contractorTotal)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Utilidad estimada</span>
+                      <span className={cn('font-mono', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                        {fmtCurrency(utility)}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {/* Active section subtotal */}
+                {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
+                  <>
+                    <div className="border-t pt-1.5 mt-1.5" />
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal sección</span>
+                      <span className="font-mono">
+                        {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Deposit vs budget card */}
-              <Card className="border-0 ring-1 ring-border shadow-sm">
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Depósito vs Presupuesto</p>
-                  <div className="space-y-1 text-caption">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Depósito en garantía</span>
-                      <span className="font-mono">{warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Presupuesto cliente</span>
-                      <span className="font-mono">{fmtCurrency(clientTotal)}</span>
-                    </div>
-                    {depositDiff !== null && (
-                      <div className="flex justify-between border-t pt-1">
-                        <span className="text-muted-foreground">Diferencia</span>
-                        <span className={cn('font-mono font-medium', depositDiff >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                          {depositDiff >= 0 ? '+' : ''}{fmtCurrency(depositDiff)}
-                        </span>
-                      </div>
-                    )}
-                    {depositDiff !== null && (
-                      <Badge variant="outline" className={cn('text-tiny mt-1',
-                        depositDiff >= 0 ? 'border-[hsl(var(--status-good))]/30 text-[hsl(var(--status-good))]'
-                          : 'border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))]'
-                      )}>
-                        {depositDiff >= 0 ? 'Cubierto por depósito' : 'Excede depósito'}
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Contractor pricing summary */}
-              {selectedContractorId && (
-                <Card className="border-0 ring-1 ring-border shadow-sm">
-                  <CardContent className="p-3 space-y-2">
-                    <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Resumen contratista</p>
-                    <div className="space-y-1 text-caption">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Contratista</span>
-                        <span>{contractors.find(c => c.id === selectedContractorId)?.name ?? '—'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Costo contratista</span>
-                        <span className="font-mono">{fmtCurrency(contractorTotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Precio cliente</span>
-                        <span className="font-mono">{fmtCurrency(clientTotal)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-1 font-medium">
-                        <span>Utilidad estimada</span>
-                        <span className={cn('font-mono', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                          {fmtCurrency(utility)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Publish actions */}
-              <Card className="border-0 ring-1 ring-border shadow-sm">
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Publicación</p>
-                  {isPublished ? (
-                    <div className="space-y-2">
-                      <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] text-tiny">Publicado</Badge>
-                      {inspection.published_at && (
-                        <p className="text-tiny text-muted-foreground">
-                          {new Date(inspection.published_at).toLocaleDateString('es-CL')}
-                        </p>
-                      )}
-                      <Button variant="outline" size="sm" className="w-full" onClick={() => {
-                        window.open(`/reportes/${inspection.property_id}`, '_blank');
-                      }}>
-                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte propietario
-                      </Button>
-                      <Button variant="outline" size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
-                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
-                      <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar reporte
-                    </Button>
+          {/* Publish actions */}
+          <Card className="border-0 ring-1 ring-border shadow-sm">
+            <CardContent className="p-3 space-y-2">
+              <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Publicación</p>
+              {isPublished ? (
+                <div className="space-y-2">
+                  <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] text-tiny">Publicado</Badge>
+                  {inspection.published_at && (
+                    <p className="text-tiny text-muted-foreground">
+                      {new Date(inspection.published_at).toLocaleDateString('es-CL')}
+                    </p>
                   )}
-                </CardContent>
-              </Card>
-            </>
-          )}
+                  <Button size="sm" className="w-full" onClick={() => {
+                    window.open(`/reportes/${inspection.property_id}`, '_blank');
+                  }}>
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte propietario
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
+                  </Button>
+                </div>
+              ) : (
+                <Button size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
+                  <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar reporte
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </aside>
       </div>
 
@@ -1059,86 +1092,97 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repair items with dual pricing */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Reparaciones</p>
-          <Button size="sm" variant="outline" onClick={onOpenCatalog}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-          </Button>
-        </div>
-
-        {repairs.map((repair) => (
-          <div key={repair.id} className={cn('rounded-lg border p-3 space-y-2', !repair.visible_to_owner && 'opacity-50 border-dashed')}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-caption font-medium">{repair.title_snapshot}</p>
-                {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
-                  {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                </button>
-                <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+      {/* Repair items — prominent card */}
+      <Card className="border-l-4 border-l-primary ring-1 ring-border shadow-sm">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-primary" />
+              <p className="text-body-lg font-semibold">Reparaciones</p>
+              {repairs.length > 0 && (
+                <Badge variant="secondary" className="text-tiny">{repairs.length} items</Badge>
+              )}
             </div>
-            {/* Editable description */}
-            <Textarea value={repair.description_snapshot ?? ''} rows={2} className="text-tiny"
-              placeholder="Descripción de reparación..."
-              onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)} 
-              onChange={(e) => {/* controlled locally via defaultValue pattern - using onBlur */}} 
-              defaultValue={repair.description_snapshot ?? ''}
-              key={`desc-${repair.id}`}
-            />
-            <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
-              <div>
-                <Label className="text-tiny">Cantidad</Label>
-                <Input type="number" step="0.01" value={repair.quantity}
-                  onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                  className="h-8 text-caption" />
+            <Button size="sm" onClick={onOpenCatalog}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+            </Button>
+          </div>
+
+          {repairs.length === 0 && (
+            <p className="text-caption text-muted-foreground text-center py-4">Sin reparaciones en esta sección</p>
+          )}
+
+          {repairs.map((repair) => (
+            <div key={repair.id} className={cn('rounded-lg border-2 p-3 space-y-2', !repair.visible_to_owner ? 'opacity-50 border-dashed' : 'border-border')}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-caption font-medium">{repair.title_snapshot}</p>
+                  {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
+                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                  <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <Label className="text-tiny">Precio cliente</Label>
-                <Input type="number" step="1" value={repair.unit_price}
-                  onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                  className="h-8 text-caption" />
-              </div>
-              {hasContractor && (
+              {/* Editable description */}
+              <Textarea rows={2} className="text-tiny"
+                placeholder="Descripción de reparación..."
+                onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
+                defaultValue={repair.description_snapshot ?? ''}
+                key={`desc-${repair.id}`}
+              />
+              <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
-                  <Label className="text-tiny">Precio contratista</Label>
-                  <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
-                    onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                  <Label className="text-tiny">Cantidad</Label>
+                  <Input type="number" step="0.01" value={repair.quantity}
+                    onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
                     className="h-8 text-caption" />
                 </div>
-              )}
-              <div>
-                <Label className="text-tiny">Subtotal</Label>
-                <p className="h-8 flex items-center text-caption font-mono font-medium">
-                  {fmtCurrency(repair.quantity * repair.unit_price)}
-                </p>
-              </div>
-              {hasContractor && (
                 <div>
-                  <Label className="text-tiny text-muted-foreground">Utilidad</Label>
-                  <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
-                    {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
+                  <Label className="text-tiny">Precio cliente</Label>
+                  <Input type="number" step="1" value={repair.unit_price}
+                    onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                    className="h-8 text-caption" />
+                </div>
+                {hasContractor && (
+                  <div>
+                    <Label className="text-tiny">Precio contratista</Label>
+                    <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
+                      onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                      className="h-8 text-caption" />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-tiny">Subtotal</Label>
+                  <p className="h-8 flex items-center text-caption font-mono font-medium">
+                    {fmtCurrency(repair.quantity * repair.unit_price)}
                   </p>
                 </div>
-              )}
+                {hasContractor && (
+                  <div>
+                    <Label className="text-tiny text-muted-foreground">Utilidad</Label>
+                    <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
+                      {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
+                onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
             </div>
-            <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
-              onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
-          </div>
-        ))}
+          ))}
 
-        {sectionSubtotalClient > 0 && (
-          <div className="flex justify-end text-caption font-medium font-mono">
-            Subtotal: {fmtCurrency(sectionSubtotalClient)}
-          </div>
-        )}
-      </div>
+          {sectionSubtotalClient > 0 && (
+            <div className="flex justify-end text-body font-semibold font-mono pt-1 border-t">
+              Subtotal: {fmtCurrency(sectionSubtotalClient)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Return mode */}
       {returnMode && (
@@ -1153,6 +1197,124 @@ function SectionWorkspace({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Photo Panel (Right sidebar) ─────────────────────────
+function PhotoPanel({ photos, onToggleVisibility }: {
+  photos: InspectionPhoto[];
+  onToggleVisibility: (photo: InspectionPhoto) => void;
+}) {
+  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const featured = photos[featuredIdx] ?? null;
+  const hasManyPhotos = photos.length > 4;
+
+  if (photos.length === 0) {
+    return (
+      <div>
+        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos (0)</p>
+        <p className="text-tiny text-muted-foreground py-4 text-center">Sin fotos</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        Fotos ({photos.length})
+      </p>
+
+      {hasManyPhotos ? (
+        <>
+          {/* Featured preview */}
+          {featured && (
+            <div className="relative group mb-2">
+              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+                className={cn('w-full rounded-lg object-cover aspect-[4/3] cursor-pointer',
+                  (featured as any).visible_to_owner === false && 'opacity-40'
+                )}
+                onClick={() => setDialogOpen(true)} />
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                <button onClick={() => onToggleVisibility(featured)}
+                  className="p-1.5 rounded-md bg-background/80 hover:bg-background transition-colors">
+                  {(featured as any).visible_to_owner !== false ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                </button>
+                <button onClick={() => setDialogOpen(true)}
+                  className="p-1.5 rounded-md bg-background/80 hover:bg-background transition-colors">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {featured.caption && (
+                <p className="text-tiny text-muted-foreground mt-1">{featured.caption}</p>
+              )}
+            </div>
+          )}
+          {/* Thumbnail strip */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {photos.map((p, idx) => (
+              <button key={p.id} onClick={() => setFeaturedIdx(idx)}
+                className={cn('shrink-0 rounded-md overflow-hidden ring-2 transition-all',
+                  idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
+                  (p as any).visible_to_owner === false && 'opacity-40'
+                )}>
+                <img src={p.public_url ?? ''} alt="" className="h-12 w-12 object-cover" />
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        /* Simple grid for ≤4 photos */
+        <div className="grid grid-cols-2 gap-2">
+          {photos.map((p) => {
+            const visible = (p as any).visible_to_owner !== false;
+            return (
+              <div key={p.id} className="relative group">
+                <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                  className={cn('aspect-square rounded-lg object-cover w-full cursor-pointer', !visible && 'opacity-40')}
+                  onClick={() => { setFeaturedIdx(photos.indexOf(p)); setDialogOpen(true); }} />
+                <button onClick={() => onToggleVisibility(p)}
+                  className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {p.caption && <p className="text-tiny text-muted-foreground mt-0.5 truncate">{p.caption}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full-resolution dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl p-2">
+          <DialogHeader>
+            <DialogTitle className="text-caption">
+              Foto {featuredIdx + 1} de {photos.length}
+              {featured?.caption && ` — ${featured.caption}`}
+            </DialogTitle>
+          </DialogHeader>
+          {featured && (
+            <div className="relative">
+              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+                className="w-full rounded-lg object-contain max-h-[70vh]" />
+              {photos.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2">
+                  <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full"
+                    onClick={() => setFeaturedIdx(i => i > 0 ? i - 1 : photos.length - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full"
+                    onClick={() => setFeaturedIdx(i => i < photos.length - 1 ? i + 1 : 0)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
