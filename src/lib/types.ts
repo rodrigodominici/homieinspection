@@ -77,6 +77,14 @@ export interface InspectionSignature {
 
 export type WorkflowStage = 'inspection' | 'review' | 'budget' | 'share';
 
+export interface Contractor {
+  id: string;
+  name: string;
+  country: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Inspection {
   id: string;
   source_event_id: string | null;
@@ -91,6 +99,7 @@ export interface Inspection {
   inspection_type: string;
   inspector_id: string | null;
   executive_id: string | null;
+  contractor_id: string | null;
   status: InspectionStatus;
   current_stage: WorkflowStage;
   scheduled_at: string | null;
@@ -248,6 +257,7 @@ export interface InspectionRepairItem {
   pricing_type: string;
   quantity: number;
   unit_price: number;
+  contractor_unit_price: number;
   subtotal: number; // generated column, read-only
   notes: string | null;
   visible_to_owner: boolean;
