@@ -1004,6 +1004,51 @@ export type Database = {
         }
         Relationships: []
       }
+      repair_catalog_item_contractor_prices: {
+        Row: {
+          contractor_id: string
+          created_at: string
+          currency: string
+          id: string
+          price: number
+          repair_catalog_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          contractor_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          price?: number
+          repair_catalog_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          contractor_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          price?: number
+          repair_catalog_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_catalog_item_contractor_pric_repair_catalog_item_id_fkey"
+            columns: ["repair_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "repair_catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_catalog_item_contractor_prices_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_catalog_items: {
         Row: {
           base_price: number
