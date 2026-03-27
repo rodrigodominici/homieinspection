@@ -207,7 +207,7 @@ export default function ExecutiveReviewQueue() {
         </div>
       </header>
 
-      <main className="container py-5 space-y-5">
+      <main className="container py-6 space-y-6">
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
@@ -223,14 +223,14 @@ export default function ExecutiveReviewQueue() {
             </div>
 
             {/* Filter bar */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar dirección, propiedad..." value={search}
+                <Input placeholder="Buscar por dirección o propiedad..." value={search}
                   onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px] h-9 text-caption"><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectTrigger className="w-[150px] h-9 text-caption"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="assigned">Asignada</SelectItem>
@@ -241,27 +241,29 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="published">Publicada</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={marketFilter} onValueChange={setMarketFilter}>
-                <SelectTrigger className="w-[120px] h-9 text-caption"><SelectValue placeholder="Mercado" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {markets.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {markets.length > 1 && (
+                <Select value={marketFilter} onValueChange={setMarketFilter}>
+                  <SelectTrigger className="w-[130px] h-9 text-caption"><SelectValue placeholder="Mercado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los mercados</SelectItem>
+                    {markets.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               {inspectors.length > 0 && (
                 <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                  <SelectTrigger className="w-[160px] h-9 text-caption"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                  <SelectTrigger className="w-[170px] h-9 text-caption"><SelectValue placeholder="Inspector" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="all">Todos los inspectores</SelectItem>
                     {inspectors.map(ins => <SelectItem key={ins.id} value={ins.id}>{ins.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}
               <Select value={publishedFilter} onValueChange={setPublishedFilter}>
-                <SelectTrigger className="w-[140px] h-9 text-caption"><SelectValue placeholder="Publicación" /></SelectTrigger>
+                <SelectTrigger className="w-[150px] h-9 text-caption"><SelectValue placeholder="Publicación" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="published">Publicadas</SelectItem>
+                  <SelectItem value="published">Solo publicadas</SelectItem>
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
