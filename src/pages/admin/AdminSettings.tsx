@@ -1,15 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdminLayout from '@/components/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Info, Lock, Repeat, Eye, GitBranch, BookOpen } from 'lucide-react';
 
 const FIXED_SECTIONS = [
@@ -27,120 +20,10 @@ const CONDITIONAL_SECTIONS = [
 ];
 
 export default function AdminSettings() {
-  const { toast } = useToast();
-  const [contractors, setContractors] = useState<Contractor[]>([]);
-  const [newName, setNewName] = useState('');
-  const [newCountry, setNewCountry] = useState('CL');
-  const [loadingContractors, setLoadingContractors] = useState(true);
-
-  const fetchContractors = async () => {
-    const { data } = await supabase.from('contractors').select('*').order('name');
-    setContractors((data ?? []) as unknown as Contractor[]);
-    setLoadingContractors(false);
-  };
-
-  useEffect(() => { fetchContractors(); }, []);
-
-  const addContractor = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    const { error } = await supabase.from('contractors').insert({ name, country: newCountry });
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      return;
-    }
-    setNewName('');
-    toast({ title: 'Contratista agregado' });
-    fetchContractors();
-  };
-
-  const toggleActive = async (id: string, current: boolean) => {
-    await supabase.from('contractors').update({ is_active: !current }).eq('id', id);
-    fetchContractors();
-  };
-
-  const deleteContractor = async (id: string) => {
-    await supabase.from('contractors').delete().eq('id', id);
-    toast({ title: 'Contratista eliminado' });
-    fetchContractors();
-  };
-
   return (
     <AdminLayout>
       <div className="p-6 max-w-4xl space-y-6">
         <h1 className="text-h2">Configuración</h1>
-
-        {/* ── Contractor Management ─────────────────────── */}
-        <Card className="border-0 ring-1 ring-border shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <HardHat className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-body-lg">Contratistas</CardTitle>
-            </div>
-            <CardDescription>Gestiona los contratistas disponibles para asignación en presupuestos.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add form */}
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="text-tiny font-medium text-muted-foreground mb-1 block">Nombre</label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nombre del contratista" />
-              </div>
-              <div className="w-28">
-                <label className="text-tiny font-medium text-muted-foreground mb-1 block">País</label>
-                <Select value={newCountry} onValueChange={setNewCountry}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CL">Chile</SelectItem>
-                    <SelectItem value="MX">México</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={addContractor} disabled={!newName.trim()}>
-                <Plus className="mr-1 h-4 w-4" /> Agregar
-              </Button>
-            </div>
-
-            {/* Table */}
-            {loadingContractors ? (
-              <p className="text-caption text-muted-foreground py-4 text-center">Cargando...</p>
-            ) : contractors.length === 0 ? (
-              <p className="text-caption text-muted-foreground py-4 text-center">No hay contratistas registrados</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>País</TableHead>
-                    <TableHead>Activo</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contractors.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-tiny">{c.country}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c.id, c.is_active)} />
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteContractor(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Existing settings content below ───────────── */}
         <Alert className="border-primary/30 bg-primary/5">
           <Info className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm">
