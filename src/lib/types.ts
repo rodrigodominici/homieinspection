@@ -198,6 +198,7 @@ export interface PropertyPayload {
   tower?: string;
   comuna?: string;
   recipient_email?: string;
+  warranty_deposit?: number;
   scheduled_at?: string;
   fecha_recoleccion_llaves?: string;
   hora_recoleccion_llaves?: string;
