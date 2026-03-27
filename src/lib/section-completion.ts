@@ -81,3 +81,14 @@ export function canCompleteSection(
 export function isSectionCompleted(sectionStatus: string): boolean {
   return sectionStatus === 'completed' || sectionStatus === 'reviewed';
 }
+
+/** Section types exempt from requiring a final observation before publish. */
+const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'handover_meta', 'admin_meta']);
+
+/**
+ * Determine whether a section type requires a final observation before
+ * the executive can publish the report.
+ */
+export function requiresFinalObservation(sectionType: string): boolean {
+  return !EXEMPT_FROM_FINAL_OBS.has(sectionType);
+}
