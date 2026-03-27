@@ -534,6 +534,29 @@ export default function ExecutiveReviewDetail() {
               {lastActiveRelative && <span className="text-muted-foreground">· {lastActiveRelative}</span>}
             </div>
           </div>
+
+          {/* Row 3: Blocker indicators */}
+          {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
+            <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
+              {missingSections.length > 0 && (
+                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  {missingSections.length} observaciones finales pendientes
+                </Badge>
+              )}
+              {allRepairs.length > 0 && !selectedContractorId && (
+                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))] bg-[hsl(var(--status-regular))]/5">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  Sin contratista asignado
+                </Badge>
+              )}
+              {!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status) && (
+                <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600 bg-amber-50">
+                  Sin publicar
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -542,38 +565,67 @@ export default function ExecutiveReviewDetail() {
         {/* LEFT SIDEBAR: Section nav */}
         <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
           <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Secciones</p>
-          {/* Signature status */}
+          {/* Signature compliance block */}
           {signatureRecord && (
-            <div className={cn('px-2 py-1.5 rounded-lg text-tiny flex items-center gap-1.5 mb-2',
-              signatureRecord.signature_status === 'signed' ? 'bg-[hsl(var(--status-good))]/10 text-[hsl(var(--status-good))]'
-              : signatureRecord.signature_status === 'refused' ? 'bg-[hsl(var(--status-bad))]/10 text-[hsl(var(--status-bad))]'
-              : 'bg-[hsl(var(--status-regular))]/10 text-[hsl(var(--status-regular))]'
+            <Card className={cn('mb-3 border-0 ring-1 shadow-sm',
+              signatureRecord.signature_status === 'signed' ? 'ring-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good))]/5'
+              : signatureRecord.signature_status === 'refused' ? 'ring-[hsl(var(--status-bad))]/30 bg-[hsl(var(--status-bad))]/5'
+              : 'ring-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/5'
             )}>
-              {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3 w-3" /> :
-               signatureRecord.signature_status === 'refused' ? <XCircle className="h-3 w-3" /> :
-               <AlertTriangle className="h-3 w-3" />}
-              <span>Firma: {signatureRecord.signature_status === 'signed' ? 'Firmado' :
-                signatureRecord.signature_status === 'refused' ? 'Rechazada' : 'No disponible'}</span>
-            </div>
+              <CardContent className="p-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 text-tiny font-medium">
+                  {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
+                   signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
+                   <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
+                  <span>Firma del inquilino</span>
+                </div>
+                <p className="text-tiny text-muted-foreground">
+                  {signatureRecord.signature_status === 'signed'
+                    ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
+                    : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
+                    : 'Inquilino no disponible'}
+                </p>
+                {signatureRecord.skip_reason && (
+                  <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
+                )}
+              </CardContent>
+            </Card>
           )}
           {operationalSections.map((s) => {
             const isActive = s.id === activeSectionId;
             const needsObs = requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim();
+            const photoCount = (photosBySection[s.id] ?? []).length;
+            const repairCount = (repairsBySection[s.id] ?? []).length;
             return (
               <button key={s.id} onClick={() => setActiveSectionId(s.id)}
                 className={cn(
-                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors flex items-center gap-2',
+                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors',
                   isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
                 )}>
-                <span className="flex-1 truncate">{s.section_title}</span>
-                {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
-                <SectionStatusBadge status={s.status} />
+                <div className="flex items-center gap-1.5">
+                  <span className="flex-1 truncate">{s.section_title}</span>
+                  {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
+                  <SectionStatusBadge status={s.status} />
+                </div>
+                {/* Indicator row */}
+                <div className="flex items-center gap-2 mt-0.5 text-tiny text-muted-foreground">
+                  {photoCount > 0 && (
+                    <span className="flex items-center gap-0.5"><Camera className="h-3 w-3" />{photoCount}</span>
+                  )}
+                  {repairCount > 0 && (
+                    <span className="flex items-center gap-0.5"><Wrench className="h-3 w-3" />{repairCount}</span>
+                  )}
+                  {needsObs && (
+                    <span className="text-[hsl(var(--status-bad))]">Bloquea publicación</span>
+                  )}
+                </div>
               </button>
             );
           })}
           {/* Missing observations summary */}
           {missingSections.length > 0 && (
             <div className="mt-3 px-2 py-2 rounded-lg bg-[hsl(var(--status-bad))]/5 text-tiny text-[hsl(var(--status-bad))]">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
               Faltan observaciones en {missingSections.length} secciones
             </div>
           )}
