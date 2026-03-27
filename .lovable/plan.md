@@ -1,147 +1,89 @@
 
 
-# Plan: Executive Desktop-First Workspace + Contractors + Inspector Progress Visibility
+# Plan: Executive UX Refinement — Queue + Detail
 
 ## Summary
-
-Rewrite the Executive Review Detail as a desktop-first review workstation. Add contractor management, dual pricing, publish validation, and inspector progress visibility. 2 DB migrations, ~6 file changes.
-
----
-
-## Database Migrations
-
-### Migration 1: Contractors table
-
-```sql
-CREATE TABLE public.contractors (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  country text NOT NULL DEFAULT 'CL',
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.contractors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Admins can manage contractors" ON public.contractors
-  FOR ALL TO authenticated USING (has_role(auth.uid(), 'admin'));
-CREATE POLICY "Executives can read active contractors" ON public.contractors
-  FOR SELECT TO authenticated USING (is_active = true AND has_role(auth.uid(), 'executive'));
-```
-
-### Migration 2: Contractor FK + dual pricing
-
-```sql
-ALTER TABLE public.inspections
-  ADD COLUMN IF NOT EXISTS contractor_id uuid REFERENCES public.contractors(id);
-
-ALTER TABLE public.inspection_repair_items
-  ADD COLUMN IF NOT EXISTS contractor_unit_price numeric NOT NULL DEFAULT 0;
-```
-
-`contractor_id` has an explicit FK to `contractors(id)`. `contractor_unit_price` is manually entered by the executive per repair item (no auto-sourcing from a contractor pricing model in this MVP).
+Rewrite ExecutiveReviewQueue with KPIs, filters (including inspector), calendar view, and contextual CTAs. Refine ExecutiveReviewDetail with blocker indicators, richer sidebar, photo gallery with featured preview, and stronger financial visibility. No migrations needed.
 
 ---
 
-## Types (`src/lib/types.ts`)
+## 1. ExecutiveReviewQueue Rewrite (~500 lines)
 
-- Add `Contractor` interface: `{ id, name, country, is_active, created_at }`
-- Add `contractor_id?: string | null` to `Inspection`
-- Add `contractor_unit_price: number` to `InspectionRepairItem`
+### Data loading
+- Fetch inspections, batch-fetch sections (existing pattern), PLUS batch-fetch inspector profiles (`profiles` table filtered by unique `inspector_id` values) and batch-fetch `inspection_sections.final_observation` for publish-readiness checks.
+- All filtering done client-side.
 
----
+### KPI summary row (4 cards)
+- Pendientes de inicio (no `started_at`)
+- En progreso (started, not submitted)
+- Listas para revisión (submitted/in_review)
+- Publicadas
 
-## Centralized publish validation (`src/lib/section-completion.ts`)
+### Filter bar
+- Search input (address / property name / property_id)
+- Status dropdown
+- Market dropdown (derived from data)
+- Inspector dropdown (derived from fetched profiles)
+- Published filter (all / published / not published)
 
-Add a `requiresFinalObservation(sectionType)` function:
+### View toggle: List / Calendar
+- **List**: grouped buckets (Requieren revisión, En curso, Publicadas recientemente, Otras)
+- **Calendar**: group by `scheduled_at` date → today / tomorrow / upcoming / past / unscheduled. Each entry shows status badge, inspector name, progress bar, contextual CTA.
 
-```ts
-const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'handover_meta', 'admin_meta']);
+### Contextual CTAs (richer logic)
+Derive from `current_stage`, `status`, `published_at`, `started_at`, and missing observations count:
+- `published` → "Abrir reporte"
+- `approved` + not published → "Publicar"  
+- `submitted`/`in_review` → "Revisar"
+- `assigned`/`in_progress` + started → "Ver progreso"
+- `assigned` + not started → "Pendiente"
+- If published but has changes since → "Republicar" (secondary)
 
-export function requiresFinalObservation(sectionType: string): boolean {
-  return !EXEMPT_FROM_FINAL_OBS.has(sectionType);
-}
-```
-
-Executive publish logic calls this per section instead of hardcoding exclusions inline.
-
----
-
-## Executive Review Detail — Full Rewrite (`src/pages/executive/ExecutiveReviewDetail.tsx`)
-
-~850 lines → new desktop-first layout.
-
-### Desktop layout (lg+)
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ STICKY TOP SUMMARY BAR                                        │
-│ Property | Address | Stage | Published badge                  │
-│ Depósito en garantía: $X | Presupuesto: $Y | Diff: $Z        │
-│ Contractor: [dropdown] | Costo contratista: $A | Utilidad: $B │
-│ [Copy Link] [Abrir Reporte] [Publicar / Republicar]          │
-├──────────┬──────────────────────────────┬────────────────────┤
-│ LEFT     │ CENTER                        │ RIGHT              │
-│ Section  │ Side-by-side observations     │ Photos gallery     │
-│ nav w/   │ ┌──────────┬────────────────┐ │                    │
-│ status + │ │Inspector │Final public    │ │ Depósito vs Budget │
-│ missing  │ │(slate bg)│(emerald bg)    │ │ card               │
-│ obs dot  │ └──────────┴────────────────┘ │                    │
-│          │ Internal note                 │ Contractor pricing │
-│          │ Repair items (dual pricing)   │ summary            │
-└──────────┴──────────────────────────────┴────────────────────┘
-```
-
-### Key behaviors
-
-1. **Sticky top bar**: Property info, stage badge, published/not-published badge. `warranty_deposit` from `getEffectiveSnapshot()` displayed as "Depósito en garantía". Client budget total, difference, contractor dropdown (from `contractors` table), contractor total, utility (internal). Actions: Copy Link, Abrir Reporte Propietario, Publicar/Republicar.
-
-2. **Left sidebar**: Section list with status badges. Red dot if `requiresFinalObservation(section.section_type)` and `final_observation` is empty. Click selects active section.
-
-3. **Center workspace**: Side-by-side comparison — inspector observation (bg `slate-50`) vs final observation textarea (bg `emerald-50/30`). Internal note textarea. Repair items with dual pricing: `unit_price` (Precio cliente, editable), `contractor_unit_price` (Precio contratista, editable by executive after contractor selection), utility per item calculated. Editable `description_snapshot` per item.
-
-4. **Right panel**: Photo gallery for active section, owner visibility toggles. Depósito vs budget comparison card with status ("Cubierto por depósito" / "Excede depósito"). Contractor pricing summary.
-
-5. **Publish validation**: Uses `requiresFinalObservation()`. Blocks publish with message: "Faltan observaciones finales en N secciones" listing section names.
-
-6. **Republish**: If already published (`published_at` exists), show "Republicar" (outline style). Creates new version via existing logic.
-
-7. **Inspector progress in top bar**: Derived from `started_at`, `last_active_at`, section progress. Shows "Pendiente de inicio" / "Inspección iniciada" / progress count.
-
-### Mobile fallback (< lg)
-
-Functional but not primary. Compact top summary card. Stacked observations (not side-by-side). Tabs: Revisión | Presupuesto | Compartir. Quick action buttons card. No rich desktop workspace features.
-
-### Pricing behavior (MVP)
-
-`contractor_unit_price` is **manually entered by the executive** per repair item after selecting a contractor. No automatic contractor pricing model in this iteration. Selecting a contractor enables the contractor price fields but does not auto-fill them.
+### Inspector progress per card
+- Inspector name (from profiles lookup)
+- Progress bar + section count
+- Last activity relative time
 
 ---
 
-## Executive Review Queue (`src/pages/executive/ExecutiveReviewQueue.tsx`)
+## 2. ExecutiveReviewDetail Refinements
 
-Add inspector progress visibility without N+1 queries:
+### A. Sticky top bar — add blocker indicators (Row 3)
+After existing Row 2, add a conditional blocker bar:
+- Missing final observations count + names
+- Missing contractor warning (if repairs exist but no contractor)
+- Unpublished state warning
+- Styled as amber/red alert chips
 
-- Single query: fetch all inspections with a **subquery/join** to get section counts per inspection:
-  ```ts
-  // After fetching inspections, batch-fetch sections for all inspection IDs
-  const inspIds = inspections.map(i => i.id);
-  const { data: allSections } = await supabase
-    .from('inspection_sections')
-    .select('inspection_id, status, is_visible, section_type')
-    .in('inspection_id', inspIds);
-  // Group and calculate progress client-side per inspection
-  ```
-- Display per row: "Pendiente de inicio" / "Inspección iniciada", progress bar, section count, relative `last_active_at`.
+### B. Sidebar enrichment
+Per section button, add indicators driven by centralized helpers:
+- Red dot: `requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim()` (already exists)
+- Camera icon + count: `photosBySection[s.id]?.length` (new)
+- Wrench icon + count: `repairsBySection[s.id]?.length` (new)
+- Warning icon if section blocks publication (missing obs on required type)
 
----
+### C. Photo panel — featured preview + thumbnails
+Replace the 2-column grid with:
+- Large featured image (first photo or clicked photo) filling panel width
+- Click to open Dialog with full-resolution view
+- Below: horizontal thumbnail strip for navigation (scrollable)
+- Visibility toggle on each thumbnail
+- If ≤4 photos, keep simple grid; if >4, use featured + strip pattern
 
-## Admin Contractor Management (`src/pages/admin/AdminSettings.tsx`)
+### D. Financial visibility — section subtotal + running totals
+In SectionWorkspace, make repair section more prominent:
+- Wrap in a Card with colored left border (`border-l-4 border-primary`)
+- Header: "Reparaciones · N items" with subtotal prominently shown
+- "Agregar reparación" button larger
 
-Add a clearly separated, full-width contractor management section with its own card:
+In right panel, add a persistent financial summary card (always visible, not just when contractor selected):
+- Presupuesto cliente total
+- Costo contratista total (if contractor selected)
+- Utilidad estimada (if contractor selected)  
+- Section subtotal for active section
 
-- Card header: "Contratistas" with description
-- Table: Name, Country, Active toggle, Delete action
-- "Agregar contratista" form with name input + country select (CL, MX)
-- Visually separated from existing template/rules documentation — placed as a distinct operational section at the top of the settings page
+### E. Signature as compliance block (minor refinement)
+Already implemented as separate card in sidebar. Add signer name display when signed, and `signed_at` timestamp.
 
 ---
 
@@ -149,13 +91,8 @@ Add a clearly separated, full-width contractor management section with its own c
 
 | Action | File |
 |---|---|
-| Migration | Create `contractors` table with RLS |
-| Migration | Add `contractor_id` FK to inspections, `contractor_unit_price` to repair items |
-| Edit | `src/lib/types.ts` — add `Contractor`, new fields |
-| Edit | `src/lib/section-completion.ts` — add `requiresFinalObservation()` |
-| Rewrite | `src/pages/executive/ExecutiveReviewDetail.tsx` — desktop-first workspace |
-| Edit | `src/pages/executive/ExecutiveReviewQueue.tsx` — batched progress visibility |
-| Edit | `src/pages/admin/AdminSettings.tsx` — contractor management section |
+| Rewrite | `src/pages/executive/ExecutiveReviewQueue.tsx` — KPIs, filters, inspector filter, calendar, contextual CTAs |
+| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` — blocker bar, sidebar indicators, photo gallery, financial cards |
 
-7 changes total (2 migrations, 5 code files).
+2 file changes. No migrations.
 
