@@ -29,7 +29,8 @@ import type {
 import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
-  AlertTriangle, ExternalLink, RefreshCw, Clock,
+  AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
+  ChevronLeft, ChevronRight, ZoomIn,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
