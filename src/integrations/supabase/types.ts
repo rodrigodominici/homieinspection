@@ -273,6 +273,7 @@ export type Database = {
       inspection_repair_items: {
         Row: {
           category_snapshot: string | null
+          contractor_unit_price: number
           created_at: string
           created_by: string | null
           description_snapshot: string | null
@@ -295,6 +296,7 @@ export type Database = {
         }
         Insert: {
           category_snapshot?: string | null
+          contractor_unit_price?: number
           created_at?: string
           created_by?: string | null
           description_snapshot?: string | null
@@ -317,6 +319,7 @@ export type Database = {
         }
         Update: {
           category_snapshot?: string | null
+          contractor_unit_price?: number
           created_at?: string
           created_by?: string | null
           description_snapshot?: string | null
@@ -764,6 +767,7 @@ export type Database = {
           approved_by: string | null
           budget_completed_at: string | null
           completed_at: string | null
+          contractor_id: string | null
           created_at: string
           created_by: string | null
           current_stage: string
@@ -802,6 +806,7 @@ export type Database = {
           approved_by?: string | null
           budget_completed_at?: string | null
           completed_at?: string | null
+          contractor_id?: string | null
           created_at?: string
           created_by?: string | null
           current_stage?: string
@@ -840,6 +845,7 @@ export type Database = {
           approved_by?: string | null
           budget_completed_at?: string | null
           completed_at?: string | null
+          contractor_id?: string | null
           created_at?: string
           created_by?: string | null
           current_stage?: string
@@ -885,6 +891,13 @@ export type Database = {
             columns: ["approved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
             referencedColumns: ["id"]
           },
           {
