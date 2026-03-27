@@ -437,26 +437,26 @@ export default function ExecutiveReviewDetail() {
               <div className="flex items-center gap-2">
                 <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
                 <InspectionStatusBadge status={inspection.status} />
-                {isPublished ? (
-                  <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30 text-tiny">
-                    Publicado
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600">
-                    Sin publicar
-                  </Badge>
-                )}
               </div>
               <p className="text-tiny text-muted-foreground truncate">{inspection.address}</p>
             </div>
-            {/* Quick actions */}
+            {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
               {isPublished && (
-                <Button variant="outline" size="sm" onClick={() => {
-                  window.open(`/reportes/${inspection.property_id}`, '_blank');
-                }}>
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    window.open(`/reportes/${inspection.property_id}`, '_blank');
+                  }}>
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const url = `${window.location.origin}/reportes/${inspection.property_id}`;
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado' });
+                  }}>
+                    <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar link
+                  </Button>
+                </>
               )}
               {isPublished ? (
                 <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
@@ -616,7 +616,7 @@ export default function ExecutiveReviewDetail() {
                     <span className="flex items-center gap-0.5"><Wrench className="h-3 w-3" />{repairCount}</span>
                   )}
                   {needsObs && (
-                    <span className="text-[hsl(var(--status-bad))]">Bloquea publicación</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-bad))] shrink-0" title="Falta observación final" />
                   )}
                 </div>
               </button>
@@ -667,98 +667,20 @@ export default function ExecutiveReviewDetail() {
             />
           )}
 
-          {/* Financial summary — always visible */}
-          <Card className="border-0 ring-1 ring-border shadow-sm">
-            <CardContent className="p-3 space-y-2">
-              <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Resumen Financiero</p>
-              <div className="space-y-1.5 text-caption">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Depósito en garantía</span>
-                  <span className="font-mono font-medium">{warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Presupuesto cliente</span>
-                  <span className="font-mono font-medium">{fmtCurrency(clientTotal)}</span>
-                </div>
-                {depositDiff !== null && (
-                  <div className="flex justify-between border-t pt-1">
-                    <span className="text-muted-foreground">Diferencia</span>
-                    <span className={cn('font-mono font-medium', depositDiff >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                      {depositDiff >= 0 ? '+' : ''}{fmtCurrency(depositDiff)}
-                    </span>
-                  </div>
-                )}
-                {depositDiff !== null && (
-                  <Badge variant="outline" className={cn('text-tiny mt-1',
-                    depositDiff >= 0 ? 'border-[hsl(var(--status-good))]/30 text-[hsl(var(--status-good))]'
-                      : 'border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))]'
-                  )}>
-                    {depositDiff >= 0 ? 'Cubierto por depósito' : 'Excede depósito'}
-                  </Badge>
-                )}
-                {selectedContractorId && (
-                  <>
-                    <div className="border-t pt-1.5 mt-1.5" />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Contratista</span>
-                      <span>{contractors.find(c => c.id === selectedContractorId)?.name ?? '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Costo contratista</span>
-                      <span className="font-mono">{fmtCurrency(contractorTotal)}</span>
-                    </div>
-                    <div className="flex justify-between font-medium">
-                      <span>Utilidad estimada</span>
-                      <span className={cn('font-mono', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                        {fmtCurrency(utility)}
-                      </span>
-                    </div>
-                  </>
-                )}
-                {/* Active section subtotal */}
-                {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-                  <>
-                    <div className="border-t pt-1.5 mt-1.5" />
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal sección</span>
-                      <span className="font-mono">
-                        {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Publish actions */}
-          <Card className="border-0 ring-1 ring-border shadow-sm">
-            <CardContent className="p-3 space-y-2">
-              <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Publicación</p>
-              {isPublished ? (
-                <div className="space-y-2">
-                  <Badge className="bg-[hsl(var(--status-good))]/15 text-[hsl(var(--status-good))] text-tiny">Publicado</Badge>
-                  {inspection.published_at && (
-                    <p className="text-tiny text-muted-foreground">
-                      {new Date(inspection.published_at).toLocaleDateString('es-CL')}
-                    </p>
-                  )}
-                  <Button size="sm" className="w-full" onClick={() => {
-                    window.open(`/reportes/${inspection.property_id}`, '_blank');
-                  }}>
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte propietario
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
-                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
-                  </Button>
-                </div>
-              ) : (
-                <Button size="sm" className="w-full" onClick={handlePublish} disabled={submitting}>
-                  <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar reporte
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          {/* Section-level subtotal only (global financials are in top bar) */}
+          {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
+            <Card className="border-0 ring-1 ring-border shadow-sm">
+              <CardContent className="p-3 space-y-1.5">
+                <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Subtotal sección</p>
+                <p className="text-body-lg font-semibold font-mono">
+                  {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
+                </p>
+                <p className="text-tiny text-muted-foreground">
+                  {(repairsBySection[activeSection.id] ?? []).length} reparaciones en {activeSection.section_title}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
 
