@@ -238,6 +238,23 @@ export default function ExecutiveReviewDetail() {
   const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
     if (!catalogSectionId) return;
     const existingRepairs = repairsBySection[catalogSectionId] ?? [];
+
+    // Look up contractor-specific price if a contractor is selected
+    let contractorPrice = 0;
+    let priceSource: 'catalog' | 'none' = 'none';
+    if (selectedContractorId) {
+      const { data: cpData } = await supabase
+        .from('repair_catalog_item_contractor_prices')
+        .select('price')
+        .eq('repair_catalog_item_id', catalogItem.id)
+        .eq('contractor_id', selectedContractorId)
+        .maybeSingle();
+      if (cpData) {
+        contractorPrice = Number(cpData.price);
+        priceSource = 'catalog';
+      }
+    }
+
     await supabase.from('inspection_repair_items').insert({
       inspection_id: id!, inspection_section_id: catalogSectionId,
       repair_catalog_item_id: catalogItem.id, title_snapshot: catalogItem.name,
@@ -245,14 +262,19 @@ export default function ExecutiveReviewDetail() {
       description_snapshot: catalogItem.description,
       category_snapshot: catalogItem.category?.name ?? null,
       unit: catalogItem.unit, pricing_type: catalogItem.pricing_type,
-      quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: 0,
+      quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: contractorPrice,
       notes: null, visible_to_owner: true, sort_order: existingRepairs.length,
       created_by: profile?.id, updated_by: profile?.id,
     });
     setCatalogOpen(false);
     const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
     setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-    toast({ title: 'Reparación agregada' });
+    toast({
+      title: 'Reparación agregada',
+      description: priceSource === 'catalog'
+        ? `Precio contratista autollenado: $${contractorPrice}`
+        : selectedContractorId ? 'Sin precio de contratista configurado' : undefined,
+    });
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
