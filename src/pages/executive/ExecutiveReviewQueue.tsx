@@ -347,7 +347,7 @@ function BucketSection({ title, count, inspections, sectionsByInspection, inspec
       <h2 className="text-caption font-medium text-muted-foreground uppercase tracking-wider mb-3">
         {title} ({count})
       </h2>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {inspections.map(insp => (
           <InspectionRow key={insp.id} inspection={insp}
             sections={sectionsByInspection[insp.id] ?? []}
