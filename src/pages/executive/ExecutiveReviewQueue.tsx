@@ -315,7 +315,7 @@ function KPICard({ label, value, icon, color }: {
 }) {
   const colorMap = {
     muted: 'bg-muted/50 text-muted-foreground',
-    regular: 'bg-[hsl(var(--status-regular))]/10 text-[hsl(var(--status-regular))]',
+    regular: 'bg-status-regular-bg text-[hsl(var(--status-regular))]',
     primary: 'bg-primary/10 text-primary',
     good: 'bg-[hsl(var(--status-good))]/10 text-[hsl(var(--status-good))]',
   };
@@ -364,7 +364,7 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
   sections: SectionMeta[];
   inspectorName: string | null;
 }) {
-  const progress = useMemo(() => calculateProgress(sections), [sections]);
+  const progress = useMemo(() => calculateProgress(sections as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]), [sections]);
   const cta = useMemo(() => getContextualCTA(insp, sections), [insp, sections]);
   const isPublished = !!insp.published_at;
 
