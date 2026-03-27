@@ -1200,3 +1200,121 @@ function SectionWorkspace({
     </div>
   );
 }
+
+// ─── Photo Panel (Right sidebar) ─────────────────────────
+function PhotoPanel({ photos, onToggleVisibility }: {
+  photos: InspectionPhoto[];
+  onToggleVisibility: (photo: InspectionPhoto) => void;
+}) {
+  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const featured = photos[featuredIdx] ?? null;
+  const hasManyPhotos = photos.length > 4;
+
+  if (photos.length === 0) {
+    return (
+      <div>
+        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos (0)</p>
+        <p className="text-tiny text-muted-foreground py-4 text-center">Sin fotos</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        Fotos ({photos.length})
+      </p>
+
+      {hasManyPhotos ? (
+        <>
+          {/* Featured preview */}
+          {featured && (
+            <div className="relative group mb-2">
+              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+                className={cn('w-full rounded-lg object-cover aspect-[4/3] cursor-pointer',
+                  (featured as any).visible_to_owner === false && 'opacity-40'
+                )}
+                onClick={() => setDialogOpen(true)} />
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                <button onClick={() => onToggleVisibility(featured)}
+                  className="p-1.5 rounded-md bg-background/80 hover:bg-background transition-colors">
+                  {(featured as any).visible_to_owner !== false ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                </button>
+                <button onClick={() => setDialogOpen(true)}
+                  className="p-1.5 rounded-md bg-background/80 hover:bg-background transition-colors">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {featured.caption && (
+                <p className="text-tiny text-muted-foreground mt-1">{featured.caption}</p>
+              )}
+            </div>
+          )}
+          {/* Thumbnail strip */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {photos.map((p, idx) => (
+              <button key={p.id} onClick={() => setFeaturedIdx(idx)}
+                className={cn('shrink-0 rounded-md overflow-hidden ring-2 transition-all',
+                  idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
+                  (p as any).visible_to_owner === false && 'opacity-40'
+                )}>
+                <img src={p.public_url ?? ''} alt="" className="h-12 w-12 object-cover" />
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        /* Simple grid for ≤4 photos */
+        <div className="grid grid-cols-2 gap-2">
+          {photos.map((p) => {
+            const visible = (p as any).visible_to_owner !== false;
+            return (
+              <div key={p.id} className="relative group">
+                <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                  className={cn('aspect-square rounded-lg object-cover w-full cursor-pointer', !visible && 'opacity-40')}
+                  onClick={() => { setFeaturedIdx(photos.indexOf(p)); setDialogOpen(true); }} />
+                <button onClick={() => onToggleVisibility(p)}
+                  className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {p.caption && <p className="text-tiny text-muted-foreground mt-0.5 truncate">{p.caption}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full-resolution dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl p-2">
+          <DialogHeader>
+            <DialogTitle className="text-caption">
+              Foto {featuredIdx + 1} de {photos.length}
+              {featured?.caption && ` — ${featured.caption}`}
+            </DialogTitle>
+          </DialogHeader>
+          {featured && (
+            <div className="relative">
+              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+                className="w-full rounded-lg object-contain max-h-[70vh]" />
+              {photos.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2">
+                  <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full"
+                    onClick={() => setFeaturedIdx(i => i > 0 ? i - 1 : photos.length - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full"
+                    onClick={() => setFeaturedIdx(i => i < photos.length - 1 ? i + 1 : 0)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
