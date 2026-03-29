@@ -76,19 +76,26 @@ function getBucket(insp: Inspection): 'review' | 'active' | 'published' | 'other
 
 // ─── Main Component ────────────────────────────────────
 export default function ExecutiveReviewQueue() {
-  const { profile, signOut } = useAuth();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [sectionsByInspection, setSectionsByInspection] = useState<Record<string, SectionMeta[]>>({});
   const [inspectorProfiles, setInspectorProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters — persisted
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    (localStorage.getItem('executive-queue-view') as ViewMode) || 'list'
+  );
+  const [sortKey, setSortKey] = useState<SortKey>(() =>
+    (localStorage.getItem('executive-queue-sort') as SortKey) || 'updated'
+  );
+
+  const persistViewMode = (v: ViewMode) => { setViewMode(v); localStorage.setItem('executive-queue-view', v); };
+  const persistSortKey = (s: SortKey) => { setSortKey(s); localStorage.setItem('executive-queue-sort', s); };
 
   useEffect(() => {
     const load = async () => {
@@ -164,17 +171,34 @@ export default function ExecutiveReviewQueue() {
     return { pending, inProgress, forReview, published };
   }, [inspections]);
 
+  // Sort filtered
+  const sortedFiltered = useMemo(() => {
+    const arr = [...filtered];
+    if (sortKey === 'updated') {
+      arr.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    } else {
+      arr.sort((a, b) => {
+        const snapA = getEffectiveSnapshot(a);
+        const snapB = getEffectiveSnapshot(b);
+        const dateA = snapA?.fecha_recoleccion_llaves ? new Date(snapA.fecha_recoleccion_llaves as string).getTime() : Infinity;
+        const dateB = snapB?.fecha_recoleccion_llaves ? new Date(snapB.fecha_recoleccion_llaves as string).getTime() : Infinity;
+        return sortKey === 'keys-asc' ? dateA - dateB : dateB - dateA;
+      });
+    }
+    return arr;
+  }, [filtered, sortKey]);
+
   // Grouped by bucket
   const grouped = useMemo(() => {
     const buckets: Record<string, Inspection[]> = { review: [], active: [], published: [], other: [] };
-    filtered.forEach(i => { buckets[getBucket(i)].push(i); });
+    sortedFiltered.forEach(i => { buckets[getBucket(i)].push(i); });
     return buckets;
-  }, [filtered]);
+  }, [sortedFiltered]);
 
   // Calendar grouping
   const calendarGroups = useMemo(() => {
     const groups: Record<string, Inspection[]> = {};
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...sortedFiltered].sort((a, b) => {
       const da = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Infinity;
       const db = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Infinity;
       return da - db;
@@ -192,29 +216,11 @@ export default function ExecutiveReviewQueue() {
       groups[key].push(insp);
     }
     return groups;
-  }, [filtered]);
+  }, [sortedFiltered]);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
-            </div>
-            <div>
-              <h1 className="text-h4">Espacio de Trabajo</h1>
-              <p className="text-tiny text-muted-foreground">{profile?.full_name}</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" onClick={signOut}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="container py-6 space-y-6">
+    <ExecutiveLayout>
+      <div className="p-6 space-y-6">
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
