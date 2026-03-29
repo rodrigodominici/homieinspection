@@ -318,8 +318,8 @@ export default function ExecutiveReviewQueue() {
             )}
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </ExecutiveLayout>
   );
 }
 
