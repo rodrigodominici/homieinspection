@@ -934,6 +934,7 @@ export default function ExecutiveReviewDetail() {
         </DialogContent>
       </Dialog>
     </div>
+    </ExecutiveLayout>
   );
 }
 
