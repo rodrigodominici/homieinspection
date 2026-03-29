@@ -9,6 +9,10 @@ import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'needs_changes', 'pending_assignment']);
+const PAST_STATUSES = new Set(['submitted', 'in_review', 'approved', 'published', 'sent']);
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
@@ -18,9 +22,10 @@ interface InspectionWithProgress extends Inspection {
 export default function InspectorAllInspections() {
   const [inspections, setInspections] = useState<InspectionWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'active' | 'past'>('active');
 
   useEffect(() => {
-    const fetch = async () => {
+    const load = async () => {
       const { data } = await supabase.from('inspections').select('*').order('updated_at', { ascending: false });
       if (!data) { setLoading(false); return; }
       const withProgress = await Promise.all(
@@ -34,41 +39,64 @@ export default function InspectorAllInspections() {
       setInspections(withProgress);
       setLoading(false);
     };
-    fetch();
+    load();
   }, []);
 
+  const filtered = inspections.filter((i) =>
+    filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)
+  );
+
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex h-16 items-center px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
-            </div>
-            <h1 className="text-h4">Todas las Inspecciones</h1>
-          </div>
-        </div>
+    <div className="min-h-screen bg-muted/30 pb-24">
+      <header className="px-5 pt-6 pb-3">
+        <h1 className="text-xl font-bold text-foreground">Inspecciones</h1>
       </header>
 
-      <main className="px-4 py-4 space-y-3">
+      {/* Toggle */}
+      <div className="px-4 pb-4">
+        <div className="flex bg-card rounded-xl p-1 shadow-sm">
+          <button
+            onClick={() => setFilter('active')}
+            className={cn(
+              'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
+              filter === 'active' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+          >
+            Activas
+          </button>
+          <button
+            onClick={() => setFilter('past')}
+            className={cn(
+              'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
+              filter === 'past' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+          >
+            Pasadas
+          </button>
+        </div>
+      </div>
+
+      <main className="px-4 space-y-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
-        ) : inspections.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-body-lg text-muted-foreground">No tienes inspecciones</p>
+            <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">
+              {filter === 'active' ? 'Sin inspecciones activas' : 'Sin inspecciones pasadas'}
+            </p>
           </div>
         ) : (
-          inspections.map((insp) => {
+          filtered.map((insp) => {
             const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
             return (
               <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
-                <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+                <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
-                        <div className="flex items-center gap-1 text-caption text-muted-foreground">
+                        <p className="font-semibold text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
                         </div>
@@ -76,7 +104,7 @@ export default function InspectorAllInspections() {
                       <InspectionStatusBadge status={insp.status} />
                     </div>
                     <div className="space-y-1">
-                      <div className="flex justify-between text-caption text-muted-foreground">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>{insp.completedSections} de {insp.totalSections}</span>
                         <span>{progress}%</span>
                       </div>

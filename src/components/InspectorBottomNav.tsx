@@ -1,10 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, History, ClipboardList, User } from 'lucide-react';
+import { Home, CalendarDays, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
-  { key: 'calendar', label: 'Calendario', icon: CalendarDays, path: '/inspector/calendar' },
-  { key: 'past', label: 'Pasadas', icon: History, path: '/inspector/past' },
+  { key: 'home', label: 'Hoy', icon: Home, path: '/inspector' },
+  { key: 'agenda', label: 'Agenda', icon: CalendarDays, path: '/inspector/agenda' },
   { key: 'inspections', label: 'Inspecciones', icon: ClipboardList, path: '/inspector/all' },
   { key: 'profile', label: 'Perfil', icon: User, path: '/inspector/profile' },
 ];
@@ -14,11 +14,13 @@ export default function InspectorBottomNav() {
   const navigate = useNavigate();
 
   const activeKey = (() => {
-    if (location.pathname === '/inspector/calendar') return 'calendar';
-    if (location.pathname === '/inspector/past') return 'past';
-    if (location.pathname === '/inspector/all') return 'inspections';
-    if (location.pathname === '/inspector/profile') return 'profile';
-    if (location.pathname === '/inspector') return 'calendar';
+    const p = location.pathname;
+    if (p === '/inspector' || p === '/inspector/') return 'home';
+    if (p === '/inspector/agenda') return 'agenda';
+    if (p === '/inspector/all') return 'inspections';
+    if (p === '/inspector/profile') return 'profile';
+    // Sub-routes like /inspector/inspection/:id stay on home
+    if (p.startsWith('/inspector/inspection')) return 'home';
     return '';
   })();
 
