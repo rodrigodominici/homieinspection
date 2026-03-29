@@ -402,6 +402,12 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
     s => s.is_visible && requiresFinalObservation(s.section_type) && !s.final_observation?.trim()
   ).length;
 
+  const snapshot = getEffectiveSnapshot(insp);
+  const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
+  const keyDateLabel = keyDate
+    ? new Date(keyDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className="border-0 ring-1 ring-border shadow-sm hover:shadow-md transition-shadow">
@@ -422,8 +428,12 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
               <div className="flex items-center gap-3 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
-                {inspectorName && <span>Inspector: {inspectorName}</span>}
+                {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
+                <span className="flex items-center gap-1">
+                  <Key className="h-3 w-3" />
+                  {keyDateLabel ? `Recolección: ${keyDateLabel}` : 'Sin fecha de recolección'}
+                </span>
               </div>
               {/* Row 3: Progress */}
               {sections.length > 0 && (
