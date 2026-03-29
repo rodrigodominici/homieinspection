@@ -1,3 +1,4 @@
+import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -417,16 +418,16 @@ export default function ExecutiveReviewDetail() {
   // ─── Loading / Not found ───────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b bg-card p-4"><Skeleton className="h-8 w-64" /></div>
+      <ExecutiveLayout>
         <div className="p-6 space-y-4">
+          <Skeleton className="h-8 w-64" />
           <Skeleton className="h-24 rounded-xl" />
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
         </div>
-      </div>
+      </ExecutiveLayout>
     );
   }
-  if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
+  if (!inspection) return <ExecutiveLayout><div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">Inspección no encontrada</div></ExecutiveLayout>;
 
   // ─── Inspector progress derived state ──────────────────
   const inspectorStarted = !!inspection.started_at;
@@ -446,7 +447,8 @@ export default function ExecutiveReviewDetail() {
 
   // ─── RENDER ────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-muted/30">
+    <ExecutiveLayout>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30">
       {/* ── STICKY TOP SUMMARY BAR ─────────────────────── */}
       <header className="sticky top-0 z-30 border-b bg-card shadow-sm">
         <div className="px-4 lg:px-6">
