@@ -1262,5 +1262,6 @@ function PhotoPanel({ photos, onToggleVisibility }: {
         </DialogContent>
       </Dialog>
     </div>
+    </ExecutiveLayout>
   );
 }
