@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,15 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { calculateProgress } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
+import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection, Profile } from '@/lib/types';
 import {
-  LogOut, FileSearch, Clock, Search, List, CalendarDays,
-  Eye, Send, ExternalLink, Play, BarChart3, CheckCircle2,
-  AlertTriangle, RefreshCw,
+  FileSearch, Clock, Search, List, CalendarDays,
+  Eye, Send, ExternalLink, Play, CheckCircle2,
+  AlertTriangle, RefreshCw, ArrowUpDown, Key,
 } from 'lucide-react';
-import { formatDistanceToNow, isToday, isTomorrow, isAfter, isBefore, startOfDay, subDays } from 'date-fns';
+import { formatDistanceToNow, isToday, isTomorrow, isAfter, isBefore, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +31,13 @@ interface SectionMeta {
 }
 
 type ViewMode = 'list' | 'calendar';
+type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
+
+const SORT_LABELS: Record<SortKey, string> = {
+  'updated': 'Última actividad',
+  'keys-asc': 'Recolección: próxima primero',
+  'keys-desc': 'Recolección: más lejana primero',
+};
 
 // ─── Helpers ───────────────────────────────────────────
 function getContextualCTA(
@@ -69,19 +76,26 @@ function getBucket(insp: Inspection): 'review' | 'active' | 'published' | 'other
 
 // ─── Main Component ────────────────────────────────────
 export default function ExecutiveReviewQueue() {
-  const { profile, signOut } = useAuth();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [sectionsByInspection, setSectionsByInspection] = useState<Record<string, SectionMeta[]>>({});
   const [inspectorProfiles, setInspectorProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters — persisted
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    (localStorage.getItem('executive-queue-view') as ViewMode) || 'list'
+  );
+  const [sortKey, setSortKey] = useState<SortKey>(() =>
+    (localStorage.getItem('executive-queue-sort') as SortKey) || 'updated'
+  );
+
+  const persistViewMode = (v: ViewMode) => { setViewMode(v); localStorage.setItem('executive-queue-view', v); };
+  const persistSortKey = (s: SortKey) => { setSortKey(s); localStorage.setItem('executive-queue-sort', s); };
 
   useEffect(() => {
     const load = async () => {
@@ -157,17 +171,34 @@ export default function ExecutiveReviewQueue() {
     return { pending, inProgress, forReview, published };
   }, [inspections]);
 
+  // Sort filtered
+  const sortedFiltered = useMemo(() => {
+    const arr = [...filtered];
+    if (sortKey === 'updated') {
+      arr.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    } else {
+      arr.sort((a, b) => {
+        const snapA = getEffectiveSnapshot(a);
+        const snapB = getEffectiveSnapshot(b);
+        const dateA = snapA?.fecha_recoleccion_llaves ? new Date(snapA.fecha_recoleccion_llaves as string).getTime() : Infinity;
+        const dateB = snapB?.fecha_recoleccion_llaves ? new Date(snapB.fecha_recoleccion_llaves as string).getTime() : Infinity;
+        return sortKey === 'keys-asc' ? dateA - dateB : dateB - dateA;
+      });
+    }
+    return arr;
+  }, [filtered, sortKey]);
+
   // Grouped by bucket
   const grouped = useMemo(() => {
     const buckets: Record<string, Inspection[]> = { review: [], active: [], published: [], other: [] };
-    filtered.forEach(i => { buckets[getBucket(i)].push(i); });
+    sortedFiltered.forEach(i => { buckets[getBucket(i)].push(i); });
     return buckets;
-  }, [filtered]);
+  }, [sortedFiltered]);
 
   // Calendar grouping
   const calendarGroups = useMemo(() => {
     const groups: Record<string, Inspection[]> = {};
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...sortedFiltered].sort((a, b) => {
       const da = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Infinity;
       const db = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Infinity;
       return da - db;
@@ -185,29 +216,11 @@ export default function ExecutiveReviewQueue() {
       groups[key].push(insp);
     }
     return groups;
-  }, [filtered]);
+  }, [sortedFiltered]);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
-            </div>
-            <div>
-              <h1 className="text-h4">Espacio de Trabajo</h1>
-              <p className="text-tiny text-muted-foreground">{profile?.full_name}</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" onClick={signOut}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="container py-6 space-y-6">
+    <ExecutiveLayout>
+      <div className="p-6 space-y-6">
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
@@ -267,12 +280,23 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortKey} onValueChange={(v) => persistSortKey(v as SortKey)}>
+                <SelectTrigger className="w-[240px] h-9 text-caption">
+                  <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="ml-auto flex items-center border rounded-lg overflow-hidden">
-                <button onClick={() => setViewMode('list')}
+                <button onClick={() => persistViewMode('list')}
                   className={cn('p-2 transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
                   <List className="h-4 w-4" />
                 </button>
-                <button onClick={() => setViewMode('calendar')}
+                <button onClick={() => persistViewMode('calendar')}
                   className={cn('p-2 transition-colors', viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
                   <CalendarDays className="h-4 w-4" />
                 </button>
@@ -280,7 +304,7 @@ export default function ExecutiveReviewQueue() {
             </div>
 
             {/* Content */}
-            {filtered.length === 0 ? (
+            {sortedFiltered.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 No se encontraron inspecciones
               </div>
@@ -305,8 +329,8 @@ export default function ExecutiveReviewQueue() {
             )}
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </ExecutiveLayout>
   );
 }
 
@@ -378,6 +402,12 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
     s => s.is_visible && requiresFinalObservation(s.section_type) && !s.final_observation?.trim()
   ).length;
 
+  const snapshot = getEffectiveSnapshot(insp);
+  const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
+  const keyDateLabel = keyDate
+    ? new Date(keyDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className="border-0 ring-1 ring-border shadow-sm hover:shadow-md transition-shadow">
@@ -398,8 +428,12 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
               <div className="flex items-center gap-3 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
-                {inspectorName && <span>Inspector: {inspectorName}</span>}
+                {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
+                <span className="flex items-center gap-1">
+                  <Key className="h-3 w-3" />
+                  {keyDateLabel ? `Recolección: ${keyDateLabel}` : 'Sin fecha de recolección'}
+                </span>
               </div>
               {/* Row 3: Progress */}
               {sections.length > 0 && (

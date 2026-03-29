@@ -24,6 +24,7 @@ import InspectorSectionComplete from "./pages/inspector/InspectorSectionComplete
 import InspectorCalendar from "./pages/inspector/InspectorCalendar";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
+import ExecutiveSchedule from "./pages/executive/ExecutiveSchedule";
 import OwnerReport from "./pages/public/OwnerReport";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
             
             {/* Executive routes */}
             <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
+            <Route path="/executive/schedule" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveSchedule /></ProtectedRoute>} />
             <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
             
             {/* Public routes */}
