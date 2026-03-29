@@ -280,12 +280,23 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortKey} onValueChange={(v) => persistSortKey(v as SortKey)}>
+                <SelectTrigger className="w-[240px] h-9 text-caption">
+                  <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="ml-auto flex items-center border rounded-lg overflow-hidden">
-                <button onClick={() => setViewMode('list')}
+                <button onClick={() => persistViewMode('list')}
                   className={cn('p-2 transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
                   <List className="h-4 w-4" />
                 </button>
-                <button onClick={() => setViewMode('calendar')}
+                <button onClick={() => persistViewMode('calendar')}
                   className={cn('p-2 transition-colors', viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
                   <CalendarDays className="h-4 w-4" />
                 </button>
@@ -293,7 +304,7 @@ export default function ExecutiveReviewQueue() {
             </div>
 
             {/* Content */}
-            {filtered.length === 0 ? (
+            {sortedFiltered.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 No se encontraron inspecciones
               </div>
