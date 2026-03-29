@@ -154,14 +154,14 @@ export default function InspectorInspectionDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="min-h-screen bg-muted/30 pb-28">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex h-16 items-center gap-3 px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/inspector')}>
+        <div className="flex h-14 items-center gap-3 px-4">
+          <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => navigate('/inspector')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
+            <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
           </div>
         </div>
       </header>
@@ -182,23 +182,39 @@ export default function InspectorInspectionDetail() {
         <PropertyBriefingCard inspection={inspection} />
 
         {/* Progress */}
-        <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-          <CardContent className="p-4">
+        <Card className="border-0 shadow-sm rounded-3xl bg-card">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-body font-medium">Progreso</span>
-              <span className="text-caption text-muted-foreground">{progress.completed} de {progress.total}</span>
+              <span className="text-sm font-medium">Progreso</span>
+              <span className="text-xs text-muted-foreground font-semibold">{progress.percent}%</span>
             </div>
             <Progress value={progress.percent} className={cn("h-3 rounded-full", progress.percent === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
-            <p className={cn("text-right text-tiny mt-1", progress.percent === 100 ? "text-status-good font-semibold" : "text-muted-foreground")}>{progress.percent}%</p>
+            <p className="text-xs text-muted-foreground mt-2">{progress.completed} de {progress.total} secciones</p>
             {!allCompleted && (
-              <p className="text-tiny text-muted-foreground mt-2">Completa todas las secciones antes de enviar</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Completa todas las secciones antes de enviar</p>
             )}
           </CardContent>
         </Card>
 
         {/* Guided section list */}
-        <div className="space-y-2">
-          <h3 className="text-caption font-medium text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
+        {/* Signature prompt when all complete but not signed */}
+        {allCompleted && canSubmit && !signatureResolved && (
+          <Card className="border-0 shadow-md rounded-3xl bg-primary/5 ring-1 ring-primary/20">
+            <CardContent className="p-5 text-center space-y-3">
+              <CheckCircle2 className="h-8 w-8 mx-auto text-primary" />
+              <div>
+                <p className="text-sm font-semibold">Inspección completada</p>
+                <p className="text-xs text-muted-foreground mt-1">Obtén la firma del inquilino para poder enviar la inspección</p>
+              </div>
+              <Button onClick={handleOpenSignature} className="rounded-2xl h-11 w-full">
+                Firma del inquilino
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {
             const isCompleted = isSectionCompleted(section.status);
             const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
@@ -209,22 +225,21 @@ export default function InspectorInspectionDetail() {
                 className="w-full text-left"
               >
                 <Card className={cn(
-                  'border-0 ring-1 shadow-sm hover:shadow-md transition-all active:scale-[0.99] rounded-2xl',
-                  isCurrent ? 'ring-primary/40 bg-primary/[0.02]' : 'ring-border'
+                  'border-0 ring-1 shadow-sm active:scale-[0.99] transition-all rounded-2xl',
+                  isCurrent ? 'ring-primary/30 bg-primary/[0.03] shadow-md' : 'ring-border'
                 )}>
-                  <CardContent className="p-3 flex items-center gap-3">
-                    {/* Step number */}
+                  <CardContent className="p-3.5 flex items-center gap-3 min-h-[56px]">
                     <div className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-xl text-caption font-bold shrink-0 transition-colors',
+                      'flex h-10 w-10 items-center justify-center rounded-xl text-xs font-bold shrink-0',
                       isCompleted ? 'bg-status-good-bg text-status-good' :
                       isCurrent ? 'bg-primary text-primary-foreground' :
                       'bg-muted text-muted-foreground'
                     )}>
-                      {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                      {isCompleted ? <CheckCircle2 className="h-4.5 w-4.5" /> : idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={cn('font-medium text-body', isCurrent && 'text-primary')}>{section.section_title}</p>
-                      <p className="text-tiny text-muted-foreground">
+                      <p className={cn('font-medium text-sm', isCurrent && 'text-primary')}>{section.section_title}</p>
+                      <p className="text-[10px] text-muted-foreground">
                         {isCurrent ? 'Siguiente sección' : section.section_type.replace('_', ' ')}
                       </p>
                     </div>

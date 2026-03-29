@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
+import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
-import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import type { Inspection } from '@/lib/types';
-import { CalendarDays, MapPin, Clock, Navigation, ArrowRight } from 'lucide-react';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import type { Inspection, InspectionSection } from '@/lib/types';
+import { MapPin, Clock, ArrowRight, CalendarDays, Navigation } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface CalendarInspection extends Inspection {
+interface AgendaInspection extends Inspection {
+  totalSections: number;
+  completedSections: number;
   scheduleDatetime: Date | null;
 }
 
@@ -30,121 +34,134 @@ function getScheduleDatetime(insp: Inspection): Date | null {
   return null;
 }
 
-function groupByDate(inspections: CalendarInspection[]): { label: string; key: string; items: CalendarInspection[] }[] {
-  const now = new Date();
-  const today = now.toDateString();
-  const tomorrow = new Date(now.getTime() + 86400000).toDateString();
+const DAY_ABBR = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-  const groups: Map<string, CalendarInspection[]> = new Map();
-  const unscheduled: CalendarInspection[] = [];
-
-  for (const insp of inspections) {
-    if (!insp.scheduleDatetime) {
-      unscheduled.push(insp);
-      continue;
-    }
-    const key = insp.scheduleDatetime.toDateString();
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(insp);
-  }
-
-  const result: { label: string; key: string; items: CalendarInspection[] }[] = [];
-
-  // Sort date keys chronologically
-  const sortedKeys = [...groups.keys()].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-  for (const key of sortedKeys) {
-    let label: string;
-    if (key === today) label = 'Hoy';
-    else if (key === tomorrow) label = 'Mañana';
-    else {
-      const d = new Date(key);
-      label = d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
-      label = label.charAt(0).toUpperCase() + label.slice(1);
-    }
-    result.push({ label, key, items: groups.get(key)! });
-  }
-
-  if (unscheduled.length > 0) {
-    result.push({ label: 'Sin programar', key: 'unscheduled', items: unscheduled });
-  }
-
-  return result;
+function generateDays(count: number): Date[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
 }
 
 export default function InspectorCalendar() {
   const { profile } = useAuth();
-  const [inspections, setInspections] = useState<CalendarInspection[]>([]);
+  const [inspections, setInspections] = useState<AgendaInspection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const days = generateDays(14);
+  const todayStr = new Date().toDateString();
 
   useEffect(() => {
-    const fetch = async () => {
+    const load = async () => {
       const { data } = await supabase
         .from('inspections')
         .select('*')
         .in('status', ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'])
         .order('scheduled_at', { ascending: true });
 
-      const items = ((data ?? []) as unknown as Inspection[]).map((insp) => ({
-        ...insp,
-        scheduleDatetime: getScheduleDatetime(insp),
-      }));
+      if (!data) { setLoading(false); return; }
 
-      items.sort((a, b) => {
-        if (!a.scheduleDatetime) return 1;
-        if (!b.scheduleDatetime) return -1;
-        return a.scheduleDatetime.getTime() - b.scheduleDatetime.getTime();
-      });
+      const withProgress = await Promise.all(
+        (data as unknown as Inspection[]).map(async (insp) => {
+          const { data: sections } = await supabase
+            .from('inspection_sections')
+            .select('id, status, is_visible, section_type')
+            .eq('inspection_id', insp.id);
+          const progress = calculateProgress((sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]);
+          return {
+            ...insp,
+            totalSections: progress.total,
+            completedSections: progress.completed,
+            scheduleDatetime: getScheduleDatetime(insp),
+          };
+        })
+      );
 
-      setInspections(items);
+      setInspections(withProgress);
       setLoading(false);
     };
-    fetch();
+    load();
   }, []);
 
-  const groups = groupByDate(inspections);
+  const selectedStr = selectedDate.toDateString();
+  const dayInspections = inspections
+    .filter((i) => i.scheduleDatetime?.toDateString() === selectedStr)
+    .sort((a, b) => (a.scheduleDatetime?.getTime() ?? 0) - (b.scheduleDatetime?.getTime() ?? 0));
+
+  const unscheduled = inspections.filter((i) => !i.scheduleDatetime);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex h-16 items-center gap-3 px-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-            <CalendarDays className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-h4">Calendario</h1>
-            <p className="text-tiny text-muted-foreground">{profile?.full_name}</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-muted/30 pb-24">
+      {/* Header */}
+      <header className="px-5 pt-6 pb-3">
+        <h1 className="text-xl font-bold text-foreground">Agenda</h1>
+        <p className="text-xs text-muted-foreground">{profile?.full_name}</p>
       </header>
 
-      <main className="px-4 py-4 space-y-5">
+      {/* Horizontal day selector */}
+      <div ref={scrollRef} className="flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide">
+        {days.map((day) => {
+          const isToday = day.toDateString() === todayStr;
+          const isSelected = day.toDateString() === selectedStr;
+          const hasInspections = inspections.some((i) => i.scheduleDatetime?.toDateString() === day.toDateString());
+          return (
+            <button
+              key={day.toISOString()}
+              onClick={() => setSelectedDate(day)}
+              className={cn(
+                'flex flex-col items-center justify-center min-w-[52px] h-[68px] rounded-2xl transition-all shrink-0',
+                isSelected
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'bg-card text-foreground hover:bg-muted'
+              )}
+            >
+              <span className={cn('text-[10px] font-medium', isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                {DAY_ABBR[day.getDay()]}
+              </span>
+              <span className={cn('text-lg font-bold', isSelected ? 'text-primary-foreground' : 'text-foreground')}>
+                {day.getDate()}
+              </span>
+              {hasInspections && !isSelected && (
+                <div className="h-1 w-1 rounded-full bg-primary mt-0.5" />
+              )}
+              {isToday && !isSelected && (
+                <div className="h-1 w-1 rounded-full bg-status-good mt-0.5" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Day content */}
+      <main className="px-4 space-y-3">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-2xl" />
-            ))}
-          </div>
-        ) : groups.length === 0 ? (
-          <div className="py-16 text-center">
-            <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-body-lg text-muted-foreground">No tienes inspecciones pendientes</p>
-          </div>
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
+        ) : dayInspections.length === 0 ? (
+          <Card className="border-0 shadow-sm rounded-3xl bg-card">
+            <CardContent className="p-8 text-center">
+              <CalendarDays className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">Sin inspecciones este día</p>
+            </CardContent>
+          </Card>
         ) : (
-          groups.map((group) => (
-            <section key={group.key}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className={`h-2 w-2 rounded-full ${group.key === new Date().toDateString() ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-                <h2 className="text-caption font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</h2>
-                <span className="text-tiny text-muted-foreground">({group.items.length})</span>
-              </div>
-              <div className="space-y-3">
-                {group.items.map((insp) => (
-                  <AgendaCard key={insp.id} inspection={insp} />
-                ))}
-              </div>
-            </section>
-          ))
+          dayInspections.map((insp) => <AgendaCard key={insp.id} inspection={insp} />)
+        )}
+
+        {/* Unscheduled */}
+        {!loading && unscheduled.length > 0 && (
+          <section className="pt-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sin programar</h2>
+            <div className="space-y-2">
+              {unscheduled.map((insp) => <AgendaCard key={insp.id} inspection={insp} />)}
+            </div>
+          </section>
         )}
       </main>
 
@@ -153,18 +170,20 @@ export default function InspectorCalendar() {
   );
 }
 
-function AgendaCard({ inspection: insp }: { inspection: CalendarInspection }) {
+function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
+  const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
   const address = insp.address ?? 'Sin dirección';
   const snapshot = getEffectiveSnapshot(insp);
   const comuna = insp.market === 'CL' ? (snapshot?.comuna as string) ?? null : null;
+  const cta = insp.status === 'assigned' ? 'Iniciar' : insp.status === 'needs_changes' ? 'Corregir' : 'Continuar';
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-all">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
-            <p className="font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
-            <div className="flex items-center gap-1 text-caption text-muted-foreground">
+            <p className="text-sm font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{address}{comuna ? ` · ${comuna}` : ''}</span>
             </div>
@@ -173,13 +192,19 @@ function AgendaCard({ inspection: insp }: { inspection: CalendarInspection }) {
         </div>
 
         {insp.scheduleDatetime && (
-          <div className="flex items-center gap-2 text-caption text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
             <Clock className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              {insp.scheduleDatetime.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            <span>{insp.scheduleDatetime.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         )}
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{insp.completedSections} de {insp.totalSections}</span>
+            <span className="font-medium">{progress}%</span>
+          </div>
+          <Progress value={progress} className="h-2 rounded-full" />
+        </div>
 
         <div className="flex gap-2">
           {insp.address && (
@@ -193,12 +218,12 @@ function AgendaCard({ inspection: insp }: { inspection: CalendarInspection }) {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(insp.address!)}`, '_blank');
               }}
             >
-              <Navigation className="h-3.5 w-3.5" /> Cómo llegar
+              <Navigation className="h-3.5 w-3.5" /> Ir
             </Button>
           )}
           <Link to={`/inspector/inspection/${insp.id}`} className="flex-1">
             <Button className="w-full rounded-xl gap-1.5 h-9" size="sm">
-              Abrir <ArrowRight className="h-3.5 w-3.5" />
+              {cta} <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>

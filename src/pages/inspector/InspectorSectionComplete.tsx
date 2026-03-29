@@ -260,7 +260,7 @@ export default function InspectorSectionComplete() {
   const measurementFields = fields.filter((f) => f.group_key === 'measurement' && f.is_visible);
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-muted/30 pb-32">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-sm">
         <div className="flex h-14 items-center gap-3 px-4">
@@ -326,7 +326,7 @@ export default function InspectorSectionComplete() {
             <Card key={field.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
               <CardContent className="p-4">
                 <p className="text-body font-medium mb-3">{field.field_label}</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3.5">
                   {options.map((opt) => {
                     const selected = field.value_text === opt.value;
                     const colorClass =
@@ -439,8 +439,8 @@ export default function InspectorSectionComplete() {
                 value={field.value_text ?? ''}
                 onChange={(e) => handleTextChange(field.id, e.target.value)}
                 onBlur={(e) => handleTextBlur(field.id, e.target.value)}
-                placeholder="Escribe tus observaciones..."
-                rows={3}
+                placeholder="Describe lo que observas en esta área..."
+                rows={4}
                 className="rounded-xl"
               />
             </CardContent>
@@ -451,7 +451,7 @@ export default function InspectorSectionComplete() {
         <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
           <CardContent className="p-4">
             <p className="text-body font-medium mb-3">Fotos</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <PhotoUploadSheet onFiles={(files) => {
                 // Re-use existing handler by creating a synthetic-like flow
                 const dt = new DataTransfer();
@@ -485,7 +485,7 @@ export default function InspectorSectionComplete() {
       </main>
 
       {/* Sticky bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t space-y-2">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t space-y-2 safe-area-bottom">
         {(() => {
           const completed = isSectionCompleted(section.status);
           const isLast = !nextSection;
