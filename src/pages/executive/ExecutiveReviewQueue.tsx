@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,15 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { calculateProgress } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
+import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection, Profile } from '@/lib/types';
 import {
-  LogOut, FileSearch, Clock, Search, List, CalendarDays,
-  Eye, Send, ExternalLink, Play, BarChart3, CheckCircle2,
-  AlertTriangle, RefreshCw,
+  FileSearch, Clock, Search, List, CalendarDays,
+  Eye, Send, ExternalLink, Play, CheckCircle2,
+  AlertTriangle, RefreshCw, ArrowUpDown, Key,
 } from 'lucide-react';
-import { formatDistanceToNow, isToday, isTomorrow, isAfter, isBefore, startOfDay, subDays } from 'date-fns';
+import { formatDistanceToNow, isToday, isTomorrow, isAfter, isBefore, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +31,13 @@ interface SectionMeta {
 }
 
 type ViewMode = 'list' | 'calendar';
+type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
+
+const SORT_LABELS: Record<SortKey, string> = {
+  'updated': 'Última actividad',
+  'keys-asc': 'Recolección: próxima primero',
+  'keys-desc': 'Recolección: más lejana primero',
+};
 
 // ─── Helpers ───────────────────────────────────────────
 function getContextualCTA(
