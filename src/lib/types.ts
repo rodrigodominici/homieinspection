@@ -23,11 +23,13 @@ export type SectionStatus =
 
 export type SectionType =
   | 'property_meta'
+  | 'reception_meta'
   | 'handover_meta'
   | 'admin_meta'
   | 'space_standard'
   | 'space_secondary'
   | 'space_technical'
+  | 'space_kitchen'
   | 'closing_summary';
 
 export type FieldType =
@@ -208,6 +210,12 @@ export interface PropertyPayload {
   comuna?: string;
   recipient_email?: string;
   warranty_deposit?: number;
+  tenant_name?: string;
+  tenant_whatsapp?: string;
+  unit_number?: string;
+  parking_number?: string;
+  storage_number?: string;
+  fecha_inspeccion?: string;
   scheduled_at?: string;
   fecha_recoleccion_llaves?: string;
   hora_recoleccion_llaves?: string;

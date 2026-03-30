@@ -21,11 +21,28 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, KeyRound } from 'lucide-react';
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted } from '@/lib/section-completion';
+
+// ─── Group labels for the closing section sub-groups ────────────────────────
+const CLOSING_GROUP_LABELS: Record<string, string> = {
+  key_collection: 'Recolección de Llaves',
+  cleaning: 'Aseo',
+  removal: 'Retiro de Enseres',
+  fumigation: 'Fumigación',
+  meters: 'Medidores',
+  admin_contact: 'Contacto Administrador',
+};
+
+const KITCHEN_GROUP_LABELS: Record<string, string> = {
+  status: 'Estado Cocina',
+  appliance: 'Electrodomésticos',
+  technical: 'Datos Técnicos',
+  logia: 'Logia / Calefont',
+};
 
 export default function InspectorSectionComplete() {
   const { id: inspectionId, sectionId } = useParams<{ id: string; sectionId: string }>();
@@ -211,7 +228,6 @@ export default function InspectorSectionComplete() {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
       if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
-      // Auto-advance only if not the last section
       if (nextSection) {
         goNext();
       } else {
@@ -253,11 +269,329 @@ export default function InspectorSectionComplete() {
 
   if (!section) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Sección no encontrada</div>;
 
-  const statusFields = fields.filter((f) => f.group_key === 'status' && f.is_visible);
-  const observationFields = fields.filter((f) => f.group_key === 'observation' && f.is_visible);
-  const technicalFields = fields.filter((f) => f.group_key === 'technical' && f.is_visible);
-  const infoFields = fields.filter((f) => f.group_key === 'info' && f.is_visible);
-  const measurementFields = fields.filter((f) => f.group_key === 'measurement' && f.is_visible);
+  // ─── Group fields by group_key for flexible rendering ───────────────────
+  const fieldsByGroup = fields.reduce<Record<string, InspectionFieldValue[]>>((acc, f) => {
+    if (!f.is_visible) return acc;
+    const key = f.group_key ?? 'other';
+    (acc[key] = acc[key] || []).push(f);
+    return acc;
+  }, {});
+
+  const sectionType = section.section_type;
+  const sectionKey = section.section_key;
+
+  // ─── Render helpers ─────────────────────────────────────────────────────
+
+  const renderField = (field: InspectionFieldValue, readOnly = false) => {
+    if (field.field_type === 'single_select') {
+      const options = (field.value_json as { options?: Array<{ value: string; label: string }> })?.options ?? [];
+      // Check if it's a status-type selector (4 options: bueno/regular/malo/no_aplica)
+      const isStatusGrid = options.length === 4 && options.some(o => o.value === 'bueno');
+      if (isStatusGrid) {
+        return (
+          <div key={field.id} className="space-y-2">
+            <p className="text-body font-medium">{field.field_label}</p>
+            <div className="grid grid-cols-2 gap-3.5">
+              {options.map((opt) => {
+                const selected = field.value_text === opt.value;
+                const colorClass =
+                  opt.value === 'bueno' ? 'bg-status-good-bg text-status-good ring-status-good' :
+                  opt.value === 'regular' ? 'bg-status-regular-bg text-status-regular ring-status-regular' :
+                  opt.value === 'malo' ? 'bg-status-bad-bg text-status-bad ring-status-bad' :
+                  'bg-status-na-bg text-status-na ring-status-na';
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => !readOnly && handleChipChange(field.id, opt.value)}
+                    disabled={readOnly}
+                    className={cn(
+                      'min-h-[56px] rounded-2xl text-body font-semibold transition-all ring-1',
+                      selected
+                        ? `${colorClass} ring-2 shadow-md scale-[1.02]`
+                        : 'bg-muted/50 text-muted-foreground ring-transparent hover:bg-muted active:scale-[0.98]',
+                      readOnly && 'opacity-60 cursor-default'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+      // Non-status selector (technical, etc.)
+      return (
+        <div key={field.id} className="space-y-1">
+          <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
+          <div className="flex flex-wrap gap-2">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => !readOnly && handleChipChange(field.id, opt.value)}
+                disabled={readOnly}
+                className={cn(
+                  'px-4 py-2.5 rounded-xl text-caption font-medium transition-all ring-1',
+                  field.value_text === opt.value
+                    ? 'bg-primary/10 text-primary ring-primary'
+                    : 'bg-muted/50 text-muted-foreground ring-transparent hover:bg-muted'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.field_type === 'textarea') {
+      return (
+        <div key={field.id} className="space-y-1">
+          <label className="text-body font-medium">{field.field_label}</label>
+          <Textarea
+            value={field.value_text ?? ''}
+            onChange={(e) => handleTextChange(field.id, e.target.value)}
+            onBlur={(e) => handleTextBlur(field.id, e.target.value)}
+            placeholder="Describe lo que observas..."
+            rows={4}
+            className="rounded-xl"
+            disabled={readOnly}
+          />
+        </div>
+      );
+    }
+
+    if (field.field_type === 'photo_upload') {
+      return null; // Photos handled separately
+    }
+
+    // text, number, email, phone, date
+    return (
+      <div key={field.id} className="space-y-1">
+        <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
+        {readOnly ? (
+          <p className="text-body font-medium px-3 py-2.5 rounded-xl bg-muted/30 min-h-[44px] flex items-center">
+            {field.value_text || '—'}
+          </p>
+        ) : (
+          <Input
+            value={field.value_text ?? ''}
+            onChange={(e) => handleTextChange(field.id, e.target.value)}
+            onBlur={(e) => handleTextBlur(field.id, e.target.value)}
+            type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : field.field_type === 'phone' ? 'tel' : field.field_type === 'date' ? 'date' : 'text'}
+            className="rounded-xl h-11"
+          />
+        )}
+      </div>
+    );
+  };
+
+  const renderGroupCard = (groupFields: InspectionFieldValue[], title?: string, readOnly = false) => {
+    const nonPhotoFields = groupFields.filter(f => f.field_type !== 'photo_upload');
+    if (nonPhotoFields.length === 0) return null;
+    return (
+      <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+        <CardContent className="p-4 space-y-3">
+          {title && <p className="text-body font-semibold text-muted-foreground">{title}</p>}
+          {nonPhotoFields.map(f => renderField(f, readOnly))}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // ─── Section-type-specific rendering ────────────────────────────────────
+
+  const renderReceptionMeta = () => {
+    const contextFields = fieldsByGroup['context'] || [];
+    const tenantFields = fieldsByGroup['context_tenant'] || [];
+    const inspectorFields = fieldsByGroup['inspector_input'] || [];
+
+    const tenantWhatsapp = tenantFields.find(f => f.field_key === 'ctx_tenant_whatsapp');
+
+    return (
+      <>
+        {/* R5: Payload-derived context — muted read-only */}
+        {contextFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-body font-semibold text-muted-foreground">Datos del Inmueble</p>
+              {contextFields.map(f => renderField(f, true))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tenant contact block (R4) */}
+        {tenantFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-body font-semibold text-muted-foreground">Contacto Inquilino</p>
+              {tenantFields.map(f => renderField(f, true))}
+              {tenantWhatsapp?.value_text && (
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl gap-2 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30"
+                  onClick={() => {
+                    const cleaned = tenantWhatsapp.value_text!.replace(/[^+\d]/g, '');
+                    const msg = encodeURIComponent('Hola, soy de Homie. Te contacto para coordinar el checkout de la propiedad.');
+                    window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Contactar por WhatsApp
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* R5: Inspector-entered fields — standard editable */}
+        {inspectorFields.length > 0 && renderGroupCard(inspectorFields, 'Llaves / Tarjetas / Fachada')}
+      </>
+    );
+  };
+
+  const renderKitchenSection = () => {
+    const statusFields = fieldsByGroup['status'] || [];
+    const applianceFields = fieldsByGroup['appliance'] || [];
+    const technicalFields = fieldsByGroup['technical'] || [];
+    const logiaFields = fieldsByGroup['logia'] || [];
+    const observationFields = fieldsByGroup['observation'] || [];
+
+    return (
+      <>
+        {statusFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.status}</p>
+              {statusFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {applianceFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.appliance}</p>
+              {applianceFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {technicalFields.length > 0 && renderGroupCard(technicalFields, KITCHEN_GROUP_LABELS.technical)}
+        {logiaFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.02]">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.logia}</p>
+              {logiaFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {observationFields.length > 0 && observationFields.map(f => (
+          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-2">
+              {renderField(f)}
+            </CardContent>
+          </Card>
+        ))}
+      </>
+    );
+  };
+
+  const renderClosingSection = () => {
+    // R3: Key collection fields prominently at top
+    const keyCollectionFields = fieldsByGroup['key_collection'] || [];
+    const cleaningFields = fieldsByGroup['cleaning'] || [];
+    const removalFields = fieldsByGroup['removal'] || [];
+    const fumigationFields = fieldsByGroup['fumigation'] || [];
+    const meterFields = fieldsByGroup['meters'] || [];
+    const adminFields = fieldsByGroup['admin_contact'] || [];
+    const observationFields = fieldsByGroup['observation'] || [];
+
+    return (
+      <>
+        {/* Key collection — prominent */}
+        {keyCollectionFields.length > 0 && (
+          <Card className="border-0 ring-2 ring-primary/30 shadow-md rounded-2xl bg-primary/[0.03]">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-primary" />
+                <p className="text-body font-semibold text-primary">{CLOSING_GROUP_LABELS.key_collection}</p>
+              </div>
+              {keyCollectionFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {cleaningFields.length > 0 && renderGroupCard(cleaningFields, CLOSING_GROUP_LABELS.cleaning)}
+        {removalFields.length > 0 && renderGroupCard(removalFields, CLOSING_GROUP_LABELS.removal)}
+        {fumigationFields.length > 0 && renderGroupCard(fumigationFields, CLOSING_GROUP_LABELS.fumigation)}
+        {meterFields.length > 0 && renderGroupCard(meterFields, CLOSING_GROUP_LABELS.meters)}
+        {adminFields.length > 0 && renderGroupCard(adminFields, CLOSING_GROUP_LABELS.admin_contact)}
+        {observationFields.length > 0 && observationFields.map(f => (
+          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-2">
+              {renderField(f)}
+            </CardContent>
+          </Card>
+        ))}
+      </>
+    );
+  };
+
+  const renderStorageParking = () => {
+    const parkingFields = fieldsByGroup['parking'] || [];
+    const storageFields = fieldsByGroup['storage'] || [];
+    return (
+      <>
+        {parkingFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">Estacionamiento</p>
+              {parkingFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {storageFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">Bodega</p>
+              {storageFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+      </>
+    );
+  };
+
+  const renderStandardSection = () => {
+    const statusFields = fieldsByGroup['status'] || [];
+    const observationFields = fieldsByGroup['observation'] || [];
+    const infoFields = fieldsByGroup['info'] || [];
+    const technicalFields = fieldsByGroup['technical'] || [];
+    const measurementFields = fieldsByGroup['measurement'] || [];
+
+    return (
+      <>
+        {infoFields.length > 0 && renderGroupCard(infoFields)}
+        {statusFields.map(f => (
+          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4">
+              {renderField(f)}
+            </CardContent>
+          </Card>
+        ))}
+        {technicalFields.length > 0 && renderGroupCard(technicalFields, 'Datos Técnicos')}
+        {measurementFields.length > 0 && renderGroupCard(measurementFields, 'Mediciones')}
+        {observationFields.map(f => (
+          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-2">
+              {renderField(f)}
+            </CardContent>
+          </Card>
+        ))}
+      </>
+    );
+  };
+
+  // ─── Main render ────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-muted/30 pb-32">
@@ -299,153 +633,20 @@ export default function InspectorSectionComplete() {
           </Card>
         )}
 
-        {/* Info fields */}
-        {infoFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-3">
-              {infoFields.map((field) => (
-                <div key={field.id} className="space-y-1">
-                  <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
-                  <Input
-                    value={field.value_text ?? ''}
-                    onChange={(e) => handleTextChange(field.id, e.target.value)}
-                    onBlur={(e) => handleTextBlur(field.id, e.target.value)}
-                    type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : field.field_type === 'phone' ? 'tel' : 'text'}
-                    className="rounded-xl h-11"
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        {/* Section-type-specific content */}
+        {sectionType === 'reception_meta' && renderReceptionMeta()}
+        {sectionType === 'space_kitchen' && renderKitchenSection()}
+        {sectionType === 'closing_summary' && sectionKey === 'closing' && renderClosingSection()}
+        {sectionKey === 'storage_and_parking' && renderStorageParking()}
+        {sectionType !== 'reception_meta' && sectionType !== 'space_kitchen' && sectionKey !== 'closing' && sectionKey !== 'storage_and_parking' && renderStandardSection()}
 
-        {/* Status chips — 2x2 grid, 56px min height, large selected state */}
-        {statusFields.map((field) => {
-          const options = (field.value_json as { options?: Array<{ value: string; label: string }> })?.options ?? [];
-          return (
-            <Card key={field.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-              <CardContent className="p-4">
-                <p className="text-body font-medium mb-3">{field.field_label}</p>
-                <div className="grid grid-cols-2 gap-3.5">
-                  {options.map((opt) => {
-                    const selected = field.value_text === opt.value;
-                    const colorClass =
-                      opt.value === 'bueno' ? 'bg-status-good-bg text-status-good ring-status-good' :
-                      opt.value === 'regular' ? 'bg-status-regular-bg text-status-regular ring-status-regular' :
-                      opt.value === 'malo' ? 'bg-status-bad-bg text-status-bad ring-status-bad' :
-                      'bg-status-na-bg text-status-na ring-status-na';
-
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => handleChipChange(field.id, opt.value)}
-                        className={cn(
-                          'min-h-[56px] rounded-2xl text-body font-semibold transition-all ring-1',
-                          selected
-                            ? `${colorClass} ring-2 shadow-md scale-[1.02]`
-                            : 'bg-muted/50 text-muted-foreground ring-transparent hover:bg-muted active:scale-[0.98]'
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-
-        {/* Inline validation error for status chips */}
+        {/* Inline validation error */}
         {validationError && (
           <div className="flex items-center gap-2 px-1">
             <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
             <p className="text-caption text-destructive font-medium">{validationError}</p>
           </div>
         )}
-        {/* Technical fields */}
-        {technicalFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-body font-medium text-muted-foreground">Datos Técnicos</p>
-              {technicalFields.map((field) => {
-                if (field.field_type === 'single_select') {
-                  const options = (field.value_json as { options?: Array<{ value: string; label: string }> })?.options ?? [];
-                  return (
-                    <div key={field.id} className="space-y-1">
-                      <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
-                      <div className="flex flex-wrap gap-2">
-                        {options.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => handleChipChange(field.id, opt.value)}
-                            className={cn(
-                              'px-4 py-2.5 rounded-xl text-caption font-medium transition-all ring-1',
-                              field.value_text === opt.value
-                                ? 'bg-primary/10 text-primary ring-primary'
-                                : 'bg-muted/50 text-muted-foreground ring-transparent hover:bg-muted'
-                            )}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={field.id} className="space-y-1">
-                    <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
-                    <Input
-                      value={field.value_text ?? ''}
-                      onChange={(e) => handleTextChange(field.id, e.target.value)}
-                      onBlur={(e) => handleTextBlur(field.id, e.target.value)}
-                      type={field.field_type === 'date' ? 'date' : 'text'}
-                      className="rounded-xl h-11"
-                    />
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Measurements */}
-        {measurementFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-body font-medium text-muted-foreground">Mediciones</p>
-              {measurementFields.map((field) => (
-                <div key={field.id} className="space-y-1">
-                  <label className="text-tiny font-medium text-muted-foreground">{field.field_label}</label>
-                  <Input
-                    value={field.value_text ?? ''}
-                    onChange={(e) => handleTextChange(field.id, e.target.value)}
-                    onBlur={(e) => handleTextBlur(field.id, e.target.value)}
-                    className="rounded-xl h-11"
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Observation */}
-        {observationFields.map((field) => (
-          <Card key={field.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-2">
-              <label className="text-body font-medium">{field.field_label}</label>
-              <Textarea
-                value={field.value_text ?? ''}
-                onChange={(e) => handleTextChange(field.id, e.target.value)}
-                onBlur={(e) => handleTextBlur(field.id, e.target.value)}
-                placeholder="Describe lo que observas en esta área..."
-                rows={4}
-                className="rounded-xl"
-              />
-            </CardContent>
-          </Card>
-        ))}
 
         {/* Photos */}
         <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
@@ -453,7 +654,6 @@ export default function InspectorSectionComplete() {
             <p className="text-body font-medium mb-3">Fotos</p>
             <div className="grid grid-cols-2 gap-2.5">
               <PhotoUploadSheet onFiles={(files) => {
-                // Re-use existing handler by creating a synthetic-like flow
                 const dt = new DataTransfer();
                 Array.from(files).forEach((f) => dt.items.add(f));
                 const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;

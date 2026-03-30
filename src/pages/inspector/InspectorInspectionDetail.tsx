@@ -24,8 +24,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function InspectorInspectionDetail() {
@@ -88,8 +89,13 @@ export default function InspectorInspectionDetail() {
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
-  // Skip property_data section (it's shown as briefing card)
-  const workSections = sections.filter(s => s.section_key !== 'property_data');
+  // Skip reception_data / property_data section (shown as briefing card)
+  const workSections = sections.filter(s => s.section_key !== 'property_data' && s.section_key !== 'reception_data');
+
+  // R4: WhatsApp from snapshot
+  const snapshot = getEffectiveSnapshot(inspection);
+  const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
+  const tenantName = (snapshot?.tenant_name as string) ?? null;
 
   const handleStart = async () => {
     if (inspection.status === 'assigned') {
@@ -163,6 +169,20 @@ export default function InspectorInspectionDetail() {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
           </div>
+          {tenantWhatsapp && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl text-[hsl(var(--status-good))]"
+              onClick={() => {
+                const cleaned = tenantWhatsapp.replace(/[^+\d]/g, '');
+                const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar el checkout de la propiedad${inspection.property_name ? ` ${inspection.property_name}` : ''}.`);
+                window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </header>
 
