@@ -17,8 +17,8 @@ export interface CompletionResult {
 }
 
 /** Section keys where at least one photo is required. */
-const PHOTO_REQUIRED_KEYS = new Set(['kitchen', 'living', 'living_dormitorio', 'access']);
-const PHOTO_REQUIRED_PATTERNS = [/^bedroom_/, /^bathroom_/];
+const PHOTO_REQUIRED_KEYS = new Set(['kitchen_appliances', 'living', 'living_dormitorio', 'access', 'bathroom_studio']);
+const PHOTO_REQUIRED_PATTERNS = [/^bedroom_/, /^bathroom_\d/];
 
 /**
  * Determine whether a section requires photo evidence for completion.
