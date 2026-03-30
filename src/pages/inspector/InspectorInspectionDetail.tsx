@@ -89,8 +89,13 @@ export default function InspectorInspectionDetail() {
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
-  // Skip property_data section (it's shown as briefing card)
-  const workSections = sections.filter(s => s.section_key !== 'property_data');
+  // Skip reception_data / property_data section (shown as briefing card)
+  const workSections = sections.filter(s => s.section_key !== 'property_data' && s.section_key !== 'reception_data');
+
+  // R4: WhatsApp from snapshot
+  const snapshot = getEffectiveSnapshot(inspection);
+  const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
+  const tenantName = (snapshot?.tenant_name as string) ?? null;
 
   const handleStart = async () => {
     if (inspection.status === 'assigned') {
