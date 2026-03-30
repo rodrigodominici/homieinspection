@@ -210,6 +210,12 @@ export interface PropertyPayload {
   comuna?: string;
   recipient_email?: string;
   warranty_deposit?: number;
+  tenant_name?: string;
+  tenant_whatsapp?: string;
+  unit_number?: string;
+  parking_number?: string;
+  storage_number?: string;
+  fecha_inspeccion?: string;
   scheduled_at?: string;
   fecha_recoleccion_llaves?: string;
   hora_recoleccion_llaves?: string;

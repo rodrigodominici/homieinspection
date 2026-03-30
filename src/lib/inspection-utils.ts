@@ -11,7 +11,7 @@ import type { Inspection, InspectionSection } from './types';
 const COMPLETED_STATUSES = new Set(['completed', 'reviewed']);
 
 /** Section types that are contextual / non-operational and must NOT count toward progress. */
-const NON_OPERATIONAL_TYPES = new Set(['property_meta']);
+const NON_OPERATIONAL_TYPES = new Set(['property_meta', 'reception_meta']);
 
 export interface ProgressResult {
   total: number;

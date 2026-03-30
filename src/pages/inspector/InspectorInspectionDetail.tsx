@@ -169,6 +169,20 @@ export default function InspectorInspectionDetail() {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
           </div>
+          {tenantWhatsapp && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl text-[hsl(var(--status-good))]"
+              onClick={() => {
+                const cleaned = tenantWhatsapp.replace(/[^+\d]/g, '');
+                const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar el checkout de la propiedad${inspection.property_name ? ` ${inspection.property_name}` : ''}.`);
+                window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </header>
 

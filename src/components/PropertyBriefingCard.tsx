@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
-import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash } from 'lucide-react';
+import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash, MessageCircle, User, Phone } from 'lucide-react';
 
 interface Props {
   inspection: Inspection;
@@ -11,6 +11,12 @@ interface Props {
 
 function getGoogleMapsUrl(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+function getWhatsAppUrl(phone: string, propertyName?: string | null) {
+  const cleaned = phone.replace(/[^+\d]/g, '');
+  const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar el checkout de la propiedad${propertyName ? ` ${propertyName}` : ''}.`);
+  return `https://wa.me/${cleaned}?text=${msg}`;
 }
 
 export default function PropertyBriefingCard({ inspection }: Props) {
@@ -22,6 +28,10 @@ export default function PropertyBriefingCard({ inspection }: Props) {
   const fechaLlaves = (snapshot?.fecha_recoleccion_llaves as string) ?? null;
   const horaLlaves = (snapshot?.hora_recoleccion_llaves as string) ?? null;
   const scheduledAt = inspection.scheduled_at;
+  const unitNumber = (snapshot?.unit_number as string) ?? null;
+  const fechaInspeccion = (snapshot?.fecha_inspeccion as string) ?? null;
+  const tenantName = (snapshot?.tenant_name as string) ?? null;
+  const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
 
   const scheduleDate = fechaLlaves || (scheduledAt ? scheduledAt.split('T')[0] : null);
   const scheduleTime = horaLlaves || (scheduledAt ? new Date(scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null);
@@ -50,6 +60,9 @@ export default function PropertyBriefingCard({ inspection }: Props) {
           {inspection.property_id && (
             <InfoBlock icon={Hash} label="ID Propiedad" value={inspection.property_id} />
           )}
+          {unitNumber && (
+            <InfoBlock icon={Home} label="Nº Dpto/Casa" value={unitNumber} />
+          )}
           {propertyType && (
             <InfoBlock icon={Home} label="Tipo" value={propertyType} />
           )}
@@ -58,6 +71,9 @@ export default function PropertyBriefingCard({ inspection }: Props) {
           )}
           {tower && (
             <InfoBlock icon={Building} label="Torre" value={tower} />
+          )}
+          {fechaInspeccion && (
+            <InfoBlock icon={CalendarClock} label="Fecha Inspección" value={fechaInspeccion} />
           )}
           {scheduleDate && (
             <InfoBlock
@@ -68,22 +84,56 @@ export default function PropertyBriefingCard({ inspection }: Props) {
           )}
         </div>
 
-        {/* Cómo llegar */}
-        {address ? (
-          <Button
-            variant="outline"
-            className="w-full h-11 rounded-xl gap-2"
-            onClick={() => window.open(getGoogleMapsUrl(address), '_blank')}
-          >
-            <Navigation className="h-4 w-4" />
-            Cómo llegar
-          </Button>
-        ) : (
-          <Button variant="outline" className="w-full h-11 rounded-xl gap-2" disabled>
-            <Navigation className="h-4 w-4" />
-            Dirección no disponible
-          </Button>
+        {/* Tenant contact (R4) */}
+        {tenantName && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/40">
+            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Inquilino</p>
+              <p className="text-body font-medium truncate">{tenantName}</p>
+            </div>
+            {tenantWhatsapp && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-xl text-[hsl(var(--status-good))]"
+                onClick={() => window.open(getWhatsAppUrl(tenantWhatsapp, inspection.property_name), '_blank')}
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          {address ? (
+            <Button
+              variant="outline"
+              className="flex-1 h-11 rounded-xl gap-2"
+              onClick={() => window.open(getGoogleMapsUrl(address), '_blank')}
+            >
+              <Navigation className="h-4 w-4" />
+              Cómo llegar
+            </Button>
+          ) : (
+            <Button variant="outline" className="flex-1 h-11 rounded-xl gap-2" disabled>
+              <Navigation className="h-4 w-4" />
+              Dirección no disponible
+            </Button>
+          )}
+
+          {tenantWhatsapp && (
+            <Button
+              variant="outline"
+              className="flex-1 h-11 rounded-xl gap-2 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30"
+              onClick={() => window.open(getWhatsAppUrl(tenantWhatsapp, inspection.property_name), '_blank')}
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

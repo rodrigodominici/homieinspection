@@ -83,7 +83,7 @@ export function isSectionCompleted(sectionStatus: string): boolean {
 }
 
 /** Section types exempt from requiring a final observation before publish. */
-const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'handover_meta', 'admin_meta']);
+const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'reception_meta', 'handover_meta', 'admin_meta']);
 
 /**
  * Determine whether a section type requires a final observation before
