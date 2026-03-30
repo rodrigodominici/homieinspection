@@ -1,103 +1,116 @@
 
 
-# Plan: Inspector Mobile-Native Redesign
+# Plan: Inspection Form Structural Refactor — Final Refined
 
 ## Summary
 
-Redesign the Inspector experience as a mobile-native fieldwork app. Restructure IA to 4 tabs (Hoy, Agenda, Inspecciones, Perfil), rewrite the "Hoy" dashboard as a task-oriented home screen, add a horizontal-day agenda view, and polish the inspection detail + section screens with softer visuals and bigger touch targets. 6 file changes, no migrations.
+Rewrite the 7-step grouped generation model with all 8 refinements applied. 7 file changes, no migrations.
 
 ---
 
-## 1. Update Bottom Nav (`src/components/InspectorBottomNav.tsx`)
+## Refinement Details Applied
 
-Change tabs from `[Calendario, Pasadas, Inspecciones, Perfil]` to:
-- **Hoy** (`/inspector`, `Home` icon) — primary dashboard
-- **Agenda** (`/inspector/agenda`, `CalendarDays` icon) — day-by-day schedule
-- **Inspecciones** (`/inspector/all`, `ClipboardList` icon) — all inspections list
-- **Perfil** (`/inspector/profile`, `User` icon)
+### R1. Legacy payload field mapping
+Add a `normalizeIncomingPayload()` helper at the top of `inspection-generator.ts` that maps legacy/alternative field names to canonical ones before generation:
+```ts
+function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
+  return {
+    ...raw,
+    recipient_email: raw.recipient_email ?? (raw as any).correo_receptora ?? null,
+    tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
+    tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
+    unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
+    fecha_inspeccion: raw.fecha_inspeccion ?? (raw as any).inspection_date ?? null,
+  };
+}
+```
+Both `generateSections()` and `normalizePropertySnapshot()` call this first. Safe for new and old payloads.
 
-Remove `Pasadas` as a top-level tab. Past inspections become a filter/section inside `Inspecciones`.
+### R2. Storage & Parking — explicit sub-blocks
+`storage_and_parking` section keeps its grouped key but uses distinct `group_key` prefixes:
+- `parking_status`, `parking_observation`, `parking_photos` (group_key: `parking`)
+- `storage_status`, `storage_observation`, `storage_photos` (group_key: `storage`)
 
-Update `activeKey` matching to include `/inspector/agenda` and sub-routes like `/inspector/inspection/`.
+Fields are conditionally included based on `has_parking` / `has_storage` individually. When both exist, both sub-blocks appear. When only one exists, only that sub-block renders.
 
----
+### R3. Key collection fields prominence in closing
+In the `closing` section, `fecha_recoleccion_llaves` and `hora_recoleccion_llaves` are placed at sort_order 0-1 (top of the section) with group_key `key_collection` so the UI can render them with visual prominence (e.g. highlighted card or distinct sub-header).
 
-## 2. Rewrite "Hoy" Dashboard (`src/pages/inspector/InspectorDashboard.tsx`)
+### R4. WhatsApp CTA in broader surfaces
+- `PropertyBriefingCard`: read `tenant_whatsapp` and `tenant_name` from `getEffectiveSnapshot()`. If whatsapp exists, render a `Contactar por WhatsApp` button alongside the existing `Cómo llegar` button.
+- `InspectorInspectionDetail`: show a small WhatsApp pill/button in the property header area when tenant_whatsapp is available.
+- Inside `reception_data` section: also render the CTA inline (existing plan).
 
-Replace the current "Próximas" screen with a true mobile dashboard:
+### R5. Visual separation in reception_data
+Use two distinct `group_key` families:
+- Payload-derived context fields: `group_key: 'context'` — rendered with a muted/read-only visual style
+- Inspector-entered fields: `group_key: 'inspector_input'` — rendered with standard editable input style
 
-**Header**: Greeting + current date (`Hoy, lunes 29 mar`) — warm, personal feel. No logo block.
+The `InspectorSectionComplete` renderer checks `group_key` to apply different visual treatment within the same step.
 
-**Sections in order**:
-1. **Next inspection hero card** — large, prominent, with property name, time, address, progress ring (circular or bar), and primary CTA (`Iniciar` / `Continuar`). Soft gradient background on card.
-2. **Today's summary modules** — 2x2 grid of stat tiles:
-   - `Hoy` (count scheduled today)
-   - `En progreso` (active count)
-   - `Completadas hoy` (finished today count)
-   - `Pendientes` (total pending)
-3. **Today's schedule** — compact list of today's inspections as mini cards (time + property + status badge). If none today, show friendly empty state.
-4. **Needs attention** — if any inspection has `needs_changes`, show a highlighted card.
+### R6. Kitchen status matrix scope
+The kitchen status matrix includes exactly these status fields:
+- `kitchen_general_status` — "Estado General Cocina"
+- `kitchen_countertop_status` — "Estado Mesón"
+- `kitchen_sink_status` — "Estado Lavaplatos"
+- `kitchen_faucet_status` — "Estado Grifería"
 
-**Visual style**: `bg-muted/30` page background, rounded-3xl cards, soft shadows, generous padding (p-5 on cards), larger text for hero.
+Appliance fields use group_key `appliance`:
+- `appliances_status` — "Estado General Electrodomésticos"
 
----
+Technical selectors use group_key `technical`:
+- `encimera_type`, `platos_count`, `horno_type`
 
-## 3. Create Agenda Screen (`src/pages/inspector/InspectorCalendar.tsx` — rewrite)
+Logia fields use group_key `logia` (conditional).
 
-Replace the current grouped-by-date calendar with a proper mobile agenda:
+Shared observation/photos use group_key `observation`/`photo`.
 
-**Horizontal day selector**: A scrollable row of day pills showing the next 14 days. Each pill shows weekday abbreviation + day number. Selected day is highlighted with primary bg. Today has a dot indicator.
+### R7. Pest control naming
+Use a single canonical label: **"Fumigación"** with field key `fumigation_observation` and `fumigation_photos`. No duplicate "pest_control" / "control de plagas" naming.
 
-**Day content**: Below the selector, show inspection cards for the selected day. Cards include:
-- Time pill (if scheduled)
-- Property name + address
-- Status badge
-- Progress bar
-- CTA: `Iniciar` / `Continuar` / `Ver`
-
-If no inspections for the selected day, show empty state.
-
-Keep the existing `groupByDate` + `getScheduleDatetime` logic.
-
----
-
-## 4. Merge Past into All Inspections (`src/pages/inspector/InspectorAllInspections.tsx`)
-
-Add a simple toggle/filter at the top: **Activas** | **Pasadas**
-
-- Active: shows `assigned`, `in_progress`, `needs_changes`
-- Past: shows `submitted`, `in_review`, `approved`, `published`, `sent`
-
-This replaces the separate `InspectorPastInspections` page.
-
----
-
-## 5. Polish Inspection Detail (`src/pages/inspector/InspectorInspectionDetail.tsx`)
-
-Refinements for mobile-native feel:
-
-- **Property summary**: Softer card with address, comuna, key collection date/time. Large `Cómo llegar` button.
-- **Progress**: Larger progress bar with animated fill. Clear `X de Y secciones` label.
-- **Section list**: Each section card gets slightly more vertical padding, the "current" section gets a subtle pulse/glow indicator. Keep the numbered step UI but with larger touch targets (min-h-14 on each card).
-- **Signature step**: When all sections complete and signature not resolved, show a prominent standalone card (not just the bottom bar button) explaining the signature requirement with a clear CTA.
+### R8. Rollout behavior
+- **New inspections**: generated with the new 7-step grouped model immediately.
+- **Existing inspections**: NOT automatically migrated. They retain their existing `generated_structure_json` and section records. The UI continues to render whatever sections exist.
+- **Demo/test inspections**: if identifiable (e.g. using example payload property IDs), can be safely regenerated. But no forced migration of production data.
+- Document this in a code comment at the top of `generateSections()`.
 
 ---
 
-## 6. Polish Section Screen (`src/pages/inspector/InspectorSectionComplete.tsx`)
+## File Changes
 
-Refinements:
-- **Status chips**: Keep 2x2 grid with 56px min height (already done). Add slightly more gap (gap-3.5).
-- **Photo area**: Make the photo grid 2-column instead of 3-column for larger thumbnails on mobile. Increase aspect ratio slightly.
-- **Observation textarea**: Increase default rows from 3 to 4. Add placeholder with softer copy.
-- **Bottom bar**: Keep current prev/complete/next pattern. Add subtle `safe-area-bottom` padding.
+### 1. `src/lib/types.ts`
+- Add to `PropertyPayload`: `tenant_name?`, `tenant_whatsapp?`, `unit_number?`, `parking_number?`, `storage_number?`, `fecha_inspeccion?`
+- Add to `SectionType`: `'reception_meta' | 'space_kitchen'`
 
----
+### 2. `src/lib/inspection-generator.ts` — Full rewrite of `generateSections()`
+- Add `normalizeIncomingPayload()` helper (R1)
+- Implement 7-step structure with all field definitions per refinements above
+- `normalizePropertySnapshot()` — add new fields, call normalizer first
+- Update all 5 example payloads (add `tenant_name`, `tenant_whatsapp`, `fecha_inspeccion`, `unit_number` to some; keep `unscheduled` without tenant data)
+- Add rollout comment (R8)
 
-## 7. Route Updates (`src/App.tsx`)
+### 3. `src/lib/section-completion.ts`
+- `PHOTO_REQUIRED_KEYS`: replace `'kitchen'` with `'kitchen_appliances'`, keep others
+- `PHOTO_REQUIRED_PATTERNS`: add `/^bathroom_studio$/`
+- `EXEMPT_FROM_FINAL_OBS`: add `'reception_meta'`
 
-- Add `/inspector/agenda` route pointing to `InspectorCalendar`
-- Keep `/inspector/past` route working (redirect or keep component) for backward compatibility
-- `/inspector` stays as `InspectorDashboard`
+### 4. `src/lib/inspection-utils.ts`
+- `NON_OPERATIONAL_TYPES`: replace `'property_meta'` with `'reception_meta'`
+
+### 5. `src/pages/inspector/InspectorSectionComplete.tsx`
+- For `reception_meta` sections: render context fields (group_key `context`) with muted read-only style; render inspector_input fields with editable style (R5)
+- Render WhatsApp CTA when `tenant_whatsapp` field has value (R4)
+- For `space_kitchen` sections: render kitchen sub-groups, appliance sub-group, conditional logia, shared obs/photos (R6)
+- For `closing_summary` with key `closing`: render key collection fields prominently at top (R3), fumigation as single concept (R7)
+- For `storage_and_parking`: render parking/storage sub-blocks conditionally based on which group_key fields exist (R2)
+
+### 6. `src/components/PropertyBriefingCard.tsx`
+- Read `tenant_whatsapp`, `tenant_name`, `unit_number`, `fecha_inspeccion` from `getEffectiveSnapshot()`
+- Show WhatsApp CTA button when available (R4)
+- Show `unit_number` as "Nº Dpto/Casa", `fecha_inspeccion` as "Fecha de inspección"
+
+### 7. `src/pages/inspector/InspectorInspectionDetail.tsx`
+- Show small WhatsApp pill in property header when `tenant_whatsapp` available (R4)
 
 ---
 
@@ -105,13 +118,13 @@ Refinements:
 
 | Action | File |
 |---|---|
-| Edit | `src/components/InspectorBottomNav.tsx` — new 4-tab IA |
-| Rewrite | `src/pages/inspector/InspectorDashboard.tsx` — mobile dashboard with today focus |
-| Rewrite | `src/pages/inspector/InspectorCalendar.tsx` — horizontal day selector + agenda cards |
-| Edit | `src/pages/inspector/InspectorAllInspections.tsx` — add active/past filter toggle |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — softer visuals, bigger targets |
-| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` — photo grid, spacing, safe area |
-| Edit | `src/App.tsx` — add `/inspector/agenda` route |
+| Edit | `src/lib/types.ts` — new payload fields, new section types |
+| Rewrite | `src/lib/inspection-generator.ts` — 7-step generation + legacy normalizer + examples |
+| Edit | `src/lib/section-completion.ts` — updated photo/completion rules |
+| Edit | `src/lib/inspection-utils.ts` — updated non-operational types |
+| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` — grouped rendering, WhatsApp, visual separation |
+| Edit | `src/components/PropertyBriefingCard.tsx` — new context fields + WhatsApp CTA |
+| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — WhatsApp pill |
 
 7 file changes. No migrations.
 
