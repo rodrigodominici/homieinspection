@@ -24,8 +24,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function InspectorInspectionDetail() {
