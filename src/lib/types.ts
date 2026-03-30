@@ -23,11 +23,13 @@ export type SectionStatus =
 
 export type SectionType =
   | 'property_meta'
+  | 'reception_meta'
   | 'handover_meta'
   | 'admin_meta'
   | 'space_standard'
   | 'space_secondary'
   | 'space_technical'
+  | 'space_kitchen'
   | 'closing_summary';
 
 export type FieldType =
