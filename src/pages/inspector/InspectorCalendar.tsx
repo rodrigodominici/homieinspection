@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { InspectionStatusBadge } from '@/components/StatusBadge';
+import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
@@ -12,26 +12,12 @@ import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils'
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, Clock, ArrowRight, CalendarDays, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getInspectorDisplayState, getScheduleDatetime } from '@/lib/inspector-operational';
 
 interface AgendaInspection extends Inspection {
   totalSections: number;
   completedSections: number;
   scheduleDatetime: Date | null;
-}
-
-function getScheduleDatetime(insp: Inspection): Date | null {
-  const snapshot = getEffectiveSnapshot(insp);
-  const fecha = snapshot?.fecha_recoleccion_llaves as string | undefined;
-  const hora = snapshot?.hora_recoleccion_llaves as string | undefined;
-  if (fecha) {
-    const dt = new Date(`${fecha}T${hora || '00:00'}`);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
-  if (insp.scheduled_at) {
-    const dt = new Date(insp.scheduled_at);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
-  return null;
 }
 
 const DAY_ABBR = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -47,16 +33,45 @@ function generateDays(count: number): Date[] {
 }
 
 export default function InspectorCalendar() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile } = useAuth();
   const [inspections, setInspections] = useState<AgendaInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => {
-    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+    const dateParam = searchParams.get('date');
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (!dateParam || dateParam === 'today') return d;
+    const parsed = new Date(`${dateParam}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return d;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
   });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const days = generateDays(14);
   const todayStr = new Date().toDateString();
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (!dateParam || dateParam === 'today') {
+      if (selectedDate.toDateString() !== d.toDateString()) setSelectedDate(d);
+      return;
+    }
+    const parsed = new Date(`${dateParam}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime()) && selectedDate.toDateString() !== parsed.toDateString()) {
+      parsed.setHours(0, 0, 0, 0);
+      setSelectedDate(parsed);
+    }
+  }, [searchParams, selectedDate]);
+
+  useEffect(() => {
+    const dayKey = selectedDate.toISOString().slice(0, 10);
+    const selectedEl = scrollRef.current?.querySelector<HTMLButtonElement>(`button[data-day-key='${dayKey}']`);
+    selectedEl?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [selectedDate]);
 
   useEffect(() => {
     const load = async () => {
@@ -114,7 +129,13 @@ export default function InspectorCalendar() {
           return (
             <button
               key={day.toISOString()}
-              onClick={() => setSelectedDate(day)}
+              data-day-key={day.toISOString().slice(0, 10)}
+              onClick={() => {
+                setSelectedDate(day);
+                const params = new URLSearchParams(searchParams);
+                params.set('date', day.toDateString() === todayStr ? 'today' : day.toISOString().slice(0, 10));
+                setSearchParams(params, { replace: true });
+              }}
               className={cn(
                 'flex flex-col items-center justify-center min-w-[52px] h-[68px] rounded-2xl transition-all shrink-0',
                 isSelected
@@ -140,7 +161,7 @@ export default function InspectorCalendar() {
       </div>
 
       {/* Day content */}
-      <main className="px-4 space-y-3">
+      <main className="px-4 space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
         ) : dayInspections.length === 0 ? (
@@ -158,7 +179,7 @@ export default function InspectorCalendar() {
         {!loading && unscheduled.length > 0 && (
           <section className="pt-2">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sin programar</h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {unscheduled.map((insp) => <AgendaCard key={insp.id} inspection={insp} />)}
             </div>
           </section>
@@ -175,7 +196,14 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
   const address = insp.address ?? 'Sin dirección';
   const snapshot = getEffectiveSnapshot(insp);
   const comuna = insp.market === 'CL' ? (snapshot?.comuna as string) ?? null : null;
-  const cta = insp.status === 'assigned' ? 'Iniciar' : insp.status === 'needs_changes' ? 'Corregir' : 'Continuar';
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const cta = displayState.key === 'ready_to_submit'
+    ? 'Revisar'
+    : displayState.key === 'assigned'
+      ? 'Iniciar'
+      : displayState.key === 'needs_changes'
+        ? 'Corregir'
+        : 'Continuar';
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-all">
@@ -188,7 +216,7 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
               <span className="truncate">{address}{comuna ? ` · ${comuna}` : ''}</span>
             </div>
           </div>
-          <InspectionStatusBadge status={insp.status} />
+          <InspectorStatusBadge state={displayState} />
         </div>
 
         {insp.scheduleDatetime && (

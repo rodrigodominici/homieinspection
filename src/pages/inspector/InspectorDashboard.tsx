@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ArrowRight, Navigation, Clock, CalendarDays, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  getInspectorDisplayState,
+  getScheduleDatetime,
+  isCompletedToday,
+} from '@/lib/inspector-operational';
+import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
@@ -20,24 +25,8 @@ interface InspectionWithProgress extends Inspection {
   scheduleDatetime: Date | null;
 }
 
-function getScheduleDatetime(insp: Inspection): Date | null {
-  const snapshot = getEffectiveSnapshot(insp);
-  const fecha = snapshot?.fecha_recoleccion_llaves as string | undefined;
-  const hora = snapshot?.hora_recoleccion_llaves as string | undefined;
-  if (fecha) {
-    const dt = new Date(`${fecha}T${hora || '00:00'}`);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
-  if (insp.scheduled_at) {
-    const dt = new Date(insp.scheduled_at);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
-  return null;
-}
-
 export default function InspectorDashboard() {
   const { profile } = useAuth();
-  const navigate = useNavigate();
   const [inspections, setInspections] = useState<InspectionWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,21 +74,23 @@ export default function InspectorDashboard() {
   const todayStr = now.toDateString();
 
   const active = inspections.filter((i) =>
-    ['assigned', 'in_progress', 'needs_changes'].includes(i.status)
+    ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'].includes(i.status)
   );
 
   const todayInspections = active.filter(
     (i) => i.scheduleDatetime && i.scheduleDatetime.toDateString() === todayStr
   );
 
-  const inProgress = active.filter((i) => i.status === 'in_progress');
-  const completedToday = inspections.filter(
-    (i) => ['submitted', 'in_review', 'approved', 'published'].includes(i.status) &&
-    i.completed_at && new Date(i.completed_at).toDateString() === todayStr
+  const inProgress = active.filter((i) =>
+    getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'in_progress'
   );
-  const needsAttention = active.filter((i) => i.status === 'needs_changes');
+  const completedToday = inspections.filter((i) => isCompletedToday(i));
+  const needsAttention = active.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'needs_changes');
 
-  // Next inspection: first today by time, then first upcoming
+  const readyToSend = active.filter((i) =>
+    getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'ready_to_submit'
+  );
+
   const upcoming = active
     .filter((i) => !i.scheduleDatetime || i.scheduleDatetime >= new Date(now.getTime() - 3600000))
     .sort((a, b) => {
@@ -107,7 +98,25 @@ export default function InspectorDashboard() {
       if (!b.scheduleDatetime) return -1;
       return a.scheduleDatetime.getTime() - b.scheduleDatetime.getTime();
     });
-  const nextInsp = upcoming[0];
+  const pendingBacklog = active.filter((i) => {
+    const key = getInspectorDisplayState(i, i.completedSections, i.totalSections).key;
+    return key === 'assigned' || key === 'needs_changes';
+  });
+
+  const inProgressHero = inProgress[0] ?? null;
+  const readyHero = readyToSend[0] ?? null;
+  const scheduledHero = upcoming[0] ?? null;
+  const pendingHero = pendingBacklog[0] ?? null;
+  const heroInspection = inProgressHero ?? readyHero ?? scheduledHero ?? pendingHero ?? null;
+  const heroContext = inProgressHero
+    ? 'En progreso ahora'
+    : readyHero
+      ? 'Lista para envío final'
+      : scheduledHero
+        ? 'Próxima inspección'
+        : pendingHero
+          ? 'Siguiente tarea pendiente'
+          : '';
 
   const dateLabel = now.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
   const greeting = now.getHours() < 12 ? 'Buenos días' : now.getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
@@ -121,7 +130,7 @@ export default function InspectorDashboard() {
         <p className="text-xs text-muted-foreground mt-0.5 capitalize">{dateLabel}</p>
       </header>
 
-      <main className="px-4 space-y-5">
+      <main className="px-4 space-y-6">
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-44 rounded-3xl" />
@@ -135,8 +144,8 @@ export default function InspectorDashboard() {
         ) : (
           <>
             {/* Hero: Next inspection */}
-            {nextInsp ? (
-              <HeroCard inspection={nextInsp} />
+            {heroInspection ? (
+              <HeroCard inspection={heroInspection} contextLabel={heroContext} />
             ) : (
               <Card className="border-0 shadow-sm rounded-3xl bg-card">
                 <CardContent className="p-6 text-center">
@@ -149,17 +158,17 @@ export default function InspectorDashboard() {
 
             {/* Stats 2x2 */}
             <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Hoy" value={todayInspections.length} icon={CalendarDays} accent />
-              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} />
-              <StatTile label="Completadas hoy" value={completedToday.length} icon={CheckCircle2} />
-              <StatTile label="Pendientes" value={active.length} icon={Clock} />
+              <StatTile label="Hoy" value={todayInspections.length} icon={CalendarDays} to="/inspector/agenda?date=today" accent />
+              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
+              <StatTile label="Completadas hoy" value={completedToday.length} icon={CheckCircle2} to="/inspector/all?filter=past&scope=completed_today" />
+              <StatTile label="Pendientes" value={pendingBacklog.length} icon={Clock} to="/inspector/all?filter=active&state=assigned_or_needs_changes" />
             </div>
 
             {/* Needs attention */}
             {needsAttention.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Requiere atención</h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {needsAttention.map((insp) => (
                     <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
                       <Card className="border-0 ring-1 ring-status-bad/20 bg-status-bad-bg/30 shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
@@ -182,7 +191,7 @@ export default function InspectorDashboard() {
             {todayInspections.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Agenda de hoy</h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {todayInspections
                     .sort((a, b) => (a.scheduleDatetime?.getTime() ?? 0) - (b.scheduleDatetime?.getTime() ?? 0))
                     .map((insp) => (
@@ -200,27 +209,48 @@ export default function InspectorDashboard() {
   );
 }
 
-function StatTile({ label, value, icon: Icon, accent }: { label: string; value: number; icon: React.ElementType; accent?: boolean }) {
+function StatTile({
+  label,
+  value,
+  icon: Icon,
+  to,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  to: string;
+  accent?: boolean;
+}) {
   return (
-    <Card className={cn("border-0 shadow-sm rounded-2xl", accent ? "bg-primary/5" : "bg-card")}>
-      <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1">
-        <Icon className={cn("h-4 w-4", accent ? "text-primary" : "text-muted-foreground")} />
-        <p className={cn("text-2xl font-bold", accent ? "text-primary" : "text-foreground")}>{value}</p>
-        <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
-      </CardContent>
-    </Card>
+    <Link to={to} className="block">
+      <Card className={cn("border-0 shadow-sm rounded-2xl active:scale-[0.99] transition-transform", accent ? "bg-primary/5" : "bg-card")}>
+        <CardContent className="p-4 min-h-[88px] flex flex-col items-center justify-center text-center gap-1">
+          <Icon className={cn("h-4 w-4", accent ? "text-primary" : "text-muted-foreground")} />
+          <p className={cn("text-2xl font-bold", accent ? "text-primary" : "text-foreground")}>{value}</p>
+          <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
-function HeroCard({ inspection: insp }: { inspection: InspectionWithProgress }) {
+function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWithProgress; contextLabel: string }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
   const address = insp.address ?? 'Sin dirección';
-  const cta = insp.status === 'assigned' ? 'Iniciar' : insp.status === 'needs_changes' ? 'Corregir' : 'Continuar';
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const cta = displayState.key === 'ready_to_submit'
+    ? 'Revisar y enviar'
+    : displayState.key === 'assigned'
+      ? 'Iniciar'
+      : displayState.key === 'needs_changes'
+        ? 'Corregir'
+        : 'Continuar';
 
   return (
     <Card className="border-0 shadow-md rounded-3xl overflow-hidden bg-card">
       <div className="bg-primary/5 px-5 pt-3.5 pb-2">
-        <p className="text-[10px] text-primary font-semibold uppercase tracking-widest">Siguiente inspección</p>
+        <p className="text-[10px] text-primary font-semibold uppercase tracking-widest">{contextLabel}</p>
       </div>
       <CardContent className="p-5 space-y-4">
         <div className="flex items-start justify-between gap-2">
@@ -231,7 +261,7 @@ function HeroCard({ inspection: insp }: { inspection: InspectionWithProgress }) 
               <span className="truncate">{address}</span>
             </div>
           </div>
-          <InspectionStatusBadge status={insp.status} />
+          <InspectorStatusBadge state={displayState} />
         </div>
 
         {insp.scheduleDatetime && (
@@ -279,6 +309,7 @@ function HeroCard({ inspection: insp }: { inspection: InspectionWithProgress }) 
 
 function MiniCard({ inspection: insp }: { inspection: InspectionWithProgress }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
 
   return (
     <Link to={`/inspector/inspection/${insp.id}`}>
@@ -299,6 +330,7 @@ function MiniCard({ inspection: insp }: { inspection: InspectionWithProgress }) 
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs font-semibold text-muted-foreground">{progress}%</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{displayState.label}</p>
           </div>
         </CardContent>
       </Card>
