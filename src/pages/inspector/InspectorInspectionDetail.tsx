@@ -97,6 +97,7 @@ export default function InspectorInspectionDetail() {
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
 
   const progress = calculateProgress(sections);
+  const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total);
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
@@ -145,7 +146,7 @@ export default function InspectorInspectionDetail() {
     const dateValue = keyDateInput.toISOString().slice(0, 10);
     const timeValue = keyTimeInput.trim() || null;
 
-    const updates: Array<Promise<unknown>> = [];
+    const updates: any[] = [];
 
     if (keyDateField) {
       updates.push(
@@ -490,7 +491,6 @@ export default function InspectorInspectionDetail() {
           {workSections.map((section, idx) => {
             const isCompleted = isSectionCompleted(section.status);
             const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
-            const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total);
             return (
               <button
                 key={section.id}
