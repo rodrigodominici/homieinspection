@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { InspectionStatusBadge } from '@/components/StatusBadge';
+import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
@@ -10,6 +10,7 @@ import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
 
 const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'needs_changes', 'pending_assignment']);
 const PAST_STATUSES = new Set(['submitted', 'in_review', 'approved', 'published', 'sent']);
@@ -20,9 +21,13 @@ interface InspectionWithProgress extends Inspection {
 }
 
 export default function InspectorAllInspections() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [inspections, setInspections] = useState<InspectionWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'active' | 'past'>('active');
+  const [filter, setFilter] = useState<'active' | 'past'>(() => {
+    const fromUrl = searchParams.get('filter');
+    return fromUrl === 'past' ? 'past' : 'active';
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -42,9 +47,31 @@ export default function InspectorAllInspections() {
     load();
   }, []);
 
-  const filtered = inspections.filter((i) =>
-    filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)
-  );
+  useEffect(() => {
+    const fromUrl = searchParams.get('filter');
+    const nextFilter = fromUrl === 'past' ? 'past' : 'active';
+    if (nextFilter !== filter) setFilter(nextFilter);
+  }, [searchParams, filter]);
+
+  const stateFilter = searchParams.get('state');
+  const scopeFilter = searchParams.get('scope');
+
+  const handleFilterChange = (next: 'active' | 'past') => {
+    setFilter(next);
+    const params = new URLSearchParams(searchParams);
+    params.set('filter', next);
+    params.delete('state');
+    params.delete('scope');
+    setSearchParams(params, { replace: true });
+  };
+
+  const filtered = inspections
+    .filter((i) => (filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)))
+    .filter((i) => matchesInspectorStateFilter(stateFilter, i, i.completedSections, i.totalSections))
+    .filter((i) => {
+      if (scopeFilter !== 'completed_today') return true;
+      return isCompletedToday(i);
+    });
 
   return (
     <div className="min-h-screen bg-muted/30 pb-24">
@@ -56,7 +83,7 @@ export default function InspectorAllInspections() {
       <div className="px-4 pb-4">
         <div className="flex bg-card rounded-xl p-1 shadow-sm">
           <button
-            onClick={() => setFilter('active')}
+            onClick={() => handleFilterChange('active')}
             className={cn(
               'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
               filter === 'active' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
@@ -65,7 +92,7 @@ export default function InspectorAllInspections() {
             Activas
           </button>
           <button
-            onClick={() => setFilter('past')}
+            onClick={() => handleFilterChange('past')}
             className={cn(
               'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
               filter === 'past' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
@@ -76,7 +103,7 @@ export default function InspectorAllInspections() {
         </div>
       </div>
 
-      <main className="px-4 space-y-3">
+      <main className="px-4 space-y-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
         ) : filtered.length === 0 ? (
@@ -89,6 +116,7 @@ export default function InspectorAllInspections() {
         ) : (
           filtered.map((insp) => {
             const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
+            const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
             return (
               <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
                 <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
@@ -101,7 +129,7 @@ export default function InspectorAllInspections() {
                           <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
                         </div>
                       </div>
-                      <InspectionStatusBadge status={insp.status} />
+                      <InspectorStatusBadge state={displayState} />
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground">
