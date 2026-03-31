@@ -1,130 +1,77 @@
 
+Goal: apply a focused Inspector correction pass (no unrelated rework), with your 6 refinements incorporated before implementation.
 
-# Plan: Inspection Form Structural Refactor — Final Refined
+## Updated implementation plan
 
-## Summary
+### 1) KPI cards: actionable + explicit URL filter semantics
+- Keep KPI cards clickable and route via query params.
+- Replace ambiguous `state=pending_work` with explicit operational values:
+  - `Hoy` → `/inspector/agenda?date=today`
+  - `En progreso` → `/inspector/all?filter=active&state=in_progress`
+  - `Completadas hoy` → `/inspector/all?filter=past&scope=completed_today`
+  - `Pendientes` → `/inspector/all?filter=active&state=assigned_or_needs_changes`
+- In `InspectorAllInspections`, parse and apply:
+  - `filter=active|past`
+  - `state=in_progress|assigned_or_needs_changes`
+  - `scope=completed_today`
 
-Rewrite the 7-step grouped generation model with all 8 refinements applied. 7 file changes, no migrations.
+### 2) Hero/banner: real next-action priority
+- Rework dashboard hero selection to:
+  1. in-progress inspection
+  2. ready-to-send inspection (100% sections, not submitted)
+  3. scheduled today/upcoming
+  4. assigned/needs_changes backlog
+  5. empty state only if none exist
+- This prevents “Sin inspecciones pendientes” when operational work still exists.
 
----
+### 3) Key collection date/time ownership (source of truth + projection)
+- Define **primary operational source**: `inspection_field_values` (closing section keys `fecha_recoleccion_llaves`, `hora_recoleccion_llaves`).
+- Define **read-optimized mirror/projection**: `inspections.property_overrides_json` (same keys) for fast contextual reads in dashboard/agenda/briefing.
+- Enforce one-way ownership:
+  - Inspector edits write to field values first.
+  - On successful save, mirror to overrides.
+  - Reads for operational edit UI use primary values; summary cards can use mirrored snapshot.
 
-## Refinement Details Applied
+### 4) Key collection block redesign in inspection detail
+- Add clear operational card in `InspectorInspectionDetail` with two states:
+  - **Pendiente**: “Recolección de llaves”, status pending, CTA WhatsApp + CTA “Cargar fecha”.
+  - **Coordinada**: show saved date/time, CTA “Editar”.
+- Keep this block prominent in summary area (not hidden as passive metadata).
 
-### R1. Legacy payload field mapping
-Add a `normalizeIncomingPayload()` helper at the top of `inspection-generator.ts` that maps legacy/alternative field names to canonical ones before generation:
-```ts
-function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
-  return {
-    ...raw,
-    recipient_email: raw.recipient_email ?? (raw as any).correo_receptora ?? null,
-    tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
-    tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
-    unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
-    fecha_inspeccion: raw.fecha_inspeccion ?? (raw as any).inspection_date ?? null,
-  };
-}
-```
-Both `generateSections()` and `normalizePropertySnapshot()` call this first. Safe for new and old payloads.
+### 5) “Completadas hoy” correctness
+- Base `completed_today` on real completion/submission signal, not generic updates:
+  - eligible statuses: `submitted | in_review | approved | published | sent`
+  - date source: `inspection_completed_at` (fallback `completed_at`)
+  - must match current day (`es-CL` day boundary handling in UI logic).
 
-### R2. Storage & Parking — explicit sub-blocks
-`storage_and_parking` section keeps its grouped key but uses distinct `group_key` prefixes:
-- `parking_status`, `parking_observation`, `parking_photos` (group_key: `parking`)
-- `storage_status`, `storage_observation`, `storage_photos` (group_key: `storage`)
+### 6) Agenda `date=today`: visibly selected + focused
+- In `InspectorCalendar`, read `date` query param.
+- If `date=today`, initialize `selectedDate` to today and auto-scroll the day pill row so today is centered/visible.
+- Keep the selected pill highlighted immediately on first render.
 
-Fields are conditionally included based on `has_parking` / `has_storage` individually. When both exist, both sub-blocks appear. When only one exists, only that sub-block renders.
+### 7) Status/progress consistency without breaking shared badges
+- Do **not** alter shared global `InspectionStatusBadge` semantics for Admin/Executive.
+- Implement inspector-only derived display state in Inspector pages (local helper/component), e.g.:
+  - 0% + assigned/pending_assignment → “Asignada”
+  - 1–99% → “En progreso”
+  - 100% + not submitted → “Lista para enviar”
+  - submitted+ → existing downstream label
+- Use derived label in Inspector cards/hero only.
 
-### R3. Key collection fields prominence in closing
-In the `closing` section, `fecha_recoleccion_llaves` and `hora_recoleccion_llaves` are placed at sort_order 0-1 (top of the section) with group_key `key_collection` so the UI can render them with visual prominence (e.g. highlighted card or distinct sub-header).
+### 8) Spacing cleanup: cards + grouped blocks
+- Improve vertical rhythm at two levels:
+  - card-to-card spacing (lists)
+  - section-to-section spacing (hero, KPIs, requires-attention, agenda groups)
+- Normalize block paddings/margins so grouped areas feel clearly separated and not compressed.
 
-### R4. WhatsApp CTA in broader surfaces
-- `PropertyBriefingCard`: read `tenant_whatsapp` and `tenant_name` from `getEffectiveSnapshot()`. If whatsapp exists, render a `Contactar por WhatsApp` button alongside the existing `Cómo llegar` button.
-- `InspectorInspectionDetail`: show a small WhatsApp pill/button in the property header area when tenant_whatsapp is available.
-- Inside `reception_data` section: also render the CTA inline (existing plan).
+## Files to update (focused)
+- `src/pages/inspector/InspectorDashboard.tsx`
+- `src/pages/inspector/InspectorAllInspections.tsx`
+- `src/pages/inspector/InspectorCalendar.tsx`
+- `src/pages/inspector/InspectorInspectionDetail.tsx`
+- `src/components/PropertyBriefingCard.tsx` (only if needed for key-collection display consistency)
 
-### R5. Visual separation in reception_data
-Use two distinct `group_key` families:
-- Payload-derived context fields: `group_key: 'context'` — rendered with a muted/read-only visual style
-- Inspector-entered fields: `group_key: 'inspector_input'` — rendered with standard editable input style
-
-The `InspectorSectionComplete` renderer checks `group_key` to apply different visual treatment within the same step.
-
-### R6. Kitchen status matrix scope
-The kitchen status matrix includes exactly these status fields:
-- `kitchen_general_status` — "Estado General Cocina"
-- `kitchen_countertop_status` — "Estado Mesón"
-- `kitchen_sink_status` — "Estado Lavaplatos"
-- `kitchen_faucet_status` — "Estado Grifería"
-
-Appliance fields use group_key `appliance`:
-- `appliances_status` — "Estado General Electrodomésticos"
-
-Technical selectors use group_key `technical`:
-- `encimera_type`, `platos_count`, `horno_type`
-
-Logia fields use group_key `logia` (conditional).
-
-Shared observation/photos use group_key `observation`/`photo`.
-
-### R7. Pest control naming
-Use a single canonical label: **"Fumigación"** with field key `fumigation_observation` and `fumigation_photos`. No duplicate "pest_control" / "control de plagas" naming.
-
-### R8. Rollout behavior
-- **New inspections**: generated with the new 7-step grouped model immediately.
-- **Existing inspections**: NOT automatically migrated. They retain their existing `generated_structure_json` and section records. The UI continues to render whatever sections exist.
-- **Demo/test inspections**: if identifiable (e.g. using example payload property IDs), can be safely regenerated. But no forced migration of production data.
-- Document this in a code comment at the top of `generateSections()`.
-
----
-
-## File Changes
-
-### 1. `src/lib/types.ts`
-- Add to `PropertyPayload`: `tenant_name?`, `tenant_whatsapp?`, `unit_number?`, `parking_number?`, `storage_number?`, `fecha_inspeccion?`
-- Add to `SectionType`: `'reception_meta' | 'space_kitchen'`
-
-### 2. `src/lib/inspection-generator.ts` — Full rewrite of `generateSections()`
-- Add `normalizeIncomingPayload()` helper (R1)
-- Implement 7-step structure with all field definitions per refinements above
-- `normalizePropertySnapshot()` — add new fields, call normalizer first
-- Update all 5 example payloads (add `tenant_name`, `tenant_whatsapp`, `fecha_inspeccion`, `unit_number` to some; keep `unscheduled` without tenant data)
-- Add rollout comment (R8)
-
-### 3. `src/lib/section-completion.ts`
-- `PHOTO_REQUIRED_KEYS`: replace `'kitchen'` with `'kitchen_appliances'`, keep others
-- `PHOTO_REQUIRED_PATTERNS`: add `/^bathroom_studio$/`
-- `EXEMPT_FROM_FINAL_OBS`: add `'reception_meta'`
-
-### 4. `src/lib/inspection-utils.ts`
-- `NON_OPERATIONAL_TYPES`: replace `'property_meta'` with `'reception_meta'`
-
-### 5. `src/pages/inspector/InspectorSectionComplete.tsx`
-- For `reception_meta` sections: render context fields (group_key `context`) with muted read-only style; render inspector_input fields with editable style (R5)
-- Render WhatsApp CTA when `tenant_whatsapp` field has value (R4)
-- For `space_kitchen` sections: render kitchen sub-groups, appliance sub-group, conditional logia, shared obs/photos (R6)
-- For `closing_summary` with key `closing`: render key collection fields prominently at top (R3), fumigation as single concept (R7)
-- For `storage_and_parking`: render parking/storage sub-blocks conditionally based on which group_key fields exist (R2)
-
-### 6. `src/components/PropertyBriefingCard.tsx`
-- Read `tenant_whatsapp`, `tenant_name`, `unit_number`, `fecha_inspeccion` from `getEffectiveSnapshot()`
-- Show WhatsApp CTA button when available (R4)
-- Show `unit_number` as "Nº Dpto/Casa", `fecha_inspeccion` as "Fecha de inspección"
-
-### 7. `src/pages/inspector/InspectorInspectionDetail.tsx`
-- Show small WhatsApp pill in property header when `tenant_whatsapp` available (R4)
-
----
-
-## Files Summary
-
-| Action | File |
-|---|---|
-| Edit | `src/lib/types.ts` — new payload fields, new section types |
-| Rewrite | `src/lib/inspection-generator.ts` — 7-step generation + legacy normalizer + examples |
-| Edit | `src/lib/section-completion.ts` — updated photo/completion rules |
-| Edit | `src/lib/inspection-utils.ts` — updated non-operational types |
-| Edit | `src/pages/inspector/InspectorSectionComplete.tsx` — grouped rendering, WhatsApp, visual separation |
-| Edit | `src/components/PropertyBriefingCard.tsx` — new context fields + WhatsApp CTA |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — WhatsApp pill |
-
-7 file changes. No migrations.
-
+## Guardrails
+- No Admin/Executive behavior changes.
+- No global status badge regressions.
+- No unrelated inspection template/model refactors in this pass.
