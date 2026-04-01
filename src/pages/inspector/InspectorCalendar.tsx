@@ -196,7 +196,7 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
   const address = insp.address ?? 'Sin dirección';
   const snapshot = getEffectiveSnapshot(insp);
   const comuna = insp.market === 'CL' ? (snapshot?.comuna as string) ?? null : null;
-  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp);
   const cta = displayState.key === 'ready_to_submit'
     ? 'Revisar'
     : displayState.key === 'assigned'
