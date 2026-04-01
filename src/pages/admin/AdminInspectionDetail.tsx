@@ -722,7 +722,7 @@ export default function AdminInspectionDetail() {
             {/* Fecha devolución llave */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
               <div className="space-y-2">
-                <Label>Fecha devolución llave</Label>
+                <Label>Devolución de llave (post-inspección)</Label>
                 <Input
                   type="date"
                   value={inspection.fecha_devolucion_llave ?? ''}
