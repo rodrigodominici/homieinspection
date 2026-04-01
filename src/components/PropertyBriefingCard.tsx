@@ -70,7 +70,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
           {fechaLlaves && (
             <InfoBlock
               icon={CalendarClock}
-              label="Fecha inspección"
+              label="Recolección de llaves"
               value={`${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}`}
             />
           )}

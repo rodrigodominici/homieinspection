@@ -781,7 +781,7 @@ export default function AdminInspectionDetail() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Fecha/Hora programada</Label>
+                <Label>Fecha programada (legacy)</Label>
                 <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
               </div>
               <div className="space-y-2">
