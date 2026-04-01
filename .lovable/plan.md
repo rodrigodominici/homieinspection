@@ -1,79 +1,81 @@
 
 
-# Plan: Inspector Date Model Normalization & UX Correction Pass
+# Plan: Date Model Strict Cleanup — Final Refinements Applied
 
 ## Summary
 
-Normalize all Inspector logic around the correct 3-date business model, introduce "Por coordinar" as a first-class concept, fix hero/KPI/card state issues, and improve spacing. 8 file changes, no migrations.
+Remove `scheduled_at` fallbacks from all operational UI surfaces, remove `fecha_inspeccion` and `ctx_fecha_inspeccion` zombie fields, normalize labels, and separate unscheduled inspections in Admin/Executive views. 7 file changes, no migrations.
 
 ---
 
-## Refinements Applied
+## Refinement Audit Results
 
-### R1. `to_coordinate` only for non-started, non-completed inspections
-`isToCoordinate()` checks: has `fecha_de_termino_real_de_contrato`, lacks `fecha_recoleccion_llaves`, AND status is in `['assigned', 'pending_assignment', 'pending']` with no `started_at`. This prevents conflict with `in_progress`, `ready_to_submit`, or any post-submission state.
+### R1. `fecha_inspeccion` consumers
+Only 3 files use it:
+- `PropertyBriefingCard.tsx` — displays as "Fecha ref. inspección" (line 77)
+- `inspection-generator.ts` — normalizer, snapshot, example payloads
+- `types.ts` — `PropertyPayload` type
 
-### R2. Keep `fechaInspeccion` in PropertyBriefingCard
-`fecha_inspeccion` is still present in payloads and may carry useful context (e.g., originally planned date from HubSpot). Keep it in the briefing card but relabel as **"Fecha referencia inspección"** to distinguish it from the operational key collection date. Do not remove.
+No logic depends on it. It is purely displayed in the briefing card. Safe to remove from snapshot propagation and UI. Keep in `normalizeIncomingPayload()` only so old payloads don't break parsing, but stop propagating to `normalizePropertySnapshot()`.
 
-### R3. `unscheduled` example payload gets `fecha_de_termino_real_de_contrato`
-Add `fecha_de_termino_real_de_contrato: "2026-04-15"` to the `unscheduled` payload (no `fecha_recoleccion_llaves`). This exercises the "Por coordinar" flow.
+### R2. `ctx_fecha_inspeccion`
+Only exists in `inspection-generator.ts` line 112 as a context field definition. No UI renders it, no logic uses it. It is a zombie field. **Remove it.**
 
-### R4. "Completadas hoy" uses real completion signal
-Already implemented in `isCompletedToday()` — checks `inspection_completed_at ?? completed_at` against today, only for statuses in `{submitted, in_review, approved, published, sent}`. No change needed; just confirming this is already correct.
+### R3. `scheduled_at` remaining operational usage
+Still actively used as operational fallback in:
+- `AdminSchedule.tsx` lines 51, 63-65 — query order + date fallback
+- `ExecutiveSchedule.tsx` lines 51, 63-65 — same
+- `AdminDashboard.tsx` line 63 — "upcoming" fallback
+- `ExecutiveReviewQueue.tsx` lines 202-214 — calendar grouping uses `scheduled_at` exclusively
+- `PropertyBriefingCard.tsx` lines 30, 37-38 — `scheduledAt` fallback for schedule display
+- `AdminInspectionDetail.tsx` — summary display + edit field (keep as legacy-only)
 
-### R5. Calendar must use `fecha_recoleccion_llaves` only
-`InspectorCalendar` already calls `getScheduleDatetime()`. The fix is in that helper: remove the `scheduled_at` fallback so the calendar is strictly driven by key collection date. Additionally, the Supabase query in calendar currently orders by `scheduled_at` — change that to `updated_at` since ordering is done client-side via `scheduleDatetime`.
+### R4. Unscheduled inspections
+`AdminDashboard.tsx` line 63 falls back to `scheduled_at` and includes those in "upcoming". `ExecutiveReviewQueue.tsx` calendar groups by `scheduled_at`. Both need to use `fecha_recoleccion_llaves` only, with a clear "Sin coordinar" bucket for inspections without it.
 
-### R6. Contextual wording for `fecha_de_termino_real_de_contrato`
-Display as **"Término de contrato (ref.)"** in briefing card and **"Contrato termina:"** in the "Por coordinar" dashboard cards, making it clear this is coordination guidance, not the inspection date.
+### R5. UI label
+"Recolección Llaves" in `PropertyBriefingCard` line 85 is the current label. Given this is the operational inspection date, **"Fecha inspección (coordinada)"** is clearer. In cards/agenda contexts, just **"Fecha inspección"**.
+
+### R6. Inspector dashboard
+Already normalized in the previous pass — uses `getScheduleDatetime()` which only reads `fecha_recoleccion_llaves`. No further changes needed there.
 
 ---
 
 ## File Changes
 
 ### 1. `src/lib/types.ts`
-Add to `PropertyPayload`:
-- `fecha_de_termino_real_de_contrato?: string`
-- `fecha_de_recepcion_del_checkout_cl?: string`
+- Remove `fecha_inspeccion` from `PropertyPayload` (no consumers remain after cleanup)
 
 ### 2. `src/lib/inspection-generator.ts`
-- `normalizeIncomingPayload()`: map legacy names for both new fields
-- `normalizePropertySnapshot()`: add both new fields
-- `unscheduled` example payload: add `fecha_de_termino_real_de_contrato: "2026-04-15"`, no `fecha_recoleccion_llaves`
+- **`normalizeIncomingPayload()`**: Keep `fecha_inspeccion` mapping (backward compat) but do NOT pass it forward
+- **`normalizePropertySnapshot()`**: Remove `fecha_inspeccion` and `scheduled_at` from output
+- **Context fields**: Remove `ctx_fecha_inspeccion` field definition (line 112)
+- **Example payloads**: Remove `fecha_inspeccion` and `scheduled_at` from all 4 examples
 
-### 3. `src/lib/inspector-operational.ts` — Rewrite
-- **`getScheduleDatetime()`**: Remove `scheduled_at` fallback (lines 34-37). Only use `fecha_recoleccion_llaves` from effective snapshot.
-- **Add `getContractEndDate()`**: Read `fecha_de_termino_real_de_contrato` from effective snapshot.
-- **Add `isToCoordinate()`**: Returns true when inspection has contract-end date, no key collection date, status is pre-work (`assigned|pending_assignment|pending`), and no `started_at`.
-- **`getInspectorDisplayState()`**: Add `to_coordinate` key (with label "Por coordinar", tone `warning`) between the `in_progress` and `assigned` checks. Only applies when `isToCoordinate()` passes — requires the full inspection object, so signature changes to accept `Inspection` + snapshot access.
-- **`matchesInspectorStateFilter()`**: Add `to_coordinate` and `ready_to_send` filter cases.
-- **`InspectorDisplayState.key`**: Add `'to_coordinate'` to the union.
+### 3. `src/components/PropertyBriefingCard.tsx`
+- Remove `scheduledAt` variable and its fallback logic (lines 30, 37-38)
+- Remove `fechaInspeccion` display block (lines 32, 76-78)
+- Show `fecha_recoleccion_llaves` as **"Fecha inspección"** (rename from "Recolección Llaves")
+- Keep `fecha_de_termino_real_de_contrato` as **"Término contrato (ref.)"**
 
-### 4. `src/pages/inspector/InspectorDashboard.tsx`
-- **KPI cards**: Replace "Pendientes" with "Por coordinar" → `/inspector/all?filter=active&state=to_coordinate`.
-- **"Por coordinar" section**: New block between "Requiere atención" and "Agenda de hoy". Each card shows property name, address, "Contrato termina: {date}" label, WhatsApp CTA (if tenant data available), and link to detail.
-- **Hero priority**: Add step 4 — nearest "por coordinar" inspection (by contract end date) before empty state.
-- **`todayInspections`**: Already correct (uses `scheduleDatetime` which will now be strictly `fecha_recoleccion_llaves`).
-- **Spacing**: `space-y-6` → `space-y-7` between major sections.
+### 4. `src/pages/admin/AdminSchedule.tsx`
+- Remove `scheduled_at` fallback in date derivation (lines 63-65). Use only `fecha_recoleccion_llaves`
+- Change `.order('scheduled_at')` to `.order('updated_at')` (client-side sorts by derived date)
 
-### 5. `src/pages/inspector/InspectorAllInspections.tsx`
-- Add `state=to_coordinate` and `state=ready_to_send` filter support in URL param parsing and `matchesInspectorStateFilter`.
-- Increase card spacing `space-y-3` → `space-y-4`.
+### 5. `src/pages/executive/ExecutiveSchedule.tsx`
+- Same fix as AdminSchedule: remove `scheduled_at` fallback, change query order
 
-### 6. `src/pages/inspector/InspectorCalendar.tsx`
-- Change Supabase query `.order('scheduled_at', ...)` to `.order('updated_at', ...)` since client-side sorting uses `scheduleDatetime`.
-- The `getScheduleDatetime()` fix propagates automatically.
-- Increase card spacing.
+### 6. `src/pages/admin/AdminDashboard.tsx`
+- "Próximas" section (line 63): remove `scheduled_at` fallback. Only include inspections with `fecha_recoleccion_llaves` in the upcoming list
 
-### 7. `src/pages/inspector/InspectorInspectionDetail.tsx`
-- In key collection block (pending state), add "Contrato termina: {date}" reference line when `fecha_de_termino_real_de_contrato` is available.
-- Spacing: increase `space-y-5` → `space-y-6` between cards.
+### 7. `src/pages/executive/ExecutiveReviewQueue.tsx`
+- Calendar grouping (lines 199-219): replace `scheduled_at` with `fecha_recoleccion_llaves` from effective snapshot
+- Inspections without `fecha_recoleccion_llaves` go into **"Sin coordinar"** bucket instead of being mixed into dated groups
 
-### 8. `src/components/PropertyBriefingCard.tsx`
-- Keep `fechaInspeccion` but relabel: **"Fecha ref. inspección"**.
-- Add `fecha_de_termino_real_de_contrato` display as **"Término contrato (ref.)"** info block.
-- No removal of existing fields.
+### NOT changed
+- `AdminInspectionDetail.tsx` — `scheduled_at` kept as legacy edit field, relabeled to **"Fecha programada (legacy)"** in a future pass if needed. Not blocking this cleanup.
+- `inspection-service.ts` line 80 — keeps writing `scheduled_at` to DB column for backward compat. No new UI reads it.
+- Inspector dashboard/calendar — already correct, no changes needed.
 
 ---
 
@@ -81,14 +83,13 @@ Add to `PropertyPayload`:
 
 | Action | File |
 |---|---|
-| Edit | `src/lib/types.ts` — add 2 date fields to PropertyPayload |
-| Edit | `src/lib/inspection-generator.ts` — normalize + unscheduled payload |
-| Rewrite | `src/lib/inspector-operational.ts` — remove scheduled_at fallback, add to_coordinate |
-| Edit | `src/pages/inspector/InspectorDashboard.tsx` — Por coordinar section, hero, KPI |
-| Edit | `src/pages/inspector/InspectorAllInspections.tsx` — new filter support, spacing |
-| Edit | `src/pages/inspector/InspectorCalendar.tsx` — query order fix, spacing |
-| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — contract-end reference, spacing |
-| Edit | `src/components/PropertyBriefingCard.tsx` — relabel + add contract-end |
+| Edit | `src/lib/types.ts` — remove `fecha_inspeccion` from PropertyPayload |
+| Edit | `src/lib/inspection-generator.ts` — clean snapshot, remove ctx_fecha_inspeccion, clean examples |
+| Edit | `src/components/PropertyBriefingCard.tsx` — remove scheduledAt/fechaInspeccion, relabel |
+| Edit | `src/pages/admin/AdminSchedule.tsx` — remove scheduled_at fallback |
+| Edit | `src/pages/executive/ExecutiveSchedule.tsx` — remove scheduled_at fallback |
+| Edit | `src/pages/admin/AdminDashboard.tsx` — upcoming uses fecha_recoleccion_llaves only |
+| Edit | `src/pages/executive/ExecutiveReviewQueue.tsx` — calendar uses fecha_recoleccion_llaves |
 
-8 file changes. No migrations.
+7 file changes. No migrations.
 
