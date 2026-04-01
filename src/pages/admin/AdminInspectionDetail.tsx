@@ -108,7 +108,7 @@ export default function AdminInspectionDetail() {
   // Editable fields
   const [editInspector, setEditInspector] = useState('');
   const [editExecutive, setEditExecutive] = useState('');
-  const [editScheduledAt, setEditScheduledAt] = useState('');
+  
 
   // Force advance dialog
   const [forceStatusOpen, setForceStatusOpen] = useState(false);
