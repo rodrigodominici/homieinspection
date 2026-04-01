@@ -395,6 +395,8 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     scheduled_at: payload.scheduled_at,
     fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
     hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
+    fecha_de_termino_real_de_contrato: payload.fecha_de_termino_real_de_contrato ?? null,
+    fecha_de_recepcion_del_checkout_cl: payload.fecha_de_recepcion_del_checkout_cl ?? null,
   };
 }
 
