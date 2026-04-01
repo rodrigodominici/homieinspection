@@ -109,7 +109,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     { field_key: 'ctx_tower', field_label: 'Torre', field_type: 'text', group_key: 'context', sort_order: 4, required: false },
     { field_key: 'ctx_parking', field_label: 'Estacionamiento', field_type: 'text', group_key: 'context', sort_order: 5, required: false },
     { field_key: 'ctx_storage', field_label: 'Bodega', field_type: 'text', group_key: 'context', sort_order: 6, required: false },
-    { field_key: 'ctx_fecha_inspeccion', field_label: 'Fecha de Inspección', field_type: 'date', group_key: 'context', sort_order: 7, required: false },
+    // ctx_fecha_inspeccion removed — zombie field, no longer used
     { field_key: 'ctx_recipient_email', field_label: 'Correo Receptora/o', field_type: 'email', group_key: 'context', sort_order: 8, required: false },
     { field_key: 'ctx_inspection_type', field_label: 'Tipo de Recepción', field_type: 'text', group_key: 'context', sort_order: 9, required: false },
     { field_key: 'ctx_property_type', field_label: 'Tipo de Propiedad', field_type: 'text', group_key: 'context', sort_order: 10, required: false },
