@@ -261,7 +261,6 @@ export default function AdminInspectionDetail() {
     const updates: Record<string, unknown> = {
       inspector_id: editInspector || null,
       executive_id: editExecutive || null,
-      scheduled_at: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
     };
     const { error } = await supabase.from('inspections').update(updates).eq('id', inspection.id);
     if (error) {
