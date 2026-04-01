@@ -574,7 +574,12 @@ export default function AdminInspectionDetail() {
                 const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;
                 const horaLlaves = (snap?.hora_recoleccion_llaves as string) ?? null;
                 const val = fechaLlaves ? `${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}` : 'Sin coordinar';
-                return <SummaryItem label="Recolección llaves" value={val} muted={!fechaLlaves} />;
+                return <SummaryItem label="Recolección de llaves" value={val} muted={!fechaLlaves} />;
+              })()}
+              {(() => {
+                const snap = getEffectiveSnapshot(inspection);
+                const terminoContrato = (snap?.fecha_de_termino_real_de_contrato as string) ?? null;
+                return <SummaryItem label="Término contrato (ref.)" value={terminoContrato ?? 'No disponible'} muted={!terminoContrato} />;
               })()}
             </div>
           </CardContent>
