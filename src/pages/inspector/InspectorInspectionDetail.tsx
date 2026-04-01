@@ -350,7 +350,7 @@ export default function InspectorInspectionDetail() {
         </div>
       </header>
 
-      <main className="px-4 py-4 space-y-5">
+      <main className="px-4 py-4 space-y-6">
         {/* Signature step overlay */}
         {showSignature && (
           <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">
