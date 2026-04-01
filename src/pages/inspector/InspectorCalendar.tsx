@@ -79,7 +79,7 @@ export default function InspectorCalendar() {
         .from('inspections')
         .select('*')
         .in('status', ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'])
-        .order('scheduled_at', { ascending: true });
+        .order('updated_at', { ascending: false });
 
       if (!data) { setLoading(false); return; }
 
@@ -161,7 +161,7 @@ export default function InspectorCalendar() {
       </div>
 
       {/* Day content */}
-      <main className="px-4 space-y-4">
+      <main className="px-4 space-y-5">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
         ) : dayInspections.length === 0 ? (
@@ -196,7 +196,7 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
   const address = insp.address ?? 'Sin dirección';
   const snapshot = getEffectiveSnapshot(insp);
   const comuna = insp.market === 'CL' ? (snapshot?.comuna as string) ?? null : null;
-  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp);
   const cta = displayState.key === 'ready_to_submit'
     ? 'Revisar'
     : displayState.key === 'assigned'

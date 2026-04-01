@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
-import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash, MessageCircle, User, Phone } from 'lucide-react';
+import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash, MessageCircle, User, Phone, FileText } from 'lucide-react';
 
 interface Props {
   inspection: Inspection;
@@ -32,6 +32,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
   const fechaInspeccion = (snapshot?.fecha_inspeccion as string) ?? null;
   const tenantName = (snapshot?.tenant_name as string) ?? null;
   const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
+  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
 
   const scheduleDate = fechaLlaves || (scheduledAt ? scheduledAt.split('T')[0] : null);
   const scheduleTime = horaLlaves || (scheduledAt ? new Date(scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null);
@@ -73,7 +74,10 @@ export default function PropertyBriefingCard({ inspection }: Props) {
             <InfoBlock icon={Building} label="Torre" value={tower} />
           )}
           {fechaInspeccion && (
-            <InfoBlock icon={CalendarClock} label="Fecha Inspección" value={fechaInspeccion} />
+            <InfoBlock icon={CalendarClock} label="Fecha ref. inspección" value={fechaInspeccion} />
+          )}
+          {contractEndDate && (
+            <InfoBlock icon={FileText} label="Término contrato (ref.)" value={contractEndDate} />
           )}
           {scheduleDate && (
             <InfoBlock

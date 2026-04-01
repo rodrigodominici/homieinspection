@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
+// Import Inspection type for full inspection pass to filter helpers
 import { MapPin, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
@@ -67,7 +68,7 @@ export default function InspectorAllInspections() {
 
   const filtered = inspections
     .filter((i) => (filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)))
-    .filter((i) => matchesInspectorStateFilter(stateFilter, i, i.completedSections, i.totalSections))
+    .filter((i) => matchesInspectorStateFilter(stateFilter, i, i.completedSections, i.totalSections, i as unknown as Inspection))
     .filter((i) => {
       if (scopeFilter !== 'completed_today') return true;
       return isCompletedToday(i);
@@ -116,7 +117,7 @@ export default function InspectorAllInspections() {
         ) : (
           filtered.map((insp) => {
             const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
-            const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+            const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp as unknown as Inspection);
             return (
               <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
                 <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">

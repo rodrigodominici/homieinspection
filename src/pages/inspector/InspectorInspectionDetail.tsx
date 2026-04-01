@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionFieldValue, InspectionSection } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
 
@@ -97,7 +97,7 @@ export default function InspectorInspectionDetail() {
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
 
   const progress = calculateProgress(sections);
-  const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total);
+  const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total, inspection);
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
@@ -350,7 +350,7 @@ export default function InspectorInspectionDetail() {
         </div>
       </header>
 
-      <main className="px-4 py-4 space-y-5">
+      <main className="px-4 py-4 space-y-6">
         {/* Signature step overlay */}
         {showSignature && (
           <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">
@@ -407,7 +407,21 @@ export default function InspectorInspectionDetail() {
                 </span>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+              <>
+                <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                {(() => {
+                  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
+                  if (!contractEndDate) return null;
+                  const dt = new Date(`${contractEndDate}T00:00:00`);
+                  if (Number.isNaN(dt.getTime())) return null;
+                  return (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                  );
+                })()}
+              </>
             )}
 
             <div className="flex gap-2">

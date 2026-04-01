@@ -37,6 +37,8 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
     fecha_inspeccion: raw.fecha_inspeccion ?? (raw as any).inspection_date ?? null,
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
+    fecha_de_termino_real_de_contrato: raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date ?? null,
+    fecha_de_recepcion_del_checkout_cl: raw.fecha_de_recepcion_del_checkout_cl ?? (raw as any).checkout_received_date ?? null,
   };
 }
 
@@ -393,6 +395,8 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     scheduled_at: payload.scheduled_at,
     fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
     hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
+    fecha_de_termino_real_de_contrato: payload.fecha_de_termino_real_de_contrato ?? null,
+    fecha_de_recepcion_del_checkout_cl: payload.fecha_de_recepcion_del_checkout_cl ?? null,
   };
 }
 
@@ -525,6 +529,9 @@ export const EXAMPLE_PAYLOADS = {
     has_storage: false,
     has_parking: false,
     has_front_yard: false,
+    tenant_name: "Pedro Soto",
+    tenant_whatsapp: "+56911112222",
+    fecha_de_termino_real_de_contrato: "2026-04-15",
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
     executive: { id: "REPLACE_WITH_REAL_ID", name: "Executive Demo", email: "executive@homie.test" },
   },
