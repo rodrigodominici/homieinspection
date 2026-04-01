@@ -452,8 +452,6 @@ export const EXAMPLE_PAYLOADS = {
     unit_number: "801",
     tenant_name: "Carlos Pérez",
     tenant_whatsapp: "+56987654321",
-    fecha_inspeccion: "2026-03-23",
-    scheduled_at: "2026-03-23T10:00:00Z",
     fecha_recoleccion_llaves: "2026-03-23",
     hora_recoleccion_llaves: "10:00",
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
