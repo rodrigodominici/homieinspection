@@ -390,9 +390,8 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     unit_number: payload.unit_number ?? null,
     parking_number: payload.parking_number ?? null,
     storage_number: payload.storage_number ?? null,
-    fecha_inspeccion: payload.fecha_inspeccion ?? null,
     recipient_email: payload.recipient_email ?? null,
-    scheduled_at: payload.scheduled_at,
+    // scheduled_at: written to DB column for legacy compat but NOT propagated to snapshot
     fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
     hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
     fecha_de_termino_real_de_contrato: payload.fecha_de_termino_real_de_contrato ?? null,
