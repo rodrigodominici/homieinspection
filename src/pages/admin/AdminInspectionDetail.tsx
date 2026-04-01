@@ -785,8 +785,8 @@ export default function AdminInspectionDetail() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Fecha programada (legacy)</Label>
-                <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
+                <Label>Fecha de término real de contrato</Label>
+                <Input type="text" readOnly value={(() => { const snap = getEffectiveSnapshot(inspection); return (snap?.fecha_de_termino_real_de_contrato as string) || 'No disponible'; })()} className="bg-muted cursor-default" />
               </div>
               <div className="space-y-2">
                 <Label>Inspector</Label>

@@ -529,6 +529,8 @@ export const EXAMPLE_PAYLOADS = {
     tenant_name: "Pedro Soto",
     tenant_whatsapp: "+56911112222",
     fecha_de_termino_real_de_contrato: "2026-04-15",
+    fecha_recoleccion_llaves: null as any,
+    fecha_de_recepcion_del_checkout_cl: null as any,
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
     executive: { id: "REPLACE_WITH_REAL_ID", name: "Executive Demo", email: "executive@homie.test" },
   },
