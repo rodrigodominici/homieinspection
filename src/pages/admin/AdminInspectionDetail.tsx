@@ -108,7 +108,7 @@ export default function AdminInspectionDetail() {
   // Editable fields
   const [editInspector, setEditInspector] = useState('');
   const [editExecutive, setEditExecutive] = useState('');
-  const [editScheduledAt, setEditScheduledAt] = useState('');
+  
 
   // Force advance dialog
   const [forceStatusOpen, setForceStatusOpen] = useState(false);
@@ -150,7 +150,7 @@ export default function AdminInspectionDetail() {
     if (insp) {
       setEditInspector(insp.inspector_id ?? '');
       setEditExecutive(insp.executive_id ?? '');
-      setEditScheduledAt(insp.scheduled_at ? insp.scheduled_at.slice(0, 16) : '');
+      
 
       // Init final observations
       const obsMap: Record<string, string> = {};
@@ -261,7 +261,6 @@ export default function AdminInspectionDetail() {
     const updates: Record<string, unknown> = {
       inspector_id: editInspector || null,
       executive_id: editExecutive || null,
-      scheduled_at: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
     };
     const { error } = await supabase.from('inspections').update(updates).eq('id', inspection.id);
     if (error) {
@@ -575,7 +574,12 @@ export default function AdminInspectionDetail() {
                 const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;
                 const horaLlaves = (snap?.hora_recoleccion_llaves as string) ?? null;
                 const val = fechaLlaves ? `${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}` : 'Sin coordinar';
-                return <SummaryItem label="Recolección llaves" value={val} muted={!fechaLlaves} />;
+                return <SummaryItem label="Recolección de llaves" value={val} muted={!fechaLlaves} />;
+              })()}
+              {(() => {
+                const snap = getEffectiveSnapshot(inspection);
+                const terminoContrato = (snap?.fecha_de_termino_real_de_contrato as string) ?? null;
+                return <SummaryItem label="Término contrato (ref.)" value={terminoContrato ?? 'No disponible'} muted={!terminoContrato} />;
               })()}
             </div>
           </CardContent>
@@ -781,8 +785,8 @@ export default function AdminInspectionDetail() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Fecha programada (legacy)</Label>
-                <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
+                <Label>Fecha de término real de contrato</Label>
+                <Input type="text" readOnly value={(() => { const snap = getEffectiveSnapshot(inspection); return (snap?.fecha_de_termino_real_de_contrato as string) || 'No disponible'; })()} className="bg-muted cursor-default" />
               </div>
               <div className="space-y-2">
                 <Label>Inspector</Label>
