@@ -570,11 +570,13 @@ export default function AdminInspectionDetail() {
               <SummaryItem label="Inspector" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
               <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
               <SummaryItem label="Tipo" value={inspection.inspection_type} />
-              <SummaryItem
-                label="Programada"
-                value={inspection.scheduled_at ? format(new Date(inspection.scheduled_at), 'dd MMM yyyy HH:mm', { locale: es }) : '—'}
-                muted={!inspection.scheduled_at}
-              />
+              {(() => {
+                const snap = getEffectiveSnapshot(inspection);
+                const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;
+                const horaLlaves = (snap?.hora_recoleccion_llaves as string) ?? null;
+                const val = fechaLlaves ? `${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}` : 'Sin coordinar';
+                return <SummaryItem label="Recolección llaves" value={val} muted={!fechaLlaves} />;
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -720,7 +722,7 @@ export default function AdminInspectionDetail() {
             {/* Fecha devolución llave */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
               <div className="space-y-2">
-                <Label>Fecha devolución llave</Label>
+                <Label>Devolución de llave (post-inspección)</Label>
                 <Input
                   type="date"
                   value={inspection.fecha_devolucion_llave ?? ''}
@@ -779,7 +781,7 @@ export default function AdminInspectionDetail() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Fecha/Hora programada</Label>
+                <Label>Fecha programada (legacy)</Label>
                 <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
               </div>
               <div className="space-y-2">

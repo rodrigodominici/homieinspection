@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SectionStatusBadge } from '@/components/StatusBadge';
+import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -330,8 +331,9 @@ export default function InspectorInspectionDetail() {
           <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => navigate('/inspector')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
             <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
+            <InspectorStatusBadge state={displayState} />
           </div>
           {tenantWhatsapp && (
             <Button
