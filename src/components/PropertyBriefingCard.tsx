@@ -32,6 +32,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
   const fechaInspeccion = (snapshot?.fecha_inspeccion as string) ?? null;
   const tenantName = (snapshot?.tenant_name as string) ?? null;
   const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
+  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
 
   const scheduleDate = fechaLlaves || (scheduledAt ? scheduledAt.split('T')[0] : null);
   const scheduleTime = horaLlaves || (scheduledAt ? new Date(scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null);
