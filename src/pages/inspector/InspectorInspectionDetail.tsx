@@ -407,7 +407,21 @@ export default function InspectorInspectionDetail() {
                 </span>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+              <>
+                <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                {(() => {
+                  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
+                  if (!contractEndDate) return null;
+                  const dt = new Date(`${contractEndDate}T00:00:00`);
+                  if (Number.isNaN(dt.getTime())) return null;
+                  return (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                  );
+                })()}
+              </>
             )}
 
             <div className="flex gap-2">

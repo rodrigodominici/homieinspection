@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress } from '@/lib/inspection-utils';
 import type { Inspection, InspectionSection } from '@/lib/types';
+// Import Inspection type for full inspection pass to filter helpers
 import { MapPin, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
