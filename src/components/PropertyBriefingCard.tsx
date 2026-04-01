@@ -74,7 +74,10 @@ export default function PropertyBriefingCard({ inspection }: Props) {
             <InfoBlock icon={Building} label="Torre" value={tower} />
           )}
           {fechaInspeccion && (
-            <InfoBlock icon={CalendarClock} label="Fecha Inspección" value={fechaInspeccion} />
+            <InfoBlock icon={CalendarClock} label="Fecha ref. inspección" value={fechaInspeccion} />
+          )}
+          {contractEndDate && (
+            <InfoBlock icon={FileText} label="Término contrato (ref.)" value={contractEndDate} />
           )}
           {scheduleDate && (
             <InfoBlock
