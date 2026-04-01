@@ -67,7 +67,7 @@ export default function InspectorAllInspections() {
 
   const filtered = inspections
     .filter((i) => (filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)))
-    .filter((i) => matchesInspectorStateFilter(stateFilter, i, i.completedSections, i.totalSections))
+    .filter((i) => matchesInspectorStateFilter(stateFilter, i, i.completedSections, i.totalSections, i as unknown as Inspection))
     .filter((i) => {
       if (scopeFilter !== 'completed_today') return true;
       return isCompletedToday(i);
