@@ -150,7 +150,7 @@ export default function AdminInspectionDetail() {
     if (insp) {
       setEditInspector(insp.inspector_id ?? '');
       setEditExecutive(insp.executive_id ?? '');
-      setEditScheduledAt(insp.scheduled_at ? insp.scheduled_at.slice(0, 16) : '');
+      
 
       // Init final observations
       const obsMap: Record<string, string> = {};
