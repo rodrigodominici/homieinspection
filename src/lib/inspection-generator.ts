@@ -37,6 +37,8 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
     fecha_inspeccion: raw.fecha_inspeccion ?? (raw as any).inspection_date ?? null,
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
+    fecha_de_termino_real_de_contrato: raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date ?? null,
+    fecha_de_recepcion_del_checkout_cl: raw.fecha_de_recepcion_del_checkout_cl ?? (raw as any).checkout_received_date ?? null,
   };
 }
 
