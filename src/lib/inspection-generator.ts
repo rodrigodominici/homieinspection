@@ -34,7 +34,7 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
     tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
     tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
     unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
-    fecha_inspeccion: raw.fecha_inspeccion ?? (raw as any).inspection_date ?? null,
+    // fecha_inspeccion: legacy field — accepted but not propagated to snapshot
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
     fecha_de_termino_real_de_contrato: raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date ?? null,
