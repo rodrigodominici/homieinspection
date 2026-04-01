@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SectionStatusBadge } from '@/components/StatusBadge';
+import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
