@@ -97,7 +97,7 @@ export default function InspectorInspectionDetail() {
   if (!inspection) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Inspección no encontrada</div>;
 
   const progress = calculateProgress(sections);
-  const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total);
+  const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total, inspection);
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
