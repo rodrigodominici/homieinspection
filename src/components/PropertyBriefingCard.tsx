@@ -27,15 +27,10 @@ export default function PropertyBriefingCard({ inspection }: Props) {
   const market = inspection.market;
   const fechaLlaves = (snapshot?.fecha_recoleccion_llaves as string) ?? null;
   const horaLlaves = (snapshot?.hora_recoleccion_llaves as string) ?? null;
-  const scheduledAt = inspection.scheduled_at;
   const unitNumber = (snapshot?.unit_number as string) ?? null;
-  const fechaInspeccion = (snapshot?.fecha_inspeccion as string) ?? null;
   const tenantName = (snapshot?.tenant_name as string) ?? null;
   const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
   const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
-
-  const scheduleDate = fechaLlaves || (scheduledAt ? scheduledAt.split('T')[0] : null);
-  const scheduleTime = horaLlaves || (scheduledAt ? new Date(scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null);
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl overflow-hidden">
@@ -73,22 +68,19 @@ export default function PropertyBriefingCard({ inspection }: Props) {
           {tower && (
             <InfoBlock icon={Building} label="Torre" value={tower} />
           )}
-          {fechaInspeccion && (
-            <InfoBlock icon={CalendarClock} label="Fecha ref. inspección" value={fechaInspeccion} />
-          )}
           {contractEndDate && (
             <InfoBlock icon={FileText} label="Término contrato (ref.)" value={contractEndDate} />
           )}
-          {scheduleDate && (
+          {fechaLlaves && (
             <InfoBlock
               icon={CalendarClock}
-              label="Recolección Llaves"
-              value={`${scheduleDate}${scheduleTime ? ` · ${scheduleTime}` : ''}`}
+              label="Fecha inspección"
+              value={`${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}`}
             />
           )}
         </div>
 
-        {/* Tenant contact (R4) */}
+        {/* Tenant contact */}
         {tenantName && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/40">
             <User className="h-4 w-4 text-muted-foreground shrink-0" />

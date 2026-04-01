@@ -215,7 +215,6 @@ export interface PropertyPayload {
   unit_number?: string;
   parking_number?: string;
   storage_number?: string;
-  fecha_inspeccion?: string;
   scheduled_at?: string;
   fecha_recoleccion_llaves?: string;
   hora_recoleccion_llaves?: string;

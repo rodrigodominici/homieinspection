@@ -48,7 +48,7 @@ export default function ExecutiveSchedule() {
         supabase
           .from('inspections')
           .select('*, inspector:profiles!inspections_inspector_id_fkey(full_name)')
-          .order('scheduled_at', { ascending: true }),
+          .order('updated_at', { ascending: false }),
         supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
       ]);
 
@@ -59,9 +59,6 @@ export default function ExecutiveSchedule() {
         let scheduleDatetime: Date | null = null;
         if (fecha) {
           scheduleDatetime = new Date(`${fecha}T${hora || '00:00'}`);
-          if (isNaN(scheduleDatetime.getTime())) scheduleDatetime = null;
-        } else if (insp.scheduled_at) {
-          scheduleDatetime = new Date(insp.scheduled_at);
           if (isNaN(scheduleDatetime.getTime())) scheduleDatetime = null;
         }
         return { ...insp, scheduleDatetime, inspectorName: insp.inspector?.full_name ?? null };

@@ -199,14 +199,18 @@ export default function ExecutiveReviewQueue() {
   const calendarGroups = useMemo(() => {
     const groups: Record<string, Inspection[]> = {};
     const sorted = [...sortedFiltered].sort((a, b) => {
-      const da = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Infinity;
-      const db = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Infinity;
+      const snapA = getEffectiveSnapshot(a);
+      const snapB = getEffectiveSnapshot(b);
+      const da = snapA?.fecha_recoleccion_llaves ? new Date(snapA.fecha_recoleccion_llaves as string).getTime() : Infinity;
+      const db = snapB?.fecha_recoleccion_llaves ? new Date(snapB.fecha_recoleccion_llaves as string).getTime() : Infinity;
       return da - db;
     });
     for (const insp of sorted) {
-      let key = 'Sin agendar';
-      if (insp.scheduled_at) {
-        const d = new Date(insp.scheduled_at);
+      const snap = getEffectiveSnapshot(insp);
+      const fechaLlaves = snap?.fecha_recoleccion_llaves as string | undefined;
+      let key = 'Sin coordinar';
+      if (fechaLlaves) {
+        const d = new Date(fechaLlaves);
         if (isToday(d)) key = 'Hoy';
         else if (isTomorrow(d)) key = 'Mañana';
         else if (isAfter(d, new Date())) key = d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' });
