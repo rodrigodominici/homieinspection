@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
-import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash, MessageCircle, User, Phone } from 'lucide-react';
+import { MapPin, Building, Home, Landmark, CalendarClock, Navigation, Hash, MessageCircle, User, Phone, FileText } from 'lucide-react';
 
 interface Props {
   inspection: Inspection;
