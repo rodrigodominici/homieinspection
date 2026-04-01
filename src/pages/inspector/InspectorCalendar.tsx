@@ -79,7 +79,7 @@ export default function InspectorCalendar() {
         .from('inspections')
         .select('*')
         .in('status', ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'])
-        .order('scheduled_at', { ascending: true });
+        .order('updated_at', { ascending: false });
 
       if (!data) { setLoading(false); return; }
 
