@@ -35,17 +35,14 @@ export default function PropertyBriefingCard({ inspection }: Props) {
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl overflow-hidden">
       {/* Header with name + status */}
       <div className="bg-primary/5 px-4 pt-4 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-h4 truncate">{inspection.property_name ?? inspection.property_id}</h2>
-            {address && (
-              <div className="flex items-center gap-1.5 mt-1 text-caption text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{address}</span>
-              </div>
-            )}
-          </div>
-          <InspectionStatusBadge status={inspection.status} />
+        <div className="min-w-0">
+          <h2 className="text-h4 truncate">{inspection.property_name ?? inspection.property_id}</h2>
+          {address && (
+            <div className="flex items-center gap-1.5 mt-1 text-caption text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{address}</span>
+            </div>
+          )}
         </div>
       </div>
 
