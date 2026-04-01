@@ -6,16 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { calculateProgress } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { MapPin, ArrowRight, Navigation, Clock, CalendarDays, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { MapPin, ArrowRight, Navigation, Clock, CalendarDays, AlertTriangle, CheckCircle2, Loader2, MessageCircle, PhoneCall } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   getInspectorDisplayState,
   getScheduleDatetime,
+  getContractEndDate,
   isCompletedToday,
+  isToCoordinate,
 } from '@/lib/inspector-operational';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 
@@ -82,40 +84,42 @@ export default function InspectorDashboard() {
   );
 
   const inProgress = active.filter((i) =>
-    getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'in_progress'
+    getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'in_progress'
   );
   const completedToday = inspections.filter((i) => isCompletedToday(i));
-  const needsAttention = active.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'needs_changes');
+  const needsAttention = active.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'needs_changes');
+  const toCoordinate = active.filter((i) => isToCoordinate(i));
 
   const readyToSend = active.filter((i) =>
-    getInspectorDisplayState(i, i.completedSections, i.totalSections).key === 'ready_to_submit'
+    getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'ready_to_submit'
   );
 
   const upcoming = active
-    .filter((i) => !i.scheduleDatetime || i.scheduleDatetime >= new Date(now.getTime() - 3600000))
+    .filter((i) => i.scheduleDatetime && i.scheduleDatetime >= new Date(now.getTime() - 3600000))
     .sort((a, b) => {
       if (!a.scheduleDatetime) return 1;
       if (!b.scheduleDatetime) return -1;
       return a.scheduleDatetime.getTime() - b.scheduleDatetime.getTime();
     });
-  const pendingBacklog = active.filter((i) => {
-    const key = getInspectorDisplayState(i, i.completedSections, i.totalSections).key;
-    return key === 'assigned' || key === 'needs_changes';
-  });
 
+  // Hero priority: in_progress → ready_to_submit → scheduled today/upcoming → to_coordinate → empty
   const inProgressHero = inProgress[0] ?? null;
   const readyHero = readyToSend[0] ?? null;
   const scheduledHero = upcoming[0] ?? null;
-  const pendingHero = pendingBacklog[0] ?? null;
-  const heroInspection = inProgressHero ?? readyHero ?? scheduledHero ?? pendingHero ?? null;
+  const toCoordinateHero = toCoordinate.sort((a, b) => {
+    const aEnd = getContractEndDate(a)?.getTime() ?? Infinity;
+    const bEnd = getContractEndDate(b)?.getTime() ?? Infinity;
+    return aEnd - bEnd;
+  })[0] ?? null;
+  const heroInspection = inProgressHero ?? readyHero ?? scheduledHero ?? toCoordinateHero ?? null;
   const heroContext = inProgressHero
     ? 'En progreso ahora'
     : readyHero
       ? 'Lista para envío final'
       : scheduledHero
         ? 'Próxima inspección'
-        : pendingHero
-          ? 'Siguiente tarea pendiente'
+        : toCoordinateHero
+          ? 'Pendiente de coordinar'
           : '';
 
   const dateLabel = now.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -130,7 +134,7 @@ export default function InspectorDashboard() {
         <p className="text-xs text-muted-foreground mt-0.5 capitalize">{dateLabel}</p>
       </header>
 
-      <main className="px-4 space-y-6">
+      <main className="px-4 space-y-7">
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-44 rounded-3xl" />
@@ -161,13 +165,13 @@ export default function InspectorDashboard() {
               <StatTile label="Hoy" value={todayInspections.length} icon={CalendarDays} to="/inspector/agenda?date=today" accent />
               <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
               <StatTile label="Completadas hoy" value={completedToday.length} icon={CheckCircle2} to="/inspector/all?filter=past&scope=completed_today" />
-              <StatTile label="Pendientes" value={pendingBacklog.length} icon={Clock} to="/inspector/all?filter=active&state=assigned_or_needs_changes" />
+              <StatTile label="Por coordinar" value={toCoordinate.length} icon={PhoneCall} to="/inspector/all?filter=active&state=to_coordinate" />
             </div>
 
             {/* Needs attention */}
             {needsAttention.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Requiere atención</h2>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Requiere atención</h2>
                 <div className="space-y-3">
                   {needsAttention.map((insp) => (
                     <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
@@ -187,10 +191,68 @@ export default function InspectorDashboard() {
               </section>
             )}
 
+            {/* Por coordinar */}
+            {toCoordinate.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Por coordinar</h2>
+                <div className="space-y-3">
+                  {toCoordinate.map((insp) => {
+                    const contractEnd = getContractEndDate(insp);
+                    const snapshot = getEffectiveSnapshot(insp);
+                    const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
+                    return (
+                      <Card key={insp.id} className="border-0 ring-1 ring-status-bad/15 shadow-sm rounded-2xl">
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
+                              </div>
+                            </div>
+                            <InspectorStatusBadge state={{ key: 'to_coordinate', label: 'Por coordinar', tone: 'warning' }} />
+                          </div>
+                          {contractEnd && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                              <span>Contrato termina: {contractEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            {tenantWhatsapp && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 rounded-xl gap-1.5 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const cleaned = tenantWhatsapp.replace(/[^+\d]/g, '');
+                                  const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar la recolección de llaves de la propiedad${insp.property_name ? ` ${insp.property_name}` : ''}.`);
+                                  window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
+                                }}
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                              </Button>
+                            )}
+                            <Link to={`/inspector/inspection/${insp.id}`} className="flex-1">
+                              <Button size="sm" className="w-full rounded-xl gap-1.5 h-9">
+                                Cargar fecha <ArrowRight className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Today's schedule */}
             {todayInspections.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Agenda de hoy</h2>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Agenda de hoy</h2>
                 <div className="space-y-3">
                   {todayInspections
                     .sort((a, b) => (a.scheduleDatetime?.getTime() ?? 0) - (b.scheduleDatetime?.getTime() ?? 0))
@@ -238,10 +300,10 @@ function StatTile({
 function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWithProgress; contextLabel: string }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
   const address = insp.address ?? 'Sin dirección';
-  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp);
   const cta = displayState.key === 'ready_to_submit'
     ? 'Revisar y enviar'
-    : displayState.key === 'assigned'
+    : displayState.key === 'assigned' || displayState.key === 'to_coordinate'
       ? 'Iniciar'
       : displayState.key === 'needs_changes'
         ? 'Corregir'
@@ -309,13 +371,12 @@ function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWi
 
 function MiniCard({ inspection: insp }: { inspection: InspectionWithProgress }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
-  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+  const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp);
 
   return (
     <Link to={`/inspector/inspection/${insp.id}`}>
       <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
         <CardContent className="p-3.5 flex items-center gap-3">
-          {/* Time */}
           {insp.scheduleDatetime && (
             <div className="text-center shrink-0 w-12">
               <p className="text-sm font-bold text-foreground">{insp.scheduleDatetime.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>

@@ -161,7 +161,7 @@ export default function InspectorCalendar() {
       </div>
 
       {/* Day content */}
-      <main className="px-4 space-y-4">
+      <main className="px-4 space-y-5">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
         ) : dayInspections.length === 0 ? (

@@ -116,7 +116,7 @@ export default function InspectorAllInspections() {
         ) : (
           filtered.map((insp) => {
             const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
-            const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections);
+            const displayState = getInspectorDisplayState(insp, insp.completedSections, insp.totalSections, insp as unknown as Inspection);
             return (
               <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
                 <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
