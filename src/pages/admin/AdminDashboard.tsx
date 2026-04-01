@@ -56,11 +56,16 @@ export default function AdminDashboard() {
     .filter(i => {
       const snap = getEffectiveSnapshot(i);
       const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
-      if (fecha) {
-        const dt = new Date(`${fecha}T${(snap?.hora_recoleccion_llaves as string) || '00:00'}`);
-        return !isNaN(dt.getTime()) && dt >= now;
-      }
-      return i.scheduled_at ? new Date(i.scheduled_at) >= now : false;
+      if (!fecha) return false;
+      const dt = new Date(`${fecha}T${(snap?.hora_recoleccion_llaves as string) || '00:00'}`);
+      return !isNaN(dt.getTime()) && dt >= now;
+    })
+    .sort((a, b) => {
+      const snapA = getEffectiveSnapshot(a);
+      const snapB = getEffectiveSnapshot(b);
+      const dA = new Date(snapA?.fecha_recoleccion_llaves as string).getTime();
+      const dB = new Date(snapB?.fecha_recoleccion_llaves as string).getTime();
+      return dA - dB;
     })
     .slice(0, 5);
 

@@ -498,8 +498,6 @@ export const EXAMPLE_PAYLOADS = {
     has_front_yard: false,
     warranty_deposit: 1500000,
     unit_number: "2201",
-    fecha_inspeccion: "2026-03-28",
-    scheduled_at: "2026-03-28T09:00:00Z",
     fecha_recoleccion_llaves: "2026-03-28",
     hora_recoleccion_llaves: "09:00",
     inspector: { id: "REPLACE_WITH_REAL_ID", name: "Inspector Demo", email: "inspector@homie.test" },
