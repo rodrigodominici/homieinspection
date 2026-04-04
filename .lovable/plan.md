@@ -1,117 +1,76 @@
 
 
-# Plan: Dual-Date Calendar + Filter + Visual Distinction for Admin, Executive & Inspector
+# Plan: Card Enrichment, Sorting, and Executive Consistency Pass
 
 ## Summary
 
-Add `contractEndDate` to calendar data models. Introduce a 3-way filter toggle (Todas / Programadas / Por coordinar). Show uncoordinated items in a dedicated **top-of-day banner row** (not in an hour slot) with explicit "Por coordinar" + "Término de contrato: date" text. Split the bottom unscheduled section into "Por coordinar" and "Sin programar". 5 file changes, no migrations.
-
----
-
-## Key Design Decisions
-
-### R1. Uncoordinated items NOT placed in hour slots
-Instead of placing uncoordinated inspections at 8:00 (confusable with real appointments), they render in a **day-header sub-row** below the day label. This row spans the full day column, uses a distinct amber/warning background and dashed border, and contains explicit text: "Por coordinar · Término: 20 mar". Visually impossible to confuse with a time-slotted appointment.
-
-### R2. Date precedence
-- `fecha_recoleccion_llaves` → programmed, placed in hour grid
-- Only if missing: `fecha_de_termino_real_de_contrato` → coordination reference, placed in day-header banner
-- Neither → "Sin programar" (bottom section)
-
-### R3. Card semantics for Por coordinar
-Cards show: contract-end date, property name, inspector. No progress emphasis. Distinct amber tone + dashed border + "Por coordinar" text label.
-
-### R4. Explicit distinction
-- **Por coordinar** = has `fecha_de_termino_real_de_contrato` but no `fecha_recoleccion_llaves`
-- **Sin programar** = has neither date
-
-### R5. Not color/border only
-Grid items and bottom cards both include explicit "Por coordinar" text label + "Término de contrato: date" — not relying solely on visual styling.
+Enrich Admin and Inspector inspection list cards with explicit date lines and "Por coordinar" as a distinct card pattern. Add sorting with null-safe behavior. Update Executive schedule for full consistency. 4 file changes, no migrations.
 
 ---
 
 ## File Changes
 
-### 1. `src/pages/admin/AdminSchedule.tsx`
+### 1. `src/pages/admin/AdminInspections.tsx`
 
-**Extend data model** (line 14-17):
-- Add `contractEndDate: Date | null` to `ScheduledInspection`
-- In useEffect data load, compute `contractEndDate` from `snapshot?.fecha_de_termino_real_de_contrato`
+**Add date computation to data model** (after line 74):
+- Build an inspector name map from `profiles`
+- For each inspection, compute `scheduleDatetime` and `contractEndDate` from `getScheduleDatetime` / `getContractEndDate`
 
-**Add filter state + toggle UI** (after inspector filter, line 104):
-- `const [scheduleFilter, setScheduleFilter] = useState<'all'|'programmed'|'to_coordinate'>('all')`
-- Render 3 pill buttons: Todas / Programadas / Por coordinar
+**Add sort dropdown** (after filters, line 204):
+- Options: `Última actividad` (default), `Término contrato ↑`, `Término contrato ↓`, `Recolección llaves ↑`, `Recolección llaves ↓`
+- Null-safe: valid dates first, nulls last (for both ascending and descending)
 
-**Categorize inspections** (replace lines 82-83):
-- `programmed` = has `scheduleDatetime`
-- `toCoordinate` = no `scheduleDatetime`, has `contractEndDate`
-- `unscheduled` = neither
-- Apply `scheduleFilter` to determine what shows in grid vs sections
+**Enrich card rendering** (lines 218-239):
+- Add explicit date line below address:
+  - If no `scheduleDatetime` but has `contractEndDate`: amber "Por coordinar" badge + `Término de contrato: <date>` line
+  - If has `scheduleDatetime`: `Inspección: <date>` line
+- Add inspector name on card
+- For "Por coordinar" cards: use `ring-amber-200 border-dashed` ring style, no progress/status badge swap needed since Admin uses `InspectionStatusBadge`
 
-**Add day-header coordination row** (between header row and first hour row):
-- For each weekDay, collect `toCoordinate` items whose `contractEndDate` falls on that day
-- Render a special row (auto-height, min-h-10) with amber/warning background, dashed border
-- Each item shows: property name + "Por coordinar · Término: <date>" + inspector name
-- This row only renders if any day has coordination items
+### 2. `src/pages/inspector/InspectorAllInspections.tsx`
 
-**Split bottom section** into two:
-- "Por coordinar (N)" — items with `contractEndDate` but not in current week grid, sorted by nearest contract-end
-  - Cards show: property, address, "Término de contrato: date", "Por coordinar" badge, inspector
-- "Sin programar (N)" — items with neither date
-  - Cards show: property, address, status badge, inspector
+**Extend `InspectionWithProgress`** with `scheduleDatetime: Date | null` and `contractEndDate: Date | null` (computed in data load via `getScheduleDatetime`/`getContractEndDate`).
 
-### 2. `src/pages/executive/ExecutiveSchedule.tsx`
+**Differentiated card patterns** (lines 118-145):
+- **Por coordinar** (no `scheduleDatetime`, has `contractEndDate`, active): amber ring, "Por coordinar" badge from `InspectorStatusBadge`, `Término de contrato: <date>` line, NO progress bar
+- **Programmed** (has `scheduleDatetime`): standard card, `Inspección: <date>` line, progress bar, status badge
 
-Same changes as Admin: extend data model, add filter toggle, day-header coordination row, split bottom section. Identical logic, different layout wrapper and link paths (`/executive/inspection/`).
+**Default sort**: active inspections sorted by `contractEndDate` nearest first (nulls last), then by `scheduleDatetime` nearest first (nulls last).
 
-### 3. `src/pages/inspector/InspectorCalendar.tsx`
+### 3. `src/pages/executive/ExecutiveSchedule.tsx`
 
-**Extend `AgendaInspection`** with `contractEndDate: Date | null`.
+**Add explicit date line to programmed grid items** (line 270):
+- Below property name, add `Inspección: <time>` text so coordinated items also have an explicit label, not just color
 
-**Add filter toggle** (3 pills: Todas / Programadas / Por coordinar) below date selector.
+**Verify bottom cards**: "Por coordinar" cards already show `Término de contrato: <date>` — confirmed. "Sin programar" cards already show status badge — confirmed.
 
-**Day matching logic:**
-- `programmed` filter: show items where `scheduleDatetime` matches selected day
-- `to_coordinate` filter: show items where `contractEndDate` matches selected day
-- `all`: combine both
+No structural changes needed; only add the explicit time label to grid items.
 
-**Card rendering for uncoordinated items in day view:**
-- Amber/warning card style, "Por coordinar" badge
-- "Término de contrato: <date>" as primary info
-- WhatsApp + Cargar fecha CTAs
-- No progress bar
+### 4. `src/pages/inspector/InspectorInspectionDetail.tsx`
 
-**Unscheduled section** at bottom: split into Por coordinar (sorted by nearest contract-end) and Sin programar.
-
-### 4. `src/pages/inspector/InspectorDashboard.tsx`
-
-**Por coordinar section** — sort by nearest `contractEndDate`. Already partially done; verify ordering is correct.
-
-**Cards** — ensure "Término de contrato" label (not "ref.") and no progress emphasis for uncoordinated items.
-
-### 5. `src/components/PropertyBriefingCard.tsx`
-
-**Relabel** any remaining "Término contrato (ref.)" → "Término de contrato". (Quick check — may already be done from prior pass.)
+**Fix mobile CTA layout** (line 429): Change `<div className="flex gap-2">` to `<div className="flex flex-col sm:flex-row gap-2">` so WhatsApp + Cargar fecha stack vertically on mobile.
 
 ---
 
-## Visual Spec for Calendar Coordination Items
+## Null-Safe Sort Logic
 
-```text
-┌─────────────────────────────────────────────────┐
-│ Day header row (normal)                         │
-├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┤
-│ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐ │
-│ ╎ 🟡 Por coordinar                           ╎ │  ← amber bg, dashed border
-│ ╎ Chacabuco 1120 · Término: 20 mar            ╎ │  ← explicit text
-│ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘ │
-├─────────────────────────────────────────────────┤
-│ 8:00  │ [Scheduled item - solid bg]            │  ← real appointment
-│ 9:00  │                                        │
+```typescript
+function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;  // nulls last always
+  if (!b) return -1;
+  return asc ? a.getTime() - b.getTime() : b.getTime() - a.getTime();
+}
 ```
 
-Programmed items: solid `bg-primary/10`, no "Por coordinar" label.
-Coordination items: `bg-amber-50 border-dashed border-amber-300`, explicit "Por coordinar" + "Término de contrato: date" text.
+---
+
+## Card Pattern Reference
+
+| State | Ring | Badge | Date line | Progress |
+|---|---|---|---|---|
+| Por coordinar | amber-200 dashed | "Por coordinar" (amber) | Término de contrato: date | Hidden |
+| Programmed | standard border | Status badge | Inspección: date | Shown |
 
 ---
 
@@ -119,11 +78,10 @@ Coordination items: `bg-amber-50 border-dashed border-amber-300`, explicit "Por 
 
 | Action | File |
 |---|---|
-| Edit | `src/pages/admin/AdminSchedule.tsx` — dual-date, filter, day-header row, split sections |
-| Edit | `src/pages/executive/ExecutiveSchedule.tsx` — same as admin |
-| Edit | `src/pages/inspector/InspectorCalendar.tsx` — dual-date filter, card patterns |
-| Edit | `src/pages/inspector/InspectorDashboard.tsx` — verify sort + label consistency |
-| Edit | `src/components/PropertyBriefingCard.tsx` — verify label (may be no-op) |
+| Edit | `src/pages/admin/AdminInspections.tsx` — date lines, sorting, inspector name |
+| Edit | `src/pages/inspector/InspectorAllInspections.tsx` — dual card pattern, sorting |
+| Edit | `src/pages/executive/ExecutiveSchedule.tsx` — add time label to grid items |
+| Edit | `src/pages/inspector/InspectorInspectionDetail.tsx` — mobile CTA fix |
 
-5 file changes. No migrations.
+4 file changes. No migrations.
 
