@@ -426,7 +426,7 @@ export default function InspectorInspectionDetail() {
               </>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               {tenantWhatsapp && (
                 <Button variant="outline" className="flex-1 h-10 rounded-xl gap-2" onClick={openWhatsApp}>
                   <MessageCircle className="h-4 w-4" /> Contactar por WhatsApp

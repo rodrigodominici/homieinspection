@@ -268,6 +268,9 @@ export default function ExecutiveSchedule() {
                               title={`${insp.property_name ?? insp.property_id} — ${insp.inspectorName ?? 'Sin inspector'}`}
                             >
                               <span className="font-medium">{insp.property_name ?? insp.property_id}</span>
+                              <span className="block text-muted-foreground truncate">
+                                Inspección: {insp.scheduleDatetime!.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
                               {insp.inspectorName && <span className="block text-muted-foreground truncate">{insp.inspectorName}</span>}
                             </a>
                           ))}
