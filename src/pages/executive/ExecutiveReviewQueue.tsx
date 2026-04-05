@@ -141,7 +141,7 @@ export default function ExecutiveReviewQueue() {
   const markets = useMemo(() => [...new Set(inspections.map(i => i.market).filter(Boolean))], [inspections]);
   const inspectors = useMemo(() => {
     const ids = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))] as string[];
-    return ids.map(id => ({ id, name: inspectorProfiles[id]?.full_name ?? id }));
+    return ids.map(id => ({ id, name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Inspector sin nombre' }));
   }, [inspections, inspectorProfiles]);
 
   // Filtered inspections
@@ -408,20 +408,37 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
 
   const snapshot = getEffectiveSnapshot(insp);
   const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
+  const contractEnd = snapshot?.fecha_de_termino_real_de_contrato as string | undefined;
+  const isUncoordinated = !keyDate && !!contractEnd;
+
   const keyDateLabel = keyDate
     ? new Date(keyDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const contractEndLabel = contractEnd
+    ? new Date(contractEnd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
-      <Card className="border-0 ring-1 ring-border shadow-sm hover:shadow-md transition-shadow">
+      <Card className={cn(
+        "border-0 shadow-sm hover:shadow-md transition-shadow",
+        isUncoordinated
+          ? "ring-2 ring-amber-300 border-dashed bg-amber-50/30"
+          : "ring-1 ring-border"
+      )}>
         <CardContent className="py-3 px-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1 flex-1 min-w-0">
               {/* Row 1: Name + badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                <InspectionStatusBadge status={insp.status} />
+                {isUncoordinated ? (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-tiny">
+                    Por coordinar
+                  </Badge>
+                ) : (
+                  <InspectionStatusBadge status={insp.status} />
+                )}
                 {missingObs > 0 && !isPublished && ['submitted', 'in_review', 'approved'].includes(insp.status) && (
                   <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))]">
                     <AlertTriangle className="mr-1 h-3 w-3" />{missingObs} obs. pendientes
@@ -434,10 +451,17 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
-                <span className="flex items-center gap-1">
-                  <Key className="h-3 w-3" />
-                  {keyDateLabel ? `Recolección: ${keyDateLabel}` : 'Sin fecha de recolección'}
-                </span>
+                {isUncoordinated ? (
+                  <span className="flex items-center gap-1 text-amber-700 font-medium">
+                    <Key className="h-3 w-3" />
+                    Término de contrato: {contractEndLabel}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Key className="h-3 w-3" />
+                    {keyDateLabel ? `Recolección: ${keyDateLabel}` : 'Sin fecha de recolección'}
+                  </span>
+                )}
               </div>
               {/* Row 3: Progress */}
               {sections.length > 0 && (
