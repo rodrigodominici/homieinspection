@@ -468,6 +468,30 @@ export default function ExecutiveReviewDetail() {
             </div>
             {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
+              {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" className="bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" disabled={submitting}>
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Aprobar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
+                        <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleApprove}>Aprobar</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
               {isPublished && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => {
@@ -488,13 +512,25 @@ export default function ExecutiveReviewDetail() {
                 <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
                 </Button>
-              ) : (
+              ) : ['submitted', 'in_review', 'approved'].includes(inspection.status) ? (
                 <Button size="sm" onClick={handlePublish} disabled={submitting}>
                   <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
+
+          {/* Return mode top bar */}
+          {returnMode && (
+            <div className="hidden lg:flex items-center gap-3 h-10 border-t">
+              <span className="text-caption text-muted-foreground">Selecciona secciones a devolver</span>
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={() => setReturnMode(false)}>Cancelar</Button>
+              <Button variant="destructive" size="sm" onClick={handleReturnForChanges} disabled={submitting}>
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver ({selectedReturnSections.size})
+              </Button>
+            </div>
+          )}
 
           {/* Row 2: Financial summary + contractor */}
           <div className="flex items-center gap-4 pb-3 overflow-x-auto text-caption border-t pt-2">
@@ -564,7 +600,7 @@ export default function ExecutiveReviewDetail() {
           {/* Row 3: Blocker indicators */}
           {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
             <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
-              {missingSections.length > 0 && (
+              {showObservationWarnings && missingSections.length > 0 && (
                 <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   {missingSections.length} observaciones finales pendientes
