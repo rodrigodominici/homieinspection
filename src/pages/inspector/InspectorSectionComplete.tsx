@@ -62,6 +62,7 @@ export default function InspectorSectionComplete() {
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [unansweredFields, setUnansweredFields] = useState<Set<string>>(new Set());
   const [signatureHandled, setSignatureHandled] = useState(false);
   const [showSigPad, setShowSigPad] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -109,6 +110,7 @@ export default function InspectorSectionComplete() {
   const handleChipChange = (fieldId: string, value: string) => {
     setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, value_text: value } : f));
     setValidationError(null);
+    setUnansweredFields((prev) => { const n = new Set(prev); n.delete(fieldId); return n; });
     saveField(fieldId, value);
     if (section?.status === 'not_started' || section?.status === 'needs_changes') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
@@ -219,9 +221,18 @@ export default function InspectorSectionComplete() {
     );
     if (!result.valid) {
       setValidationError(result.reason ?? 'Completa los campos requeridos');
+      // Populate unanswered fields set for visual feedback
+      const missing = new Set<string>();
+      fields.forEach((f) => {
+        if (f.group_key === 'status' && f.is_visible && (!f.value_text || f.value_text === '')) {
+          missing.add(f.id);
+        }
+      });
+      setUnansweredFields(missing);
       return;
     }
     setValidationError(null);
+    setUnansweredFields(new Set());
 
     const { error } = await supabase
       .from('inspection_sections')
@@ -292,9 +303,10 @@ export default function InspectorSectionComplete() {
       const options = (field.value_json as { options?: Array<{ value: string; label: string }> })?.options ?? [];
       const isStatusGrid = options.length === 4 && options.some(o => o.value === 'bueno');
       if (isStatusGrid) {
+        const isUnanswered = unansweredFields.has(field.id);
         return (
-          <div key={field.id} className="space-y-2">
-            <p className="text-body font-medium">{field.field_label}</p>
+          <div key={field.id} className={cn("space-y-2 rounded-2xl p-2 -m-2 transition-all", isUnanswered && "ring-2 ring-destructive/60 bg-destructive/5")}>
+            <p className={cn("text-body font-medium", isUnanswered && "text-destructive")}>{field.field_label}</p>
             <div className="grid grid-cols-2 gap-3.5">
               {options.map((opt) => {
                 const selected = field.value_text === opt.value;
