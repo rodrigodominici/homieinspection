@@ -62,6 +62,8 @@ export default function InspectorSectionComplete() {
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [signatureHandled, setSignatureHandled] = useState(false);
+  const [showSigPad, setShowSigPad] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
