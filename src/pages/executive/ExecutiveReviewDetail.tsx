@@ -192,6 +192,8 @@ export default function ExecutiveReviewDetail() {
     [operationalSections, finalObservations]
   );
 
+  const showObservationWarnings = !['approved', 'published'].includes(inspection?.status ?? '');
+
   const activeSection = useMemo(
     () => operationalSections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null,
     [operationalSections, activeSectionId]
@@ -466,6 +468,30 @@ export default function ExecutiveReviewDetail() {
             </div>
             {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
+              {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" className="bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" disabled={submitting}>
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Aprobar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
+                        <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleApprove}>Aprobar</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
               {isPublished && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => {
@@ -486,13 +512,25 @@ export default function ExecutiveReviewDetail() {
                 <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
                 </Button>
-              ) : (
+              ) : ['submitted', 'in_review', 'approved'].includes(inspection.status) ? (
                 <Button size="sm" onClick={handlePublish} disabled={submitting}>
                   <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
+
+          {/* Return mode top bar */}
+          {returnMode && (
+            <div className="hidden lg:flex items-center gap-3 h-10 border-t">
+              <span className="text-caption text-muted-foreground">Selecciona secciones a devolver</span>
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={() => setReturnMode(false)}>Cancelar</Button>
+              <Button variant="destructive" size="sm" onClick={handleReturnForChanges} disabled={submitting}>
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver ({selectedReturnSections.size})
+              </Button>
+            </div>
+          )}
 
           {/* Row 2: Financial summary + contractor */}
           <div className="flex items-center gap-4 pb-3 overflow-x-auto text-caption border-t pt-2">
@@ -562,7 +600,7 @@ export default function ExecutiveReviewDetail() {
           {/* Row 3: Blocker indicators */}
           {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
             <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
-              {missingSections.length > 0 && (
+              {showObservationWarnings && missingSections.length > 0 && (
                 <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   {missingSections.length} observaciones finales pendientes
@@ -647,7 +685,7 @@ export default function ExecutiveReviewDetail() {
             );
           })}
           {/* Missing observations summary */}
-          {missingSections.length > 0 && (
+          {showObservationWarnings && missingSections.length > 0 && (
             <div className="mt-3 px-2 py-2 rounded-lg bg-[hsl(var(--status-bad))]/5 text-tiny text-[hsl(var(--status-bad))]">
               <AlertTriangle className="inline h-3 w-3 mr-1" />
               Faltan observaciones en {missingSections.length} secciones
@@ -838,47 +876,8 @@ export default function ExecutiveReviewDetail() {
         )}
       </div>
 
-      {/* ── DESKTOP bottom action bar ─────────────────── */}
-      <div className="hidden lg:block">
-        {['submitted', 'in_review', 'approved'].includes(inspection.status) && !returnMode && (
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-card/90 backdrop-blur-sm border-t z-20">
-            <div className="flex justify-center gap-3 max-w-3xl mx-auto">
-              <Button variant="outline" onClick={() => setReturnMode(true)}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Devolver para cambios
-              </Button>
-              {inspection.status !== 'approved' && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" disabled={submitting}>
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Aprobar
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
-                      <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleApprove}>Aprobar</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </div>
-        )}
-        {returnMode && (
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-card/90 backdrop-blur-sm border-t z-20">
-            <div className="flex justify-center gap-3 max-w-3xl mx-auto">
-              <Button variant="outline" onClick={() => setReturnMode(false)}>Cancelar</Button>
-              <Button variant="destructive" onClick={handleReturnForChanges} disabled={submitting}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Devolver ({selectedReturnSections.size})
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+
+
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
