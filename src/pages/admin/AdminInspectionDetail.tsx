@@ -243,7 +243,7 @@ export default function AdminInspectionDetail() {
       [timestampField]: new Date().toISOString(),
       ...extraUpdates,
     };
-    const { error } = await supabase.from('inspections').update(updates).eq('id', inspection.id);
+    const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -262,7 +262,7 @@ export default function AdminInspectionDetail() {
       inspector_id: editInspector || null,
       executive_id: editExecutive || null,
     };
-    const { error } = await supabase.from('inspections').update(updates).eq('id', inspection.id);
+    const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -463,7 +463,7 @@ export default function AdminInspectionDetail() {
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id }).eq('id', repairId);
+    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
     await refreshRepairs();
   };
 
