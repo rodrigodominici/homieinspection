@@ -1,60 +1,92 @@
 
 
-# Plan: Executive UX Action Bar + State Consistency Fix
+# Plan: Mandatory Matrix Items + Property Summary Redesign
 
 ## Summary
 
-Move desktop workflow actions (Devolver/Aprobar) from the fixed bottom bar to the sticky top header. Suppress the "observaciones pendientes" warning when inspection is already approved/published. 1 file change, no migrations.
+Two changes: (1) enforce all status-matrix items as mandatory in validation logic, (2) redesign PropertyBriefingCard into grouped themed blocks for better hierarchy and readability.
 
 ---
 
-## Changes in `src/pages/executive/ExecutiveReviewDetail.tsx`
+## Change 1: Mandatory evaluation items
 
-### 1. Move desktop actions to sticky top bar
+### File: `src/lib/section-completion.ts`
 
-**Remove**: The entire `<div className="hidden lg:block">` block (lines 842-881) containing the fixed bottom action bar for desktop.
+**Current**: `canCompleteSection` checks that *at least one* status field has a value (`someField.some(...)`).
 
-**Add**: Inside the sticky top header (line 468 area, the `hidden lg:flex items-center gap-2` div), add the Devolver/Aprobar buttons alongside the existing Publicar/Republicar actions. The return-mode confirmation also moves to a top bar row.
+**New**: Check that *every visible status field* has a non-null, non-empty value (`every` instead of `some`).
 
-Layout:
-- Row 1 right side: Back + Property info + Status badge + [Devolver | Aprobar | Publicar/Republicar | Abrir reporte | Copiar link]
-- When `returnMode` is active, show a secondary row below with cancel + "Devolver (N)" buttons
-- Mobile bottom bar (lines 820-838) stays unchanged — it's appropriate for mobile
-
-### 2. Suppress warnings for approved/published inspections
-
-**Change**: The `missingSections` badge in Row 3 (line 565) and the sidebar summary (line 650) should only render when the inspection status is NOT `approved` and NOT `published`.
-
-Add condition:
-```tsx
-const showObservationWarnings = !['approved', 'published'].includes(inspection.status);
+```typescript
+// Change from:
+const hasStatus = statusFields.some(f => f.value_text !== null && f.value_text !== '');
+// To:
+const allAnswered = statusFields.every(f => f.value_text !== null && f.value_text !== '');
 ```
 
-Then wrap both warning locations with `showObservationWarnings &&`.
+Update the error message and add a count of unanswered items:
+```typescript
+if (!allAnswered) {
+  const unanswered = statusFields.filter(f => !f.value_text).length;
+  return {
+    valid: false,
+    reason: `${unanswered} elemento(s) sin respuesta. Selecciona un estado para cada uno.`,
+  };
+}
+```
 
-Also in `handleApprove`: no changes needed — approval is currently unrestricted. The warnings become informational only (visible during review, hidden after approval).
+### File: `src/pages/inspector/InspectorSectionComplete.tsx`
 
-### 3. Approval validation (preferred behavior)
+Add visual feedback for unanswered items when validation fails:
+- When `validationError` is set, highlight unanswered status-matrix items with a red ring/border
+- Track which fields are unanswered and apply `ring-destructive` to their container
 
-Add a soft block: the Aprobar button shows a tooltip or is visually flagged when `missingSections.length > 0`, but does NOT hard-block since the user explicitly stated "or suppress after approval". The current approach suppresses warnings post-approval, which is the simpler and cleaner path.
+This requires:
+- A new state `unansweredFields: Set<string>` populated when validation fails
+- In `renderField` for status grid items, apply red ring when field.id is in the set
+- Clear the set when user selects any option
 
 ---
 
-## Detailed edits
+## Change 2: PropertyBriefingCard redesign
 
-1. **Lines 842-881** (desktop bottom bar): Delete entirely
-2. **Lines 468-494** (top right actions): Add Devolver + Aprobar buttons alongside Publicar
-3. **Line 563-570** (blocker badges): Wrap with `showObservationWarnings`
-4. **Lines 650-655** (sidebar warning): Wrap with `showObservationWarnings`
-5. Add `returnMode` top bar row after Row 1 inside the sticky header
+### File: `src/components/PropertyBriefingCard.tsx` — full rewrite
+
+Reorganize from flat grid of mini-cards into 4 themed blocks:
+
+**Block A — Header (existing, enhanced)**
+- Property name (large)
+- Address with map pin
+- Status badge + inspection type badge
+- Inspector + Executive names (if available)
+
+**Block B — Key Dates**
+- Dedicated card with calendar icon accent
+- `Recolección de llaves / inspección` — prominent
+- `Término de contrato` — secondary
+- Clear date formatting with relative context
+
+**Block C — Property Details**
+- Single compact card with icon+label+value rows
+- ID propiedad, Tipo, Mercado, Torre, Nº Dpto/Casa
+- Bodega / Estacionamiento if present in snapshot
+
+**Block D — Contact & Actions**
+- Tenant name + phone
+- WhatsApp CTA button (prominent, green accent)
+- "Cómo llegar" button
+- Both as full-width action buttons
+
+Layout uses `space-y-3` between blocks instead of a 2-col grid of identical mini-cards. Each block has clear visual hierarchy with section labels.
 
 ---
 
-## Files Summary
+## Files affected
 
-| Action | File |
+| File | Change |
 |---|---|
-| Edit | `src/pages/executive/ExecutiveReviewDetail.tsx` — move actions to top, suppress post-approval warnings |
+| `src/lib/section-completion.ts` | `some` → `every` + better error message |
+| `src/pages/inspector/InspectorSectionComplete.tsx` | Red ring on unanswered items when validation fires |
+| `src/components/PropertyBriefingCard.tsx` | Full redesign into 4 themed blocks |
 
-1 file change. No migrations.
+3 files. No migrations.
 
