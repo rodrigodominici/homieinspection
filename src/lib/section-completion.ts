@@ -44,15 +44,18 @@ export function canCompleteSection(
     return { valid: true };
   }
 
-  // At least one status field must have a non-null, non-empty value.
-  const hasStatus = statusFields.some(
+  // Every visible status field must have a non-null, non-empty value.
+  const allAnswered = statusFields.every(
     (f) => f.value_text !== null && f.value_text !== '',
   );
 
-  if (!hasStatus) {
+  if (!allAnswered) {
+    const unanswered = statusFields.filter(
+      (f) => f.value_text === null || f.value_text === '',
+    ).length;
     return {
       valid: false,
-      reason: 'Selecciona un estado para continuar',
+      reason: `${unanswered} elemento(s) sin respuesta. Selecciona un estado para cada uno.`,
     };
   }
 
