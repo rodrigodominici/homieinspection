@@ -192,6 +192,8 @@ export default function ExecutiveReviewDetail() {
     [operationalSections, finalObservations]
   );
 
+  const showObservationWarnings = !['approved', 'published'].includes(inspection?.status ?? '');
+
   const activeSection = useMemo(
     () => operationalSections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null,
     [operationalSections, activeSectionId]
