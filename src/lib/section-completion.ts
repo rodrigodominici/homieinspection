@@ -1,9 +1,10 @@
 /**
- * Centralized section-completion rules.
+ * Centralized section-completion rules — V2.
  *
  * MVP rules:
- *  - Standard sections require a status selection (Bueno / Regular / Malo / No Aplica).
- *  - Photos are MANDATORY for specific sections (kitchen, living, bedrooms, bathrooms, access).
+ *  - Standard sections require at least one status selection (Bueno / Regular / Malo / No Aplica).
+ *  - Photos are NOT required to move between sections.
+ *  - Photos ARE required to finalize/submit the inspection (checked by `canFinalizeInspection`).
  *  - Observations are OPTIONAL.
  *  - Non-standard section types without status fields can always be completed.
  */
@@ -16,37 +17,28 @@ export interface CompletionResult {
   reason?: string;
 }
 
-/** Section keys where at least one photo is required. */
-const PHOTO_REQUIRED_KEYS = new Set(['kitchen_appliances', 'living', 'living_dormitorio', 'access', 'bathroom_studio']);
-const PHOTO_REQUIRED_PATTERNS = [/^bedroom_/, /^bathroom_\d/];
-
-/**
- * Determine whether a section requires photo evidence for completion.
- */
-export function requiresPhotoEvidence(sectionKey: string): boolean {
-  if (PHOTO_REQUIRED_KEYS.has(sectionKey)) return true;
-  return PHOTO_REQUIRED_PATTERNS.some((p) => p.test(sectionKey));
+export interface FinalizationResult {
+  valid: boolean;
+  /** Sections missing required photos */
+  missingSections: string[];
 }
 
 /**
  * Determine whether a section can be marked as completed.
  *
- * @param sectionType - e.g. 'space_standard', 'space_secondary', etc.
- * @param fieldValues - all field values belonging to this section
- * @param sectionKey - the section_key for photo requirement checks
- * @param photoCount - number of photos currently in this section
+ * V2: Photos are NO LONGER checked here — they are checked globally at finalization.
  */
 export function canCompleteSection(
   _sectionType: string,
   fieldValues: Pick<InspectionFieldValue, 'group_key' | 'value_text' | 'is_visible'>[],
-  sectionKey?: string,
-  photoCount?: number,
+  _sectionKey?: string,
+  _photoCount?: number,
 ): CompletionResult {
   const statusFields = fieldValues.filter(
     (f) => f.group_key === 'status' && f.is_visible,
   );
 
-  // If the section has no status fields it's a non-standard section (meta, summary, etc.)
+  // If the section has no status fields it's a non-standard section (meta, summary, signature, etc.)
   // — allow completion without validation.
   if (statusFields.length === 0) {
     return { valid: true };
@@ -64,14 +56,6 @@ export function canCompleteSection(
     };
   }
 
-  // Photo requirement check
-  if (sectionKey && typeof photoCount === 'number' && requiresPhotoEvidence(sectionKey) && photoCount === 0) {
-    return {
-      valid: false,
-      reason: 'Se requiere al menos una foto',
-    };
-  }
-
   return { valid: true };
 }
 
@@ -83,7 +67,10 @@ export function isSectionCompleted(sectionStatus: string): boolean {
 }
 
 /** Section types exempt from requiring a final observation before publish. */
-const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'reception_meta', 'handover_meta', 'admin_meta']);
+const EXEMPT_FROM_FINAL_OBS = new Set([
+  'property_meta', 'reception_meta', 'handover_meta', 'admin_meta',
+  'introduction', 'signature',
+]);
 
 /**
  * Determine whether a section type requires a final observation before
@@ -91,4 +78,46 @@ const EXEMPT_FROM_FINAL_OBS = new Set(['property_meta', 'reception_meta', 'hando
  */
 export function requiresFinalObservation(sectionType: string): boolean {
   return !EXEMPT_FROM_FINAL_OBS.has(sectionType);
+}
+
+/** Section keys where at least one photo is required TO FINALIZE. */
+const PHOTO_REQUIRED_KEYS = new Set([
+  'access', 'living', 'kitchen_appliances', 'terrace_patio',
+]);
+const PHOTO_REQUIRED_PATTERNS = [/^bedroom_/, /^bathroom_/];
+
+/**
+ * Determine whether a section requires photo evidence for finalization.
+ */
+export function requiresPhotoEvidence(sectionKey: string): boolean {
+  if (PHOTO_REQUIRED_KEYS.has(sectionKey)) return true;
+  return PHOTO_REQUIRED_PATTERNS.some((p) => p.test(sectionKey));
+}
+
+/**
+ * Check whether the inspection can be finalized/submitted.
+ * Validates that all sections requiring photos have at least one.
+ *
+ * @param sections - all visible sections
+ * @param photoCounts - map of section_id → photo count
+ */
+export function canFinalizeInspection(
+  sections: { id: string; section_key: string; is_visible: boolean }[],
+  photoCounts: Record<string, number>,
+): FinalizationResult {
+  const missingSections: string[] = [];
+
+  for (const section of sections) {
+    if (!section.is_visible) continue;
+    if (!requiresPhotoEvidence(section.section_key)) continue;
+    const count = photoCounts[section.id] ?? 0;
+    if (count === 0) {
+      missingSections.push(section.section_key);
+    }
+  }
+
+  return {
+    valid: missingSections.length === 0,
+    missingSections,
+  };
 }

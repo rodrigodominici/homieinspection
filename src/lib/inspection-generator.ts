@@ -1,9 +1,23 @@
 /**
- * Dynamic inspection section generation.
+ * Dynamic inspection section generation — V2 (13-screen model).
  *
- * ROLLOUT (R8): This 7-step grouped model applies to newly generated inspections only.
- * Existing inspections retain their original `generated_structure_json` and section records.
- * The UI renders whatever sections exist — no forced migration of production data.
+ * This generator creates the new 13-screen inspection structure.
+ * Existing inspections retain their stored `generated_structure_json` and are unaffected.
+ *
+ * Screen order:
+ * 1.  Introducción              (always)
+ * 2.  Datos del inmueble        (always)
+ * 3.  Datos del inquilino       (always)
+ * 4.  Acceso                    (always)
+ * 5.  Living                    (always)
+ * 6.  Cocina / Electrodomésticos (always, Logia always inside)
+ * 7.  Dormitorio 1..N           (NOT estudio)
+ * 8.  Baño 1..N                 (always, min 1)
+ * 9.  Walking Closet            (NOT estudio)
+ * 10. Terraza / Patio Trasero   (always)
+ * 11. Patio Delantero           (property_type = casa)
+ * 12. Bodega                    (has_storage = true)
+ * 13. Firma de inquilino        (always, final)
  */
 
 import type { PropertyPayload } from '@/lib/types';
@@ -26,7 +40,7 @@ export interface GeneratedField {
   options_json?: unknown;
 }
 
-// ─── R1: Legacy payload field mapping ───────────────────────────────────────
+// ─── Legacy payload field mapping ───────────────────────────────────────
 function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
   return {
     ...raw,
@@ -34,7 +48,6 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
     tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
     tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
     unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
-    // fecha_inspeccion: legacy field — accepted but not propagated to snapshot
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
     fecha_de_termino_real_de_contrato: raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date ?? null,
@@ -42,7 +55,7 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
   };
 }
 
-// ─── Shared helpers ─────────────────────────────────────────────────────────
+// ─── Shared helpers ─────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
   { value: 'bueno', label: 'Bueno' },
@@ -63,45 +76,92 @@ function makeStatusField(key: string, label: string, sortOrder: number, groupKey
   };
 }
 
-function makeSpaceFields(sectionKey: string): GeneratedField[] {
-  return [
-    makeStatusField(`${sectionKey}_status`, 'Estado General', 0),
-    {
-      field_key: `${sectionKey}_observation`,
-      field_label: 'Observaciones',
-      field_type: 'textarea',
-      group_key: 'observation',
-      sort_order: 1,
-      required: false,
-    },
-    {
-      field_key: `${sectionKey}_photos`,
-      field_label: 'Fotos',
-      field_type: 'photo_upload',
-      group_key: 'photo',
-      sort_order: 2,
-      required: false,
-    },
-  ];
+/**
+ * Generate per-item status matrix fields for a space section.
+ * Each item gets its own Bueno/Regular/Malo/NA selector.
+ */
+function makeMatrixFields(
+  sectionKey: string,
+  items: string[],
+  groupKey = 'status',
+): GeneratedField[] {
+  return items.map((item, idx) => {
+    const fieldKey = `${sectionKey}_${item.toLowerCase().replace(/[\s\/()]+/g, '_').replace(/[^a-z0-9_]/g, '')}`;
+    return makeStatusField(fieldKey, item, idx, groupKey);
+  });
 }
 
-// ─── 7-Step Generation ──────────────────────────────────────────────────────
+function makeObservationField(sectionKey: string, label: string, sortOrder: number): GeneratedField {
+  return {
+    field_key: `${sectionKey}_observation`,
+    field_label: label,
+    field_type: 'textarea',
+    group_key: 'observation',
+    sort_order: sortOrder,
+    required: false,
+  };
+}
 
-function isStudio(payload: PropertyPayload): boolean {
+function makePhotoField(sectionKey: string, label: string, sortOrder: number): GeneratedField {
+  return {
+    field_key: `${sectionKey}_photos`,
+    field_label: label,
+    field_type: 'photo_upload',
+    group_key: 'photo',
+    sort_order: sortOrder,
+    required: false,
+  };
+}
+
+// ─── Studio detection ───────────────────────────────────────────────────
+
+export function isStudio(payload: PropertyPayload): boolean {
   if (payload.bedrooms_count === 0) return true;
   if (payload.typology?.toLowerCase() === 'estudio') return true;
+  if (payload.property_type?.toLowerCase() === 'estudio_loft') return true;
   return false;
 }
+
+// ─── 13-Screen Generation ───────────────────────────────────────────────
 
 export function generateSections(rawPayload: PropertyPayload): GeneratedSection[] {
   const payload = normalizeIncomingPayload(rawPayload);
   const sections: GeneratedSection[] = [];
   let order = 0;
   const studio = isStudio(payload);
+  const isCasa = payload.property_type?.toLowerCase() === 'casa';
 
-  // ── Step 1: Datos del Inmueble / Recepción (reception_meta) ──────────────
-  const receptionFields: GeneratedField[] = [
-    // Context fields (R5: group_key 'context' → muted read-only)
+  // ── 1. Introducción ────────────────────────────────────────────────────
+  const introFields: GeneratedField[] = [
+    // Cleaning sub-group (inspector captures on arrival)
+    {
+      field_key: 'cleaning_status', field_label: 'Estado de Aseo', field_type: 'single_select',
+      group_key: 'cleaning', sort_order: 0, required: false,
+      options_json: STATUS_OPTIONS,
+    },
+    { field_key: 'cleaning_observation', field_label: 'Observaciones Aseo', field_type: 'textarea', group_key: 'cleaning', sort_order: 1, required: false },
+    // Removal sub-group
+    {
+      field_key: 'removal_status', field_label: 'Retiro de Enseres', field_type: 'single_select',
+      group_key: 'removal', sort_order: 2, required: false,
+      options_json: [{ value: 'completo', label: 'Completo' }, { value: 'parcial', label: 'Parcial' }, { value: 'no_realizado', label: 'No Realizado' }],
+    },
+    // Fumigation sub-group
+    { field_key: 'fumigation_observation', field_label: 'Observaciones Fumigación', field_type: 'textarea', group_key: 'fumigation', sort_order: 3, required: false },
+    { field_key: 'fumigation_photos', field_label: 'Fotos Fumigación', field_type: 'photo_upload', group_key: 'fumigation', sort_order: 4, required: false },
+  ];
+
+  sections.push({
+    section_key: 'introduction',
+    section_title: 'Introducción',
+    section_type: 'introduction',
+    sort_order: order++,
+    fields: introFields,
+  });
+
+  // ── 2. Datos del inmueble ──────────────────────────────────────────────
+  const propertyFields: GeneratedField[] = [
+    // Context fields (read-only from payload)
     { field_key: 'ctx_market', field_label: 'Mercado', field_type: 'text', group_key: 'context', sort_order: 0, required: false },
     { field_key: 'ctx_property_id', field_label: 'ID Inmueble', field_type: 'text', group_key: 'context', sort_order: 1, required: false },
     { field_key: 'ctx_address', field_label: 'Dirección Inmueble', field_type: 'text', group_key: 'context', sort_order: 2, required: false },
@@ -109,51 +169,35 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     { field_key: 'ctx_tower', field_label: 'Torre', field_type: 'text', group_key: 'context', sort_order: 4, required: false },
     { field_key: 'ctx_parking', field_label: 'Estacionamiento', field_type: 'text', group_key: 'context', sort_order: 5, required: false },
     { field_key: 'ctx_storage', field_label: 'Bodega', field_type: 'text', group_key: 'context', sort_order: 6, required: false },
-    // ctx_fecha_inspeccion removed — zombie field, no longer used
+    { field_key: 'ctx_fecha_recoleccion', field_label: 'Recolección de llaves / inspección', field_type: 'text', group_key: 'context', sort_order: 7, required: false },
     { field_key: 'ctx_recipient_email', field_label: 'Correo Receptora/o', field_type: 'email', group_key: 'context', sort_order: 8, required: false },
     { field_key: 'ctx_inspection_type', field_label: 'Tipo de Recepción', field_type: 'text', group_key: 'context', sort_order: 9, required: false },
     { field_key: 'ctx_property_type', field_label: 'Tipo de Propiedad', field_type: 'text', group_key: 'context', sort_order: 10, required: false },
     { field_key: 'ctx_bedrooms', field_label: 'Dormitorios', field_type: 'number', group_key: 'context', sort_order: 11, required: false },
     { field_key: 'ctx_bathrooms', field_label: 'Baños', field_type: 'number', group_key: 'context', sort_order: 12, required: false },
+    // Meters sub-group (inspector input)
+    { field_key: 'meter_electricity', field_label: 'Lectura Electricidad', field_type: 'text', group_key: 'meters', sort_order: 20, required: false },
+    { field_key: 'meter_water', field_label: 'Lectura Agua', field_type: 'text', group_key: 'meters', sort_order: 21, required: false },
+    { field_key: 'meter_gas', field_label: 'Lectura Gas', field_type: 'text', group_key: 'meters', sort_order: 22, required: false },
+    { field_key: 'meter_photos', field_label: 'Fotos Medidores', field_type: 'photo_upload', group_key: 'meters', sort_order: 23, required: false },
+    // Admin contact sub-group (inspector input)
+    { field_key: 'admin_name', field_label: 'Nombre Administrador / Mayordomo', field_type: 'text', group_key: 'admin_contact', sort_order: 30, required: false },
+    { field_key: 'admin_phone', field_label: 'Teléfono Administrador', field_type: 'phone', group_key: 'admin_contact', sort_order: 31, required: false },
+    { field_key: 'admin_email', field_label: 'Correo Administrador', field_type: 'email', group_key: 'admin_contact', sort_order: 32, required: false },
   ];
 
-  // Tenant contact context (R4)
-  if (payload.tenant_name || payload.tenant_whatsapp) {
-    receptionFields.push(
-      { field_key: 'ctx_tenant_name', field_label: 'Nombre del Inquilino', field_type: 'text', group_key: 'context_tenant', sort_order: 13, required: false },
-    );
-    if (payload.tenant_whatsapp) {
-      receptionFields.push(
-        { field_key: 'ctx_tenant_whatsapp', field_label: 'WhatsApp del Inquilino', field_type: 'phone', group_key: 'context_tenant', sort_order: 14, required: false },
-      );
-    }
-  }
-
-  if (payload.warranty_deposit) {
-    receptionFields.push(
-      { field_key: 'ctx_warranty_deposit', field_label: 'Depósito en Garantía', field_type: 'number', group_key: 'context', sort_order: 15, required: false },
-    );
-  }
-
-  // Inspector-entered fields (R5: group_key 'inspector_input')
-  receptionFields.push(
-    { field_key: 'keys_observation', field_label: 'Observaciones Llaves / Tarjetas', field_type: 'textarea', group_key: 'inspector_input', sort_order: 20, required: false },
-    { field_key: 'keys_photos', field_label: 'Fotos Llaves / Tarjetas', field_type: 'photo_upload', group_key: 'inspector_input', sort_order: 21, required: false },
-    { field_key: 'property_facade_photos', field_label: 'Fotos Fachada', field_type: 'photo_upload', group_key: 'inspector_input', sort_order: 22, required: false },
-  );
-
   sections.push({
-    section_key: 'reception_data',
-    section_title: 'Datos del Inmueble / Recepción',
+    section_key: 'property_data',
+    section_title: 'Datos del Inmueble',
     section_type: 'reception_meta',
     sort_order: order++,
-    fields: receptionFields,
+    fields: propertyFields,
   });
 
-  // ── Step 2: Persona que Entrega (handover_meta) ──────────────────────────
+  // ── 3. Datos del inquilino / quien entrega ─────────────────────────────
   sections.push({
     section_key: 'handover_person',
-    section_title: 'Persona que Entrega',
+    section_title: 'Datos del Inquilino / Quien Entrega',
     section_type: 'handover_meta',
     sort_order: order++,
     fields: [
@@ -164,199 +208,227 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     ],
   });
 
-  // ── Step 3: Acceso (space_standard) ──────────────────────────────────────
+  // ── 4. Acceso ──────────────────────────────────────────────────────────
+  const accessItems = [
+    'Puerta', 'Cerradura / Chapa', 'Muros / Murallas', 'Techo', 'Piso',
+    'Enchufes', 'Interruptor', 'Lámparas', 'Tablero eléctrico', 'Timbre',
+    'Armario', 'Alarma', 'Citófono',
+  ];
   sections.push({
     section_key: 'access',
     section_title: 'Acceso',
     section_type: 'space_standard',
     sort_order: order++,
-    fields: makeSpaceFields('access'),
+    fields: [
+      ...makeMatrixFields('access', accessItems),
+      makeObservationField('access', 'Observaciones Acceso', accessItems.length),
+      makePhotoField('access', 'Fotos Acceso', accessItems.length + 1),
+    ],
   });
 
-  // ── Step 4: Living / Bedrooms ────────────────────────────────────────────
-  if (studio) {
-    sections.push({
-      section_key: 'living_dormitorio',
-      section_title: 'Living / Dormitorio (Estudio)',
-      section_type: 'space_standard',
-      sort_order: order++,
-      fields: makeSpaceFields('living_dormitorio'),
-    });
-  } else {
-    sections.push({
-      section_key: 'living',
-      section_title: 'Living / Comedor',
-      section_type: 'space_standard',
-      sort_order: order++,
-      fields: makeSpaceFields('living'),
-    });
+  // ── 5. Living ──────────────────────────────────────────────────────────
+  const livingItems = [
+    'Armario', 'Cortinero', 'Muros / Muralla', 'Piso', 'Techo',
+    'Ventana', 'Lámparas', 'Enchufes', 'Interruptores',
+  ];
+  sections.push({
+    section_key: 'living',
+    section_title: 'Living',
+    section_type: 'space_standard',
+    sort_order: order++,
+    fields: [
+      ...makeMatrixFields('living', livingItems),
+      makeObservationField('living', 'Observaciones Living', livingItems.length),
+      makePhotoField('living', 'Fotos Living', livingItems.length + 1),
+    ],
+  });
 
-    const bedroomCount = payload.bedrooms_count ?? 0;
-    for (let i = 1; i <= bedroomCount; i++) {
-      sections.push({
-        section_key: `bedroom_${i}`,
-        section_title: `Dormitorio ${i}`,
-        section_type: 'space_standard',
-        sort_order: order++,
-        fields: makeSpaceFields(`bedroom_${i}`),
-      });
-    }
-  }
-
-  // Secondary spaces (after living/bedrooms)
-  if (payload.has_terrace_living) {
-    sections.push({ section_key: 'terrace_living', section_title: 'Terraza Living', section_type: 'space_secondary', sort_order: order++, fields: makeSpaceFields('terrace_living') });
-  }
-  if (payload.has_terrace_bedroom) {
-    sections.push({ section_key: 'terrace_bedroom', section_title: 'Terraza Dormitorio', section_type: 'space_secondary', sort_order: order++, fields: makeSpaceFields('terrace_bedroom') });
-  }
-  if (payload.has_walking_closet) {
-    sections.push({ section_key: 'walking_closet', section_title: 'Walking Closet', section_type: 'space_secondary', sort_order: order++, fields: makeSpaceFields('walking_closet') });
-  }
-
-  // R2: Storage & Parking — explicit sub-blocks
-  if (payload.has_storage || payload.has_parking) {
-    const spFields: GeneratedField[] = [];
-    let sortIdx = 0;
-    if (payload.has_parking) {
-      spFields.push(
-        makeStatusField('parking_status', 'Estado Estacionamiento', sortIdx++, 'parking'),
-        { field_key: 'parking_observation', field_label: 'Observaciones Estacionamiento', field_type: 'textarea', group_key: 'parking', sort_order: sortIdx++, required: false },
-        { field_key: 'parking_photos', field_label: 'Fotos Estacionamiento', field_type: 'photo_upload', group_key: 'parking', sort_order: sortIdx++, required: false },
-      );
-    }
-    if (payload.has_storage) {
-      spFields.push(
-        makeStatusField('storage_status', 'Estado Bodega', sortIdx++, 'storage'),
-        { field_key: 'storage_observation', field_label: 'Observaciones Bodega', field_type: 'textarea', group_key: 'storage', sort_order: sortIdx++, required: false },
-        { field_key: 'storage_photos', field_label: 'Fotos Bodega', field_type: 'photo_upload', group_key: 'storage', sort_order: sortIdx++, required: false },
-      );
-    }
-    sections.push({
-      section_key: 'storage_and_parking',
-      section_title: payload.has_parking && payload.has_storage ? 'Bodega y Estacionamiento' : payload.has_parking ? 'Estacionamiento' : 'Bodega',
-      section_type: 'space_secondary',
-      sort_order: order++,
-      fields: spFields,
-    });
-  }
-
-  if (payload.has_front_yard && payload.property_type?.toLowerCase() === 'casa') {
-    sections.push({ section_key: 'front_yard', section_title: 'Antejardín', section_type: 'space_secondary', sort_order: order++, fields: makeSpaceFields('front_yard') });
-  }
-
-  // ── Step 5: Cocina y Electrodomésticos (space_kitchen) ───────────────────
-  // R6: Kitchen status matrix scope
+  // ── 6. Cocina / Electrodomésticos ──────────────────────────────────────
+  const kitchenItems = [
+    'Puerta', 'Piso', 'Muros / Muralla', 'Techo', 'Lámparas', 'Interruptores',
+    'Mesón de cocina', 'Mobiliario / cajones', 'Grifo', 'Lavaplatos',
+    'Desagüe (sifón)', 'Enchufes',
+  ];
+  const applianceItems = [
+    'Campana', 'Encimera / Parrilla', 'Horno', 'Microondas', 'Refrigerador',
+  ];
   const kitchenFields: GeneratedField[] = [
-    makeStatusField('kitchen_general_status', 'Estado General Cocina', 0, 'status'),
-    makeStatusField('kitchen_countertop_status', 'Estado Mesón', 1, 'status'),
-    makeStatusField('kitchen_sink_status', 'Estado Lavaplatos', 2, 'status'),
-    makeStatusField('kitchen_faucet_status', 'Estado Grifería', 3, 'status'),
-    // Appliances sub-group
-    makeStatusField('appliances_status', 'Estado General Electrodomésticos', 4, 'appliance'),
+    ...makeMatrixFields('kitchen', kitchenItems, 'status'),
+    ...makeMatrixFields('kitchen_app', applianceItems, 'appliance'),
     // Technical selectors
     {
-      field_key: 'encimera_type', field_label: 'Tipo de Encimera', field_type: 'single_select', group_key: 'technical', sort_order: 5, required: false,
-      options_json: [{ value: 'gas', label: 'Gas' }, { value: 'electrica', label: 'Eléctrica' }, { value: 'induccion', label: 'Inducción' }, { value: 'vitroceramica', label: 'Vitrocerámica' }],
+      field_key: 'encimera_type', field_label: 'Tipo de Encimera / Parrilla', field_type: 'single_select', group_key: 'technical', sort_order: 50, required: false,
+      options_json: [
+        { value: 'gas', label: 'A Gas' }, { value: 'electrica', label: 'Eléctrica' },
+        { value: 'vitroceramica', label: 'Vitrocerámica' }, { value: 'no_tiene', label: 'No tiene encimera' },
+      ],
     },
     {
-      field_key: 'platos_count', field_label: 'Cantidad de Platos', field_type: 'single_select', group_key: 'technical', sort_order: 6, required: false,
-      options_json: [{ value: '2', label: '2' }, { value: '4', label: '4' }, { value: '5', label: '5' }],
+      field_key: 'platos_count', field_label: 'Cant. de platos Encimera / Parrilla', field_type: 'single_select', group_key: 'technical', sort_order: 51, required: false,
+      options_json: [
+        { value: '2', label: '2 Platos' }, { value: '3', label: '3 Platos' },
+        { value: '4', label: '4 Platos' }, { value: 'no_tiene', label: 'No tiene encimera' },
+      ],
     },
     {
-      field_key: 'horno_type', field_label: 'Tipo de Horno', field_type: 'single_select', group_key: 'technical', sort_order: 7, required: false,
-      options_json: [{ value: 'electrico', label: 'Eléctrico' }, { value: 'gas', label: 'Gas' }, { value: 'sin_horno', label: 'Sin Horno' }],
+      field_key: 'horno_type', field_label: 'Tipo de Horno', field_type: 'single_select', group_key: 'technical', sort_order: 52, required: false,
+      options_json: [
+        { value: 'gas', label: 'A gas' }, { value: 'electrico', label: 'Eléctrico' },
+        { value: 'no_tiene', label: 'No tiene horno' },
+      ],
     },
+    // Logia sub-group (always present, NA allowed per item)
+    makeStatusField('logia_status', 'Estado Logia', 60, 'logia'),
+    { field_key: 'logia_heater_type', field_label: 'Tipo Calefont', field_type: 'text', group_key: 'logia', sort_order: 61, required: false },
+    { field_key: 'logia_heater_maintenance_date', field_label: 'Última Mantención Calefont', field_type: 'date', group_key: 'logia', sort_order: 62, required: false },
+    {
+      field_key: 'logia_gas_type', field_label: 'Tipo Gas', field_type: 'single_select', group_key: 'logia', sort_order: 63, required: false,
+      options_json: [{ value: 'natural', label: 'Gas Natural' }, { value: 'licuado', label: 'Gas Licuado' }, { value: 'none', label: 'Sin Gas' }],
+    },
+    { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 64, required: false },
+    { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 65, required: false },
+    // Shared observation/photos
+    makeObservationField('kitchen', 'Observaciones Cocina y Electrodomésticos', 70),
+    makePhotoField('kitchen', 'Fotos Cocina y Electrodomésticos', 71),
   ];
-
-  // Conditional logia sub-group
-  if (payload.has_logia) {
-    kitchenFields.push(
-      makeStatusField('logia_status', 'Estado Logia', 10, 'logia'),
-      { field_key: 'logia_heater_type', field_label: 'Tipo Calefont', field_type: 'text', group_key: 'logia', sort_order: 11, required: false },
-      { field_key: 'logia_heater_maintenance_date', field_label: 'Última Mantención Calefont', field_type: 'date', group_key: 'logia', sort_order: 12, required: false },
-      {
-        field_key: 'logia_gas_type', field_label: 'Tipo Gas', field_type: 'single_select', group_key: 'logia', sort_order: 13, required: false,
-        options_json: [{ value: 'natural', label: 'Gas Natural' }, { value: 'licuado', label: 'Gas Licuado' }, { value: 'none', label: 'Sin Gas' }],
-      },
-      { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 14, required: false },
-      { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 15, required: false },
-    );
-  }
-
-  // Shared observation/photos
-  kitchenFields.push(
-    { field_key: 'kitchen_observation', field_label: 'Observaciones Cocina / Electrodomésticos', field_type: 'textarea', group_key: 'observation', sort_order: 20, required: false },
-    { field_key: 'kitchen_photos', field_label: 'Fotos Cocina / Electrodomésticos', field_type: 'photo_upload', group_key: 'photo', sort_order: 21, required: false },
-  );
 
   sections.push({
     section_key: 'kitchen_appliances',
-    section_title: 'Cocina y Electrodomésticos',
+    section_title: 'Cocina / Electrodomésticos',
     section_type: 'space_kitchen',
     sort_order: order++,
     fields: kitchenFields,
   });
 
-  // ── Step 6: Bathrooms ────────────────────────────────────────────────────
-  if (studio) {
-    sections.push({
-      section_key: 'bathroom_studio',
-      section_title: 'Baño (Estudio)',
-      section_type: 'space_standard',
-      sort_order: order++,
-      fields: makeSpaceFields('bathroom_studio'),
-    });
-  } else {
-    const bathroomCount = payload.bathrooms_count ?? 0;
-    for (let i = 1; i <= bathroomCount; i++) {
+  // ── 7. Dormitorios (NOT estudio) ───────────────────────────────────────
+  if (!studio) {
+    const bedroomCount = Math.max(payload.bedrooms_count ?? 1, 1);
+    const bedroomItems = [
+      'Puerta', 'Techo', 'Muros / Muralla', 'Piso / Alfombra', 'Cortinero',
+      'Ventana', 'Lámparas', 'Enchufes', 'Interruptores', 'Closet / Armario',
+    ];
+    for (let i = 1; i <= bedroomCount; i++) {
+      const key = `bedroom_${i}`;
       sections.push({
-        section_key: `bathroom_${i}`,
-        section_title: `Baño ${i}`,
+        section_key: key,
+        section_title: bedroomCount === 1 ? 'Dormitorio' : `Dormitorio ${i}`,
         section_type: 'space_standard',
         sort_order: order++,
-        fields: makeSpaceFields(`bathroom_${i}`),
+        fields: [
+          ...makeMatrixFields(key, bedroomItems),
+          makeObservationField(key, 'Observaciones Dormitorio', bedroomItems.length),
+          makePhotoField(key, 'Fotos Dormitorio', bedroomItems.length + 1),
+        ],
       });
     }
   }
 
-  // ── Step 7: Cierre y Observaciones Generales (closing_summary) ───────────
-  // R3: Key collection fields at top with group_key 'key_collection'
-  // R7: Fumigation as single canonical label
-  const closingFields: GeneratedField[] = [
-    { field_key: 'fecha_recoleccion_llaves', field_label: 'Fecha Recolección de Llaves', field_type: 'date', group_key: 'key_collection', sort_order: 0, required: false },
-    { field_key: 'hora_recoleccion_llaves', field_label: 'Hora Recolección de Llaves', field_type: 'text', group_key: 'key_collection', sort_order: 1, required: false },
-    {
-      field_key: 'cleaning_status', field_label: 'Estado de Aseo', field_type: 'single_select', group_key: 'cleaning', sort_order: 2, required: false,
-      options_json: STATUS_OPTIONS,
-    },
-    { field_key: 'cleaning_observation', field_label: 'Observaciones Aseo', field_type: 'textarea', group_key: 'cleaning', sort_order: 3, required: false },
-    {
-      field_key: 'removal_status', field_label: 'Retiro de Enseres', field_type: 'single_select', group_key: 'removal', sort_order: 4, required: false,
-      options_json: [{ value: 'completo', label: 'Completo' }, { value: 'parcial', label: 'Parcial' }, { value: 'no_realizado', label: 'No Realizado' }],
-    },
-    { field_key: 'fumigation_observation', field_label: 'Observaciones Fumigación', field_type: 'textarea', group_key: 'fumigation', sort_order: 5, required: false },
-    { field_key: 'fumigation_photos', field_label: 'Fotos Fumigación', field_type: 'photo_upload', group_key: 'fumigation', sort_order: 6, required: false },
-    // Meter readings
-    { field_key: 'meter_electricity', field_label: 'Lectura Electricidad', field_type: 'text', group_key: 'meters', sort_order: 7, required: false },
-    { field_key: 'meter_water', field_label: 'Lectura Agua', field_type: 'text', group_key: 'meters', sort_order: 8, required: false },
-    { field_key: 'meter_gas', field_label: 'Lectura Gas', field_type: 'text', group_key: 'meters', sort_order: 9, required: false },
-    { field_key: 'meter_photos', field_label: 'Fotos Medidores', field_type: 'photo_upload', group_key: 'meters', sort_order: 10, required: false },
-    // Admin/building contact
-    { field_key: 'admin_name', field_label: 'Nombre Administrador / Mayordomo', field_type: 'text', group_key: 'admin_contact', sort_order: 11, required: false },
-    { field_key: 'admin_phone', field_label: 'Teléfono Administrador', field_type: 'phone', group_key: 'admin_contact', sort_order: 12, required: false },
-    { field_key: 'admin_email', field_label: 'Correo Administrador', field_type: 'email', group_key: 'admin_contact', sort_order: 13, required: false },
-    // General
-    { field_key: 'general_observation', field_label: 'Observaciones Generales', field_type: 'textarea', group_key: 'observation', sort_order: 14, required: false },
-    { field_key: 'closing_photos', field_label: 'Fotos Adicionales', field_type: 'photo_upload', group_key: 'photo', sort_order: 15, required: false },
+  // ── 8. Baños (always, min 1) ───────────────────────────────────────────
+  const bathroomCount = Math.max(payload.bathrooms_count ?? 1, 1);
+  const bathroomItems = [
+    'Puerta', 'Interruptor', 'Lámpara', 'Techo', 'Piso', 'Muros / Baldosas',
+    'Ventana', 'Inodoro', 'Mobiliario / Espejo', 'Enchufes', 'Extractor / Rejilla',
+    'Tina / Ducha', 'Grifería tina', 'Lavamanos', 'Grifería lavamanos',
+    'Desagüe y sifones', 'Accesorios',
   ];
+  for (let i = 1; i <= bathroomCount; i++) {
+    const key = studio && bathroomCount === 1 ? 'bathroom_studio' : `bathroom_${i}`;
+    sections.push({
+      section_key: key,
+      section_title: bathroomCount === 1 ? 'Baño' : `Baño ${i}`,
+      section_type: 'space_standard',
+      sort_order: order++,
+      fields: [
+        ...makeMatrixFields(key, bathroomItems),
+        makeObservationField(key, 'Observaciones Baño', bathroomItems.length),
+        makePhotoField(key, 'Fotos Baño', bathroomItems.length + 1),
+      ],
+    });
+  }
 
+  // ── 9. Walking Closet (NOT estudio) ────────────────────────────────────
+  if (!studio) {
+    const wcItems = [
+      'Puerta', 'Techo', 'Piso / Alfombra', 'Mobiliario', 'Lámparas', 'Interruptores',
+    ];
+    sections.push({
+      section_key: 'walking_closet',
+      section_title: 'Walking Closet',
+      section_type: 'space_secondary',
+      sort_order: order++,
+      fields: [
+        ...makeMatrixFields('walking_closet', wcItems),
+        makeObservationField('walking_closet', 'Observaciones Walking Closet', wcItems.length),
+        makePhotoField('walking_closet', 'Fotos Walking Closet', wcItems.length + 1),
+      ],
+    });
+  }
+
+  // ── 10. Terraza / Patio Trasero (always) ───────────────────────────────
+  const terraceItems = [
+    'Baranda', 'Techo', 'Muros / Murallas', 'Piso', 'Desagüe',
+    'Lámparas', 'Enchufes', 'Interruptores',
+  ];
   sections.push({
-    section_key: 'closing',
-    section_title: 'Cierre y Observaciones Generales',
-    section_type: 'closing_summary',
+    section_key: 'terrace_patio',
+    section_title: 'Terraza / Patio Trasero',
+    section_type: 'space_secondary',
     sort_order: order++,
-    fields: closingFields,
+    fields: [
+      ...makeMatrixFields('terrace', terraceItems),
+      makeObservationField('terrace', 'Observaciones Terraza', terraceItems.length),
+      makePhotoField('terrace', 'Fotos Terraza', terraceItems.length + 1),
+    ],
+  });
+
+  // ── 11. Patio Delantero (casa only) ────────────────────────────────────
+  if (isCasa) {
+    const frontYardItems = [
+      'Baranda', 'Techo', 'Muros / Murallas', 'Piso', 'Desagüe',
+      'Lámparas', 'Enchufes', 'Interruptores', 'Citófono', 'Portón vehicular',
+    ];
+    sections.push({
+      section_key: 'front_yard',
+      section_title: 'Patio Delantero',
+      section_type: 'space_secondary',
+      sort_order: order++,
+      fields: [
+        ...makeMatrixFields('front_yard', frontYardItems),
+        makeObservationField('front_yard', 'Observaciones Patio Delantero', frontYardItems.length),
+        makePhotoField('front_yard', 'Fotos Patio Delantero', frontYardItems.length + 1),
+      ],
+    });
+  }
+
+  // ── 12. Bodega (conditional: has_storage) ──────────────────────────────
+  if (payload.has_storage) {
+    const bodegaItems = [
+      'Puerta', 'Techo', 'Muros / Muralla', 'Piso', 'Cerradura',
+      'Lámparas', 'Interruptores',
+    ];
+    sections.push({
+      section_key: 'bodega',
+      section_title: 'Bodega',
+      section_type: 'space_secondary',
+      sort_order: order++,
+      fields: [
+        ...makeMatrixFields('bodega', bodegaItems),
+        makeObservationField('bodega', 'Observaciones Bodega', bodegaItems.length),
+        makePhotoField('bodega', 'Fotos Bodega', bodegaItems.length + 1),
+      ],
+    });
+  }
+
+  // ── 13. Firma de inquilino (always, final) ─────────────────────────────
+  sections.push({
+    section_key: 'tenant_signature',
+    section_title: 'Firma de Inquilino',
+    section_type: 'signature',
+    sort_order: order++,
+    fields: [
+      { field_key: 'general_observation', field_label: 'Observaciones Generales', field_type: 'textarea', group_key: 'observation', sort_order: 0, required: false },
+      { field_key: 'additional_photos', field_label: 'Fotos Adicionales', field_type: 'photo_upload', group_key: 'photo', sort_order: 1, required: false },
+    ],
   });
 
   return sections;
@@ -376,13 +448,8 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     inspection_type: payload.inspection_type,
     bedrooms_count: payload.bedrooms_count ?? 0,
     bathrooms_count: payload.bathrooms_count ?? 0,
-    has_terrace_living: payload.has_terrace_living ?? false,
-    has_terrace_bedroom: payload.has_terrace_bedroom ?? false,
-    has_walking_closet: payload.has_walking_closet ?? false,
-    has_logia: payload.has_logia ?? false,
     has_storage: payload.has_storage ?? false,
     has_parking: payload.has_parking ?? false,
-    has_front_yard: payload.has_front_yard ?? false,
     tower: payload.tower,
     warranty_deposit: payload.warranty_deposit ?? null,
     tenant_name: payload.tenant_name ?? null,
@@ -391,7 +458,6 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     parking_number: payload.parking_number ?? null,
     storage_number: payload.storage_number ?? null,
     recipient_email: payload.recipient_email ?? null,
-    // scheduled_at: written to DB column for legacy compat but NOT propagated to snapshot
     fecha_recoleccion_llaves: payload.fecha_recoleccion_llaves,
     hora_recoleccion_llaves: payload.hora_recoleccion_llaves,
     fecha_de_termino_real_de_contrato: payload.fecha_de_termino_real_de_contrato ?? null,
@@ -399,7 +465,7 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
   };
 }
 
-// ─── Example payloads ───────────────────────────────────────────────────────
+// ─── Example payloads (new contract — removed 5 boolean flags) ──────────
 
 export const EXAMPLE_PAYLOADS = {
   studio: {
@@ -413,13 +479,8 @@ export const EXAMPLE_PAYLOADS = {
     inspection_type: "check_out",
     bedrooms_count: 0,
     bathrooms_count: 1,
-    has_terrace_living: true,
-    has_terrace_bedroom: false,
-    has_walking_closet: false,
-    has_logia: true,
     has_storage: false,
     has_parking: false,
-    has_front_yard: false,
     warranty_deposit: 350000,
     tower: "2",
     unit_number: "1903",
@@ -443,13 +504,8 @@ export const EXAMPLE_PAYLOADS = {
     inspection_type: "check_out",
     bedrooms_count: 2,
     bathrooms_count: 2,
-    has_terrace_living: true,
-    has_terrace_bedroom: false,
-    has_walking_closet: false,
-    has_logia: true,
     has_storage: true,
     has_parking: true,
-    has_front_yard: false,
     warranty_deposit: 850000,
     unit_number: "801",
     tenant_name: "Carlos Pérez",
@@ -469,13 +525,8 @@ export const EXAMPLE_PAYLOADS = {
     inspection_type: "check_in",
     bedrooms_count: 3,
     bathrooms_count: 2,
-    has_terrace_living: false,
-    has_terrace_bedroom: false,
-    has_walking_closet: false,
-    has_logia: true,
     has_storage: false,
     has_parking: true,
-    has_front_yard: true,
     fecha_recoleccion_llaves: "2026-03-25",
     hora_recoleccion_llaves: "14:00",
     fecha_de_termino_real_de_contrato: "2026-03-20",
@@ -493,13 +544,8 @@ export const EXAMPLE_PAYLOADS = {
     inspection_type: "check_out",
     bedrooms_count: 4,
     bathrooms_count: 4,
-    has_terrace_living: true,
-    has_terrace_bedroom: true,
-    has_walking_closet: true,
-    has_logia: true,
     has_storage: true,
     has_parking: true,
-    has_front_yard: false,
     warranty_deposit: 1500000,
     unit_number: "2201",
     fecha_recoleccion_llaves: "2026-03-28",
@@ -519,13 +565,8 @@ export const EXAMPLE_PAYLOADS = {
     inspection_type: "check_out",
     bedrooms_count: 1,
     bathrooms_count: 1,
-    has_terrace_living: false,
-    has_terrace_bedroom: false,
-    has_walking_closet: false,
-    has_logia: false,
     has_storage: false,
     has_parking: false,
-    has_front_yard: false,
     tenant_name: "Pedro Soto",
     tenant_whatsapp: "+56911112222",
     fecha_de_termino_real_de_contrato: "2026-04-15",

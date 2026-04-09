@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
-import { isSectionCompleted } from '@/lib/section-completion';
+import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import SignaturePad from '@/components/SignaturePad';
 import {
@@ -29,8 +29,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import type { Inspection, InspectionFieldValue, InspectionSection } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock } from 'lucide-react';
+import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
 
@@ -45,6 +45,7 @@ export default function InspectorInspectionDetail() {
   const [showSignature, setShowSignature] = useState(false);
   const [signatureResolved, setSignatureResolved] = useState(false);
   const [fieldValues, setFieldValues] = useState<InspectionFieldValue[]>([]);
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [keyFormOpen, setKeyFormOpen] = useState(false);
   const [keyDateInput, setKeyDateInput] = useState<Date | undefined>();
   const [keyTimeInput, setKeyTimeInput] = useState('');
@@ -52,17 +53,25 @@ export default function InspectorInspectionDetail() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }] = await Promise.all([
+      const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
         supabase.from('inspections').select('*').eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_signatures').select('id').eq('inspection_id', id!).limit(1),
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
+        supabase.from('inspection_photos').select('id, inspection_section_id').eq('inspection_id', id!),
       ]);
       let inspObj = insp as unknown as Inspection;
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
       setFieldValues((fvData ?? []) as unknown as InspectionFieldValue[]);
       setSignatureResolved((sig ?? []).length > 0);
+
+      // Build photo counts per section
+      const counts: Record<string, number> = {};
+      for (const p of (photoData ?? []) as { id: string; inspection_section_id: string }[]) {
+        counts[p.inspection_section_id] = (counts[p.inspection_section_id] ?? 0) + 1;
+      }
+      setPhotoCounts(counts);
 
       if (inspObj) {
         const newStatus = await ensureInspectionStatusConsistency(id!);
@@ -102,10 +111,18 @@ export default function InspectorInspectionDetail() {
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
-  // Skip reception_data / property_data section (shown as briefing card)
-  const workSections = sections.filter(s => s.section_key !== 'property_data' && s.section_key !== 'reception_data');
+  // Skip introduction and property_data sections (shown as briefing card / intro)
+  const workSections = sections.filter(s =>
+    s.section_type !== 'reception_meta' &&
+    s.section_type !== 'introduction' &&
+    s.section_key !== 'property_data' &&
+    s.section_key !== 'reception_data'
+  );
 
-  // R4: WhatsApp from snapshot
+  // Check photo finalization
+  const finalizationResult = canFinalizeInspection(sections, photoCounts);
+
+  // WhatsApp from snapshot
   const snapshot = getEffectiveSnapshot(inspection);
   const tenantWhatsapp = (snapshot?.tenant_whatsapp as string) ?? null;
   const keyDateField = fieldValues.find((f) => f.field_key === 'fecha_recoleccion_llaves');
@@ -118,7 +135,8 @@ export default function InspectorInspectionDetail() {
   const keyTime = primaryKeyTime ?? mirroredKeyTime;
   const keyCollectionCoordinated = Boolean(keyDate);
 
-  const closingSection = sections.find((s) => s.section_key === 'closing');
+  // Find a section to anchor key collection saves (introduction or first section)
+  const anchorSection = sections.find((s) => s.section_key === 'introduction') ?? sections[0];
 
   const openWhatsApp = () => {
     if (!tenantWhatsapp) return;
@@ -137,7 +155,7 @@ export default function InspectorInspectionDetail() {
   };
 
   const saveKeyCollection = async () => {
-    if (!inspection || !closingSection || !keyDateInput) {
+    if (!inspection || !anchorSection || !keyDateInput) {
       toast({ title: 'Fecha requerida', description: 'Debes seleccionar una fecha para guardar.', variant: 'destructive' });
       return;
     }
@@ -160,9 +178,9 @@ export default function InspectorInspectionDetail() {
       updates.push(
         supabase.from('inspection_field_values').insert({
           inspection_id: inspection.id,
-          inspection_section_id: closingSection.id,
+          inspection_section_id: anchorSection.id,
           field_key: 'fecha_recoleccion_llaves',
-          field_label: 'Fecha Recolección de Llaves',
+          field_label: 'Recolección de llaves / inspección',
           field_type: 'date',
           group_key: 'key_collection',
           value_text: dateValue,
@@ -182,7 +200,7 @@ export default function InspectorInspectionDetail() {
       updates.push(
         supabase.from('inspection_field_values').insert({
           inspection_id: inspection.id,
-          inspection_section_id: closingSection.id,
+          inspection_section_id: anchorSection.id,
           field_key: 'hora_recoleccion_llaves',
           field_label: 'Hora Recolección de Llaves',
           field_type: 'text',
@@ -221,9 +239,9 @@ export default function InspectorInspectionDetail() {
         ...(keyDateField ?? {
           id: `temp-fecha-${inspection.id}`,
           inspection_id: inspection.id,
-          inspection_section_id: closingSection.id,
+          inspection_section_id: anchorSection.id,
           field_key: 'fecha_recoleccion_llaves',
-          field_label: 'Fecha Recolección de Llaves',
+          field_label: 'Recolección de llaves / inspección',
           field_type: 'date',
           group_key: 'key_collection',
           value_json: null,
@@ -239,7 +257,7 @@ export default function InspectorInspectionDetail() {
         ...(keyTimeField ?? {
           id: `temp-hora-${inspection.id}`,
           inspection_id: inspection.id,
-          inspection_section_id: closingSection.id,
+          inspection_section_id: anchorSection.id,
           field_key: 'hora_recoleccion_llaves',
           field_label: 'Hora Recolección de Llaves',
           field_type: 'text',
@@ -270,7 +288,6 @@ export default function InspectorInspectionDetail() {
         .eq('id', inspection.id);
       setInspection({ ...inspection, status: 'in_progress' });
     }
-    // Skip to first non-property-data incomplete section
     const firstIncomplete = workSections.find((s) => s.status !== 'completed' && s.status !== 'reviewed');
     if (firstIncomplete) {
       navigate(`/inspector/inspection/${inspection.id}/section/${firstIncomplete.id}`);
@@ -285,7 +302,6 @@ export default function InspectorInspectionDetail() {
     signer_name: string;
     skip_reason: string | null;
   }) => {
-    // Delete previous signature if exists (one active per inspection)
     await supabase.from('inspection_signatures').delete().eq('inspection_id', inspection!.id);
     await supabase.from('inspection_signatures').insert({
       inspection_id: inspection!.id,
@@ -300,6 +316,16 @@ export default function InspectorInspectionDetail() {
   };
 
   const doSubmit = async () => {
+    // Final photo validation
+    if (!finalizationResult.valid) {
+      toast({
+        title: 'Fotos requeridas',
+        description: `Faltan fotos en: ${finalizationResult.missingSections.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await ensureInspectionStatusConsistency(inspection!.id);
     const now = new Date().toISOString();
     const { error } = await supabase
@@ -379,10 +405,17 @@ export default function InspectorInspectionDetail() {
             {!allCompleted && (
               <p className="text-[10px] text-muted-foreground mt-1">Completa todas las secciones antes de enviar</p>
             )}
+            {/* Photo finalization warning */}
+            {allCompleted && !finalizationResult.valid && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2">
+                <Camera className="h-3.5 w-3.5 shrink-0" />
+                <span>Faltan fotos en {finalizationResult.missingSections.length} sección(es) para enviar</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Recolección de llaves (fuente primaria: field values; espejo: overrides) */}
+        {/* Recolección de llaves */}
         <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
           <CardContent className="p-5 space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -485,7 +518,6 @@ export default function InspectorInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* Guided section list */}
         {/* Signature prompt when all complete but not signed */}
         {allCompleted && canSubmit && !signatureResolved && (
           <Card className="border-0 shadow-md rounded-3xl bg-primary/5 ring-1 ring-primary/20">
@@ -529,7 +561,7 @@ export default function InspectorInspectionDetail() {
                     <div className="flex-1 min-w-0">
                       <p className={cn('font-medium text-sm', isCurrent && 'text-primary')}>{section.section_title}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {isCurrent ? 'Siguiente sección' : section.section_type.replace('_', ' ')}
+                        {isCurrent ? 'Siguiente sección' : section.section_type.replace(/_/g, ' ')}
                       </p>
                     </div>
                     <SectionStatusBadge status={section.status} />
@@ -541,7 +573,7 @@ export default function InspectorInspectionDetail() {
         </div>
       </main>
 
-      {/* Sticky bottom bar — 3 states */}
+      {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
         {allCompleted && canSubmit && signatureResolved ? (
           <AlertDialog>
