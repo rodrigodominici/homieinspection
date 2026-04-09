@@ -489,9 +489,6 @@ export default function InspectorSectionComplete() {
   const renderSignatureSection = () => {
     const observationFields = fieldsByGroup['observation'] || [];
 
-    const [signatureHandled, setSignatureHandled] = useState(false);
-    const [showSigPad, setShowSigPad] = useState(false);
-
     const handleSigConfirm = async (data: {
       signature_data: string | null;
       signature_status: 'signed' | 'refused' | 'unavailable';
