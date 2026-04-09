@@ -199,13 +199,8 @@ export interface PropertyPayload {
   inspection_type: string;
   bedrooms_count?: number;
   bathrooms_count?: number;
-  has_terrace_living?: boolean;
-  has_terrace_bedroom?: boolean;
-  has_walking_closet?: boolean;
-  has_logia?: boolean;
   has_storage?: boolean;
   has_parking?: boolean;
-  has_front_yard?: boolean;
   tower?: string;
   comuna?: string;
   recipient_email?: string;
@@ -222,6 +217,12 @@ export interface PropertyPayload {
   fecha_de_recepcion_del_checkout_cl?: string;
   inspector?: { id: string; name: string; email: string };
   executive?: { id: string; name: string; email: string };
+  /** @deprecated Legacy flags accepted for backward compat but ignored by generator */
+  has_terrace_living?: boolean;
+  has_terrace_bedroom?: boolean;
+  has_walking_closet?: boolean;
+  has_logia?: boolean;
+  has_front_yard?: boolean;
 }
 
 export interface RepairCatalogCategory {
