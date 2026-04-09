@@ -685,7 +685,7 @@ export default function ExecutiveReviewDetail() {
             );
           })}
           {/* Missing observations summary */}
-          {missingSections.length > 0 && (
+          {showObservationWarnings && missingSections.length > 0 && (
             <div className="mt-3 px-2 py-2 rounded-lg bg-[hsl(var(--status-bad))]/5 text-tiny text-[hsl(var(--status-bad))]">
               <AlertTriangle className="inline h-3 w-3 mr-1" />
               Faltan observaciones en {missingSections.length} secciones
@@ -876,47 +876,8 @@ export default function ExecutiveReviewDetail() {
         )}
       </div>
 
-      {/* ── DESKTOP bottom action bar ─────────────────── */}
-      <div className="hidden lg:block">
-        {['submitted', 'in_review', 'approved'].includes(inspection.status) && !returnMode && (
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-card/90 backdrop-blur-sm border-t z-20">
-            <div className="flex justify-center gap-3 max-w-3xl mx-auto">
-              <Button variant="outline" onClick={() => setReturnMode(true)}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Devolver para cambios
-              </Button>
-              {inspection.status !== 'approved' && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" disabled={submitting}>
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Aprobar
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
-                      <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleApprove}>Aprobar</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </div>
-        )}
-        {returnMode && (
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-card/90 backdrop-blur-sm border-t z-20">
-            <div className="flex justify-center gap-3 max-w-3xl mx-auto">
-              <Button variant="outline" onClick={() => setReturnMode(false)}>Cancelar</Button>
-              <Button variant="destructive" onClick={handleReturnForChanges} disabled={submitting}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Devolver ({selectedReturnSections.size})
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+
+
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
