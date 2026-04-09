@@ -26,13 +26,16 @@ import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted } from '@/lib/section-completion';
+import SignaturePad from '@/components/SignaturePad';
 
-// ─── Group labels for the closing section sub-groups ────────────────────────
-const CLOSING_GROUP_LABELS: Record<string, string> = {
-  key_collection: 'Recolección de Llaves',
+// ─── Group labels ────────────────────────────────────────────────────────
+const INTRO_GROUP_LABELS: Record<string, string> = {
   cleaning: 'Aseo',
   removal: 'Retiro de Enseres',
   fumigation: 'Fumigación',
+};
+
+const PROPERTY_GROUP_LABELS: Record<string, string> = {
   meters: 'Medidores',
   admin_contact: 'Contacto Administrador',
 };
@@ -285,7 +288,6 @@ export default function InspectorSectionComplete() {
   const renderField = (field: InspectionFieldValue, readOnly = false) => {
     if (field.field_type === 'single_select') {
       const options = (field.value_json as { options?: Array<{ value: string; label: string }> })?.options ?? [];
-      // Check if it's a status-type selector (4 options: bueno/regular/malo/no_aplica)
       const isStatusGrid = options.length === 4 && options.some(o => o.value === 'bueno');
       if (isStatusGrid) {
         return (
@@ -402,16 +404,27 @@ export default function InspectorSectionComplete() {
 
   // ─── Section-type-specific rendering ────────────────────────────────────
 
-  const renderReceptionMeta = () => {
-    const contextFields = fieldsByGroup['context'] || [];
-    const tenantFields = fieldsByGroup['context_tenant'] || [];
-    const inspectorFields = fieldsByGroup['inspector_input'] || [];
-
-    const tenantWhatsapp = tenantFields.find(f => f.field_key === 'ctx_tenant_whatsapp');
+  const renderIntroduction = () => {
+    const cleaningFields = fieldsByGroup['cleaning'] || [];
+    const removalFields = fieldsByGroup['removal'] || [];
+    const fumigationFields = fieldsByGroup['fumigation'] || [];
 
     return (
       <>
-        {/* R5: Payload-derived context — muted read-only */}
+        {cleaningFields.length > 0 && renderGroupCard(cleaningFields, INTRO_GROUP_LABELS.cleaning)}
+        {removalFields.length > 0 && renderGroupCard(removalFields, INTRO_GROUP_LABELS.removal)}
+        {fumigationFields.length > 0 && renderGroupCard(fumigationFields, INTRO_GROUP_LABELS.fumigation)}
+      </>
+    );
+  };
+
+  const renderReceptionMeta = () => {
+    const contextFields = fieldsByGroup['context'] || [];
+    const meterFields = fieldsByGroup['meters'] || [];
+    const adminFields = fieldsByGroup['admin_contact'] || [];
+
+    return (
+      <>
         {contextFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
             <CardContent className="p-4 space-y-3">
@@ -420,33 +433,8 @@ export default function InspectorSectionComplete() {
             </CardContent>
           </Card>
         )}
-
-        {/* Tenant contact block (R4) */}
-        {tenantFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-body font-semibold text-muted-foreground">Contacto Inquilino</p>
-              {tenantFields.map(f => renderField(f, true))}
-              {tenantWhatsapp?.value_text && (
-                <Button
-                  variant="outline"
-                  className="w-full h-11 rounded-xl gap-2 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/30"
-                  onClick={() => {
-                    const cleaned = tenantWhatsapp.value_text!.replace(/[^+\d]/g, '');
-                    const msg = encodeURIComponent('Hola, soy de Homie. Te contacto para coordinar el checkout de la propiedad.');
-                    window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
-                  }}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Contactar por WhatsApp
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* R5: Inspector-entered fields — standard editable */}
-        {inspectorFields.length > 0 && renderGroupCard(inspectorFields, 'Llaves / Tarjetas / Fachada')}
+        {meterFields.length > 0 && renderGroupCard(meterFields, PROPERTY_GROUP_LABELS.meters)}
+        {adminFields.length > 0 && renderGroupCard(adminFields, PROPERTY_GROUP_LABELS.admin_contact)}
       </>
     );
   };
@@ -496,35 +484,33 @@ export default function InspectorSectionComplete() {
     );
   };
 
-  const renderClosingSection = () => {
-    // R3: Key collection fields prominently at top
-    const keyCollectionFields = fieldsByGroup['key_collection'] || [];
-    const cleaningFields = fieldsByGroup['cleaning'] || [];
-    const removalFields = fieldsByGroup['removal'] || [];
-    const fumigationFields = fieldsByGroup['fumigation'] || [];
-    const meterFields = fieldsByGroup['meters'] || [];
-    const adminFields = fieldsByGroup['admin_contact'] || [];
+  const renderSignatureSection = () => {
     const observationFields = fieldsByGroup['observation'] || [];
+
+    const [signatureHandled, setSignatureHandled] = useState(false);
+    const [showSigPad, setShowSigPad] = useState(false);
+
+    const handleSigConfirm = async (data: {
+      signature_data: string | null;
+      signature_status: 'signed' | 'refused' | 'unavailable';
+      signer_name: string;
+      skip_reason: string | null;
+    }) => {
+      await supabase.from('inspection_signatures').delete().eq('inspection_id', inspectionId!);
+      await supabase.from('inspection_signatures').insert({
+        inspection_id: inspectionId!,
+        signer_name: data.signer_name || null,
+        signature_data: data.signature_data,
+        signature_status: data.signature_status,
+        skip_reason: data.skip_reason,
+        created_by: profile?.id,
+      });
+      setSignatureHandled(true);
+      setShowSigPad(false);
+    };
 
     return (
       <>
-        {/* Key collection — prominent */}
-        {keyCollectionFields.length > 0 && (
-          <Card className="border-0 ring-2 ring-primary/30 shadow-md rounded-2xl bg-primary/[0.03]">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-primary" />
-                <p className="text-body font-semibold text-primary">{CLOSING_GROUP_LABELS.key_collection}</p>
-              </div>
-              {keyCollectionFields.map(f => renderField(f))}
-            </CardContent>
-          </Card>
-        )}
-        {cleaningFields.length > 0 && renderGroupCard(cleaningFields, CLOSING_GROUP_LABELS.cleaning)}
-        {removalFields.length > 0 && renderGroupCard(removalFields, CLOSING_GROUP_LABELS.removal)}
-        {fumigationFields.length > 0 && renderGroupCard(fumigationFields, CLOSING_GROUP_LABELS.fumigation)}
-        {meterFields.length > 0 && renderGroupCard(meterFields, CLOSING_GROUP_LABELS.meters)}
-        {adminFields.length > 0 && renderGroupCard(adminFields, CLOSING_GROUP_LABELS.admin_contact)}
         {observationFields.length > 0 && observationFields.map(f => (
           <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-2">
@@ -532,31 +518,24 @@ export default function InspectorSectionComplete() {
             </CardContent>
           </Card>
         ))}
-      </>
-    );
-  };
 
-  const renderStorageParking = () => {
-    const parkingFields = fieldsByGroup['parking'] || [];
-    const storageFields = fieldsByGroup['storage'] || [];
-    return (
-      <>
-        {parkingFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-4">
-              <p className="text-body font-semibold">Estacionamiento</p>
-              {parkingFields.map(f => renderField(f))}
-            </CardContent>
-          </Card>
-        )}
-        {storageFields.length > 0 && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-4">
-              <p className="text-body font-semibold">Bodega</p>
-              {storageFields.map(f => renderField(f))}
-            </CardContent>
-          </Card>
-        )}
+        <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.03]">
+          <CardContent className="p-4 space-y-3">
+            <p className="text-body font-semibold">Firma del Inquilino</p>
+            {signatureHandled ? (
+              <p className="text-caption text-status-good font-medium">✓ Firma registrada</p>
+            ) : showSigPad ? (
+              <SignaturePad
+                onConfirm={handleSigConfirm}
+                onCancel={() => setShowSigPad(false)}
+              />
+            ) : (
+              <Button onClick={() => setShowSigPad(true)} className="w-full h-11 rounded-xl">
+                Obtener firma del inquilino
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </>
     );
   };
@@ -571,13 +550,13 @@ export default function InspectorSectionComplete() {
     return (
       <>
         {infoFields.length > 0 && renderGroupCard(infoFields)}
-        {statusFields.map(f => (
-          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4">
-              {renderField(f)}
+        {statusFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-4">
+              {statusFields.map(f => renderField(f))}
             </CardContent>
           </Card>
-        ))}
+        )}
         {technicalFields.length > 0 && renderGroupCard(technicalFields, 'Datos Técnicos')}
         {measurementFields.length > 0 && renderGroupCard(measurementFields, 'Mediciones')}
         {observationFields.map(f => (
@@ -634,11 +613,11 @@ export default function InspectorSectionComplete() {
         )}
 
         {/* Section-type-specific content */}
+        {sectionType === 'introduction' && renderIntroduction()}
         {sectionType === 'reception_meta' && renderReceptionMeta()}
         {sectionType === 'space_kitchen' && renderKitchenSection()}
-        {sectionType === 'closing_summary' && sectionKey === 'closing' && renderClosingSection()}
-        {sectionKey === 'storage_and_parking' && renderStorageParking()}
-        {sectionType !== 'reception_meta' && sectionType !== 'space_kitchen' && sectionKey !== 'closing' && sectionKey !== 'storage_and_parking' && renderStandardSection()}
+        {sectionType === 'signature' && renderSignatureSection()}
+        {(sectionType === 'space_standard' || sectionType === 'space_secondary' || sectionType === 'handover_meta' || sectionType === 'closing_summary') && renderStandardSection()}
 
         {/* Inline validation error */}
         {validationError && (
@@ -649,39 +628,41 @@ export default function InspectorSectionComplete() {
         )}
 
         {/* Photos */}
-        <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-          <CardContent className="p-4">
-            <p className="text-body font-medium mb-3">Fotos</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <PhotoUploadSheet onFiles={(files) => {
-                const dt = new DataTransfer();
-                Array.from(files).forEach((f) => dt.items.add(f));
-                const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
-                handlePhotoUpload(synth);
-              }} />
-              {Array.from(uploading).map((uid) => (
-                <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
-                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                </div>
-              ))}
-              {photos.map((photo) => (
-                <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
-                  <img
-                    src={photo.public_url ?? ''}
-                    alt={photo.caption ?? 'Foto'}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={() => handleDeletePhoto(photo)}
-                    className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {sectionType !== 'signature' && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-body font-medium mb-3">Fotos</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <PhotoUploadSheet onFiles={(files) => {
+                  const dt = new DataTransfer();
+                  Array.from(files).forEach((f) => dt.items.add(f));
+                  const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                  handlePhotoUpload(synth);
+                }} />
+                {Array.from(uploading).map((uid) => (
+                  <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                  </div>
+                ))}
+                {photos.map((photo) => (
+                  <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
+                    <img
+                      src={photo.public_url ?? ''}
+                      alt={photo.caption ?? 'Foto'}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => handleDeletePhoto(photo)}
+                      className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       {/* Sticky bottom navigation */}
