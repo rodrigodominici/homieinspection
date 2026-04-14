@@ -9,7 +9,7 @@ import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, Lis
  * Admin Settings — Generation Rules Documentation
  *
  * This page is the source of truth for the inspection flow as implemented
- * in src/lib/inspection-generator.ts (V3 — 14-screen model).
+ * in src/lib/inspection-generator.ts (V4 — 15-screen model).
  */
 
 const SECTION_ORDER = [
@@ -25,16 +25,18 @@ const SECTION_ORDER = [
   { n: 10, key: 'terrace_patio',      title: 'Terraza / Patio Trasero',   visibility: 'Always',                             note: '' },
   { n: 11, key: 'front_yard',         title: 'Patio Delantero',           visibility: 'property_type = casa',               note: 'Solo para casas' },
   { n: 12, key: 'otros_generales',    title: 'Otros Generales',           visibility: 'Always',                             note: 'Formulario operativo de cierre (closing_operational)' },
-  { n: 13, key: 'bodega',             title: 'Bodega',                    visibility: 'has_storage = true',                 note: 'Condicional' },
-  { n: 14, key: 'tenant_signature',   title: 'Firma de Inquilino',        visibility: 'Always (final)',                     note: 'Observaciones generales + firma' },
+  { n: 13, key: 'bodega',             title: 'Bodega',                    visibility: 'has_storage = true',                 note: 'Condicional — solo bodega' },
+  { n: 14, key: 'estacionamiento',    title: 'Estacionamiento',           visibility: 'has_parking = true',                 note: 'Solo fotos — evidencia de estacionamiento' },
+  { n: 15, key: 'tenant_signature',   title: 'Firma de Inquilino',        visibility: 'Always (final)',                     note: 'Observaciones generales + firma' },
 ];
 
 const ACTIVE_DRIVERS = [
-  { field: 'property_type',   type: 'string',  usage: 'Determina Patio Delantero (casa) y detección de estudio' },
-  { field: 'typology',        type: 'string',  usage: 'Detecta estudio/loft vía helper isStudio()' },
-  { field: 'bedrooms_count',  type: 'number',  usage: 'Cantidad de Dormitorios repetidos + visibilidad Walking Closet' },
+  { field: 'property_type',   type: 'string',  usage: 'Fuente primaria para detección de estudio (estudio_loft). También determina Patio Delantero (casa)' },
+  { field: 'typology',        type: 'string',  usage: 'Compatibilidad retroactiva para detección de estudio. Secundario a property_type' },
+  { field: 'bedrooms_count',  type: 'number',  usage: 'Cantidad de Dormitorios repetidos. NO se usa para clasificar estudio' },
   { field: 'bathrooms_count', type: 'number',  usage: 'Cantidad de Baños repetidos (min 1 siempre)' },
   { field: 'has_storage',     type: 'boolean', usage: 'Visibilidad de sección Bodega' },
+  { field: 'has_parking',     type: 'boolean', usage: 'Visibilidad de sección Estacionamiento' },
 ];
 
 const DEPRECATED_FLAGS = [
@@ -67,7 +69,7 @@ export default function AdminSettings() {
         <Alert className="border-primary/30 bg-primary/5">
           <Info className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm">
-            Esta página refleja la lógica <strong>real implementada</strong> en el generador de inspecciones (V3 — 14 pantallas).
+            Esta página refleja la lógica <strong>real implementada</strong> en el generador de inspecciones (V4 — 15 pantallas).
             Actúa como fuente de verdad del flujo actual. En el futuro evolucionará a templates editables.
           </AlertDescription>
         </Alert>
@@ -79,7 +81,7 @@ export default function AdminSettings() {
               <ListOrdered className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-body-lg">Orden Final de Secciones</CardTitle>
             </div>
-            <CardDescription>Las 14 pantallas generadas en orden, con su regla de visibilidad.</CardDescription>
+            <CardDescription>Las 15 pantallas generadas en orden, con su regla de visibilidad.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -179,6 +181,11 @@ export default function AdminSettings() {
                   <TableCell className="font-medium">Bodega</TableCell>
                   <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">has_storage = true</code></TableCell>
                   <TableCell className="text-caption text-muted-foreground">#13</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Estacionamiento</TableCell>
+                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">has_parking = true</code></TableCell>
+                  <TableCell className="text-caption text-muted-foreground">#14</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
