@@ -210,7 +210,7 @@ export default function AdminSettings() {
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-primary" />
               <CardTitle className="text-body-lg">Campos Activos del Payload</CardTitle>
             </div>
             <CardDescription>Campos del JSON que actualmente controlan la generación de secciones.</CardDescription>
@@ -241,7 +241,7 @@ export default function AdminSettings() {
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertTriangle className="h-4 w-4 text-destructive" />
               <CardTitle className="text-body-lg">Flags Deprecados</CardTitle>
             </div>
             <CardDescription>Existen en el DB/payload pero ya no controlan la generación. Se planea eliminarlos.</CardDescription>
