@@ -119,8 +119,13 @@ export default function OwnerReport() {
             {property.address && (
               <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {property.address}</span>
             )}
-            {property.typology && (
-              <span className="flex items-center gap-1"><Building className="h-3.5 w-3.5" /> {property.typology} · {property.property_type}</span>
+            {(property.property_type || property.typology) && (
+              <span className="flex items-center gap-1">
+                <Building className="h-3.5 w-3.5" /> {property.property_type ?? property.typology}
+                {property.typology && property.property_type && property.typology !== property.property_type && (
+                  <span className="text-muted-foreground">({property.typology})</span>
+                )}
+              </span>
             )}
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />

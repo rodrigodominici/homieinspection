@@ -96,6 +96,7 @@ export interface Inspection {
   market: string;
   property_name: string | null;
   address: string | null;
+  /** @deprecated Informational only. Use property_type for classification. */
   typology: string | null;
   property_type: string | null;
   inspection_type: string;
@@ -194,6 +195,7 @@ export interface PropertyPayload {
   market: string;
   property_name?: string;
   address?: string;
+  /** @deprecated Informational only. Use property_type for classification. */
   typology?: string;
   property_type?: string;
   inspection_type: string;
