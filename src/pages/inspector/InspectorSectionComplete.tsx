@@ -25,7 +25,7 @@ import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, Key
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
-import { canCompleteSection, isSectionCompleted } from '@/lib/section-completion';
+import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 
 // ─── Group labels ────────────────────────────────────────────────────────
@@ -44,7 +44,8 @@ const KITCHEN_GROUP_LABELS: Record<string, string> = {
   status: 'Estado Cocina',
   appliance: 'Electrodomésticos',
   technical: 'Datos Técnicos',
-  logia: 'Logia / Calefont',
+  logia_matrix: 'Logia o Armario de Boiler/Calentador',
+  logia: 'Logia — Observaciones',
 };
 
 export default function InspectorSectionComplete() {
@@ -224,7 +225,7 @@ export default function InspectorSectionComplete() {
       // Populate unanswered fields set for visual feedback
       const missing = new Set<string>();
       fields.forEach((f) => {
-        if (f.group_key === 'status' && f.is_visible && (!f.value_text || f.value_text === '')) {
+        if ((isMatrixField(f) || isOperationalSelect(f)) && (!f.value_text || f.value_text === '')) {
           missing.add(f.id);
         }
       });
@@ -457,6 +458,7 @@ export default function InspectorSectionComplete() {
     const statusFields = fieldsByGroup['status'] || [];
     const applianceFields = fieldsByGroup['appliance'] || [];
     const technicalFields = fieldsByGroup['technical'] || [];
+    const logiaMatrixFields = fieldsByGroup['logia_matrix'] || [];
     const logiaFields = fieldsByGroup['logia'] || [];
     const observationFields = fieldsByGroup['observation'] || [];
 
@@ -479,8 +481,16 @@ export default function InspectorSectionComplete() {
           </Card>
         )}
         {technicalFields.length > 0 && renderGroupCard(technicalFields, KITCHEN_GROUP_LABELS.technical)}
-        {logiaFields.length > 0 && (
+        {logiaMatrixFields.length > 0 && (
           <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.02]">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.logia_matrix}</p>
+              {logiaMatrixFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
+        {logiaFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-4">
               <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.logia}</p>
               {logiaFields.map(f => renderField(f))}
@@ -547,6 +557,21 @@ export default function InspectorSectionComplete() {
             )}
           </CardContent>
         </Card>
+      </>
+    );
+  };
+
+  const renderClosingOperational = () => {
+    const operationalFields = fieldsByGroup['operational'] || [];
+    return (
+      <>
+        {operationalFields.length > 0 && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-5">
+              {operationalFields.map(f => renderField(f))}
+            </CardContent>
+          </Card>
+        )}
       </>
     );
   };
@@ -628,6 +653,7 @@ export default function InspectorSectionComplete() {
         {sectionType === 'reception_meta' && renderReceptionMeta()}
         {sectionType === 'space_kitchen' && renderKitchenSection()}
         {sectionType === 'signature' && renderSignatureSection()}
+        {sectionType === 'closing_operational' && renderClosingOperational()}
         {(sectionType === 'space_standard' || sectionType === 'space_secondary' || sectionType === 'handover_meta' || sectionType === 'closing_summary') && renderStandardSection()}
 
         {/* Inline validation error */}

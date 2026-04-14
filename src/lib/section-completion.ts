@@ -1,12 +1,11 @@
 /**
- * Centralized section-completion rules — V2.
+ * Centralized section-completion rules — V3.
  *
- * MVP rules:
- *  - Standard sections require at least one status selection (Bueno / Regular / Malo / No Aplica).
- *  - Photos are NOT required to move between sections.
- *  - Photos ARE required to finalize/submit the inspection (checked by `canFinalizeInspection`).
- *  - Observations are OPTIONAL.
- *  - Non-standard section types without status fields can always be completed.
+ * Validation is pattern-based, not hardcoded by group_key:
+ *  - Any field whose options contain `bueno` is a mandatory matrix field.
+ *  - Any field with group_key `operational` that has options is a mandatory select.
+ *  - Sections with no mandatory fields are always completable.
+ *  - Photos are NOT required per-section; they are checked globally at finalization.
  */
 
 import type { InspectionFieldValue } from './types';
@@ -24,38 +23,45 @@ export interface FinalizationResult {
 }
 
 /**
+ * Detect whether a field is a mandatory matrix field (Bueno/Regular/Malo/NA pattern).
+ */
+function isMatrixField(f: Pick<InspectionFieldValue, 'value_json' | 'is_visible'>): boolean {
+  if (!f.is_visible) return false;
+  const opts = (f.value_json as { options?: Array<{ value: string }> })?.options;
+  return Array.isArray(opts) && opts.some(o => o.value === 'bueno');
+}
+
+/**
+ * Detect whether a field is a mandatory operational select (non-matrix, group=operational, has options).
+ */
+function isOperationalSelect(f: Pick<InspectionFieldValue, 'value_json' | 'is_visible' | 'group_key'>): boolean {
+  if (!f.is_visible) return false;
+  if (f.group_key !== 'operational') return false;
+  const opts = (f.value_json as { options?: Array<{ value: string }> })?.options;
+  return Array.isArray(opts) && opts.length > 0;
+}
+
+/**
  * Determine whether a section can be marked as completed.
- *
- * V2: Photos are NO LONGER checked here — they are checked globally at finalization.
  */
 export function canCompleteSection(
   _sectionType: string,
-  fieldValues: Pick<InspectionFieldValue, 'group_key' | 'value_text' | 'is_visible'>[],
+  fieldValues: Pick<InspectionFieldValue, 'group_key' | 'value_text' | 'is_visible' | 'value_json'>[],
   _sectionKey?: string,
   _photoCount?: number,
 ): CompletionResult {
-  const statusFields = fieldValues.filter(
-    (f) => f.group_key === 'status' && f.is_visible,
-  );
+  const mandatory = fieldValues.filter(f => isMatrixField(f) || isOperationalSelect(f));
 
-  // If the section has no status fields it's a non-standard section (meta, summary, signature, etc.)
-  // — allow completion without validation.
-  if (statusFields.length === 0) {
+  if (mandatory.length === 0) {
     return { valid: true };
   }
 
-  // Every visible status field must have a non-null, non-empty value.
-  const allAnswered = statusFields.every(
-    (f) => f.value_text !== null && f.value_text !== '',
-  );
+  const unanswered = mandatory.filter(f => f.value_text === null || f.value_text === '');
 
-  if (!allAnswered) {
-    const unanswered = statusFields.filter(
-      (f) => f.value_text === null || f.value_text === '',
-    ).length;
+  if (unanswered.length > 0) {
     return {
       valid: false,
-      reason: `${unanswered} elemento(s) sin respuesta. Selecciona un estado para cada uno.`,
+      reason: `${unanswered.length} elemento(s) sin respuesta. Selecciona un estado para cada uno.`,
     };
   }
 
@@ -72,7 +78,7 @@ export function isSectionCompleted(sectionStatus: string): boolean {
 /** Section types exempt from requiring a final observation before publish. */
 const EXEMPT_FROM_FINAL_OBS = new Set([
   'property_meta', 'reception_meta', 'handover_meta', 'admin_meta',
-  'introduction', 'signature',
+  'introduction', 'signature', 'closing_operational',
 ]);
 
 /**
@@ -100,9 +106,6 @@ export function requiresPhotoEvidence(sectionKey: string): boolean {
 /**
  * Check whether the inspection can be finalized/submitted.
  * Validates that all sections requiring photos have at least one.
- *
- * @param sections - all visible sections
- * @param photoCounts - map of section_id → photo count
  */
 export function canFinalizeInspection(
   sections: { id: string; section_key: string; is_visible: boolean }[],
@@ -124,3 +127,8 @@ export function canFinalizeInspection(
     missingSections,
   };
 }
+
+/**
+ * Re-exported helpers for UI: detect mandatory fields using the same generic logic.
+ */
+export { isMatrixField, isOperationalSelect };

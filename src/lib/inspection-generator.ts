@@ -278,16 +278,14 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
         { value: 'no_tiene', label: 'No tiene horno' },
       ],
     },
-    // Logia sub-group (always present, NA allowed per item)
-    makeStatusField('logia_status', 'Estado Logia', 60, 'logia'),
-    { field_key: 'logia_heater_type', field_label: 'Tipo Calefont', field_type: 'text', group_key: 'logia', sort_order: 61, required: false },
-    { field_key: 'logia_heater_maintenance_date', field_label: 'Última Mantención Calefont', field_type: 'date', group_key: 'logia', sort_order: 62, required: false },
-    {
-      field_key: 'logia_gas_type', field_label: 'Tipo Gas', field_type: 'single_select', group_key: 'logia', sort_order: 63, required: false,
-      options_json: [{ value: 'natural', label: 'Gas Natural' }, { value: 'licuado', label: 'Gas Licuado' }, { value: 'none', label: 'Sin Gas' }],
-    },
-    { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 64, required: false },
-    { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 65, required: false },
+    // Logia o Armario de Boiler/Calentador — 8-item matrix
+    ...makeMatrixFields('logia', [
+      'Calefón', 'Thermo', 'Inspección Gas', 'Grifería Lavadero',
+      'Lámpara', 'Enchufes', 'Interruptor', 'Armario',
+    ], 'logia_matrix'),
+    // Logia observation + photos
+    { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 68, required: false },
+    { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 69, required: false },
     // Shared observation/photos
     makeObservationField('kitchen', 'Observaciones Cocina y Electrodomésticos', 70),
     makePhotoField('kitchen', 'Fotos Cocina y Electrodomésticos', 71),
@@ -400,23 +398,35 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
-  // ── 12. Otros Generales (always — cross-cutting handover items) ────────
-  const otrosItems = [
-    'Llaves entregadas',        // Cross-cutting handover item, not tied to any room
-    'Control de acceso',        // Building-level access, not room-specific
-    'Mando estacionamiento',    // Parking accessory — handover item even without Bodega
-    'Cortinas generales',       // Shared across multiple rooms, evaluated once globally
-    'Otros elementos',          // Catch-all for items not covered by any room section
-  ];
+  // ── 12. Otros Generales (always — closing operational form) ─────────────
   sections.push({
     section_key: 'otros_generales',
     section_title: 'Otros Generales',
-    section_type: 'space_secondary',
+    section_type: 'closing_operational',
     sort_order: order++,
     fields: [
-      ...makeMatrixFields('otros_generales', otrosItems),
-      makeObservationField('otros_generales', 'Observaciones Generales', otrosItems.length),
-      makePhotoField('otros_generales', 'Fotos Otros Generales', otrosItems.length + 1),
+      {
+        field_key: 'og_limpieza', field_label: '¿Se requiere limpieza?', field_type: 'single_select',
+        group_key: 'operational', sort_order: 0, required: true,
+        options_json: [
+          { value: 'profunda', label: 'Profunda' },
+          { value: 'basica', label: 'Básica' },
+          { value: 'no_requiere', label: 'No se requiere limpieza' },
+        ],
+      },
+      {
+        field_key: 'og_retiro_enseres', field_label: '¿Retiro de Enseres (Inmueble / Bodega)?', field_type: 'single_select',
+        group_key: 'operational', sort_order: 1, required: true,
+        options_json: [{ value: 'si', label: 'Sí' }, { value: 'no', label: 'No' }],
+      },
+      {
+        field_key: 'og_fumigacion', field_label: '¿Requiere Fumigación?', field_type: 'single_select',
+        group_key: 'operational', sort_order: 2, required: true,
+        options_json: [{ value: 'si', label: 'Sí' }, { value: 'no', label: 'No' }],
+      },
+      { field_key: 'og_medidores_obs', field_label: 'Observaciones / Lectura y Número de medidores (Luz / Agua / Gas)', field_type: 'textarea', group_key: 'operational', sort_order: 3, required: false },
+      { field_key: 'og_medidores_photos', field_label: 'Fotos Medidores y Otras', field_type: 'photo_upload', group_key: 'operational', sort_order: 4, required: false },
+      { field_key: 'og_admin_contacto', field_label: 'Nombre Administrador / Mayordomo, teléfono y correo electrónico', field_type: 'textarea', group_key: 'operational', sort_order: 5, required: false },
     ],
   });
 
