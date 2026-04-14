@@ -1,82 +1,87 @@
 
 
-# Plan: Mandatory Matrix Items + Property Summary Redesign
+# Plan: Walking Closet reorder + Otros Generales + Documentation sync (Refined)
 
 ## Summary
 
-Two changes: (1) enforce all status-matrix items as mandatory in validation logic, (2) redesign PropertyBriefingCard into grouped themed blocks for better hierarchy and readability.
+Three changes in 2 files: (1) move Walking Closet after Dormitorios and before Baños, (2) add "Otros Generales" section, (3) rewrite AdminSettings to reflect real logic. No migrations.
 
 ---
 
-## Change 1: Mandatory evaluation items
+## Change 1: Walking Closet reorder (`src/lib/inspection-generator.ts`)
 
-### File: `src/lib/section-completion.ts`
+Move the Walking Closet generation block to immediately after the Dormitorio loop and before the Baño block. The `sort_order` counter naturally enforces the new position.
 
-**Current**: `canCompleteSection` checks that *at least one* status field has a value (`someField.some(...)`).
-
-**New**: Check that *every visible status field* has a non-null, non-empty value (`every` instead of `some`).
-
-```typescript
-// Change from:
-const hasStatus = statusFields.some(f => f.value_text !== null && f.value_text !== '');
-// To:
-const allAnswered = statusFields.every(f => f.value_text !== null && f.value_text !== '');
-```
-
-Update the error message and add a count of unanswered items:
-```typescript
-if (!allAnswered) {
-  const unanswered = statusFields.filter(f => !f.value_text).length;
-  return {
-    valid: false,
-    reason: `${unanswered} elemento(s) sin respuesta. Selecciona un estado para cada uno.`,
-  };
-}
-```
-
-### File: `src/pages/inspector/InspectorSectionComplete.tsx`
-
-Add visual feedback for unanswered items when validation fails:
-- When `validationError` is set, highlight unanswered status-matrix items with a red ring/border
-- Track which fields are unanswered and apply `ring-destructive` to their container
-
-This requires:
-- A new state `unansweredFields: Set<string>` populated when validation fails
-- In `renderField` for status grid items, apply red ring when field.id is in the set
-- Clear the set when user selects any option
+**Before**: Dormitorios → Baños → Walking Closet
+**After**: Dormitorios → Walking Closet → Baños
 
 ---
 
-## Change 2: PropertyBriefingCard redesign
+## Change 2: Add "Otros Generales" section (`src/lib/inspection-generator.ts`)
 
-### File: `src/components/PropertyBriefingCard.tsx` — full rewrite
+New section with `section_type: 'space_secondary'`, placed after Patio Delantero and before Bodega (or Firma if no Bodega). Always visible.
 
-Reorganize from flat grid of mini-cards into 4 themed blocks:
+Matrix items with business rationale:
 
-**Block A — Header (existing, enhanced)**
-- Property name (large)
-- Address with map pin
-- Status badge + inspection type badge
-- Inspector + Executive names (if available)
+| Item | Why here |
+|---|---|
+| Llaves entregadas | Cross-cutting property handover item, not tied to any specific room |
+| Control de acceso | Building-level access, not room-specific |
+| Mando estacionamiento | Parking accessory — even if no Bodega section, this is a handover item |
+| Cortinas generales | Shared across multiple rooms, evaluated once globally |
+| Otros elementos | Catch-all for items that don't fit any room section |
 
-**Block B — Key Dates**
-- Dedicated card with calendar icon accent
-- `Recolección de llaves / inspección` — prominent
-- `Término de contrato` — secondary
-- Clear date formatting with relative context
+Plus standard observation text field and photo upload field.
 
-**Block C — Property Details**
-- Single compact card with icon+label+value rows
-- ID propiedad, Tipo, Mercado, Torre, Nº Dpto/Casa
-- Bodega / Estacionamiento if present in snapshot
+---
 
-**Block D — Contact & Actions**
-- Tenant name + phone
-- WhatsApp CTA button (prominent, green accent)
-- "Cómo llegar" button
-- Both as full-width action buttons
+## Change 3: Rewrite AdminSettings (`src/pages/admin/AdminSettings.tsx`)
 
-Layout uses `space-y-3` between blocks instead of a 2-col grid of identical mini-cards. Each block has clear visual hierarchy with section labels.
+Full rewrite to reflect the real implemented logic. Key refinements requested:
+
+### Baño description
+Document as: "Baño 1..N — always at least one instance, repeatable by `bathrooms_count` (min 1)". Not listed as simply "always visible" — its repeatable nature is explicit.
+
+### Active vs deprecated field distinction
+
+**Active generation drivers** (currently used in code):
+- `property_type` → drives Patio Delantero (`casa`), studio detection
+- `typology` → drives `isStudio()` helper (studio/loft detection)
+- `bedrooms_count` → drives Dormitorio repetition + Walking Closet visibility
+- `bathrooms_count` → drives Baño repetition (min 1)
+- `has_storage` → drives Bodega visibility
+
+**Deprecated flags** (still in DB/payload but no longer drive generation):
+- `has_walking_closet` — now inferred from non-studio
+- `has_front_yard` — now inferred from `property_type = casa`
+- `has_terrace_living` — Terraza is always visible
+- `has_terrace_bedroom` — merged into single Terraza section
+- `has_logia` — Logia always inside Kitchen with NA option
+
+### Otros Generales documentation
+Each matrix item includes a short rationale note so business can validate the grouping directly in the settings page.
+
+---
+
+## Final section order
+
+```text
+#   Screen                        Visibility                          Note
+1   Introducción                  Always                              Cleaning, fumigation, removal
+2   Datos del Inmueble            Always                              Meters, admin contact
+3   Datos del Inquilino           Always                              Handover person
+4   Acceso                        Always
+5   Living                        Always
+6   Cocina / Electrodomésticos    Always                              Logia sub-group inside, NA allowed
+7   Dormitorio 1..N               NOT estudio; repeat bedrooms_count
+8   Walking Closet                NOT estudio                         After last Dormitorio
+9   Baño 1..N                     Always; repeat bathrooms_count      Min 1 instance always
+10  Terraza / Patio Trasero       Always
+11  Patio Delantero               property_type = casa
+12  Otros Generales               Always                              Cross-cutting handover items
+13  Bodega                        has_storage = true
+14  Firma de Inquilino            Always (final)                      Observations + signature
+```
 
 ---
 
@@ -84,9 +89,8 @@ Layout uses `space-y-3` between blocks instead of a 2-col grid of identical mini
 
 | File | Change |
 |---|---|
-| `src/lib/section-completion.ts` | `some` → `every` + better error message |
-| `src/pages/inspector/InspectorSectionComplete.tsx` | Red ring on unanswered items when validation fires |
-| `src/components/PropertyBriefingCard.tsx` | Full redesign into 4 themed blocks |
+| `src/lib/inspection-generator.ts` | Reorder Walking Closet, add Otros Generales with rationale-ready fields |
+| `src/pages/admin/AdminSettings.tsx` | Full rewrite: real order, Baño as repeatable, active vs deprecated fields, Otros Generales rationale |
 
-3 files. No migrations.
+2 files. No migrations.
 
