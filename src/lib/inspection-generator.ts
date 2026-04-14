@@ -1,7 +1,7 @@
 /**
- * Dynamic inspection section generation — V2 (13-screen model).
+ * Dynamic inspection section generation — V3 (14-screen model).
  *
- * This generator creates the new 13-screen inspection structure.
+ * This generator creates the 14-screen inspection structure.
  * Existing inspections retain their stored `generated_structure_json` and are unaffected.
  *
  * Screen order:
@@ -11,13 +11,14 @@
  * 4.  Acceso                    (always)
  * 5.  Living                    (always)
  * 6.  Cocina / Electrodomésticos (always, Logia always inside)
- * 7.  Dormitorio 1..N           (NOT estudio)
- * 8.  Baño 1..N                 (always, min 1)
- * 9.  Walking Closet            (NOT estudio)
+ * 7.  Dormitorio 1..N           (NOT estudio; repeat bedrooms_count)
+ * 8.  Walking Closet            (NOT estudio — after last Dormitorio)
+ * 9.  Baño 1..N                 (always, min 1; repeat bathrooms_count)
  * 10. Terraza / Patio Trasero   (always)
  * 11. Patio Delantero           (property_type = casa)
- * 12. Bodega                    (has_storage = true)
- * 13. Firma de inquilino        (always, final)
+ * 12. Otros Generales           (always — cross-cutting handover items)
+ * 13. Bodega                    (has_storage = true)
+ * 14. Firma de inquilino        (always, final)
  */
 
 import type { PropertyPayload } from '@/lib/types';
@@ -321,9 +322,26 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
         ],
       });
     }
+
+
+    // ── 8. Walking Closet (NOT estudio — after last Dormitorio) ──────────
+    const wcItems = [
+      'Puerta', 'Techo', 'Piso / Alfombra', 'Mobiliario', 'Lámparas', 'Interruptores',
+    ];
+    sections.push({
+      section_key: 'walking_closet',
+      section_title: 'Walking Closet',
+      section_type: 'space_secondary',
+      sort_order: order++,
+      fields: [
+        ...makeMatrixFields('walking_closet', wcItems),
+        makeObservationField('walking_closet', 'Observaciones Walking Closet', wcItems.length),
+        makePhotoField('walking_closet', 'Fotos Walking Closet', wcItems.length + 1),
+      ],
+    });
   }
 
-  // ── 8. Baños (always, min 1) ───────────────────────────────────────────
+  // ── 9. Baños (always, min 1) ───────────────────────────────────────────
   const bathroomCount = Math.max(payload.bathrooms_count ?? 1, 1);
   const bathroomItems = [
     'Puerta', 'Interruptor', 'Lámpara', 'Techo', 'Piso', 'Muros / Baldosas',
@@ -342,24 +360,6 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
         ...makeMatrixFields(key, bathroomItems),
         makeObservationField(key, 'Observaciones Baño', bathroomItems.length),
         makePhotoField(key, 'Fotos Baño', bathroomItems.length + 1),
-      ],
-    });
-  }
-
-  // ── 9. Walking Closet (NOT estudio) ────────────────────────────────────
-  if (!studio) {
-    const wcItems = [
-      'Puerta', 'Techo', 'Piso / Alfombra', 'Mobiliario', 'Lámparas', 'Interruptores',
-    ];
-    sections.push({
-      section_key: 'walking_closet',
-      section_title: 'Walking Closet',
-      section_type: 'space_secondary',
-      sort_order: order++,
-      fields: [
-        ...makeMatrixFields('walking_closet', wcItems),
-        makeObservationField('walking_closet', 'Observaciones Walking Closet', wcItems.length),
-        makePhotoField('walking_closet', 'Fotos Walking Closet', wcItems.length + 1),
       ],
     });
   }
@@ -400,7 +400,27 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
-  // ── 12. Bodega (conditional: has_storage) ──────────────────────────────
+  // ── 12. Otros Generales (always — cross-cutting handover items) ────────
+  const otrosItems = [
+    'Llaves entregadas',        // Cross-cutting handover item, not tied to any room
+    'Control de acceso',        // Building-level access, not room-specific
+    'Mando estacionamiento',    // Parking accessory — handover item even without Bodega
+    'Cortinas generales',       // Shared across multiple rooms, evaluated once globally
+    'Otros elementos',          // Catch-all for items not covered by any room section
+  ];
+  sections.push({
+    section_key: 'otros_generales',
+    section_title: 'Otros Generales',
+    section_type: 'space_secondary',
+    sort_order: order++,
+    fields: [
+      ...makeMatrixFields('otros_generales', otrosItems),
+      makeObservationField('otros_generales', 'Observaciones Generales', otrosItems.length),
+      makePhotoField('otros_generales', 'Fotos Otros Generales', otrosItems.length + 1),
+    ],
+  });
+
+  // ── 13. Bodega (conditional: has_storage) ──────────────────────────────
   if (payload.has_storage) {
     const bodegaItems = [
       'Puerta', 'Techo', 'Muros / Muralla', 'Piso', 'Cerradura',
@@ -419,7 +439,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
-  // ── 13. Firma de inquilino (always, final) ─────────────────────────────
+  // ── 14. Firma de inquilino (always, final) ─────────────────────────────
   sections.push({
     section_key: 'tenant_signature',
     section_title: 'Firma de Inquilino',
