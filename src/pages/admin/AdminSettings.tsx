@@ -182,6 +182,11 @@ export default function AdminSettings() {
                   <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">has_storage = true</code></TableCell>
                   <TableCell className="text-caption text-muted-foreground">#13</TableCell>
                 </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Estacionamiento</TableCell>
+                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">has_parking = true</code></TableCell>
+                  <TableCell className="text-caption text-muted-foreground">#14</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </CardContent>
