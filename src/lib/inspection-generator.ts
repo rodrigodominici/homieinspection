@@ -1,7 +1,7 @@
 /**
- * Dynamic inspection section generation — V3 (14-screen model).
+ * Dynamic inspection section generation — V4 (15-screen model).
  *
- * This generator creates the 14-screen inspection structure.
+ * This generator creates the 15-screen inspection structure.
  * Existing inspections retain their stored `generated_structure_json` and are unaffected.
  *
  * Screen order:
@@ -11,14 +11,15 @@
  * 4.  Acceso                    (always)
  * 5.  Living                    (always)
  * 6.  Cocina / Electrodomésticos (always, Logia always inside)
- * 7.  Dormitorio 1..N           (NOT estudio; repeat bedrooms_count)
+ * 7.  Dormitorio 1..N           (NOT estudio; repeat bedrooms_count — includes 1D)
  * 8.  Walking Closet            (NOT estudio — after last Dormitorio)
  * 9.  Baño 1..N                 (always, min 1; repeat bathrooms_count)
  * 10. Terraza / Patio Trasero   (always)
  * 11. Patio Delantero           (property_type = casa)
  * 12. Otros Generales           (always — cross-cutting handover items)
  * 13. Bodega                    (has_storage = true)
- * 14. Firma de inquilino        (always, final)
+ * 14. Estacionamiento           (has_parking = true)
+ * 15. Firma de inquilino        (always, final)
  */
 
 import type { PropertyPayload } from '@/lib/types';
@@ -115,15 +116,22 @@ function makePhotoField(sectionKey: string, label: string, sortOrder: number): G
 }
 
 // ─── Studio detection ───────────────────────────────────────────────────
+//
+// Precedence:
+//   1. property_type (primary source of truth) — 'estudio_loft' → studio
+//   2. typology (backward compatibility)       — 'estudio'      → studio
+//
+// IMPORTANT: bedrooms_count is NEVER used for studio classification.
+// It is only used for bedroom repetition (Dormitorio 1..N).
+// This ensures 1D properties correctly show Dormitorio.
 
 export function isStudio(payload: PropertyPayload): boolean {
-  if (payload.bedrooms_count === 0) return true;
-  if (payload.typology?.toLowerCase() === 'estudio') return true;
   if (payload.property_type?.toLowerCase() === 'estudio_loft') return true;
+  if (payload.typology?.toLowerCase() === 'estudio') return true;
   return false;
 }
 
-// ─── 13-Screen Generation ───────────────────────────────────────────────
+// ─── 15-Screen Generation ───────────────────────────────────────────────
 
 export function generateSections(rawPayload: PropertyPayload): GeneratedSection[] {
   const payload = normalizeIncomingPayload(rawPayload);
@@ -449,7 +457,20 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
-  // ── 14. Firma de inquilino (always, final) ─────────────────────────────
+  // ── 14. Estacionamiento (conditional: has_parking) ──────────────────────
+  if (payload.has_parking) {
+    sections.push({
+      section_key: 'estacionamiento',
+      section_title: 'Estacionamiento',
+      section_type: 'space_secondary',
+      sort_order: order++,
+      fields: [
+        makePhotoField('estacionamiento', 'Fotos Estacionamiento', 0),
+      ],
+    });
+  }
+
+  // ── 15. Firma de inquilino (always, final) ─────────────────────────────
   sections.push({
     section_key: 'tenant_signature',
     section_title: 'Firma de Inquilino',
