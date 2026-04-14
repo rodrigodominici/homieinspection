@@ -69,7 +69,7 @@ export default function AdminSettings() {
         <Alert className="border-primary/30 bg-primary/5">
           <Info className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm">
-            Esta página refleja la lógica <strong>real implementada</strong> en el generador de inspecciones (V3 — 14 pantallas).
+            Esta página refleja la lógica <strong>real implementada</strong> en el generador de inspecciones (V4 — 15 pantallas).
             Actúa como fuente de verdad del flujo actual. En el futuro evolucionará a templates editables.
           </AlertDescription>
         </Alert>
