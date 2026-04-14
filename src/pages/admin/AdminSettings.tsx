@@ -19,8 +19,8 @@ const SECTION_ORDER = [
   { n: 4,  key: 'access',             title: 'Acceso',                    visibility: 'Always',                             note: '' },
   { n: 5,  key: 'living',             title: 'Living',                    visibility: 'Always',                             note: '' },
   { n: 6,  key: 'kitchen_appliances', title: 'Cocina / Electrodomésticos', visibility: 'Always',                            note: 'Logia como sub-grupo matrix (8 ítems), NA permitido' },
-  { n: 7,  key: 'bedroom_N',          title: 'Dormitorio 1..N',           visibility: 'NOT estudio; repeat bedrooms_count', note: 'Se repite según cantidad de dormitorios' },
-  { n: 8,  key: 'walking_closet',     title: 'Walking Closet',            visibility: 'NOT estudio',                        note: 'Después del último Dormitorio, antes de Baños' },
+  { n: 7,  key: 'bedroom_N',          title: 'Dormitorio 1..N',           visibility: 'property_type ≠ estudio; repeat bedrooms_count', note: 'Se repite según cantidad de dormitorios' },
+  { n: 8,  key: 'walking_closet',     title: 'Walking Closet',            visibility: 'property_type ≠ estudio',             note: 'Después del último Dormitorio, antes de Baños' },
   { n: 9,  key: 'bathroom_N',         title: 'Baño 1..N',                 visibility: 'Always; repeat bathrooms_count',     note: 'Siempre al menos 1 instancia (min 1)' },
   { n: 10, key: 'terrace_patio',      title: 'Terraza / Patio Trasero',   visibility: 'Always',                             note: '' },
   { n: 11, key: 'front_yard',         title: 'Patio Delantero',           visibility: 'property_type = casa',               note: 'Solo para casas' },
@@ -31,8 +31,7 @@ const SECTION_ORDER = [
 ];
 
 const ACTIVE_DRIVERS = [
-  { field: 'property_type',   type: 'string',  usage: 'Fuente primaria para detección de estudio (estudio_loft). También determina Patio Delantero (casa)' },
-  { field: 'typology',        type: 'string',  usage: 'Compatibilidad retroactiva para detección de estudio. Secundario a property_type' },
+  { field: 'property_type',   type: 'string',  usage: 'Única fuente de verdad para clasificación (estudio / departamento / casa). Determina Dormitorios, Walking Closet, Patio Delantero' },
   { field: 'bedrooms_count',  type: 'number',  usage: 'Cantidad de Dormitorios repetidos. NO se usa para clasificar estudio' },
   { field: 'bathrooms_count', type: 'number',  usage: 'Cantidad de Baños repetidos (min 1 siempre)' },
   { field: 'has_storage',     type: 'boolean', usage: 'Visibilidad de sección Bodega' },
@@ -40,6 +39,7 @@ const ACTIVE_DRIVERS = [
 ];
 
 const DEPRECATED_FLAGS = [
+  { field: 'typology',              reason: 'Ya no controla generación. Solo se almacena como referencia legacy. property_type es la única fuente de verdad' },
   { field: 'has_walking_closet',   reason: 'Ahora se infiere: aparece siempre para no-estudio' },
   { field: 'has_front_yard',       reason: 'Ahora se infiere de property_type = casa' },
   { field: 'has_terrace_living',   reason: 'Terraza es siempre visible' },
@@ -164,12 +164,12 @@ export default function AdminSettings() {
               <TableBody>
                 <TableRow>
                   <TableCell className="font-medium">Dormitorio 1..N</TableCell>
-                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">NOT estudio (typology ≠ Estudio AND bedrooms_count &gt; 0)</code></TableCell>
+                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">property_type ≠ estudio</code></TableCell>
                   <TableCell className="text-caption text-muted-foreground">#7</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="font-medium">Walking Closet</TableCell>
-                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">NOT estudio</code></TableCell>
+                  <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">property_type ≠ estudio</code></TableCell>
                   <TableCell className="text-caption text-muted-foreground">#8 — después del último Dormitorio</TableCell>
                 </TableRow>
                 <TableRow>
@@ -199,18 +199,18 @@ export default function AdminSettings() {
               <GitBranch className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-body-lg">Regla de Living (Estudio)</CardTitle>
             </div>
-            <CardDescription>Modifica nombre de sección según tipología.</CardDescription>
+            <CardDescription>Modifica secciones según clasificación de propiedad (<code>property_type</code>).</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-xl border p-4 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                  <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">typology = Estudio</code>
+                  <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">property_type = estudio</code>
                   <span className="text-muted-foreground">→</span>
                   <Badge variant="outline">Living (sin Dormitorios, sin Walking Closet)</Badge>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                  <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">typology ≠ Estudio</code>
+                  <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">property_type ≠ estudio</code>
                   <span className="text-muted-foreground">→</span>
                   <Badge variant="outline">Living + Dormitorio 1..N + Walking Closet</Badge>
                 </div>
