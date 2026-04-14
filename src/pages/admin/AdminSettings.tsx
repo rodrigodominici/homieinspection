@@ -18,13 +18,13 @@ const SECTION_ORDER = [
   { n: 3,  key: 'handover_person',     title: 'Datos del Inquilino',       visibility: 'Always',                             note: 'Persona que entrega' },
   { n: 4,  key: 'access',             title: 'Acceso',                    visibility: 'Always',                             note: '' },
   { n: 5,  key: 'living',             title: 'Living',                    visibility: 'Always',                             note: '' },
-  { n: 6,  key: 'kitchen_appliances', title: 'Cocina / Electrodomésticos', visibility: 'Always',                            note: 'Logia como sub-grupo interno, NA permitido' },
+  { n: 6,  key: 'kitchen_appliances', title: 'Cocina / Electrodomésticos', visibility: 'Always',                            note: 'Logia como sub-grupo matrix (8 ítems), NA permitido' },
   { n: 7,  key: 'bedroom_N',          title: 'Dormitorio 1..N',           visibility: 'NOT estudio; repeat bedrooms_count', note: 'Se repite según cantidad de dormitorios' },
   { n: 8,  key: 'walking_closet',     title: 'Walking Closet',            visibility: 'NOT estudio',                        note: 'Después del último Dormitorio, antes de Baños' },
   { n: 9,  key: 'bathroom_N',         title: 'Baño 1..N',                 visibility: 'Always; repeat bathrooms_count',     note: 'Siempre al menos 1 instancia (min 1)' },
   { n: 10, key: 'terrace_patio',      title: 'Terraza / Patio Trasero',   visibility: 'Always',                             note: '' },
   { n: 11, key: 'front_yard',         title: 'Patio Delantero',           visibility: 'property_type = casa',               note: 'Solo para casas' },
-  { n: 12, key: 'otros_generales',    title: 'Otros Generales',           visibility: 'Always',                             note: 'Ítems transversales de entrega' },
+  { n: 12, key: 'otros_generales',    title: 'Otros Generales',           visibility: 'Always',                             note: 'Formulario operativo de cierre (closing_operational)' },
   { n: 13, key: 'bodega',             title: 'Bodega',                    visibility: 'has_storage = true',                 note: 'Condicional' },
   { n: 14, key: 'tenant_signature',   title: 'Firma de Inquilino',        visibility: 'Always (final)',                     note: 'Observaciones generales + firma' },
 ];
@@ -45,12 +45,18 @@ const DEPRECATED_FLAGS = [
   { field: 'has_logia',            reason: 'Logia siempre dentro de Cocina con opción NA' },
 ];
 
-const OTROS_GENERALES_ITEMS = [
-  { item: 'Llaves entregadas',     rationale: 'Ítem transversal de entrega, no asociado a ninguna habitación específica' },
-  { item: 'Control de acceso',     rationale: 'Acceso a nivel de edificio, no vinculado a un espacio particular' },
-  { item: 'Mando estacionamiento', rationale: 'Accesorio de parking — ítem de entrega incluso sin sección Bodega' },
-  { item: 'Cortinas generales',    rationale: 'Compartidas entre múltiples habitaciones, evaluadas una vez globalmente' },
-  { item: 'Otros elementos',       rationale: 'Catch-all para ítems que no encajan en ninguna sección de habitación' },
+const OTROS_GENERALES_FIELDS = [
+  { field: 'og_limpieza',         type: 'single_select', label: '¿Se requiere limpieza?',          options: 'Profunda / Básica / No se requiere', required: true },
+  { field: 'og_retiro_enseres',   type: 'single_select', label: '¿Retiro de Enseres?',             options: 'Sí / No',                            required: true },
+  { field: 'og_fumigacion',       type: 'single_select', label: '¿Requiere Fumigación?',           options: 'Sí / No',                            required: true },
+  { field: 'og_medidores_obs',    type: 'textarea',      label: 'Observaciones / Medidores',       options: '—',                                  required: false },
+  { field: 'og_medidores_photos', type: 'photo_upload',  label: 'Fotos Medidores y Otras',         options: '—',                                  required: false },
+  { field: 'og_admin_contacto',   type: 'textarea',      label: 'Administrador / Mayordomo',       options: '—',                                  required: false },
+];
+
+const LOGIA_MATRIX_ITEMS = [
+  'Calefón', 'Thermo', 'Inspección Gas', 'Grifería Lavadero',
+  'Lámpara', 'Enchufes', 'Interruptor', 'Armario',
 ];
 
 export default function AdminSettings() {
@@ -268,28 +274,51 @@ export default function AdminSettings() {
           </CardContent>
         </Card>
 
-        {/* Otros Generales rationale */}
+        {/* Logia Matrix */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-body-lg">Otros Generales — Justificación de Ítems</CardTitle>
+              <CardTitle className="text-body-lg">Logia o Armario de Boiler/Calentador</CardTitle>
             </div>
-            <CardDescription>Por qué cada ítem evaluable pertenece a esta sección transversal.</CardDescription>
+            <CardDescription>Sub-grupo matrix dentro de Cocina. Cada ítem se evalúa con Bueno / Regular / Malo / NA. Más observaciones y fotos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {LOGIA_MATRIX_ITEMS.map((item) => (
+                <Badge key={item} variant="outline" className="text-caption">{item}</Badge>
+              ))}
+            </div>
+            <p className="text-caption text-muted-foreground mt-3">+ Observaciones Logia (textarea) + Fotos Logia (photo_upload)</p>
+          </CardContent>
+        </Card>
+
+        {/* Otros Generales */}
+        <Card className="border-0 ring-1 ring-border shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-body-lg">Otros Generales — Formulario Operativo</CardTitle>
+            </div>
+            <CardDescription>Sección <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">closing_operational</code>. No es matrix. Campos obligatorios marcados con ●.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ítem</TableHead>
-                  <TableHead>Justificación</TableHead>
+                  <TableHead>Campo</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Opciones</TableHead>
+                  <TableHead className="w-10">Req.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {OTROS_GENERALES_ITEMS.map((i) => (
-                  <TableRow key={i.item}>
-                    <TableCell className="font-medium">{i.item}</TableCell>
-                    <TableCell className="text-caption text-muted-foreground">{i.rationale}</TableCell>
+                {OTROS_GENERALES_FIELDS.map((f) => (
+                  <TableRow key={f.field}>
+                    <TableCell className="font-medium">{f.label}</TableCell>
+                    <TableCell><code className="text-tiny bg-muted px-1.5 py-0.5 rounded">{f.type}</code></TableCell>
+                    <TableCell className="text-caption text-muted-foreground">{f.options}</TableCell>
+                    <TableCell>{f.required ? '●' : ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
