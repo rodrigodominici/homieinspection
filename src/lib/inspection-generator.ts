@@ -153,24 +153,18 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
   const studio = isStudio(payload);
   const isCasa = payload.property_type?.toLowerCase() === 'casa';
 
-  // ── 1. Introducción ────────────────────────────────────────────────────
+  // ── 1. Introducción (briefing screen — optional observation only) ─────
+  // Cleaning / removal / fumigation moved to Otros Generales (Step 12).
+  // This screen functions purely as a context/briefing entry point.
   const introFields: GeneratedField[] = [
-    // Cleaning sub-group (inspector captures on arrival)
     {
-      field_key: 'cleaning_status', field_label: 'Estado de Aseo', field_type: 'single_select',
-      group_key: 'cleaning', sort_order: 0, required: false,
-      options_json: STATUS_OPTIONS,
+      field_key: 'intro_observation',
+      field_label: 'Observación inicial (opcional)',
+      field_type: 'textarea',
+      group_key: 'briefing',
+      sort_order: 0,
+      required: false,
     },
-    { field_key: 'cleaning_observation', field_label: 'Observaciones Aseo', field_type: 'textarea', group_key: 'cleaning', sort_order: 1, required: false },
-    // Removal sub-group
-    {
-      field_key: 'removal_status', field_label: 'Retiro de Enseres', field_type: 'single_select',
-      group_key: 'removal', sort_order: 2, required: false,
-      options_json: [{ value: 'completo', label: 'Completo' }, { value: 'parcial', label: 'Parcial' }, { value: 'no_realizado', label: 'No Realizado' }],
-    },
-    // Fumigation sub-group
-    { field_key: 'fumigation_observation', field_label: 'Observaciones Fumigación', field_type: 'textarea', group_key: 'fumigation', sort_order: 3, required: false },
-    { field_key: 'fumigation_photos', field_label: 'Fotos Fumigación', field_type: 'photo_upload', group_key: 'fumigation', sort_order: 4, required: false },
   ];
 
   sections.push({
@@ -181,7 +175,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     fields: introFields,
   });
 
-  // ── 2. Datos del inmueble ──────────────────────────────────────────────
+  // ── 2. Datos del inmueble (context-only — meters/admin in Otros Generales) ──
   const propertyFields: GeneratedField[] = [
     // Context fields (read-only from payload)
     { field_key: 'ctx_market', field_label: 'Mercado', field_type: 'text', group_key: 'context', sort_order: 0, required: false },
@@ -197,15 +191,6 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     { field_key: 'ctx_property_type', field_label: 'Tipo de Propiedad', field_type: 'text', group_key: 'context', sort_order: 10, required: false },
     { field_key: 'ctx_bedrooms', field_label: 'Dormitorios', field_type: 'number', group_key: 'context', sort_order: 11, required: false },
     { field_key: 'ctx_bathrooms', field_label: 'Baños', field_type: 'number', group_key: 'context', sort_order: 12, required: false },
-    // Meters sub-group (inspector input)
-    { field_key: 'meter_electricity', field_label: 'Lectura Electricidad', field_type: 'text', group_key: 'meters', sort_order: 20, required: false },
-    { field_key: 'meter_water', field_label: 'Lectura Agua', field_type: 'text', group_key: 'meters', sort_order: 21, required: false },
-    { field_key: 'meter_gas', field_label: 'Lectura Gas', field_type: 'text', group_key: 'meters', sort_order: 22, required: false },
-    { field_key: 'meter_photos', field_label: 'Fotos Medidores', field_type: 'photo_upload', group_key: 'meters', sort_order: 23, required: false },
-    // Admin contact sub-group (inspector input)
-    { field_key: 'admin_name', field_label: 'Nombre Administrador / Mayordomo', field_type: 'text', group_key: 'admin_contact', sort_order: 30, required: false },
-    { field_key: 'admin_phone', field_label: 'Teléfono Administrador', field_type: 'phone', group_key: 'admin_contact', sort_order: 31, required: false },
-    { field_key: 'admin_email', field_label: 'Correo Administrador', field_type: 'email', group_key: 'admin_contact', sort_order: 32, required: false },
   ];
 
   sections.push({
@@ -245,6 +230,24 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
       ...makeMatrixFields('access', accessItems),
       makeObservationField('access', 'Observaciones Acceso', accessItems.length),
       makePhotoField('access', 'Fotos Acceso', accessItems.length + 1),
+      // Llaves / Tarjeta sub-group (informational — not counted toward photo gate at field level;
+      // any photo within this section satisfies the section-level finalization rule).
+      {
+        field_key: 'access_keys_observation',
+        field_label: 'Observaciones Llaves / Tarjeta',
+        field_type: 'textarea',
+        group_key: 'keys',
+        sort_order: accessItems.length + 2,
+        required: false,
+      },
+      {
+        field_key: 'access_keys_photos',
+        field_label: 'Fotos de Llaves / Tarjeta',
+        field_type: 'photo_upload',
+        group_key: 'keys',
+        sort_order: accessItems.length + 3,
+        required: false,
+      },
     ],
   });
 
@@ -479,6 +482,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
       sort_order: order++,
       fields: [
         makePhotoField('estacionamiento', 'Fotos Estacionamiento', 0),
+        makeObservationField('estacionamiento', 'Observaciones Estacionamiento', 1),
       ],
     });
   }

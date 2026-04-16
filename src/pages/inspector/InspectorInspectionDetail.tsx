@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
-import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import SignaturePad from '@/components/SignaturePad';
@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
 
@@ -44,6 +44,12 @@ export default function InspectorInspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [showSignature, setShowSignature] = useState(false);
   const [signatureResolved, setSignatureResolved] = useState(false);
+  const [signatureRecord, setSignatureRecord] = useState<{
+    signature_data: string | null;
+    signature_status: string;
+    signer_name: string | null;
+    skip_reason: string | null;
+  } | null>(null);
   const [fieldValues, setFieldValues] = useState<InspectionFieldValue[]>([]);
   const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [keyFormOpen, setKeyFormOpen] = useState(false);
@@ -56,7 +62,7 @@ export default function InspectorInspectionDetail() {
       const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
         supabase.from('inspections').select('*').eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
-        supabase.from('inspection_signatures').select('id').eq('inspection_id', id!).limit(1),
+        supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name, skip_reason').eq('inspection_id', id!).order('created_at', { ascending: false }).limit(1),
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
         supabase.from('inspection_photos').select('id, inspection_section_id').eq('inspection_id', id!),
       ]);
@@ -64,7 +70,9 @@ export default function InspectorInspectionDetail() {
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
       setFieldValues((fvData ?? []) as unknown as InspectionFieldValue[]);
-      setSignatureResolved((sig ?? []).length > 0);
+      const sigRecord = (sig ?? [])[0] ?? null;
+      setSignatureRecord(sigRecord as typeof signatureRecord);
+      setSignatureResolved(!!sigRecord);
 
       // Build photo counts per section
       const counts: Record<string, number> = {};
@@ -109,7 +117,8 @@ export default function InspectorInspectionDetail() {
   const progress = calculateProgress(sections);
   const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total, inspection);
   const allCompleted = progress.completed === progress.total && progress.total > 0;
-  const canSubmit = allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
+  const readOnly = isInspectorReadOnly(inspection.status);
+  const canSubmit = !readOnly && allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
 
   // Skip introduction and property_data sections (shown as briefing card / intro)
   const workSections = sections.filter(s =>
@@ -313,14 +322,20 @@ export default function InspectorInspectionDetail() {
     });
     setShowSignature(false);
     setSignatureResolved(true);
+    setSignatureRecord({
+      signature_data: data.signature_data,
+      signature_status: data.signature_status,
+      signer_name: data.signer_name || null,
+      skip_reason: data.skip_reason,
+    });
   };
 
   const doSubmit = async () => {
     // Final photo validation
     if (!finalizationResult.valid) {
       toast({
-        title: 'Fotos requeridas',
-        description: `Faltan fotos en: ${finalizationResult.missingSections.join(', ')}`,
+        title: 'Fotos requeridas para enviar',
+        description: finalizationResult.missingLabels.map((l) => `Faltan fotos en ${l}`).join(' · '),
         variant: 'destructive',
       });
       return;
@@ -390,6 +405,19 @@ export default function InspectorInspectionDetail() {
             </div>
           </div>
         )}
+        {/* Read-only banner (post-submission) */}
+        {readOnly && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-muted/40 ring-1 ring-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm">
+                <p className="font-semibold">Inspección enviada — solo lectura</p>
+                <p className="text-xs text-muted-foreground">No es posible editar respuestas, fotos ni firma desde aquí.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Property Briefing Card — read-only payload data */}
         <PropertyBriefingCard inspection={inspection} />
 
@@ -402,124 +430,172 @@ export default function InspectorInspectionDetail() {
             </div>
             <Progress value={progress.percent} className={cn("h-3 rounded-full", progress.percent === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
             <p className="text-xs text-muted-foreground mt-2">{progress.completed} de {progress.total} secciones</p>
-            {!allCompleted && (
+            {!readOnly && !allCompleted && (
               <p className="text-[10px] text-muted-foreground mt-1">Completa todas las secciones antes de enviar</p>
             )}
-            {/* Photo finalization warning */}
-            {allCompleted && !finalizationResult.valid && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2">
-                <Camera className="h-3.5 w-3.5 shrink-0" />
-                <span>Faltan fotos en {finalizationResult.missingSections.length} sección(es) para enviar</span>
+            {/* Photo finalization warning — detailed list */}
+            {!readOnly && allCompleted && !finalizationResult.valid && (
+              <div className="mt-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2 space-y-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <Camera className="h-3.5 w-3.5 shrink-0" />
+                  <span>Fotos requeridas para enviar:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  {finalizationResult.missingLabels.map((label) => (
+                    <li key={label}>Faltan fotos en {label}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Recolección de llaves */}
-        <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">Recolección de llaves</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
-                </p>
-              </div>
-              <span className={cn(
-                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                keyCollectionCoordinated ? 'bg-status-good-bg text-status-good' : 'bg-status-bad-bg text-status-bad'
-              )}>
-                {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente'}
-              </span>
-            </div>
-
-            {keyCollectionCoordinated ? (
-              <div className="rounded-2xl bg-muted/40 px-3.5 py-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <CalendarClock className="h-4 w-4 shrink-0" />
-                <span>
-                  {new Date(`${keyDate}T00:00:00`).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                  {keyTime ? ` · ${keyTime}` : ''}
+        {/* Recolección de llaves (hidden in read-only mode) */}
+        {!readOnly && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Recolección de llaves</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
+                  </p>
+                </div>
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  keyCollectionCoordinated ? 'bg-status-good-bg text-status-good' : 'bg-status-bad-bg text-status-bad'
+                )}>
+                  {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente'}
                 </span>
               </div>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
-                {(() => {
-                  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
-                  if (!contractEndDate) return null;
-                  const dt = new Date(`${contractEndDate}T00:00:00`);
-                  if (Number.isNaN(dt.getTime())) return null;
-                  return (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
-                      <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    </div>
-                  );
-                })()}
-              </>
-            )}
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              {tenantWhatsapp && (
-                <Button variant="outline" className="flex-1 h-10 rounded-xl gap-2" onClick={openWhatsApp}>
-                  <MessageCircle className="h-4 w-4" /> Contactar por WhatsApp
-                </Button>
-              )}
-              <Button className="flex-1 h-10 rounded-xl gap-2" onClick={openKeyForm}>
-                {keyCollectionCoordinated ? <Edit3 className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
-                {keyCollectionCoordinated ? 'Editar' : 'Cargar fecha'}
-              </Button>
-            </div>
-
-            {keyFormOpen && (
-              <div className="space-y-3 rounded-2xl border border-border p-3.5">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">
-                        {keyDateInput
-                          ? keyDateInput.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
-                          : 'Seleccionar fecha'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={keyDateInput}
-                        onSelect={setKeyDateInput}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
+              {keyCollectionCoordinated ? (
+                <div className="rounded-2xl bg-muted/40 px-3.5 py-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <CalendarClock className="h-4 w-4 shrink-0" />
+                  <span>
+                    {new Date(`${keyDate}T00:00:00`).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    {keyTime ? ` · ${keyTime}` : ''}
+                  </span>
                 </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                  {(() => {
+                    const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
+                    if (!contractEndDate) return null;
+                    const dt = new Date(`${contractEndDate}T00:00:00`);
+                    if (Number.isNaN(dt.getTime())) return null;
+                    return (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
 
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Hora (opcional)</p>
-                  <Input
-                    type="time"
-                    value={keyTimeInput}
-                    onChange={(e) => setKeyTimeInput(e.target.value)}
-                    className="rounded-xl"
+              <div className="flex flex-col sm:flex-row gap-2">
+                {tenantWhatsapp && (
+                  <Button variant="outline" className="flex-1 h-10 rounded-xl gap-2" onClick={openWhatsApp}>
+                    <MessageCircle className="h-4 w-4" /> Contactar por WhatsApp
+                  </Button>
+                )}
+                <Button className="flex-1 h-10 rounded-xl gap-2" onClick={openKeyForm}>
+                  {keyCollectionCoordinated ? <Edit3 className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
+                  {keyCollectionCoordinated ? 'Editar' : 'Cargar fecha'}
+                </Button>
+              </div>
+
+              {keyFormOpen && (
+                <div className="space-y-3 rounded-2xl border border-border p-3.5">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">
+                          {keyDateInput
+                            ? keyDateInput.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+                            : 'Seleccionar fecha'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={keyDateInput}
+                          onSelect={setKeyDateInput}
+                          initialFocus
+                          className={cn('p-3 pointer-events-auto')}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Hora (opcional)</p>
+                    <Input
+                      type="time"
+                      value={keyTimeInput}
+                      onChange={(e) => setKeyTimeInput(e.target.value)}
+                      className="rounded-xl"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setKeyFormOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="flex-1 rounded-xl" onClick={saveKeyCollection} disabled={savingKeyCollection}>
+                      {savingKeyCollection ? 'Guardando...' : 'Guardar'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Persistent Signature card — visible at all times once signature exists */}
+        {signatureResolved && signatureRecord && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Firma del Inquilino</p>
+                {signatureRecord.signature_status === 'signed' ? (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-good-bg text-status-good">
+                    Firmada
+                  </span>
+                ) : signatureRecord.signature_status === 'refused' ? (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-bad-bg text-status-bad">
+                    Inquilino se negó a firmar
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                    Inquilino no disponible
+                  </span>
+                )}
+              </div>
+              {signatureRecord.signer_name && (
+                <p className="text-xs text-muted-foreground">Firmó: {signatureRecord.signer_name}</p>
+              )}
+              {signatureRecord.signature_data && (
+                <div className="rounded-2xl border border-border bg-background p-3 flex justify-center">
+                  <img
+                    src={signatureRecord.signature_data}
+                    alt="Firma del inquilino"
+                    className="max-h-32 object-contain"
                   />
                 </div>
+              )}
+              {signatureRecord.skip_reason && (
+                <p className="text-xs text-muted-foreground italic">Motivo: {signatureRecord.skip_reason}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setKeyFormOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button className="flex-1 rounded-xl" onClick={saveKeyCollection} disabled={savingKeyCollection}>
-                    {savingKeyCollection ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Signature prompt when all complete but not signed */}
-        {allCompleted && canSubmit && !signatureResolved && (
+        {/* Signature prompt when all complete but not signed (hidden in read-only) */}
+        {!readOnly && allCompleted && canSubmit && !signatureResolved && (
           <Card className="border-0 shadow-md rounded-3xl bg-primary/5 ring-1 ring-primary/20">
             <CardContent className="p-5 text-center space-y-3">
               <CheckCircle2 className="h-8 w-8 mx-auto text-primary" />
@@ -538,7 +614,7 @@ export default function InspectorInspectionDetail() {
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {
             const isCompleted = isSectionCompleted(section.status);
-            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
+            const isCurrent = !readOnly && !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
             return (
               <button
                 key={section.id}
@@ -546,7 +622,8 @@ export default function InspectorInspectionDetail() {
                 className="w-full text-left"
               >
                 <Card className={cn(
-                  'border-0 ring-1 shadow-sm active:scale-[0.99] transition-all rounded-2xl',
+                  'border-0 ring-1 shadow-sm transition-all rounded-2xl',
+                  !readOnly && 'active:scale-[0.99]',
                   isCurrent ? 'ring-primary/30 bg-primary/[0.03] shadow-md' : 'ring-border'
                 )}>
                   <CardContent className="p-3.5 flex items-center gap-3 min-h-[56px]">
@@ -561,7 +638,7 @@ export default function InspectorInspectionDetail() {
                     <div className="flex-1 min-w-0">
                       <p className={cn('font-medium text-sm', isCurrent && 'text-primary')}>{section.section_title}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {isCurrent ? 'Siguiente sección' : section.section_type.replace(/_/g, ' ')}
+                        {readOnly ? 'Solo lectura' : isCurrent ? 'Siguiente sección' : section.section_type.replace(/_/g, ' ')}
                       </p>
                     </div>
                     <SectionStatusBadge status={section.status} />
@@ -575,7 +652,11 @@ export default function InspectorInspectionDetail() {
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        {allCompleted && canSubmit && signatureResolved ? (
+        {readOnly ? (
+          <div className="flex items-center justify-center gap-2 h-12 rounded-xl bg-muted/40 text-sm text-muted-foreground font-medium">
+            <Lock className="h-4 w-4" /> Inspección enviada — solo lectura
+          </div>
+        ) : allCompleted && canSubmit && signatureResolved ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button className="w-full h-12 rounded-xl text-body bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" size="lg">
@@ -586,7 +667,7 @@ export default function InspectorInspectionDetail() {
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
+                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión y no podrás editarla.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

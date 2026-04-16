@@ -16,6 +16,32 @@ const STALE_STATUSES = new Set(['pending', 'assigned', 'pending_assignment']);
 const ACTIVE_SECTION_STATUSES = new Set(['in_progress', 'completed', 'reviewed', 'needs_changes']);
 
 /**
+ * Status set in which the inspector can no longer edit fields, photos,
+ * or section completion. Signature must remain visible.
+ *
+ * - `submitted`: sent to executive review (terminal for inspector).
+ * - `in_review` / `reviewed` / `approved` / `published`: post-inspector workflow stages.
+ * - `sent`: legacy historical terminal status (kept for safety, no new writes).
+ */
+const READ_ONLY_STATUSES = new Set([
+  'submitted',
+  'in_review',
+  'reviewed',
+  'approved',
+  'published',
+  'sent',
+]);
+
+/**
+ * Whether the inspector should see the inspection as read-only.
+ * Centralized so all inspector pages share one source of truth.
+ */
+export function isInspectorReadOnly(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return READ_ONLY_STATUSES.has(status);
+}
+
+/**
  * Call this after updating any section status.
  * It reads current inspection + all sections and fixes stale parent status.
  */

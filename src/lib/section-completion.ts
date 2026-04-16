@@ -89,9 +89,18 @@ export function requiresFinalObservation(sectionType: string): boolean {
   return !EXEMPT_FROM_FINAL_OBS.has(sectionType);
 }
 
-/** Section keys where at least one photo is required TO FINALIZE. */
+/**
+ * Section keys where at least one photo is required TO FINALIZE.
+ *
+ * Photo evidence is enforced ONLY at submission, never between sections.
+ * This whitelist matches the business rule defined in the inspection flow.
+ */
 const PHOTO_REQUIRED_KEYS = new Set([
-  'access', 'living', 'kitchen_appliances', 'terrace_patio',
+  'access',
+  'living',
+  'kitchen_appliances',
+  'bodega',
+  'estacionamiento',
 ]);
 const PHOTO_REQUIRED_PATTERNS = [/^bedroom_/, /^bathroom_/];
 
@@ -104,14 +113,43 @@ export function requiresPhotoEvidence(sectionKey: string): boolean {
 }
 
 /**
+ * Convert a section key into a friendly user-facing label.
+ * E.g., `access` → "Acceso"; `bedroom_2` → "Dormitorio 2".
+ */
+export function getPhotoRequiredLabel(sectionKey: string, sectionTitle?: string): string {
+  if (sectionTitle) return sectionTitle;
+  const map: Record<string, string> = {
+    access: 'Acceso',
+    living: 'Living',
+    kitchen_appliances: 'Cocina / Electrodomésticos',
+    bodega: 'Bodega',
+    estacionamiento: 'Estacionamiento',
+  };
+  if (map[sectionKey]) return map[sectionKey];
+  const bedroomMatch = sectionKey.match(/^bedroom_(\d+)$/);
+  if (bedroomMatch) return `Dormitorio ${bedroomMatch[1]}`;
+  if (sectionKey === 'bedroom_studio') return 'Dormitorio';
+  const bathroomMatch = sectionKey.match(/^bathroom_(\d+)$/);
+  if (bathroomMatch) return `Baño ${bathroomMatch[1]}`;
+  if (sectionKey === 'bathroom_studio') return 'Baño';
+  return sectionKey;
+}
+
+export interface FinalizationResultDetailed extends FinalizationResult {
+  /** User-facing labels parallel to `missingSections` */
+  missingLabels: string[];
+}
+
+/**
  * Check whether the inspection can be finalized/submitted.
  * Validates that all sections requiring photos have at least one.
  */
 export function canFinalizeInspection(
-  sections: { id: string; section_key: string; is_visible: boolean }[],
+  sections: { id: string; section_key: string; section_title?: string; is_visible: boolean }[],
   photoCounts: Record<string, number>,
-): FinalizationResult {
+): FinalizationResultDetailed {
   const missingSections: string[] = [];
+  const missingLabels: string[] = [];
 
   for (const section of sections) {
     if (!section.is_visible) continue;
@@ -119,12 +157,14 @@ export function canFinalizeInspection(
     const count = photoCounts[section.id] ?? 0;
     if (count === 0) {
       missingSections.push(section.section_key);
+      missingLabels.push(getPhotoRequiredLabel(section.section_key, section.section_title));
     }
   }
 
   return {
     valid: missingSections.length === 0,
     missingSections,
+    missingLabels,
   };
 }
 

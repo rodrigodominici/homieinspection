@@ -21,23 +21,23 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, KeyRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, KeyRound, Lock, Info } from 'lucide-react';
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
-import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 
 // ─── Group labels ────────────────────────────────────────────────────────
-const INTRO_GROUP_LABELS: Record<string, string> = {
-  cleaning: 'Aseo',
-  removal: 'Retiro de Enseres',
-  fumigation: 'Fumigación',
+const PROPERTY_GROUP_LABELS: Record<string, string> = {
+  context: 'Datos del Inmueble',
 };
 
-const PROPERTY_GROUP_LABELS: Record<string, string> = {
-  meters: 'Medidores',
-  admin_contact: 'Contacto Administrador',
+const ACCESS_GROUP_LABELS: Record<string, string> = {
+  status: 'Estado',
+  observation: 'Observaciones',
+  photo: 'Fotos',
+  keys: 'Llaves / Tarjeta',
 };
 
 const KITCHEN_GROUP_LABELS: Record<string, string> = {
@@ -59,6 +59,12 @@ export default function InspectorSectionComplete() {
   const [fields, setFields] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
+  const [inspectionStatus, setInspectionStatus] = useState<string | null>(null);
+  const [persistedSignature, setPersistedSignature] = useState<{
+    signature_data: string | null;
+    signature_status: string;
+    signer_name: string | null;
+  } | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -68,21 +74,29 @@ export default function InspectorSectionComplete() {
   const [showSigPad, setShowSigPad] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const readOnly = isInspectorReadOnly(inspectionStatus);
+
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const [secRes, allSecRes, fieldRes, photoRes, reviewRes] = await Promise.all([
+      const [secRes, allSecRes, fieldRes, photoRes, reviewRes, inspRes, sigRes] = await Promise.all([
         supabase.from('inspection_sections').select('*').eq('id', sectionId!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_field_values').select('*').eq('inspection_section_id', sectionId!).order('sort_order'),
         supabase.from('inspection_photos').select('*').eq('inspection_section_id', sectionId!).order('sort_order'),
         supabase.from('inspection_reviews').select('*').eq('inspection_section_id', sectionId!).eq('comment_type', 'revision_request').order('created_at', { ascending: false }),
+        supabase.from('inspections').select('status').eq('id', inspectionId!).single(),
+        supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name').eq('inspection_id', inspectionId!).order('created_at', { ascending: false }).limit(1),
       ]);
       setSection(secRes.data as unknown as InspectionSection);
       setAllSections((allSecRes.data ?? []) as unknown as InspectionSection[]);
       setFields((fieldRes.data ?? []) as unknown as InspectionFieldValue[]);
       setPhotos((photoRes.data ?? []) as unknown as InspectionPhoto[]);
       setReviews((reviewRes.data ?? []) as unknown as InspectionReview[]);
+      setInspectionStatus(((inspRes.data as { status?: string } | null)?.status) ?? null);
+      const sigRecord = ((sigRes.data ?? []) as Array<typeof persistedSignature extends infer T ? T : never>)[0] ?? null;
+      setPersistedSignature(sigRecord as typeof persistedSignature);
+      if (sigRecord) setSignatureHandled(true);
       setLoading(false);
     };
     fetch();
@@ -420,36 +434,41 @@ export default function InspectorSectionComplete() {
   // ─── Section-type-specific rendering ────────────────────────────────────
 
   const renderIntroduction = () => {
-    const cleaningFields = fieldsByGroup['cleaning'] || [];
-    const removalFields = fieldsByGroup['removal'] || [];
-    const fumigationFields = fieldsByGroup['fumigation'] || [];
+    const briefingFields = fieldsByGroup['briefing'] || [];
 
     return (
       <>
-        {cleaningFields.length > 0 && renderGroupCard(cleaningFields, INTRO_GROUP_LABELS.cleaning)}
-        {removalFields.length > 0 && renderGroupCard(removalFields, INTRO_GROUP_LABELS.removal)}
-        {fumigationFields.length > 0 && renderGroupCard(fumigationFields, INTRO_GROUP_LABELS.fumigation)}
+        {/* Briefing header — establishes this is a context screen, not a form */}
+        <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.03]">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-body font-semibold">Pantalla de contexto</p>
+              <p className="text-caption text-muted-foreground">
+                Esta sección no requiere completar campos. Continúa al siguiente paso cuando estés listo.
+                Si quieres dejar una observación inicial, usa el campo de abajo.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        {briefingFields.length > 0 && renderGroupCard(briefingFields, undefined, readOnly)}
       </>
     );
   };
 
   const renderReceptionMeta = () => {
     const contextFields = fieldsByGroup['context'] || [];
-    const meterFields = fieldsByGroup['meters'] || [];
-    const adminFields = fieldsByGroup['admin_contact'] || [];
 
     return (
       <>
         {contextFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
             <CardContent className="p-4 space-y-3">
-              <p className="text-body font-semibold text-muted-foreground">Datos del Inmueble</p>
+              <p className="text-body font-semibold text-muted-foreground">{PROPERTY_GROUP_LABELS.context}</p>
               {contextFields.map(f => renderField(f, true))}
             </CardContent>
           </Card>
         )}
-        {meterFields.length > 0 && renderGroupCard(meterFields, PROPERTY_GROUP_LABELS.meters)}
-        {adminFields.length > 0 && renderGroupCard(adminFields, PROPERTY_GROUP_LABELS.admin_contact)}
       </>
     );
   };
@@ -543,17 +562,23 @@ export default function InspectorSectionComplete() {
         <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.03]">
           <CardContent className="p-4 space-y-3">
             <p className="text-body font-semibold">Firma del Inquilino</p>
-            {signatureHandled ? (
+            {persistedSignature?.signature_data ? (
+              <div className="rounded-2xl border border-border bg-background p-3 flex justify-center">
+                <img src={persistedSignature.signature_data} alt="Firma" className="max-h-32 object-contain" />
+              </div>
+            ) : signatureHandled ? (
               <p className="text-caption text-status-good font-medium">✓ Firma registrada</p>
-            ) : showSigPad ? (
+            ) : showSigPad && !readOnly ? (
               <SignaturePad
                 onConfirm={handleSigConfirm}
                 onCancel={() => setShowSigPad(false)}
               />
-            ) : (
+            ) : !readOnly ? (
               <Button onClick={() => setShowSigPad(true)} className="w-full h-11 rounded-xl">
                 Obtener firma del inquilino
               </Button>
+            ) : (
+              <p className="text-caption text-muted-foreground">Sin firma registrada.</p>
             )}
           </CardContent>
         </Card>
