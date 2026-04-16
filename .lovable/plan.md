@@ -1,138 +1,87 @@
 
 
-# Plan: Deprecate `typology` from business logic, make `property_type` sole driver
+# Plan: Final refinements to inspection flow corrections
 
 ## Summary
 
-Remove `typology` from all conditional logic. Normalize `property_type` in the incoming payload mapper. Update `isStudio()` to check only `property_type`. Fix example payloads. Update admin documentation. Add `@deprecated` to type definitions. Clean up display surfaces. 3 files, no migrations.
+Refine the previously approved plan with 5 clarifications: reposition Introducción as a context briefing, verify `sent` status usage, harden read-only mode, keep Acceso photo validation single-bucket, and document scope of structural changes.
 
 ---
 
-## Change 1: Normalize `property_type` in `normalizeIncomingPayload` (`src/lib/inspection-generator.ts`, lines 46-58)
+## Refinement 1 — Introducción as briefing screen
 
-Add canonical `property_type` derivation:
+In `src/lib/inspection-generator.ts`, generate Introducción with:
+- A single optional `intro_observation` textarea labeled **"Observación inicial (opcional)"** with helper text *"Pantalla de contexto. Continúa al siguiente paso cuando estés listo."*
+- No mandatory fields → already auto-completable per `canCompleteSection` logic.
 
-```typescript
-function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
-  // Derive canonical property_type
-  let propertyType = raw.property_type?.toLowerCase()?.trim() || null;
-  if (propertyType === 'estudio_loft') propertyType = 'estudio';
+In `InspectorSectionComplete.tsx`, when `section_type === 'introduction'`, render a brief intro/briefing header above the field so it visually reads as a context screen, not an empty form.
 
-  // Last-resort fallback: derive from typology ONLY if property_type is absent
-  if (!propertyType && raw.typology?.toLowerCase() === 'estudio') {
-    propertyType = 'estudio';
-  }
+In `AdminSettings.tsx`, update note: *"Pantalla de contexto/briefing. Solo observación inicial opcional."*
 
-  return {
-    ...raw,
-    property_type: propertyType ?? raw.property_type,
-    // existing legacy mappings unchanged...
-  };
-}
+---
+
+## Refinement 2 — Verify `sent` status
+
+Audit before locking the read-only list. Per memory `logic/workflow-staged-model`, `sent` is **legacy/historical only**; `published` is the current terminal state. I will grep `inspection.status` writers to confirm. Expected final read-only set:
+
+```ts
+const READ_ONLY_STATUSES = ['submitted', 'reviewed', 'approved', 'published'];
+// 'sent' included ONLY if grep confirms it is still written somewhere active.
 ```
 
-The `typology` fallback is explicitly a backward-compatibility escape hatch, not the ideal contract.
+Centralize in `src/lib/inspection-status-guard.ts` as `isInspectorReadOnly(status)` so both inspector pages share one source of truth.
 
 ---
 
-## Change 2: Simplify `isStudio()` (`src/lib/inspection-generator.ts`, lines 118-132)
+## Refinement 3 — Truly non-editable read-only mode
 
-Replace entire block:
+In `InspectorSectionComplete.tsx` when `isReadOnly`:
+- **Matrix buttons**: render as static badges (selected = filled, others hidden), not disabled buttons.
+- **Textareas**: render as plain `<p>` text blocks (or empty-state "Sin observaciones"), not disabled inputs.
+- **Photo grid**: thumbnails only, no upload tile, no delete buttons, no PhotoUploadSheet trigger.
+- **Signature**: persisted image only, no "Obtener firma" CTA, no clear button.
+- **Bottom bar**: single "Volver" button. No "Completar sección", no save indicator, no next/prev nav.
+- **Section header**: small "Solo lectura" badge.
 
-```typescript
-// ─── Studio detection ───────────────────────────────────────────────────
-//
-// Classification is based SOLELY on property_type (canonical).
-// property_type is normalized upstream by normalizeIncomingPayload:
-//   - 'estudio_loft' → 'estudio'
-//   - missing property_type + typology='estudio' → 'estudio' (legacy fallback)
-//
-// typology is DEPRECATED — stored for reference only, never consumed.
-// bedrooms_count is used only for bedroom repetition, never classification.
-
-export function isStudio(payload: PropertyPayload): boolean {
-  return payload.property_type?.toLowerCase() === 'estudio';
-}
-```
+Add a top-level `<ReadOnlyBanner />` inline note: *"Inspección enviada — solo lectura."*
 
 ---
 
-## Change 3: Fix example payloads (`src/lib/inspection-generator.ts`, lines 521-547)
+## Refinement 4 — Acceso keys grouping, single photo bucket
 
-The `studio` example currently has `property_type: "departamento"` with `typology: "Estudio"` — this is the exact contradiction that caused the bug. Fix:
+Field order in `access` section:
+1. Access matrix
+2. `access_observation` (textarea)
+3. `access_photos` (photo_upload) ← **the only photo field validated for finalization**
+4. `access_keys_observation` (textarea, grouped under "Llaves / Tarjeta" subheader)
+5. `access_keys_photos` (photo_upload, informational — NOT counted for finalization gate)
 
-```typescript
-studio: {
-  // ...
-  typology: "Estudio",           // @deprecated — informational only
-  property_type: "estudio",      // canonical source of truth
-  // ...
-}
-```
+Finalization message stays at section granularity: *"Faltan fotos en Acceso"* — not split between general/keys. The keys photo field is supplementary; only `access_photos` counts toward the photo-required gate (logic in `getPhotoCountsBySection` already aggregates by section, so we ensure validation reads only the primary `access_photos` field, OR accept either — simpler: any photo in the Acceso section satisfies the gate).
 
-Add `// @deprecated — informational only` comment next to all other `typology` fields in example payloads.
+**Decision**: any photo uploaded within the Acceso section satisfies the gate (current section-level aggregation behavior). Keeps validation message simple and matches business intent.
 
 ---
 
-## Change 4: Mark `typology` as deprecated in types (`src/lib/types.ts`)
+## Refinement 5 — Document scope of changes
 
-On line 99 (Inspection interface):
-```typescript
-/** @deprecated Informational only. Use property_type for classification. */
-typology: string | null;
-```
+In `AdminSettings.tsx`, add an `Alert` at the top of the Generation Rules page:
 
-On line 197 (PropertyPayload interface):
-```typescript
-/** @deprecated Informational only. Use property_type for classification. */
-typology?: string;
-```
+> **Alcance de cambios estructurales:** Las reglas documentadas aplican a inspecciones **recién generadas**. Las inspecciones existentes conservan la estructura con la que fueron creadas. Para actualizar una inspección legacy a la nueva estructura se requerirá una herramienta administrativa de regeneración (pendiente).
+
+Also annotate the new "Fotos al finalizar" column header with a tooltip explaining it's enforced only at submission, not between sections.
 
 ---
 
-## Change 5: Update admin documentation (`src/pages/admin/AdminSettings.tsx`)
+## Files touched (5, unchanged from prior plan)
 
-1. Move `typology` from `ACTIVE_DRIVERS` to `DEPRECATED_FLAGS`:
-   ```typescript
-   { field: 'typology', reason: 'Ya no controla generación. Solo referencia. property_type es la única fuente de verdad.' },
-   ```
-
-2. Update `property_type` driver description:
-   ```
-   'Única fuente de verdad para clasificación (estudio / departamento / casa). Determina Dormitorios, Walking Closet, Patio Delantero.'
-   ```
-
-3. Fix conditional sections table (line 167): replace `NOT estudio (typology ≠ Estudio AND bedrooms_count > 0)` with `property_type ≠ estudio`
-
-4. Fix "Regla de Living" card (lines 206-216): replace `typology = Estudio` / `typology ≠ Estudio` with `property_type = estudio` / `property_type ≠ estudio`
-
----
-
-## Change 6: Clean up display surfaces
-
-**`src/pages/public/OwnerReport.tsx` (lines 122-124)**: Currently shows `{property.typology} · {property.property_type}`. Change to show `property_type` as the primary label. If `typology` is present, show it parenthetically as secondary info rather than leading:
-
-```tsx
-{property.property_type && (
-  <span className="flex items-center gap-1">
-    <Building className="h-3.5 w-3.5" /> {property.property_type}
-    {property.typology && <span className="text-muted-foreground">({property.typology})</span>}
-  </span>
-)}
-```
-
-**`PropertyBriefingCard.tsx`**: Already uses `property_type` only — no change needed.
-
----
-
-## Files affected
-
-| File | Change |
+| File | Refinement applied |
 |---|---|
-| `src/lib/inspection-generator.ts` | Normalize `property_type` in payload mapper, simplify `isStudio()`, fix studio example payload |
-| `src/lib/types.ts` | Add `@deprecated` JSDoc to `typology` in both interfaces |
-| `src/pages/admin/AdminSettings.tsx` | Move `typology` to deprecated, update all rule references to `property_type` |
-| `src/pages/public/OwnerReport.tsx` | Make `property_type` primary in display, `typology` secondary/parenthetical |
+| `src/lib/inspection-generator.ts` | Introducción as context-only with optional observation; Acceso field ordering with keys subgroup |
+| `src/lib/section-completion.ts` | Photo whitelist; section-level granularity for missing-photo labels |
+| `src/lib/inspection-status-guard.ts` | New `isInspectorReadOnly(status)` helper (verified status set) |
+| `src/pages/inspector/InspectorInspectionDetail.tsx` | Use shared read-only helper; persistent signature; per-section missing-photo list |
+| `src/pages/inspector/InspectorSectionComplete.tsx` | True read-only rendering (static badges, plain text, no upload/delete affordances, no completion CTA); intro briefing header |
+| `src/pages/admin/AdminSettings.tsx` | Scope alert; "Fotos al finalizar" column with tooltip; updated section notes |
 
-4 files. No migrations.
+No DB migrations. Existing inspections retain stored structure (documented).
 
