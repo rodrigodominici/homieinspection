@@ -405,6 +405,19 @@ export default function InspectorInspectionDetail() {
             </div>
           </div>
         )}
+        {/* Read-only banner (post-submission) */}
+        {readOnly && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-muted/40 ring-1 ring-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm">
+                <p className="font-semibold">Inspección enviada — solo lectura</p>
+                <p className="text-xs text-muted-foreground">No es posible editar respuestas, fotos ni firma desde aquí.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Property Briefing Card — read-only payload data */}
         <PropertyBriefingCard inspection={inspection} />
 
@@ -417,14 +430,21 @@ export default function InspectorInspectionDetail() {
             </div>
             <Progress value={progress.percent} className={cn("h-3 rounded-full", progress.percent === 100 && "[&>div]:bg-[hsl(var(--status-good))]")} />
             <p className="text-xs text-muted-foreground mt-2">{progress.completed} de {progress.total} secciones</p>
-            {!allCompleted && (
+            {!readOnly && !allCompleted && (
               <p className="text-[10px] text-muted-foreground mt-1">Completa todas las secciones antes de enviar</p>
             )}
-            {/* Photo finalization warning */}
-            {allCompleted && !finalizationResult.valid && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2">
-                <Camera className="h-3.5 w-3.5 shrink-0" />
-                <span>Faltan fotos en {finalizationResult.missingSections.length} sección(es) para enviar</span>
+            {/* Photo finalization warning — detailed list */}
+            {!readOnly && allCompleted && !finalizationResult.valid && (
+              <div className="mt-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2 space-y-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <Camera className="h-3.5 w-3.5 shrink-0" />
+                  <span>Fotos requeridas para enviar:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  {finalizationResult.missingLabels.map((label) => (
+                    <li key={label}>Faltan fotos en {label}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>
