@@ -434,15 +434,24 @@ export default function InspectorSectionComplete() {
   // ─── Section-type-specific rendering ────────────────────────────────────
 
   const renderIntroduction = () => {
-    const cleaningFields = fieldsByGroup['cleaning'] || [];
-    const removalFields = fieldsByGroup['removal'] || [];
-    const fumigationFields = fieldsByGroup['fumigation'] || [];
+    const briefingFields = fieldsByGroup['briefing'] || [];
 
     return (
       <>
-        {cleaningFields.length > 0 && renderGroupCard(cleaningFields, INTRO_GROUP_LABELS.cleaning)}
-        {removalFields.length > 0 && renderGroupCard(removalFields, INTRO_GROUP_LABELS.removal)}
-        {fumigationFields.length > 0 && renderGroupCard(fumigationFields, INTRO_GROUP_LABELS.fumigation)}
+        {/* Briefing header — establishes this is a context screen, not a form */}
+        <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.03]">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-body font-semibold">Pantalla de contexto</p>
+              <p className="text-caption text-muted-foreground">
+                Esta sección no requiere completar campos. Continúa al siguiente paso cuando estés listo.
+                Si quieres dejar una observación inicial, usa el campo de abajo.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        {briefingFields.length > 0 && renderGroupCard(briefingFields, undefined, readOnly)}
       </>
     );
   };
