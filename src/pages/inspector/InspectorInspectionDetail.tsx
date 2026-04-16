@@ -450,108 +450,149 @@ export default function InspectorInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* Recolección de llaves */}
-        <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">Recolección de llaves</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
-                </p>
-              </div>
-              <span className={cn(
-                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                keyCollectionCoordinated ? 'bg-status-good-bg text-status-good' : 'bg-status-bad-bg text-status-bad'
-              )}>
-                {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente'}
-              </span>
-            </div>
-
-            {keyCollectionCoordinated ? (
-              <div className="rounded-2xl bg-muted/40 px-3.5 py-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <CalendarClock className="h-4 w-4 shrink-0" />
-                <span>
-                  {new Date(`${keyDate}T00:00:00`).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                  {keyTime ? ` · ${keyTime}` : ''}
+        {/* Recolección de llaves (hidden in read-only mode) */}
+        {!readOnly && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Recolección de llaves</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
+                  </p>
+                </div>
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  keyCollectionCoordinated ? 'bg-status-good-bg text-status-good' : 'bg-status-bad-bg text-status-bad'
+                )}>
+                  {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente'}
                 </span>
               </div>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
-                {(() => {
-                  const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
-                  if (!contractEndDate) return null;
-                  const dt = new Date(`${contractEndDate}T00:00:00`);
-                  if (Number.isNaN(dt.getTime())) return null;
-                  return (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
-                      <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    </div>
-                  );
-                })()}
-              </>
-            )}
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              {tenantWhatsapp && (
-                <Button variant="outline" className="flex-1 h-10 rounded-xl gap-2" onClick={openWhatsApp}>
-                  <MessageCircle className="h-4 w-4" /> Contactar por WhatsApp
-                </Button>
-              )}
-              <Button className="flex-1 h-10 rounded-xl gap-2" onClick={openKeyForm}>
-                {keyCollectionCoordinated ? <Edit3 className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
-                {keyCollectionCoordinated ? 'Editar' : 'Cargar fecha'}
-              </Button>
-            </div>
-
-            {keyFormOpen && (
-              <div className="space-y-3 rounded-2xl border border-border p-3.5">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">
-                        {keyDateInput
-                          ? keyDateInput.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
-                          : 'Seleccionar fecha'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={keyDateInput}
-                        onSelect={setKeyDateInput}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
+              {keyCollectionCoordinated ? (
+                <div className="rounded-2xl bg-muted/40 px-3.5 py-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <CalendarClock className="h-4 w-4 shrink-0" />
+                  <span>
+                    {new Date(`${keyDate}T00:00:00`).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    {keyTime ? ` · ${keyTime}` : ''}
+                  </span>
                 </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                  {(() => {
+                    const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
+                    if (!contractEndDate) return null;
+                    const dt = new Date(`${contractEndDate}T00:00:00`);
+                    if (Number.isNaN(dt.getTime())) return null;
+                    return (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
 
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Hora (opcional)</p>
-                  <Input
-                    type="time"
-                    value={keyTimeInput}
-                    onChange={(e) => setKeyTimeInput(e.target.value)}
-                    className="rounded-xl"
+              <div className="flex flex-col sm:flex-row gap-2">
+                {tenantWhatsapp && (
+                  <Button variant="outline" className="flex-1 h-10 rounded-xl gap-2" onClick={openWhatsApp}>
+                    <MessageCircle className="h-4 w-4" /> Contactar por WhatsApp
+                  </Button>
+                )}
+                <Button className="flex-1 h-10 rounded-xl gap-2" onClick={openKeyForm}>
+                  {keyCollectionCoordinated ? <Edit3 className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
+                  {keyCollectionCoordinated ? 'Editar' : 'Cargar fecha'}
+                </Button>
+              </div>
+
+              {keyFormOpen && (
+                <div className="space-y-3 rounded-2xl border border-border p-3.5">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">
+                          {keyDateInput
+                            ? keyDateInput.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+                            : 'Seleccionar fecha'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={keyDateInput}
+                          onSelect={setKeyDateInput}
+                          initialFocus
+                          className={cn('p-3 pointer-events-auto')}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Hora (opcional)</p>
+                    <Input
+                      type="time"
+                      value={keyTimeInput}
+                      onChange={(e) => setKeyTimeInput(e.target.value)}
+                      className="rounded-xl"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setKeyFormOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="flex-1 rounded-xl" onClick={saveKeyCollection} disabled={savingKeyCollection}>
+                      {savingKeyCollection ? 'Guardando...' : 'Guardar'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Persistent Signature card — visible at all times once signature exists */}
+        {signatureResolved && signatureRecord && (
+          <Card className="border-0 shadow-sm rounded-3xl bg-card ring-1 ring-border">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Firma del Inquilino</p>
+                {signatureRecord.signature_status === 'signed' ? (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-good-bg text-status-good">
+                    Firmada
+                  </span>
+                ) : signatureRecord.signature_status === 'refused' ? (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-bad-bg text-status-bad">
+                    Inquilino se negó a firmar
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                    Inquilino no disponible
+                  </span>
+                )}
+              </div>
+              {signatureRecord.signer_name && (
+                <p className="text-xs text-muted-foreground">Firmó: {signatureRecord.signer_name}</p>
+              )}
+              {signatureRecord.signature_data && (
+                <div className="rounded-2xl border border-border bg-background p-3 flex justify-center">
+                  <img
+                    src={signatureRecord.signature_data}
+                    alt="Firma del inquilino"
+                    className="max-h-32 object-contain"
                   />
                 </div>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setKeyFormOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button className="flex-1 rounded-xl" onClick={saveKeyCollection} disabled={savingKeyCollection}>
-                    {savingKeyCollection ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              {signatureRecord.skip_reason && (
+                <p className="text-xs text-muted-foreground italic">Motivo: {signatureRecord.skip_reason}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Signature prompt when all complete but not signed */}
         {allCompleted && canSubmit && !signatureResolved && (
