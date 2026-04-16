@@ -334,8 +334,8 @@ export default function InspectorInspectionDetail() {
     // Final photo validation
     if (!finalizationResult.valid) {
       toast({
-        title: 'Fotos requeridas',
-        description: `Faltan fotos en: ${finalizationResult.missingSections.join(', ')}`,
+        title: 'Fotos requeridas para enviar',
+        description: finalizationResult.missingLabels.map((l) => `Faltan fotos en ${l}`).join(' · '),
         variant: 'destructive',
       });
       return;
