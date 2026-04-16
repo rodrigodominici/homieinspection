@@ -594,8 +594,8 @@ export default function InspectorInspectionDetail() {
           </Card>
         )}
 
-        {/* Signature prompt when all complete but not signed */}
-        {allCompleted && canSubmit && !signatureResolved && (
+        {/* Signature prompt when all complete but not signed (hidden in read-only) */}
+        {!readOnly && allCompleted && canSubmit && !signatureResolved && (
           <Card className="border-0 shadow-md rounded-3xl bg-primary/5 ring-1 ring-primary/20">
             <CardContent className="p-5 text-center space-y-3">
               <CheckCircle2 className="h-8 w-8 mx-auto text-primary" />
@@ -614,7 +614,7 @@ export default function InspectorInspectionDetail() {
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {
             const isCompleted = isSectionCompleted(section.status);
-            const isCurrent = !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
+            const isCurrent = !readOnly && !isCompleted && (idx === 0 || workSections.slice(0, idx).every(s => isSectionCompleted(s.status)));
             return (
               <button
                 key={section.id}
@@ -622,7 +622,8 @@ export default function InspectorInspectionDetail() {
                 className="w-full text-left"
               >
                 <Card className={cn(
-                  'border-0 ring-1 shadow-sm active:scale-[0.99] transition-all rounded-2xl',
+                  'border-0 ring-1 shadow-sm transition-all rounded-2xl',
+                  !readOnly && 'active:scale-[0.99]',
                   isCurrent ? 'ring-primary/30 bg-primary/[0.03] shadow-md' : 'ring-border'
                 )}>
                   <CardContent className="p-3.5 flex items-center gap-3 min-h-[56px]">
@@ -637,7 +638,7 @@ export default function InspectorInspectionDetail() {
                     <div className="flex-1 min-w-0">
                       <p className={cn('font-medium text-sm', isCurrent && 'text-primary')}>{section.section_title}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {isCurrent ? 'Siguiente sección' : section.section_type.replace(/_/g, ' ')}
+                        {readOnly ? 'Solo lectura' : isCurrent ? 'Siguiente sección' : section.section_type.replace(/_/g, ' ')}
                       </p>
                     </div>
                     <SectionStatusBadge status={section.status} />
@@ -651,7 +652,11 @@ export default function InspectorInspectionDetail() {
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-        {allCompleted && canSubmit && signatureResolved ? (
+        {readOnly ? (
+          <div className="flex items-center justify-center gap-2 h-12 rounded-xl bg-muted/40 text-sm text-muted-foreground font-medium">
+            <Lock className="h-4 w-4" /> Inspección enviada — solo lectura
+          </div>
+        ) : allCompleted && canSubmit && signatureResolved ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button className="w-full h-12 rounded-xl text-body bg-[hsl(var(--status-good))] hover:bg-[hsl(var(--status-good))]/90" size="lg">
@@ -662,7 +667,7 @@ export default function InspectorInspectionDetail() {
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Enviar inspección?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión.
+                  Una vez enviada, la inspección pasará al ejecutivo asignado para su revisión y no podrás editarla.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
