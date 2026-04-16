@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress } from '@/lib/inspection-utils';
-import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import SignaturePad from '@/components/SignaturePad';
@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
 
