@@ -44,6 +44,12 @@ export default function InspectorInspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [showSignature, setShowSignature] = useState(false);
   const [signatureResolved, setSignatureResolved] = useState(false);
+  const [signatureRecord, setSignatureRecord] = useState<{
+    signature_data: string | null;
+    signature_status: string;
+    signer_name: string | null;
+    skip_reason: string | null;
+  } | null>(null);
   const [fieldValues, setFieldValues] = useState<InspectionFieldValue[]>([]);
   const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [keyFormOpen, setKeyFormOpen] = useState(false);
@@ -56,7 +62,7 @@ export default function InspectorInspectionDetail() {
       const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
         supabase.from('inspections').select('*').eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
-        supabase.from('inspection_signatures').select('id').eq('inspection_id', id!).limit(1),
+        supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name, skip_reason').eq('inspection_id', id!).order('created_at', { ascending: false }).limit(1),
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
         supabase.from('inspection_photos').select('id, inspection_section_id').eq('inspection_id', id!),
       ]);
@@ -64,7 +70,9 @@ export default function InspectorInspectionDetail() {
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
       setFieldValues((fvData ?? []) as unknown as InspectionFieldValue[]);
-      setSignatureResolved((sig ?? []).length > 0);
+      const sigRecord = (sig ?? [])[0] ?? null;
+      setSignatureRecord(sigRecord as typeof signatureRecord);
+      setSignatureResolved(!!sigRecord);
 
       // Build photo counts per section
       const counts: Record<string, number> = {};
