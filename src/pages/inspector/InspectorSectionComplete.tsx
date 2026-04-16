@@ -458,21 +458,17 @@ export default function InspectorSectionComplete() {
 
   const renderReceptionMeta = () => {
     const contextFields = fieldsByGroup['context'] || [];
-    const meterFields = fieldsByGroup['meters'] || [];
-    const adminFields = fieldsByGroup['admin_contact'] || [];
 
     return (
       <>
         {contextFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl bg-muted/20">
             <CardContent className="p-4 space-y-3">
-              <p className="text-body font-semibold text-muted-foreground">Datos del Inmueble</p>
+              <p className="text-body font-semibold text-muted-foreground">{PROPERTY_GROUP_LABELS.context}</p>
               {contextFields.map(f => renderField(f, true))}
             </CardContent>
           </Card>
         )}
-        {meterFields.length > 0 && renderGroupCard(meterFields, PROPERTY_GROUP_LABELS.meters)}
-        {adminFields.length > 0 && renderGroupCard(adminFields, PROPERTY_GROUP_LABELS.admin_contact)}
       </>
     );
   };
@@ -566,17 +562,23 @@ export default function InspectorSectionComplete() {
         <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.03]">
           <CardContent className="p-4 space-y-3">
             <p className="text-body font-semibold">Firma del Inquilino</p>
-            {signatureHandled ? (
+            {persistedSignature?.signature_data ? (
+              <div className="rounded-2xl border border-border bg-background p-3 flex justify-center">
+                <img src={persistedSignature.signature_data} alt="Firma" className="max-h-32 object-contain" />
+              </div>
+            ) : signatureHandled ? (
               <p className="text-caption text-status-good font-medium">✓ Firma registrada</p>
-            ) : showSigPad ? (
+            ) : showSigPad && !readOnly ? (
               <SignaturePad
                 onConfirm={handleSigConfirm}
                 onCancel={() => setShowSigPad(false)}
               />
-            ) : (
+            ) : !readOnly ? (
               <Button onClick={() => setShowSigPad(true)} className="w-full h-11 rounded-xl">
                 Obtener firma del inquilino
               </Button>
+            ) : (
+              <p className="text-caption text-muted-foreground">Sin firma registrada.</p>
             )}
           </CardContent>
         </Card>
