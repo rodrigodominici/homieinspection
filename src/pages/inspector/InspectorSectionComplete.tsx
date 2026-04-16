@@ -21,23 +21,23 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { InspectionSection, InspectionFieldValue, InspectionPhoto, SaveStatus, InspectionReview } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, KeyRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, KeyRound, Lock, Info } from 'lucide-react';
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
-import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 
 // ─── Group labels ────────────────────────────────────────────────────────
-const INTRO_GROUP_LABELS: Record<string, string> = {
-  cleaning: 'Aseo',
-  removal: 'Retiro de Enseres',
-  fumigation: 'Fumigación',
+const PROPERTY_GROUP_LABELS: Record<string, string> = {
+  context: 'Datos del Inmueble',
 };
 
-const PROPERTY_GROUP_LABELS: Record<string, string> = {
-  meters: 'Medidores',
-  admin_contact: 'Contacto Administrador',
+const ACCESS_GROUP_LABELS: Record<string, string> = {
+  status: 'Estado',
+  observation: 'Observaciones',
+  photo: 'Fotos',
+  keys: 'Llaves / Tarjeta',
 };
 
 const KITCHEN_GROUP_LABELS: Record<string, string> = {
