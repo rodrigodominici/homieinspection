@@ -59,6 +59,12 @@ export default function InspectorSectionComplete() {
   const [fields, setFields] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
+  const [inspectionStatus, setInspectionStatus] = useState<string | null>(null);
+  const [persistedSignature, setPersistedSignature] = useState<{
+    signature_data: string | null;
+    signature_status: string;
+    signer_name: string | null;
+  } | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -68,21 +74,29 @@ export default function InspectorSectionComplete() {
   const [showSigPad, setShowSigPad] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const readOnly = isInspectorReadOnly(inspectionStatus);
+
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const [secRes, allSecRes, fieldRes, photoRes, reviewRes] = await Promise.all([
+      const [secRes, allSecRes, fieldRes, photoRes, reviewRes, inspRes, sigRes] = await Promise.all([
         supabase.from('inspection_sections').select('*').eq('id', sectionId!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_field_values').select('*').eq('inspection_section_id', sectionId!).order('sort_order'),
         supabase.from('inspection_photos').select('*').eq('inspection_section_id', sectionId!).order('sort_order'),
         supabase.from('inspection_reviews').select('*').eq('inspection_section_id', sectionId!).eq('comment_type', 'revision_request').order('created_at', { ascending: false }),
+        supabase.from('inspections').select('status').eq('id', inspectionId!).single(),
+        supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name').eq('inspection_id', inspectionId!).order('created_at', { ascending: false }).limit(1),
       ]);
       setSection(secRes.data as unknown as InspectionSection);
       setAllSections((allSecRes.data ?? []) as unknown as InspectionSection[]);
       setFields((fieldRes.data ?? []) as unknown as InspectionFieldValue[]);
       setPhotos((photoRes.data ?? []) as unknown as InspectionPhoto[]);
       setReviews((reviewRes.data ?? []) as unknown as InspectionReview[]);
+      setInspectionStatus(((inspRes.data as { status?: string } | null)?.status) ?? null);
+      const sigRecord = ((sigRes.data ?? []) as Array<typeof persistedSignature extends infer T ? T : never>)[0] ?? null;
+      setPersistedSignature(sigRecord as typeof persistedSignature);
+      if (sigRecord) setSignatureHandled(true);
       setLoading(false);
     };
     fetch();
