@@ -230,6 +230,24 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
       ...makeMatrixFields('access', accessItems),
       makeObservationField('access', 'Observaciones Acceso', accessItems.length),
       makePhotoField('access', 'Fotos Acceso', accessItems.length + 1),
+      // Llaves / Tarjeta sub-group (informational — not counted toward photo gate at field level;
+      // any photo within this section satisfies the section-level finalization rule).
+      {
+        field_key: 'access_keys_observation',
+        field_label: 'Observaciones Llaves / Tarjeta',
+        field_type: 'textarea',
+        group_key: 'keys',
+        sort_order: accessItems.length + 2,
+        required: false,
+      },
+      {
+        field_key: 'access_keys_photos',
+        field_label: 'Fotos de Llaves / Tarjeta',
+        field_type: 'photo_upload',
+        group_key: 'keys',
+        sort_order: accessItems.length + 3,
+        required: false,
+      },
     ],
   });
 
@@ -464,6 +482,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
       sort_order: order++,
       fields: [
         makePhotoField('estacionamiento', 'Fotos Estacionamiento', 0),
+        makeObservationField('estacionamiento', 'Observaciones Estacionamiento', 1),
       ],
     });
   }
