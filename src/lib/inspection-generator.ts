@@ -50,13 +50,6 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
   // Normalize alias: estudio_loft → estudio
   if (propertyType === 'estudio_loft') propertyType = 'estudio';
 
-  // Last-resort backward-compat fallback: derive from typology ONLY if
-  // property_type is absent. This is NOT the ideal contract — callers
-  // should always provide a valid property_type.
-  if (!propertyType && raw.typology?.toLowerCase() === 'estudio') {
-    propertyType = 'estudio';
-  }
-
   return {
     ...raw,
     property_type: propertyType ?? raw.property_type,
@@ -134,10 +127,8 @@ function makePhotoField(sectionKey: string, label: string, sortOrder: number): G
 // Classification is based SOLELY on property_type (canonical).
 // property_type is normalized upstream by normalizeIncomingPayload:
 //   - 'estudio_loft' → 'estudio'
-//   - missing property_type + typology='estudio' → 'estudio' (legacy fallback)
 //
-// typology is DEPRECATED — stored in snapshots for reference only, never
-// consumed by any conditional logic after normalization.
+// typology has been fully removed from the contract and DB schema.
 // bedrooms_count is used only for bedroom repetition, never classification.
 
 export function isStudio(payload: PropertyPayload): boolean {
@@ -511,7 +502,6 @@ export function normalizePropertySnapshot(rawPayload: PropertyPayload): Record<s
     market: payload.market,
     property_name: payload.property_name,
     address: payload.address,
-    typology: payload.typology,
     property_type: payload.property_type,
     inspection_type: payload.inspection_type,
     bedrooms_count: payload.bedrooms_count ?? 0,
@@ -542,7 +532,6 @@ export const EXAMPLE_PAYLOADS = {
     market: "CL",
     property_name: "Chacabuco 1120 1903",
     address: "Matucana 1161 Chacabuco 1120 D 1903",
-    typology: "Estudio",              // @deprecated — informational only
     property_type: "estudio",          // canonical source of truth
     inspection_type: "check_out",
     bedrooms_count: 0,
@@ -567,7 +556,6 @@ export const EXAMPLE_PAYLOADS = {
     market: "CL",
     property_name: "Av. Libertador 4500 801",
     address: "Av. Libertador Bernardo O'Higgins 4500, Depto 801",
-    typology: "2D2B",                  // @deprecated — informational only
     property_type: "departamento",
     inspection_type: "check_out",
     bedrooms_count: 2,
@@ -588,7 +576,6 @@ export const EXAMPLE_PAYLOADS = {
     market: "CL",
     property_name: "Casa Los Robles 123",
     address: "Los Robles 123, Ñuñoa",
-    typology: "3D2B",                  // @deprecated — informational only
     property_type: "casa",
     inspection_type: "check_in",
     bedrooms_count: 3,
@@ -607,7 +594,6 @@ export const EXAMPLE_PAYLOADS = {
     market: "CL",
     property_name: "Torre Platinum 2201",
     address: "Av. Apoquindo 6000, Depto 2201",
-    typology: "4D4B",                  // @deprecated — informational only
     property_type: "departamento",
     inspection_type: "check_out",
     bedrooms_count: 4,
@@ -628,7 +614,6 @@ export const EXAMPLE_PAYLOADS = {
     market: "CL",
     property_name: "Sin Agenda 100",
     address: "Calle Ejemplo 100, Santiago",
-    typology: "1D1B",                  // @deprecated — informational only
     property_type: "departamento",
     inspection_type: "check_out",
     bedrooms_count: 1,

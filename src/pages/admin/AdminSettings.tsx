@@ -40,7 +40,7 @@ const ACTIVE_DRIVERS = [
 ];
 
 const DEPRECATED_FLAGS = [
-  { field: 'typology',              reason: 'Ya no controla generación. Solo se almacena como referencia legacy. property_type es la única fuente de verdad' },
+  { field: 'typology',              reason: 'Eliminado completamente del esquema y del contrato. Solo persiste como JSON legacy en snapshots antiguos para retro-compatibilidad de visualización. property_type es la única fuente de verdad.' },
   { field: 'has_walking_closet',   reason: 'Ahora se infiere: aparece siempre para no-estudio' },
   { field: 'has_front_yard',       reason: 'Ahora se infiere de property_type = casa' },
   { field: 'has_terrace_living',   reason: 'Terraza es siempre visible' },

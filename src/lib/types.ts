@@ -193,8 +193,6 @@ export interface PropertyPayload {
   market: string;
   property_name?: string;
   address?: string;
-  /** @deprecated Informational only. Use property_type for classification. */
-  typology?: string;
   property_type?: string;
   inspection_type: string;
   bedrooms_count?: number;
