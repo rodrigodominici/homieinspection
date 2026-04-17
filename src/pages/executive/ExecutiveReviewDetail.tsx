@@ -1157,6 +1157,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
 }) {
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const urlOf = useSignedPhotoUrls(photos);
 
   const featured = photos[featuredIdx] ?? null;
   const hasManyPhotos = photos.length > 4;
