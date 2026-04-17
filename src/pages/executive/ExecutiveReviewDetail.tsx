@@ -1182,7 +1182,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           {/* Featured preview */}
           {featured && (
             <div className="relative group mb-2">
-              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+              <img src={urlOf(featured.id)} alt={featured.caption ?? ''}
                 className={cn('w-full rounded-lg object-cover aspect-[4/3] cursor-pointer',
                   (featured as any).visible_to_owner === false && 'opacity-40'
                 )}
@@ -1210,7 +1210,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
                   idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
                   (p as any).visible_to_owner === false && 'opacity-40'
                 )}>
-                <img src={p.public_url ?? ''} alt="" className="h-12 w-12 object-cover" />
+                <img src={urlOf(p.id)} alt="" className="h-12 w-12 object-cover" />
               </button>
             ))}
           </div>
@@ -1222,7 +1222,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
             const visible = (p as any).visible_to_owner !== false;
             return (
               <div key={p.id} className="relative group">
-                <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                <img src={urlOf(p.id)} alt={p.caption ?? ''}
                   className={cn('aspect-square rounded-lg object-cover w-full cursor-pointer', !visible && 'opacity-40')}
                   onClick={() => { setFeaturedIdx(photos.indexOf(p)); setDialogOpen(true); }} />
                 <button onClick={() => onToggleVisibility(p)}
@@ -1247,7 +1247,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           </DialogHeader>
           {featured && (
             <div className="relative">
-              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+              <img src={urlOf(featured.id)} alt={featured.caption ?? ''}
                 className="w-full rounded-lg object-contain max-h-[70vh]" />
               {photos.length > 1 && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2">
