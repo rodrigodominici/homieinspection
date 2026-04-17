@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
+import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
 
 // ─── Group labels ────────────────────────────────────────────────────────
 const PROPERTY_GROUP_LABELS: Record<string, string> = {
