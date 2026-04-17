@@ -1,10 +1,10 @@
 /**
  * Photo URL helper.
  *
- * Returns a short-lived signed URL for an inspection photo's storage path.
- * The `inspection-photos` bucket is private — never use `getPublicUrl` for it.
- * TTL: 1 hour.
+ * The `inspection-photos` bucket is private. Never use `getPublicUrl` for it.
+ * All reads go through `createSignedUrl` (TTL 1h).
  */
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const cache = new Map<string, { url: string; expiresAt: number }>();
@@ -24,10 +24,6 @@ export async function getSignedPhotoUrl(storagePath: string | null | undefined):
   return data.signedUrl;
 }
 
-/**
- * React hook helper: resolve signed URLs for an array of photos by storage_path.
- * Returns a map keyed by photo id.
- */
 export async function getSignedPhotoUrlMap<T extends { id: string; storage_path: string }>(
   photos: T[],
 ): Promise<Record<string, string>> {
@@ -35,4 +31,25 @@ export async function getSignedPhotoUrlMap<T extends { id: string; storage_path:
     photos.map(async (p) => [p.id, await getSignedPhotoUrl(p.storage_path)] as const),
   );
   return Object.fromEntries(entries);
+}
+
+/**
+ * React hook: returns `(photoId) => signedUrl` for the given photos, refreshing
+ * whenever the photo set changes by id list.
+ */
+export function useSignedPhotoUrls<T extends { id: string; storage_path: string }>(
+  photos: T[],
+): (id: string) => string {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const key = photos.map((p) => p.id).join(',');
+
+  useEffect(() => {
+    if (!photos.length) { setUrls({}); return; }
+    let cancelled = false;
+    getSignedPhotoUrlMap(photos).then((m) => { if (!cancelled) setUrls(m); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return (id: string) => urls[id] ?? '';
 }
