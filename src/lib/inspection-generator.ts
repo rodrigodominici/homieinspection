@@ -268,6 +268,10 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
   const applianceItems = [
     'Campana', 'Encimera / Parrilla', 'Horno', 'Microondas', 'Refrigerador',
   ];
+  // Kitchen / Logia ordering — applies only to inspections generated after this change.
+  // Existing inspections retain their stored `generated_structure_json` as-is (no migration).
+  // Order: kitchen matrix → appliances → technical → kitchen observation →
+  //        kitchen photos → logia matrix → logia observation → logia photos.
   const kitchenFields: GeneratedField[] = [
     ...makeMatrixFields('kitchen', kitchenItems, 'status'),
     ...makeMatrixFields('kitchen_app', applianceItems, 'appliance'),
@@ -293,17 +297,17 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
         { value: 'no_tiene', label: 'No tiene horno' },
       ],
     },
+    // Kitchen observation + photos (BEFORE logia block)
+    makeObservationField('kitchen', 'Observaciones Cocina y Electrodomésticos', 60),
+    makePhotoField('kitchen', 'Fotos Cocina y Electrodomésticos', 61),
     // Logia o Armario de Boiler/Calentador — 8-item matrix
     ...makeMatrixFields('logia', [
       'Calefón', 'Thermo', 'Inspección Gas', 'Grifería Lavadero',
       'Lámpara', 'Enchufes', 'Interruptor', 'Armario',
     ], 'logia_matrix'),
-    // Logia observation + photos
-    { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 68, required: false },
-    { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 69, required: false },
-    // Shared observation/photos
-    makeObservationField('kitchen', 'Observaciones Cocina y Electrodomésticos', 70),
-    makePhotoField('kitchen', 'Fotos Cocina y Electrodomésticos', 71),
+    // Logia observation + photos (after logia matrix)
+    { field_key: 'logia_observation', field_label: 'Observaciones Logia', field_type: 'textarea', group_key: 'logia', sort_order: 78, required: false },
+    { field_key: 'logia_photos', field_label: 'Fotos Logia', field_type: 'photo_upload', group_key: 'logia', sort_order: 79, required: false },
   ];
 
   sections.push({
