@@ -74,8 +74,8 @@ export default function AdminSettings() {
             Actúa como fuente de verdad del flujo actual. En el futuro evolucionará a templates editables.
           </AlertDescription>
         </Alert>
-        <Alert className="border-amber-500/30 bg-amber-500/5">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <Alert className="border-destructive/30 bg-destructive/5">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
           <AlertDescription className="text-sm">
             <strong>Alcance de cambios estructurales:</strong> Las reglas documentadas aplican a inspecciones <strong>recién generadas</strong>.
             Las inspecciones existentes conservan la estructura con la que fueron creadas. Para actualizar una inspección legacy a la nueva
