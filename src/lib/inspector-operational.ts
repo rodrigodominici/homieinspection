@@ -116,6 +116,7 @@ export function matchesInspectorStateFilter(
   const display = getInspectorDisplayState(inspection, completedSections, totalSections, fullInspection);
 
   if (stateFilter === 'in_progress') return display.key === 'in_progress';
+  if (stateFilter === 'assigned') return display.key === 'assigned';
   if (stateFilter === 'assigned_or_needs_changes') {
     return display.key === 'assigned' || display.key === 'needs_changes';
   }
