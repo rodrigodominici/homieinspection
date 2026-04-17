@@ -74,6 +74,8 @@ export default function ExecutiveReviewDetail() {
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
   const [photosBySection, setPhotosBySection] = useState<Record<string, InspectionPhoto[]>>({});
+  const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
+  const urlOf = useSignedPhotoUrls(allPhotos);
   const [reviewsBySection, setReviewsBySection] = useState<Record<string, InspectionReview[]>>({});
   const [repairsBySection, setRepairsBySection] = useState<Record<string, InspectionRepairItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -832,7 +834,7 @@ export default function ExecutiveReviewDetail() {
                   {sPhotos.length > 0 && (
                     <div className="grid grid-cols-4 gap-1">
                       {sPhotos.map(p => (
-                        <img key={p.id} src={p.public_url ?? ''} className="aspect-square rounded object-cover w-full" />
+                        <img key={p.id} src={urlOf(p.id)} className="aspect-square rounded object-cover w-full" />
                       ))}
                     </div>
                   )}
