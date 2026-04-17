@@ -176,8 +176,7 @@ export default function InspectorSectionComplete() {
     });
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handlePhotoUpload = async (files: FileList | null, fieldKey?: string | null) => {
     if (!files || !inspectionId || !sectionId || !section) return;
 
     if (!navigator.onLine) {
@@ -207,6 +206,7 @@ export default function InspectorSectionComplete() {
           .insert({
             inspection_id: inspectionId,
             inspection_section_id: sectionId,
+            field_key: fieldKey ?? null,
             group_key: 'photo',
             storage_bucket: 'inspection-photos',
             storage_path: path,
@@ -224,7 +224,6 @@ export default function InspectorSectionComplete() {
         setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
       }
     }
-    e.target.value = '';
   };
 
   const handleDeletePhoto = async (photo: InspectionPhoto) => {
