@@ -1087,7 +1087,7 @@ export default function AdminInspectionDetail() {
                                 return (
                                   <div key={p.id} className="relative group">
                                     <img
-                                      src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                      src={urlOf(p.id)} alt={p.caption ?? ''}
                                       className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
                                       onClick={() => setPhotoLightbox(p)}
                                     />
@@ -1180,7 +1180,7 @@ export default function AdminInspectionDetail() {
                               const visible = (p as any).visible_to_owner !== false;
                               return (
                                 <div key={p.id} className="relative group">
-                                  <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                  <img src={urlOf(p.id)} alt={p.caption ?? ''}
                                     className={cn('aspect-square rounded-xl object-cover', !visible && 'opacity-40')} />
                                   <button onClick={() => togglePhotoVisibility(p)}
                                     className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1411,7 +1411,7 @@ export default function AdminInspectionDetail() {
         {photoLightbox && (
           <Dialog open={!!photoLightbox} onOpenChange={(o) => !o && setPhotoLightbox(null)}>
             <DialogContent className="max-w-2xl">
-              <img src={photoLightbox.public_url ?? ''} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
+              <img src={urlOf(photoLightbox.id)} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
               {photoLightbox.caption && <p className="text-caption text-muted-foreground text-center">{photoLightbox.caption}</p>}
             </DialogContent>
           </Dialog>
