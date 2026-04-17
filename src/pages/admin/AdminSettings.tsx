@@ -3,7 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import AdminLayout from '@/components/AdminLayout';
-import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, ListOrdered } from 'lucide-react';
+import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, ListOrdered, Camera } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
  * Admin Settings — Generation Rules Documentation
@@ -13,21 +14,21 @@ import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, Lis
  */
 
 const SECTION_ORDER = [
-  { n: 1,  key: 'introduction',        title: 'Introducción',              visibility: 'Always',                             note: 'Aseo, fumigación, retiro de enseres' },
-  { n: 2,  key: 'property_data',       title: 'Datos del Inmueble',        visibility: 'Always',                             note: 'Medidores, contacto administración' },
-  { n: 3,  key: 'handover_person',     title: 'Datos del Inquilino',       visibility: 'Always',                             note: 'Persona que entrega' },
-  { n: 4,  key: 'access',             title: 'Acceso',                    visibility: 'Always',                             note: '' },
-  { n: 5,  key: 'living',             title: 'Living',                    visibility: 'Always',                             note: '' },
-  { n: 6,  key: 'kitchen_appliances', title: 'Cocina / Electrodomésticos', visibility: 'Always',                            note: 'Logia como sub-grupo matrix (8 ítems), NA permitido' },
-  { n: 7,  key: 'bedroom_N',          title: 'Dormitorio 1..N',           visibility: 'property_type ≠ estudio; repeat bedrooms_count', note: 'Se repite según cantidad de dormitorios' },
-  { n: 8,  key: 'walking_closet',     title: 'Walking Closet',            visibility: 'property_type ≠ estudio',             note: 'Después del último Dormitorio, antes de Baños' },
-  { n: 9,  key: 'bathroom_N',         title: 'Baño 1..N',                 visibility: 'Always; repeat bathrooms_count',     note: 'Siempre al menos 1 instancia (min 1)' },
-  { n: 10, key: 'terrace_patio',      title: 'Terraza / Patio Trasero',   visibility: 'Always',                             note: '' },
-  { n: 11, key: 'front_yard',         title: 'Patio Delantero',           visibility: 'property_type = casa',               note: 'Solo para casas' },
-  { n: 12, key: 'otros_generales',    title: 'Otros Generales',           visibility: 'Always',                             note: 'Formulario operativo de cierre (closing_operational)' },
-  { n: 13, key: 'bodega',             title: 'Bodega',                    visibility: 'has_storage = true',                 note: 'Condicional — solo bodega' },
-  { n: 14, key: 'estacionamiento',    title: 'Estacionamiento',           visibility: 'has_parking = true',                 note: 'Solo fotos — evidencia de estacionamiento' },
-  { n: 15, key: 'tenant_signature',   title: 'Firma de Inquilino',        visibility: 'Always (final)',                     note: 'Observaciones generales + firma' },
+  { n: 1,  key: 'introduction',        title: 'Introducción',              visibility: 'Always',                             note: 'Pantalla de contexto/briefing. Solo observación inicial opcional.', photosRequired: false },
+  { n: 2,  key: 'property_data',       title: 'Datos del Inmueble',        visibility: 'Always',                             note: 'Solo datos contextuales (read-only).',                              photosRequired: false },
+  { n: 3,  key: 'handover_person',     title: 'Datos del Inquilino',       visibility: 'Always',                             note: 'Persona que entrega.',                                              photosRequired: false },
+  { n: 4,  key: 'access',             title: 'Acceso',                    visibility: 'Always',                             note: 'Incluye Fotos y Observaciones de Llaves/Tarjeta.',                  photosRequired: true  },
+  { n: 5,  key: 'living',             title: 'Living',                    visibility: 'Always',                             note: '',                                                                 photosRequired: true  },
+  { n: 6,  key: 'kitchen_appliances', title: 'Cocina / Electrodomésticos', visibility: 'Always',                            note: 'Logia como sub-grupo matrix (8 ítems), NA permitido.',              photosRequired: true  },
+  { n: 7,  key: 'bedroom_N',          title: 'Dormitorio 1..N',           visibility: 'property_type ≠ estudio; repeat bedrooms_count', note: 'Se repite según cantidad de dormitorios.',                photosRequired: true  },
+  { n: 8,  key: 'walking_closet',     title: 'Walking Closet',            visibility: 'property_type ≠ estudio',             note: 'Después del último Dormitorio, antes de Baños.',                    photosRequired: false },
+  { n: 9,  key: 'bathroom_N',         title: 'Baño 1..N',                 visibility: 'Always; repeat bathrooms_count',     note: 'Siempre al menos 1 instancia (min 1).',                            photosRequired: true  },
+  { n: 10, key: 'terrace_patio',      title: 'Terraza / Patio Trasero',   visibility: 'Always',                             note: '',                                                                 photosRequired: false },
+  { n: 11, key: 'front_yard',         title: 'Patio Delantero',           visibility: 'property_type = casa',               note: 'Solo para casas.',                                                  photosRequired: false },
+  { n: 12, key: 'otros_generales',    title: 'Otros Generales',           visibility: 'Always',                             note: 'Formulario operativo de cierre (closing_operational).',             photosRequired: false },
+  { n: 13, key: 'bodega',             title: 'Bodega',                    visibility: 'has_storage = true',                 note: 'Condicional — solo bodega.',                                        photosRequired: true  },
+  { n: 14, key: 'estacionamiento',    title: 'Estacionamiento',           visibility: 'has_parking = true',                 note: 'Fotos + Observaciones Estacionamiento.',                            photosRequired: true  },
+  { n: 15, key: 'tenant_signature',   title: 'Firma de Inquilino',        visibility: 'Always (final)',                     note: 'Observaciones generales + firma.',                                  photosRequired: false },
 ];
 
 const ACTIVE_DRIVERS = [
@@ -73,6 +74,14 @@ export default function AdminSettings() {
             Actúa como fuente de verdad del flujo actual. En el futuro evolucionará a templates editables.
           </AlertDescription>
         </Alert>
+        <Alert className="border-destructive/30 bg-destructive/5">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <AlertDescription className="text-sm">
+            <strong>Alcance de cambios estructurales:</strong> Las reglas documentadas aplican a inspecciones <strong>recién generadas</strong>.
+            Las inspecciones existentes conservan la estructura con la que fueron creadas. Para actualizar una inspección legacy a la nueva
+            estructura se requerirá una herramienta administrativa de regeneración (pendiente).
+          </AlertDescription>
+        </Alert>
 
         {/* Section Order */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -84,28 +93,50 @@ export default function AdminSettings() {
             <CardDescription>Las 15 pantallas generadas en orden, con su regla de visibilidad.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Sección</TableHead>
-                  <TableHead>Visibilidad</TableHead>
-                  <TableHead>Nota</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {SECTION_ORDER.map((s) => (
-                  <TableRow key={s.key}>
-                    <TableCell className="font-mono text-muted-foreground">{s.n}</TableCell>
-                    <TableCell className="font-medium">{s.title}</TableCell>
-                    <TableCell>
-                      <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">{s.visibility}</code>
-                    </TableCell>
-                    <TableCell className="text-caption text-muted-foreground">{s.note}</TableCell>
+            <TooltipProvider>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Sección</TableHead>
+                    <TableHead>Visibilidad</TableHead>
+                    <TableHead className="w-32">
+                      <Tooltip>
+                        <TooltipTrigger className="inline-flex items-center gap-1 cursor-help">
+                          <Camera className="h-3 w-3" /> Fotos al finalizar
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Las fotos no se exigen entre pantallas. Solo se validan al enviar la inspección,
+                          y únicamente para las secciones marcadas aquí.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableHead>
+                    <TableHead>Nota</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {SECTION_ORDER.map((s) => (
+                    <TableRow key={s.key}>
+                      <TableCell className="font-mono text-muted-foreground">{s.n}</TableCell>
+                      <TableCell className="font-medium">{s.title}</TableCell>
+                      <TableCell>
+                        <code className="text-tiny bg-muted px-1.5 py-0.5 rounded">{s.visibility}</code>
+                      </TableCell>
+                      <TableCell>
+                        {s.photosRequired ? (
+                          <Badge variant="outline" className="gap-1 border-status-good/40 text-status-good">
+                            <CheckCircle className="h-3 w-3" /> Sí
+                          </Badge>
+                        ) : (
+                          <span className="text-caption text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-caption text-muted-foreground">{s.note}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </CardContent>
         </Card>
 
