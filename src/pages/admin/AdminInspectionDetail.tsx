@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -88,6 +88,7 @@ export default function AdminInspectionDetail() {
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [fieldValues, setFieldValues] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
+  const urlOf = useSignedPhotoUrls(photos);
   const [repairItems, setRepairItems] = useState<InspectionRepairItem[]>([]);
   const [reportVersions, setReportVersions] = useState<InspectionReportVersion[]>([]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
