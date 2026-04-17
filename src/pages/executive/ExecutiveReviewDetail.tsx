@@ -15,6 +15,7 @@ import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBa
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
+import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -325,7 +326,7 @@ export default function ExecutiveReviewDetail() {
         id: s.id, title: s.section_title, type: s.section_type,
         final_observation: finalObservations[s.id]?.trim() || null,
         photos: visiblePhotos.filter((p) => p.inspection_section_id === s.id)
-          .map((p) => ({ id: p.id, url: p.public_url, caption: p.caption })),
+          .map((p) => ({ id: p.id, url: null, caption: p.caption })),
         repairs: visibleRepairs.filter((r) => r.inspection_section_id === s.id)
           .map((r) => ({
             name: r.owner_friendly_name_snapshot || r.title_snapshot,
