@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
@@ -88,6 +89,7 @@ export default function AdminInspectionDetail() {
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [fieldValues, setFieldValues] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
+  const urlOf = useSignedPhotoUrls(photos);
   const [repairItems, setRepairItems] = useState<InspectionRepairItem[]>([]);
   const [reportVersions, setReportVersions] = useState<InspectionReportVersion[]>([]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
@@ -330,7 +332,6 @@ export default function AdminInspectionDetail() {
         property_name: inspection.property_name,
         address: inspection.address,
         market: inspection.market,
-        typology: inspection.typology,
         property_type: inspection.property_type,
         inspection_type: inspection.inspection_type,
       },
@@ -341,7 +342,7 @@ export default function AdminInspectionDetail() {
         final_observation: finalObservations[s.id]?.trim() || s.final_observation || null,
         photos: visiblePhotos
           .filter(p => p.inspection_section_id === s.id)
-          .map(p => ({ id: p.id, url: p.public_url, caption: p.caption })),
+          .map(p => ({ id: p.id, url: null, caption: p.caption })),
         repairs: visibleRepairs
           .filter(r => r.inspection_section_id === s.id)
           .map(r => ({
@@ -1086,7 +1087,7 @@ export default function AdminInspectionDetail() {
                                 return (
                                   <div key={p.id} className="relative group">
                                     <img
-                                      src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                      src={urlOf(p.id)} alt={p.caption ?? ''}
                                       className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
                                       onClick={() => setPhotoLightbox(p)}
                                     />
@@ -1179,7 +1180,7 @@ export default function AdminInspectionDetail() {
                               const visible = (p as any).visible_to_owner !== false;
                               return (
                                 <div key={p.id} className="relative group">
-                                  <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                                  <img src={urlOf(p.id)} alt={p.caption ?? ''}
                                     className={cn('aspect-square rounded-xl object-cover', !visible && 'opacity-40')} />
                                   <button onClick={() => togglePhotoVisibility(p)}
                                     className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1410,7 +1411,7 @@ export default function AdminInspectionDetail() {
         {photoLightbox && (
           <Dialog open={!!photoLightbox} onOpenChange={(o) => !o && setPhotoLightbox(null)}>
             <DialogContent className="max-w-2xl">
-              <img src={photoLightbox.public_url ?? ''} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
+              <img src={urlOf(photoLightbox.id)} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
               {photoLightbox.caption && <p className="text-caption text-muted-foreground text-center">{photoLightbox.caption}</p>}
             </DialogContent>
           </Dialog>

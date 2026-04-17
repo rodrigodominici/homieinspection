@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
+import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
 
 // ─── Group labels ────────────────────────────────────────────────────────
 const PROPERTY_GROUP_LABELS: Record<string, string> = {
@@ -58,6 +59,14 @@ export default function InspectorSectionComplete() {
   const [allSections, setAllSections] = useState<InspectionSection[]>([]);
   const [fields, setFields] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!photos.length) { setPhotoUrls({}); return; }
+    let cancelled = false;
+    getSignedPhotoUrlMap(photos).then((m) => { if (!cancelled) setPhotoUrls(m); });
+    return () => { cancelled = true; };
+  }, [photos]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
   const [inspectionStatus, setInspectionStatus] = useState<string | null>(null);
   const [persistedSignature, setPersistedSignature] = useState<{
@@ -193,7 +202,6 @@ export default function InspectorSectionComplete() {
           setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
           continue;
         }
-        const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
         const { data: photoData, error: photoError } = await supabase
           .from('inspection_photos')
           .insert({
@@ -202,7 +210,6 @@ export default function InspectorSectionComplete() {
             group_key: 'photo',
             storage_bucket: 'inspection-photos',
             storage_path: path,
-            public_url: urlData.publicUrl,
             uploaded_by: profile?.id,
             sort_order: photos.length,
           })
@@ -727,7 +734,7 @@ export default function InspectorSectionComplete() {
                   {photos.map((photo) => (
                     <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                       <img
-                        src={photo.public_url ?? ''}
+                        src={photoUrls[photo.id] ?? ''}
                         alt={photo.caption ?? 'Foto'}
                         className="w-full h-full object-cover"
                       />

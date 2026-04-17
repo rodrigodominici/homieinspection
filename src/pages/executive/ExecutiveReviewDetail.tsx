@@ -15,6 +15,7 @@ import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBa
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
+import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -73,6 +74,8 @@ export default function ExecutiveReviewDetail() {
   const [sections, setSections] = useState<InspectionSection[]>([]);
   const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
   const [photosBySection, setPhotosBySection] = useState<Record<string, InspectionPhoto[]>>({});
+  const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
+  const urlOf = useSignedPhotoUrls(allPhotos);
   const [reviewsBySection, setReviewsBySection] = useState<Record<string, InspectionReview[]>>({});
   const [repairsBySection, setRepairsBySection] = useState<Record<string, InspectionRepairItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -318,14 +321,14 @@ export default function ExecutiveReviewDetail() {
       property: {
         property_id: inspection.property_id, property_name: inspection.property_name,
         address: inspection.address, market: inspection.market,
-        typology: inspection.typology, property_type: inspection.property_type,
+        property_type: inspection.property_type,
         inspection_type: inspection.inspection_type,
       },
       sections: operationalSections.map((s) => ({
         id: s.id, title: s.section_title, type: s.section_type,
         final_observation: finalObservations[s.id]?.trim() || null,
         photos: visiblePhotos.filter((p) => p.inspection_section_id === s.id)
-          .map((p) => ({ id: p.id, url: p.public_url, caption: p.caption })),
+          .map((p) => ({ id: p.id, url: null, caption: p.caption })),
         repairs: visibleRepairs.filter((r) => r.inspection_section_id === s.id)
           .map((r) => ({
             name: r.owner_friendly_name_snapshot || r.title_snapshot,
@@ -831,7 +834,7 @@ export default function ExecutiveReviewDetail() {
                   {sPhotos.length > 0 && (
                     <div className="grid grid-cols-4 gap-1">
                       {sPhotos.map(p => (
-                        <img key={p.id} src={p.public_url ?? ''} className="aspect-square rounded object-cover w-full" />
+                        <img key={p.id} src={urlOf(p.id)} className="aspect-square rounded object-cover w-full" />
                       ))}
                     </div>
                   )}
@@ -1154,6 +1157,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
 }) {
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const urlOf = useSignedPhotoUrls(photos);
 
   const featured = photos[featuredIdx] ?? null;
   const hasManyPhotos = photos.length > 4;
@@ -1178,7 +1182,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           {/* Featured preview */}
           {featured && (
             <div className="relative group mb-2">
-              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+              <img src={urlOf(featured.id)} alt={featured.caption ?? ''}
                 className={cn('w-full rounded-lg object-cover aspect-[4/3] cursor-pointer',
                   (featured as any).visible_to_owner === false && 'opacity-40'
                 )}
@@ -1206,7 +1210,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
                   idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
                   (p as any).visible_to_owner === false && 'opacity-40'
                 )}>
-                <img src={p.public_url ?? ''} alt="" className="h-12 w-12 object-cover" />
+                <img src={urlOf(p.id)} alt="" className="h-12 w-12 object-cover" />
               </button>
             ))}
           </div>
@@ -1218,7 +1222,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
             const visible = (p as any).visible_to_owner !== false;
             return (
               <div key={p.id} className="relative group">
-                <img src={p.public_url ?? ''} alt={p.caption ?? ''}
+                <img src={urlOf(p.id)} alt={p.caption ?? ''}
                   className={cn('aspect-square rounded-lg object-cover w-full cursor-pointer', !visible && 'opacity-40')}
                   onClick={() => { setFeaturedIdx(photos.indexOf(p)); setDialogOpen(true); }} />
                 <button onClick={() => onToggleVisibility(p)}
@@ -1243,7 +1247,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           </DialogHeader>
           {featured && (
             <div className="relative">
-              <img src={featured.public_url ?? ''} alt={featured.caption ?? ''}
+              <img src={urlOf(featured.id)} alt={featured.caption ?? ''}
                 className="w-full rounded-lg object-contain max-h-[70vh]" />
               {photos.length > 1 && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2">
