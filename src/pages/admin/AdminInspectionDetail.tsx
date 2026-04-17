@@ -24,6 +24,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
@@ -341,7 +342,7 @@ export default function AdminInspectionDetail() {
         final_observation: finalObservations[s.id]?.trim() || s.final_observation || null,
         photos: visiblePhotos
           .filter(p => p.inspection_section_id === s.id)
-          .map(p => ({ id: p.id, url: p.public_url, caption: p.caption })),
+          .map(p => ({ id: p.id, url: null, caption: p.caption })),
         repairs: visibleRepairs
           .filter(r => r.inspection_section_id === s.id)
           .map(r => ({
