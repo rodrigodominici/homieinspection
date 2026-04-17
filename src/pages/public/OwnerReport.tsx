@@ -12,7 +12,10 @@ interface ReportPayload {
     property_name: string | null;
     address: string | null;
     market: string;
-    typology: string | null;
+    // Legacy snapshot field — kept ONLY to render older reports whose
+    // normalized_payload still contains this JSON key. Never written by
+    // current code and never read from the inspections table column.
+    typology?: string | null;
     property_type: string | null;
     inspection_type: string;
   };
