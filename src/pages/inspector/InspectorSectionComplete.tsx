@@ -487,7 +487,7 @@ export default function InspectorSectionComplete() {
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-4">
               <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.status}</p>
-              {statusFields.map(f => renderField(f))}
+              {statusFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
@@ -495,16 +495,16 @@ export default function InspectorSectionComplete() {
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-4">
               <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.appliance}</p>
-              {applianceFields.map(f => renderField(f))}
+              {applianceFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
-        {technicalFields.length > 0 && renderGroupCard(technicalFields, KITCHEN_GROUP_LABELS.technical)}
+        {technicalFields.length > 0 && renderGroupCard(technicalFields, KITCHEN_GROUP_LABELS.technical, readOnly)}
         {logiaMatrixFields.length > 0 && (
           <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.02]">
             <CardContent className="p-4 space-y-4">
               <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.logia_matrix}</p>
-              {logiaMatrixFields.map(f => renderField(f))}
+              {logiaMatrixFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
@@ -512,14 +512,14 @@ export default function InspectorSectionComplete() {
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-4">
               <p className="text-body font-semibold">{KITCHEN_GROUP_LABELS.logia}</p>
-              {logiaFields.map(f => renderField(f))}
+              {logiaFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
         {observationFields.length > 0 && observationFields.map(f => (
           <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-2">
-              {renderField(f)}
+              {renderField(f, readOnly)}
             </CardContent>
           </Card>
         ))}
@@ -554,7 +554,7 @@ export default function InspectorSectionComplete() {
         {observationFields.length > 0 && observationFields.map(f => (
           <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-2">
-              {renderField(f)}
+              {renderField(f, readOnly)}
             </CardContent>
           </Card>
         ))}
@@ -593,7 +593,7 @@ export default function InspectorSectionComplete() {
         {operationalFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-5">
-              {operationalFields.map(f => renderField(f))}
+              {operationalFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
@@ -610,20 +610,20 @@ export default function InspectorSectionComplete() {
 
     return (
       <>
-        {infoFields.length > 0 && renderGroupCard(infoFields)}
+        {infoFields.length > 0 && renderGroupCard(infoFields, undefined, readOnly)}
         {statusFields.length > 0 && (
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-4">
-              {statusFields.map(f => renderField(f))}
+              {statusFields.map(f => renderField(f, readOnly))}
             </CardContent>
           </Card>
         )}
-        {technicalFields.length > 0 && renderGroupCard(technicalFields, 'Datos Técnicos')}
-        {measurementFields.length > 0 && renderGroupCard(measurementFields, 'Mediciones')}
+        {technicalFields.length > 0 && renderGroupCard(technicalFields, 'Datos Técnicos', readOnly)}
+        {measurementFields.length > 0 && renderGroupCard(measurementFields, 'Mediciones', readOnly)}
         {observationFields.map(f => (
           <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4 space-y-2">
-              {renderField(f)}
+              {renderField(f, readOnly)}
             </CardContent>
           </Card>
         ))}
@@ -645,6 +645,11 @@ export default function InspectorSectionComplete() {
             <p className="font-semibold text-body truncate">{section.section_title}</p>
             <p className="text-tiny text-muted-foreground">{currentIndex + 1} de {allSections.length}</p>
           </div>
+          {readOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-tiny font-medium text-muted-foreground">
+              <Lock className="h-3 w-3" /> Solo lectura
+            </span>
+          )}
           <SectionStatusBadge status={section.status} />
         </div>
         {/* Save indicator */}
@@ -656,6 +661,14 @@ export default function InspectorSectionComplete() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
+        {readOnly && (
+          <Card className="border-0 ring-1 ring-border bg-muted/40 shadow-sm rounded-2xl">
+            <CardContent className="p-3 flex items-center gap-2">
+              <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+              <p className="text-caption text-muted-foreground">Inspección enviada — solo lectura.</p>
+            </CardContent>
+          </Card>
+        )}
         {/* Revision requests */}
         {reviews.length > 0 && section.status === 'needs_changes' && (
           <Card className="border-0 ring-1 ring-status-bad/30 bg-status-bad-bg shadow-sm rounded-2xl">
@@ -694,34 +707,42 @@ export default function InspectorSectionComplete() {
           <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
             <CardContent className="p-4">
               <p className="text-body font-medium mb-3">Fotos</p>
-              <div className="grid grid-cols-2 gap-2.5">
-                <PhotoUploadSheet onFiles={(files) => {
-                  const dt = new DataTransfer();
-                  Array.from(files).forEach((f) => dt.items.add(f));
-                  const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
-                  handlePhotoUpload(synth);
-                }} />
-                {Array.from(uploading).map((uid) => (
-                  <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
-                    <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                  </div>
-                ))}
-                {photos.map((photo) => (
-                  <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
-                    <img
-                      src={photo.public_url ?? ''}
-                      alt={photo.caption ?? 'Foto'}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      onClick={() => handleDeletePhoto(photo)}
-                      className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+              {readOnly && photos.length === 0 ? (
+                <p className="text-caption text-muted-foreground">Sin fotos registradas.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  {!readOnly && (
+                    <PhotoUploadSheet onFiles={(files) => {
+                      const dt = new DataTransfer();
+                      Array.from(files).forEach((f) => dt.items.add(f));
+                      const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                      handlePhotoUpload(synth);
+                    }} />
+                  )}
+                  {!readOnly && Array.from(uploading).map((uid) => (
+                    <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                    </div>
+                  ))}
+                  {photos.map((photo) => (
+                    <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
+                      <img
+                        src={photo.public_url ?? ''}
+                        alt={photo.caption ?? 'Foto'}
+                        className="w-full h-full object-cover"
+                      />
+                      {!readOnly && (
+                        <button
+                          onClick={() => handleDeletePhoto(photo)}
+                          className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -729,7 +750,15 @@ export default function InspectorSectionComplete() {
 
       {/* Sticky bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t space-y-2 safe-area-bottom">
-        {(() => {
+        {readOnly ? (
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/inspector/inspection/${inspectionId}`)}
+            className="w-full h-12 rounded-xl"
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" /> Volver a la inspección
+          </Button>
+        ) : (() => {
           const completed = isSectionCompleted(section.status);
           const isLast = !nextSection;
           return (
