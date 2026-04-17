@@ -70,7 +70,6 @@ export async function createInspectionFromPayload(
       market: payload.market,
       property_name: payload.property_name ?? null,
       address: payload.address ?? null,
-      typology: payload.typology ?? null,
       property_type: payload.property_type ?? null,
       inspection_type: payload.inspection_type,
       hubspot_property_id: payload.hubspot_property_id ?? null,

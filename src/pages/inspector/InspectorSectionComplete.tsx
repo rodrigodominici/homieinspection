@@ -193,7 +193,6 @@ export default function InspectorSectionComplete() {
           setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
           continue;
         }
-        const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(path);
         const { data: photoData, error: photoError } = await supabase
           .from('inspection_photos')
           .insert({
@@ -202,7 +201,6 @@ export default function InspectorSectionComplete() {
             group_key: 'photo',
             storage_bucket: 'inspection-photos',
             storage_path: path,
-            public_url: urlData.publicUrl,
             uploaded_by: profile?.id,
             sort_order: photos.length,
           })

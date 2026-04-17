@@ -318,7 +318,7 @@ export default function ExecutiveReviewDetail() {
       property: {
         property_id: inspection.property_id, property_name: inspection.property_name,
         address: inspection.address, market: inspection.market,
-        typology: inspection.typology, property_type: inspection.property_type,
+        property_type: inspection.property_type,
         inspection_type: inspection.inspection_type,
       },
       sections: operationalSections.map((s) => ({
