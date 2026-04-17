@@ -10,7 +10,7 @@ import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils'
 import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { MapPin, ArrowRight, Navigation, Clock, CalendarDays, AlertTriangle, CheckCircle2, Loader2, MessageCircle, PhoneCall } from 'lucide-react';
+import { MapPin, ArrowRight, Navigation, Clock, AlertTriangle, CheckCircle2, Loader2, MessageCircle, PhoneCall, ClipboardList, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   getInspectorDisplayState,
@@ -75,19 +75,28 @@ export default function InspectorDashboard() {
   const now = new Date();
   const todayStr = now.toDateString();
 
+  // "Total asignadas" excludes pending_assignment — that status is not yet
+  // actionable for the inspector (no formal assignment).
+  const assigned = inspections.filter((i) =>
+    ['assigned', 'in_progress', 'needs_changes'].includes(i.status)
+  );
+  // Broader "active" set used internally (includes pending_assignment for to_coordinate detection).
   const active = inspections.filter((i) =>
     ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'].includes(i.status)
   );
 
-  const todayInspections = active.filter(
+  const todayInspections = assigned.filter(
     (i) => i.scheduleDatetime && i.scheduleDatetime.toDateString() === todayStr
   );
 
-  const inProgress = active.filter((i) =>
+  const inProgress = assigned.filter((i) =>
     getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'in_progress'
   );
+  const toStart = assigned.filter((i) =>
+    getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'assigned'
+  );
   const completedToday = inspections.filter((i) => isCompletedToday(i));
-  const needsAttention = active.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'needs_changes');
+  const needsAttention = assigned.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'needs_changes');
   const toCoordinate = active.filter((i) => isToCoordinate(i));
 
   const readyToSend = active.filter((i) =>
@@ -160,12 +169,12 @@ export default function InspectorDashboard() {
               </Card>
             )}
 
-            {/* Stats 2x2 */}
+            {/* Stats 2x2 — operational summary */}
             <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Hoy" value={todayInspections.length} icon={CalendarDays} to="/inspector/agenda?date=today" accent />
-              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
-              <StatTile label="Completadas hoy" value={completedToday.length} icon={CheckCircle2} to="/inspector/all?filter=past&scope=completed_today" />
+              <StatTile label="Total asignadas" value={assigned.length} icon={ClipboardList} to="/inspector/all?filter=active" accent />
               <StatTile label="Por coordinar" value={toCoordinate.length} icon={PhoneCall} to="/inspector/all?filter=active&state=to_coordinate" />
+              <StatTile label="Por iniciar" value={toStart.length} icon={PlayCircle} to="/inspector/all?filter=active&state=assigned" />
+              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
             </div>
 
             {/* Needs attention */}

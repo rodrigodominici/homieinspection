@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ import { getInspectorDisplayState } from '@/lib/inspector-operational';
 export default function InspectorInspectionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [inspection, setInspection] = useState<Inspection | null>(null);
@@ -92,7 +93,9 @@ export default function InspectorInspectionDetail() {
       setLoading(false);
     };
     fetchData();
-  }, [id]);
+    // location.key changes on every navigation (including returning from a sub-route),
+    // so signature/section state stays fresh after signing inside the section view.
+  }, [id, location.key]);
 
   if (loading) {
     return (

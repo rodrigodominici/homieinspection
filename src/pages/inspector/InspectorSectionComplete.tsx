@@ -176,8 +176,7 @@ export default function InspectorSectionComplete() {
     });
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handlePhotoUpload = async (files: FileList | null, fieldKey?: string | null) => {
     if (!files || !inspectionId || !sectionId || !section) return;
 
     if (!navigator.onLine) {
@@ -207,6 +206,7 @@ export default function InspectorSectionComplete() {
           .insert({
             inspection_id: inspectionId,
             inspection_section_id: sectionId,
+            field_key: fieldKey ?? null,
             group_key: 'photo',
             storage_bucket: 'inspection-photos',
             storage_path: path,
@@ -224,7 +224,6 @@ export default function InspectorSectionComplete() {
         setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
       }
     }
-    e.target.value = '';
   };
 
   const handleDeletePhoto = async (photo: InspectionPhoto) => {
@@ -552,6 +551,12 @@ export default function InspectorSectionComplete() {
         skip_reason: data.skip_reason,
         created_by: profile?.id,
       });
+      // Persist locally so card re-renders immediately without refetch
+      setPersistedSignature({
+        signature_data: data.signature_data,
+        signature_status: data.signature_status,
+        signer_name: data.signer_name || null,
+      });
       setSignatureHandled(true);
       setShowSigPad(false);
     };
@@ -709,50 +714,84 @@ export default function InspectorSectionComplete() {
           </div>
         )}
 
-        {/* Photos */}
-        {sectionType !== 'signature' && (
-          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4">
-              <p className="text-body font-medium mb-3">Fotos</p>
-              {readOnly && photos.length === 0 ? (
-                <p className="text-caption text-muted-foreground">Sin fotos registradas.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2.5">
-                  {!readOnly && (
-                    <PhotoUploadSheet onFiles={(files) => {
-                      const dt = new DataTransfer();
-                      Array.from(files).forEach((f) => dt.items.add(f));
-                      const synth = { target: { files: dt.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
-                      handlePhotoUpload(synth);
-                    }} />
-                  )}
-                  {!readOnly && Array.from(uploading).map((uid) => (
-                    <div key={uid} className="aspect-square rounded-2xl bg-muted flex items-center justify-center">
-                      <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                    </div>
-                  ))}
-                  {photos.map((photo) => (
-                    <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
-                      <img
-                        src={photoUrls[photo.id] ?? ''}
-                        alt={photo.caption ?? 'Foto'}
-                        className="w-full h-full object-cover"
-                      />
-                      {!readOnly && (
-                        <button
-                          onClick={() => handleDeletePhoto(photo)}
-                          className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Photos — contextual labels per section; multi-bucket for kitchen / access */}
+        {sectionType !== 'signature' && (() => {
+          // Define per-section photo buckets. Sections without scoped buckets render a
+          // single card containing all photos (legacy + new) — backward compatible.
+          type Bucket = { fieldKey: string; title: string; primary?: boolean };
+          let buckets: Bucket[] | null = null;
+          if (sectionType === 'space_kitchen') {
+            buckets = [
+              { fieldKey: 'kitchen_photos', title: 'Fotos Cocina y Electrodomésticos', primary: true },
+              { fieldKey: 'logia_photos', title: 'Fotos Logia' },
+            ];
+          } else if (sectionKey === 'access') {
+            buckets = [
+              { fieldKey: 'access_photos', title: 'Fotos Acceso', primary: true },
+              { fieldKey: 'access_keys_photos', title: 'Fotos Llaves / Tarjeta' },
+            ];
+          }
+
+          const renderPhotoCard = (
+            title: string,
+            cardPhotos: InspectionPhoto[],
+            uploadFieldKey: string | null,
+          ) => (
+            <Card key={title} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-body font-medium mb-3">{title}</p>
+                {readOnly && cardPhotos.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">Sin fotos registradas.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {!readOnly && (
+                      <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
+                    )}
+                    {cardPhotos.map((photo) => (
+                      <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
+                        <img
+                          src={photoUrls[photo.id] ?? ''}
+                          alt={photo.caption ?? 'Foto'}
+                          className="w-full h-full object-cover"
+                        />
+                        {!readOnly && (
+                          <button
+                            onClick={() => handleDeletePhoto(photo)}
+                            className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          if (buckets) {
+            // Multi-bucket: split photos by field_key. Legacy (null) photos fall into the primary bucket.
+            const knownKeys = new Set(buckets.map((b) => b.fieldKey));
+            const primary = buckets.find((b) => b.primary) ?? buckets[0];
+            return (
+              <>
+                {buckets.map((b) => {
+                  const cardPhotos = photos.filter((p) => {
+                    if (p.field_key === b.fieldKey) return true;
+                    // legacy/null photos and any unknown keys go to primary bucket
+                    if (b === primary && (!p.field_key || !knownKeys.has(p.field_key))) return true;
+                    return false;
+                  });
+                  return renderPhotoCard(b.title, cardPhotos, b.fieldKey);
+                })}
+              </>
+            );
+          }
+
+          // Single-bucket section — unchanged behavior, just contextual title
+          return renderPhotoCard(`Fotos ${section.section_title}`, photos, null);
+        })()}
       </main>
 
       {/* Sticky bottom navigation */}
