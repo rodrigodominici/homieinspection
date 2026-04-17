@@ -551,6 +551,12 @@ export default function InspectorSectionComplete() {
         skip_reason: data.skip_reason,
         created_by: profile?.id,
       });
+      // Persist locally so card re-renders immediately without refetch
+      setPersistedSignature({
+        signature_data: data.signature_data,
+        signature_status: data.signature_status,
+        signer_name: data.signer_name || null,
+      });
       setSignatureHandled(true);
       setShowSigPad(false);
     };
