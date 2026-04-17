@@ -1,114 +1,62 @@
 
 
-# Plan: Canonical Supabase migration — final refinements
+## Plan: Final `typology` purge (defensive cleanup)
 
-## Refinement 1 — Pre-drop `typology` sweep (mandatory before migration)
+### Audit findings
 
-Before the `ALTER TABLE ... DROP COLUMN typology` runs, execute a code sweep:
-- `grep -rn "typology" src/ supabase/` to locate every read/write.
-- Confirm only these surfaces remain: type definitions (`@deprecated` JSDoc), normalization fallback in `normalizeIncomingPayload`, snapshot writer (`property_snapshot_json.typology` legacy informational), and the public report display (parenthetical secondary).
-- Confirm RPCs: `get_published_report` returns `normalized_payload` as-is; the payload may contain `typology` inside the snapshot but that is JSON, not a column read. No RPC SELECTs the column directly.
-- Confirm `inspection-service.ts` no longer writes `typology` to the `inspections` table column (it currently does — line ~76 of the service inserts `typology: payload.typology`). **This must be removed in the same code change before the column drop.**
+I searched the entire codebase. **No code currently writes `typology` as a column on the `inspections` table.** The remaining references are all safe:
 
-Only after the sweep passes do we ship the migration that drops the columns from `inspections` and `inspection_templates`. The JSON-stored legacy `typology` inside `property_snapshot_json` stays untouched (informational).
-
----
-
-## Refinement 2 — Staged `public_url` transition (kept as proposed)
-
-Phase A (this iteration):
-- App stops writing `public_url` on photo insert.
-- App stops reading `public_url`; all reads go through `createSignedUrl(storage_path, 3600)`.
-- Column kept in DB. Existing rows untouched.
-
-Phase B (future, after signed-URL flow validated in QA):
-- Separate migration: `ALTER TABLE inspection_photos DROP COLUMN public_url;`
-
-This iteration ships Phase A only.
-
----
-
-## Refinement 3 — Signed URL design for `get_published_report`
-
-Behavior change to the existing RPC:
-
-- **Auth gate**: unchanged. The `public_token` + `property_id` pair remains the sole authorization check. No token → no payload → no URLs. RLS is bypassed via `SECURITY DEFINER` only after the token match succeeds.
-- **TTL**: signed URLs valid for **3600 seconds (1 hour)**. Each call to `get_published_report` regenerates fresh URLs, so a tenant refreshing the page always gets a working set.
-- **Mechanism**: inside the RPC, after fetching `normalized_payload`, walk the embedded photo entries and for each `storage_path` call `extensions.url_encode` + sign using `storage.sign_url(bucket, path, ttl)` (or compose the signed URL via the storage schema's signing helper). Replace each photo's URL field in the payload with the signed URL before returning.
-- **Function volatility**: change from `STABLE` to `VOLATILE` because URL signing is non-deterministic per call.
-- **Failure mode**: if a `storage_path` cannot be signed (object missing), return `null` for that photo's URL — the report renderer already tolerates missing images.
-- **No change** to bucket policy from the RPC's perspective: the bucket flips to private, and the RPC's signed URLs are the only public read path.
-
-Documented inline in the migration file as a header comment.
-
----
-
-## Refinement 4 — Storage cleanup stays outside migrations
-
-Object deletion under `inspections/` prefix runs as a **separate Node script** (`scripts/qa-storage-wipe.ts`), invoked manually by an operator using the service role key. It is not part of any SQL migration.
-
-The script:
-1. Lists objects in `inspection-photos` bucket recursively.
-2. Filters to paths starting with `inspections/`.
-3. Calls `storage.from('inspection-photos').remove(paths)` in batches of 100.
-4. Logs total deleted count.
-
-Rationale: SQL migrations should not perform side effects against the storage API; they must remain idempotent and reversible at the schema level.
-
----
-
-## Refinement 5 — Architecture Decision Record
-
-Create `docs/ADR-001-canonical-architecture.md` documenting the five canonical decisions:
-
-```
-# ADR-001: Canonical Operational Architecture
-
-Status: Accepted (QA phase)
-Date: 2026-04-17
-
-## Decisions
-
-1. property_type is the SOLE source of truth for property classification.
-   Canonical values: 'estudio', 'departamento', 'casa'.
-   All conditional generation logic reads only this field.
-
-2. typology is REMOVED from the relational schema.
-   - Dropped from `inspections` and `inspection_templates`.
-   - May persist inside `property_snapshot_json` as legacy informational data.
-   - No new code may consume it for business logic.
-
-3. inspection-photos bucket is PRIVATE.
-   - No anonymous reads.
-   - Authenticated app reads use `createSignedUrl(path, 3600)`.
-   - Public reports receive signed URLs through `get_published_report`,
-     gated by the `public_token + property_id` pair.
-
-4. storage_path is the CANONICAL asset reference.
-   - `inspection_photos.public_url` is deprecated.
-   - App stops writing it now; column dropped in a later migration after
-     signed-URL flow is validated.
-   - Path convention: `inspections/{inspection_id}/{section_key}/{uuid}.{ext}`.
-
-5. QA data reset is APPROVED.
-   - Wipe scope: inspections, sections, field values, photos (rows + objects),
-     signatures, reviews, repair items, report versions, audit log, source events.
-   - Preserved: profiles, mappings, repair catalog, contractors, templates.
-   - Storage objects under `inspections/` removed via separate Node script,
-     not via SQL migration.
-```
-
----
-
-## Execution order (5 deliverables)
-
-| # | Deliverable | Type |
+| Location | Usage | Safe? |
 |---|---|---|
-| 1 | `docs/ADR-001-canonical-architecture.md` | Doc |
-| 2 | Code sweep + remove `typology` writes from `inspection-service.ts`; remove `public_url` writes from photo upload paths; switch all photo reads to `createSignedUrl` | Code |
-| 3 | Migration `<ts>_canonical_cleanup.sql`: drop `typology` columns, flip bucket to private, add `storage.objects` RLS, replace `get_published_report` (volatile, signed URLs, 1h TTL, token-gated) | SQL migration |
-| 4 | Migration `<ts>_qa_wipe.sql`: delete inspection-domain rows in dependency order | SQL migration |
-| 5 | `scripts/qa-storage-wipe.ts`: standalone Node script for storage object cleanup | Script |
+| `src/lib/inspection-service.ts` insert into `inspections` | does NOT include `typology` | ✅ already clean |
+| `src/pages/admin/AdminInspectionDetail.tsx` updates | only inspector_id, executive_id, status, contractor_id, property_overrides_json, dates | ✅ |
+| `src/pages/admin/AdminInspectionDetail.tsx` `PropertyOverrideEditor` | bedrooms, bathrooms, tower, parking, storage | ✅ |
+| `src/pages/inspector/InspectorInspectionDetail.tsx` | only `property_overrides_json` | ✅ |
+| `src/pages/executive/ExecutiveReviewDetail.tsx` | status, contractor_id, published_at, approved_at | ✅ |
+| `src/lib/inspection-generator.ts` `normalizePropertySnapshot` | writes `typology` into a **JSON** object → goes to `property_snapshot_json`, not the column | ✅ per ADR-001 |
+| `EXAMPLE_PAYLOADS` | seed data with `typology` JSON key | ✅ snapshot only |
+| `src/pages/public/OwnerReport.tsx` | reads `typology` from snapshot JSON for display | ✅ |
+| `src/lib/types.ts` `PropertyPayload.typology` | input type only | ✅ |
+| `src/integrations/supabase/types.ts` | column already absent | ✅ |
 
-No drop of `inspection_photos.public_url` in this iteration. No FK additions. No new tables.
+So the runtime error is most likely **PostgREST schema cache staleness** after the recent column drop, not an active write site in code.
+
+### Defensive hardening (so this can never recur)
+
+To make the cleanup bulletproof and prevent any future accidental write, I'll go one step further than required and remove `typology` from every code surface — including the JSON snapshot keys — keeping only legacy display fallback in OwnerReport for older snapshots stored before the cleanup.
+
+### Changes
+
+1. **`src/lib/types.ts`** — Remove `typology?: string` from `PropertyPayload`. (Forces TS errors on any future write attempt.)
+
+2. **`src/lib/inspection-generator.ts`**
+   - Remove `typology: payload.typology` from `normalizePropertySnapshot`'s returned object.
+   - Remove the `typology` legacy fallback in `normalizeIncomingPayload` (since `property_type` is now mandatory).
+   - Remove the `typology` keys from all `EXAMPLE_PAYLOADS`.
+
+3. **`src/pages/public/OwnerReport.tsx`**
+   - Keep the `typology` field on the local `Property` type (with `string | null`) so older published snapshots that still have the JSON key continue to render.
+   - Keep the parenthetical fallback rendering.
+   - Add a comment explaining this is purely a legacy-snapshot reader, never a writer.
+
+4. **`src/pages/admin/AdminSettings.tsx`** — Update the `DEPRECATED_FLAGS` entry for `typology` to clarify the field is now fully removed from new inspections (kept only as a doc note for legacy snapshots).
+
+5. **PostgREST schema cache** — A column drop sometimes requires PostgREST to reload its schema cache. To force this, run a no-op migration with `NOTIFY pgrst, 'reload schema';` so the API picks up that the column is gone. This is the actual root cause of the runtime error.
+
+### Files touched
+
+| File | Change |
+|---|---|
+| `src/lib/types.ts` | drop `typology` from `PropertyPayload` |
+| `src/lib/inspection-generator.ts` | drop `typology` from snapshot writer, fallback, and EXAMPLE_PAYLOADS |
+| `src/pages/public/OwnerReport.tsx` | comment-only clarification, keep legacy-snapshot read |
+| `src/pages/admin/AdminSettings.tsx` | clarify deprecation note |
+| `supabase/migrations/<ts>_pgrst_reload.sql` | `NOTIFY pgrst, 'reload schema';` (1-line migration) |
+
+### Deliverable summary
+
+- **Where typology was still referenced as a DB column**: nowhere in current source. The runtime error is PostgREST schema-cache staleness.
+- **What will be removed**: `PropertyPayload.typology` type, snapshot-JSON write of `typology`, EXAMPLE_PAYLOADS `typology` keys, `normalizeIncomingPayload`'s `typology` fallback.
+- **Where typology survives**: only as an optional read inside `OwnerReport.tsx` against legacy snapshot JSON (no DB column read, no write anywhere).
+- **Error resolution**: schema-cache reload migration forces PostgREST to re-read the schema and stop reporting the missing column.
 
