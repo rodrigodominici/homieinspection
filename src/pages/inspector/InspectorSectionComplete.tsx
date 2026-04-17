@@ -59,6 +59,14 @@ export default function InspectorSectionComplete() {
   const [allSections, setAllSections] = useState<InspectionSection[]>([]);
   const [fields, setFields] = useState<InspectionFieldValue[]>([]);
   const [photos, setPhotos] = useState<InspectionPhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!photos.length) { setPhotoUrls({}); return; }
+    let cancelled = false;
+    getSignedPhotoUrlMap(photos).then((m) => { if (!cancelled) setPhotoUrls(m); });
+    return () => { cancelled = true; };
+  }, [photos]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
   const [inspectionStatus, setInspectionStatus] = useState<string | null>(null);
   const [persistedSignature, setPersistedSignature] = useState<{
@@ -726,7 +734,7 @@ export default function InspectorSectionComplete() {
                   {photos.map((photo) => (
                     <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                       <img
-                        src={photo.public_url ?? ''}
+                        src={photoUrls[photo.id] ?? ''}
                         alt={photo.caption ?? 'Foto'}
                         className="w-full h-full object-cover"
                       />
