@@ -733,7 +733,6 @@ export type Database = {
           market: string
           name: string
           property_type: string | null
-          typology: string | null
           updated_at: string
         }
         Insert: {
@@ -744,7 +743,6 @@ export type Database = {
           market: string
           name: string
           property_type?: string | null
-          typology?: string | null
           updated_at?: string
         }
         Update: {
@@ -755,7 +753,6 @@ export type Database = {
           market?: string
           name?: string
           property_type?: string | null
-          typology?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -797,7 +794,6 @@ export type Database = {
           status: string
           submitted_by: string | null
           template_id: string | null
-          typology: string | null
           updated_at: string
         }
         Insert: {
@@ -836,7 +832,6 @@ export type Database = {
           status?: string
           submitted_by?: string | null
           template_id?: string | null
-          typology?: string | null
           updated_at?: string
         }
         Update: {
@@ -875,7 +870,6 @@ export type Database = {
           status?: string
           submitted_by?: string | null
           template_id?: string | null
-          typology?: string | null
           updated_at?: string
         }
         Relationships: [
