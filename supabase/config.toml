@@ -1,1 +1,10 @@
 project_id = "qlbprsnnjbzfixjrvfuh"
+
+[functions.hubspot-inspection-intake]
+verify_jwt = false
+
+[functions.retry-source-event]
+verify_jwt = true
+
+[functions.recover-stalled-events]
+verify_jwt = true
