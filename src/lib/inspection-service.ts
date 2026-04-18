@@ -1,22 +1,19 @@
 /**
- * Inspection creation service.
+ * Inspection creation service (optimized).
  *
- * Orchestrates the full creation flow:
- * 1. Store raw source event in `inspection_source_events`
- * 2. Normalize property snapshot (immutable at creation time)
- * 3. Generate dynamic sections from payload rules
- * 4. Create parent `inspections` record with:
- *    - property_snapshot_json
- *    - inspector_id   (assigned at creation time by admin or resolved from HubSpot)
- *    - executive_id   (assigned at creation time by admin or resolved from HubSpot)
- *    - status = 'assigned' if both IDs present, else 'pending_assignment'
- * 5. Create concrete `inspection_sections` rows
- * 6. Create `inspection_field_values` for each section
- * 7. Mark source event as completed
+ * Replaces the previous N+1 sequential inserts with a single RPC call
+ * `create_inspection_from_event`, which performs all inserts (inspection +
+ * sections + field values) inside ONE transaction with bulk inserts.
  *
- * IMPORTANT: `executive_id` is set HERE during creation. It must not be null
- * when the inspection reaches the review stage, otherwise the executive
- * RLS policies will block access.
+ * Flow:
+ * 1. Persist a source event (manual) carrying the normalized payload AND
+ *    the pre-computed generated structure under `__generated__`.
+ * 2. Call the RPC; it transitions the event to `completed` and returns the
+ *    new inspection id.
+ * 3. Fetch and return the freshly created inspection row.
+ *
+ * Both the manual-creation path (admin UI) and the HubSpot intake edge
+ * function reuse the same RPC, guaranteeing parity.
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -26,110 +23,70 @@ import type { Json } from '@/integrations/supabase/types';
 
 export async function createInspectionFromPayload(
   payload: PropertyPayload,
-  createdBy: string
+  createdBy: string,
 ) {
-  // 1. Save raw source event
+  // 1. Build normalized payload with embedded generated structure & snapshot.
+  const snapshot = normalizePropertySnapshot(payload);
+  const generatedStructure = { sections: generateSections(payload) };
+
+  const inspectorId = payload.inspector?.id || null;
+  const executiveId = payload.executive?.id || null;
+  const hasValidInspector = inspectorId && inspectorId !== 'REPLACE_WITH_REAL_ID';
+  const hasValidExecutive = executiveId && executiveId !== 'REPLACE_WITH_REAL_ID';
+
+  const normalized = {
+    ...payload,
+    inspector: hasValidInspector ? payload.inspector : undefined,
+    executive: hasValidExecutive ? payload.executive : undefined,
+    __snapshot__: snapshot,
+    __generated__: generatedStructure,
+  };
+
+  // 2. Persist source event (status `received` so the RPC can pick it up).
   const { data: sourceEvent, error: sourceError } = await supabase
     .from('inspection_source_events')
     .insert({
       source: 'manual',
+      event_type: 'inspection.create',
+      payload_version: 'v1',
       hubspot_property_id: payload.hubspot_property_id ?? null,
+      external_object_id: payload.hubspot_property_id ?? null,
       payload_json: payload as unknown as Json,
+      normalized_payload_json: normalized as unknown as Json,
       processing_status: 'processing',
+      processing_started_at: new Date().toISOString(),
     })
-    .select()
+    .select('id')
     .single();
 
-  if (sourceError) throw new Error(`Source event error: ${sourceError.message}`);
-
-  // 2. Normalize property snapshot
-  const snapshot = normalizePropertySnapshot(payload);
-
-  // 3. Generate sections
-  const generatedSections = generateSections(payload);
-
-  // 4. Resolve inspector and executive IDs
-  const inspectorId = payload.inspector?.id || null;
-  const executiveId = payload.executive?.id || null;
-
-  /**
-   * STATUS LOGIC:
-   * - If both inspector and executive are assigned → 'assigned'
-   * - Otherwise → 'pending_assignment' (admin must resolve manually)
-   */
-  const hasValidInspector = inspectorId && inspectorId !== 'REPLACE_WITH_REAL_ID';
-  const hasValidExecutive = executiveId && executiveId !== 'REPLACE_WITH_REAL_ID';
-  const status = hasValidInspector && hasValidExecutive ? 'assigned' : 'pending_assignment';
-
-  // 5. Create parent inspection
-  const { data: inspection, error: inspError } = await supabase
-    .from('inspections')
-    .insert({
-      source_event_id: sourceEvent.id,
-      property_id: payload.property_id,
-      market: payload.market,
-      property_name: payload.property_name ?? null,
-      address: payload.address ?? null,
-      property_type: payload.property_type ?? null,
-      inspection_type: payload.inspection_type,
-      hubspot_property_id: payload.hubspot_property_id ?? null,
-      inspector_id: hasValidInspector ? inspectorId : null,
-      executive_id: hasValidExecutive ? executiveId : null,
-      status,
-      scheduled_at: payload.scheduled_at ?? null,
-      property_snapshot_json: snapshot as unknown as Json,
-      generated_structure_json: { sections: generatedSections } as unknown as Json,
-      created_by: createdBy,
-    })
-    .select()
-    .single();
-
-  if (inspError) throw new Error(`Inspection error: ${inspError.message}`);
-
-  // 6. Create concrete sections
-  for (const section of generatedSections) {
-    const { data: sectionData, error: secError } = await supabase
-      .from('inspection_sections')
-      .insert({
-        inspection_id: inspection.id,
-        section_key: section.section_key,
-        section_title: section.section_title,
-        section_type: section.section_type,
-        sort_order: section.sort_order,
-        status: 'not_started',
-      })
-      .select()
-      .single();
-
-    if (secError) throw new Error(`Section error: ${secError.message}`);
-
-    // 7. Create field values
-    if (section.fields.length > 0) {
-      const fieldRows = section.fields.map((f) => ({
-        inspection_id: inspection.id,
-        inspection_section_id: sectionData.id,
-        field_key: f.field_key,
-        field_label: f.field_label,
-        field_type: f.field_type,
-        group_key: f.group_key,
-        sort_order: f.sort_order,
-        is_visible: true,
-        value_json: f.options_json ? ({ options: f.options_json } as unknown as Json) : null,
-      }));
-
-      const { error: fieldError } = await supabase
-        .from('inspection_field_values')
-        .insert(fieldRows);
-
-      if (fieldError) throw new Error(`Field values error: ${fieldError.message}`);
-    }
+  if (sourceError || !sourceEvent) {
+    throw new Error(`Source event error: ${sourceError?.message ?? 'unknown'}`);
   }
 
-  // 8. Mark source event as completed
-  await supabase
-    .from('inspection_source_events')
-    .update({ processing_status: 'completed', processed_at: new Date().toISOString() })
-    .eq('id', sourceEvent.id);
+  // 3. Single-RPC creation.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    'create_inspection_from_event',
+    { p_event_id: sourceEvent.id },
+  );
 
+  if (rpcError) throw new Error(`Inspection RPC error: ${rpcError.message}`);
+  const row = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+  if (!row?.inspection_id || row.failure_reason) {
+    throw new Error(`Inspection creation failed: ${row?.error_detail ?? 'unknown'}`);
+  }
+
+  // 4. Stamp created_by (RPC does not have auth context).
+  await supabase
+    .from('inspections')
+    .update({ created_by: createdBy })
+    .eq('id', row.inspection_id);
+
+  const { data: inspection, error: fetchError } = await supabase
+    .from('inspections')
+    .select('*')
+    .eq('id', row.inspection_id)
+    .single();
+
+  if (fetchError) throw new Error(`Inspection fetch error: ${fetchError.message}`);
   return inspection;
 }

@@ -1,0 +1,361 @@
+import { useCallback, useEffect, useState } from 'react';
+import AdminLayout from '@/components/AdminLayout';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Link } from 'react-router-dom';
+import { Search, RefreshCw, AlertTriangle, RotateCcw, ExternalLink } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+
+type EventRow = {
+  id: string;
+  source: string;
+  event_type: string | null;
+  external_event_id: string | null;
+  external_object_id: string | null;
+  hubspot_property_id: string | null;
+  processing_status: string;
+  failure_reason: string | null;
+  error_message: string | null;
+  inspection_id: string | null;
+  received_at: string;
+  processed_at: string | null;
+  processing_duration_ms: number | null;
+  payload_json: any;
+  normalized_payload_json: any;
+  duplicate_count: number;
+  duplicate_attempts_json: any;
+  retry_count: number;
+  retry_attempts_json: any;
+  recovery_count: number;
+};
+
+const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  completed: 'default',
+  received: 'secondary',
+  processing: 'secondary',
+  failed: 'destructive',
+  ignored: 'outline',
+  pending: 'outline',
+};
+
+const FAILURE_LABELS: Record<string, string> = {
+  payload_validation: 'Payload inválido',
+  normalization: 'Normalización',
+  inspection_creation: 'Creación inspección',
+  assignment_resolution: 'Asignación',
+  unknown: 'Desconocido',
+};
+
+const RETRY_LIMIT = 5;
+
+export default function AdminIntegrationHubSpotLogs() {
+  const [rows, setRows] = useState<EventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<EventRow | null>(null);
+  const [recovering, setRecovering] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = supabase
+      .from('inspection_source_events')
+      .select('*')
+      .order('received_at', { ascending: false })
+      .limit(200);
+
+    if (statusFilter === 'stalled') {
+      const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      q = q.in('processing_status', ['received', 'processing']).lt('received_at', cutoff);
+    } else if (statusFilter !== 'all') {
+      q = q.eq('processing_status', statusFilter);
+    }
+
+    const { data } = await q;
+    setRows((data ?? []) as EventRow[]);
+    setLoading(false);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = rows.filter((r) => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (
+      r.id.toLowerCase().includes(s) ||
+      (r.external_event_id ?? '').toLowerCase().includes(s) ||
+      (r.external_object_id ?? '').toLowerCase().includes(s) ||
+      (r.hubspot_property_id ?? '').toLowerCase().includes(s) ||
+      (r.payload_json?.data?.property_id ?? '').toLowerCase().includes(s)
+    );
+  });
+
+  async function handleRetry(row: EventRow) {
+    const { data, error } = await supabase.functions.invoke('retry-source-event', {
+      body: { event_id: row.id },
+    });
+    if (error) {
+      toast({ title: 'Error al reintentar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Resultado', description: data?.status ?? 'sin estado' });
+    load();
+    if (selected?.id === row.id) {
+      const { data: refreshed } = await supabase
+        .from('inspection_source_events')
+        .select('*')
+        .eq('id', row.id)
+        .single();
+      if (refreshed) setSelected(refreshed as EventRow);
+    }
+  }
+
+  async function handleRecoverAll() {
+    setRecovering(true);
+    const { data, error } = await supabase.functions.invoke('recover-stalled-events', { body: {} });
+    setRecovering(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Recuperados', description: `${data?.recovered ?? 0} eventos procesados` });
+    load();
+  }
+
+  return (
+    <AdminLayout>
+      <div className="p-6 max-w-7xl mx-auto space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              <Link to="/admin/integrations" className="hover:underline">Integraciones</Link> /{' '}
+              <Link to="/admin/integrations/hubspot" className="hover:underline">HubSpot</Link> / Logs
+            </p>
+            <h1 className="text-2xl font-semibold">Eventos entrantes</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRecoverAll} disabled={recovering}>
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Reprocesar atascados
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {['all', 'received', 'processing', 'completed', 'failed', 'ignored', 'stalled'].map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={statusFilter === s ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter(s)}
+                >
+                  {s === 'all' ? 'Todos' : s === 'stalled' ? 'Atascados' : s}
+                </Button>
+              ))}
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por external_event_id, external_object_id, property_id…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase">
+                <tr>
+                  <th className="text-left px-3 py-2">Recibido</th>
+                  <th className="text-left px-3 py-2">Tipo</th>
+                  <th className="text-left px-3 py-2">External event id</th>
+                  <th className="text-left px-3 py-2">Property</th>
+                  <th className="text-left px-3 py-2">Estado</th>
+                  <th className="text-left px-3 py-2">Inspección</th>
+                  <th className="text-left px-3 py-2">Duración</th>
+                  <th className="text-left px-3 py-2">Error</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id} className="border-t hover:bg-muted/30">
+                    <td className="px-3 py-2 whitespace-nowrap">{new Date(r.received_at).toLocaleString()}</td>
+                    <td className="px-3 py-2">
+                      <code className="text-xs">{r.event_type ?? '—'}</code>
+                    </td>
+                    <td className="px-3 py-2">
+                      <code className="text-xs truncate max-w-[160px] inline-block">
+                        {r.external_event_id?.slice(0, 24) ?? '—'}
+                      </code>
+                      {r.duplicate_count > 0 && (
+                        <Badge variant="outline" className="ml-1">×{r.duplicate_count + 1}</Badge>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <code className="text-xs">
+                        {r.payload_json?.data?.property_id ?? r.external_object_id ?? '—'}
+                      </code>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant={STATUS_VARIANTS[r.processing_status] ?? 'outline'}>
+                        {r.processing_status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      {r.inspection_id ? (
+                        <Link to={`/admin/inspections/${r.inspection_id}`} className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
+                          ver <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {r.processing_duration_ms != null ? `${r.processing_duration_ms} ms` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-destructive max-w-[200px] truncate">
+                      {r.failure_reason && (
+                        <span className="font-medium">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}: </span>
+                      )}
+                      {r.error_message ?? ''}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <Button size="sm" variant="ghost" onClick={() => setSelected(r)}>Detalles</Button>
+                      {r.processing_status === 'failed' && (
+                        <RetryButton row={r} onRetry={handleRetry} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && !loading && (
+                  <tr><td colSpan={9} className="text-center py-8 text-muted-foreground text-sm">Sin eventos.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>Evento {selected.id.slice(0, 8)}</SheetTitle>
+                <SheetDescription>
+                  {selected.event_type} · {new Date(selected.received_at).toLocaleString()}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="space-y-4 mt-4 text-sm">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={STATUS_VARIANTS[selected.processing_status] ?? 'outline'}>
+                    {selected.processing_status}
+                  </Badge>
+                  {selected.failure_reason && (
+                    <Badge variant="destructive">{FAILURE_LABELS[selected.failure_reason] ?? selected.failure_reason}</Badge>
+                  )}
+                  {selected.duplicate_count > 0 && (
+                    <Badge variant="outline">duplicados: {selected.duplicate_count}</Badge>
+                  )}
+                  {selected.retry_count > 0 && (
+                    <Badge variant="outline">retries: {selected.retry_count}/{RETRY_LIMIT}</Badge>
+                  )}
+                  {selected.recovery_count > 0 && (
+                    <Badge variant="outline">recovered: {selected.recovery_count}</Badge>
+                  )}
+                </div>
+
+                {selected.error_message && (
+                  <div>
+                    <h3 className="font-medium mb-1">Error</h3>
+                    <pre className="text-xs bg-destructive/10 text-destructive p-2 rounded">{selected.error_message}</pre>
+                  </div>
+                )}
+
+                {selected.processing_status === 'failed' && (
+                  <RetryButton row={selected} onRetry={handleRetry} expanded />
+                )}
+
+                <div>
+                  <h3 className="font-medium mb-1">Payload recibido</h3>
+                  <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">{JSON.stringify(selected.payload_json, null, 2)}</pre>
+                </div>
+
+                {selected.normalized_payload_json && (
+                  <div>
+                    <h3 className="font-medium mb-1">Payload normalizado</h3>
+                    <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">{JSON.stringify(selected.normalized_payload_json, null, 2)}</pre>
+                  </div>
+                )}
+
+                {Array.isArray(selected.duplicate_attempts_json) && selected.duplicate_attempts_json.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-1">Reintentos del mismo evento ({selected.duplicate_attempts_json.length})</h3>
+                    <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-48">{JSON.stringify(selected.duplicate_attempts_json, null, 2)}</pre>
+                  </div>
+                )}
+
+                {Array.isArray(selected.retry_attempts_json) && selected.retry_attempts_json.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-1">Historial de retries</h3>
+                    <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-48">{JSON.stringify(selected.retry_attempts_json, null, 2)}</pre>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </AdminLayout>
+  );
+}
+
+function RetryButton({ row, onRetry, expanded }: { row: EventRow; onRetry: (r: EventRow) => void; expanded?: boolean }) {
+  const blockedValidation = row.failure_reason === 'payload_validation';
+  const blockedLimit = (row.retry_count ?? 0) >= RETRY_LIMIT;
+  const disabled = blockedValidation || blockedLimit;
+  const tip = blockedValidation
+    ? 'No se puede reintentar: el payload es inválido. Corrige en el origen.'
+    : blockedLimit
+    ? `Límite alcanzado (${RETRY_LIMIT}).`
+    : 'Reintentar creación';
+
+  const btn = (
+    <Button
+      size="sm"
+      variant={expanded ? 'default' : 'ghost'}
+      disabled={disabled}
+      onClick={() => onRetry(row)}
+      className={expanded ? '' : 'ml-1'}
+    >
+      <RotateCcw className="mr-1 h-3.5 w-3.5" />
+      Reintentar
+    </Button>
+  );
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild><span>{btn}</span></TooltipTrigger>
+        <TooltipContent>{tip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
