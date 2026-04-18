@@ -593,36 +593,78 @@ export type Database = {
       }
       inspection_source_events: {
         Row: {
+          duplicate_attempts_json: Json
+          duplicate_count: number
           error_message: string | null
+          event_type: string | null
+          external_event_id: string | null
+          external_object_id: string | null
+          failure_reason: string | null
           hubspot_event_id: string | null
           hubspot_property_id: string | null
           id: string
+          inspection_id: string | null
+          normalized_payload_json: Json | null
           payload_json: Json
+          payload_version: string | null
           processed_at: string | null
+          processing_duration_ms: number | null
+          processing_started_at: string | null
           processing_status: string
           received_at: string
+          recovery_count: number
+          retry_attempts_json: Json
+          retry_count: number
           source: string
         }
         Insert: {
+          duplicate_attempts_json?: Json
+          duplicate_count?: number
           error_message?: string | null
+          event_type?: string | null
+          external_event_id?: string | null
+          external_object_id?: string | null
+          failure_reason?: string | null
           hubspot_event_id?: string | null
           hubspot_property_id?: string | null
           id?: string
+          inspection_id?: string | null
+          normalized_payload_json?: Json | null
           payload_json: Json
+          payload_version?: string | null
           processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_started_at?: string | null
           processing_status?: string
           received_at?: string
+          recovery_count?: number
+          retry_attempts_json?: Json
+          retry_count?: number
           source?: string
         }
         Update: {
+          duplicate_attempts_json?: Json
+          duplicate_count?: number
           error_message?: string | null
+          event_type?: string | null
+          external_event_id?: string | null
+          external_object_id?: string | null
+          failure_reason?: string | null
           hubspot_event_id?: string | null
           hubspot_property_id?: string | null
           id?: string
+          inspection_id?: string | null
+          normalized_payload_json?: Json | null
           payload_json?: Json
+          payload_version?: string | null
           processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_started_at?: string | null
           processing_status?: string
           received_at?: string
+          recovery_count?: number
+          retry_attempts_json?: Json
+          retry_count?: number
           source?: string
         }
         Relationships: []
@@ -1127,6 +1169,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_inspection_from_event: {
+        Args: { p_event_id: string }
+        Returns: {
+          error_detail: string
+          failure_reason: string
+          inspection_id: string
+        }[]
+      }
       get_published_report: {
         Args: { p_property_id: string; p_token: string }
         Returns: Json
