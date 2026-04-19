@@ -225,7 +225,7 @@ export default function AdminIntegrationHubSpotLogs() {
                         {r.processing_status}
                       </Badge>
                       {hasPartialAssignment(r) && (
-                        <Badge variant="outline" className="ml-1 border-yellow-500 text-yellow-700 bg-yellow-50">
+                        <Badge variant="outline" className="ml-1">
                           Asignación parcial
                         </Badge>
                       )}
