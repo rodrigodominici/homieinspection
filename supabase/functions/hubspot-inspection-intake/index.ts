@@ -253,8 +253,10 @@ Deno.serve(async (req: Request) => {
   const generatedStructure = generateBasicSections(body.data);
 
   // Resolve assignment ids from emails (does NOT decide status — RPC does)
-  const inspectorRes = await resolveAssignment(supabase, body.data.inspector_email, 'inspector');
-  const executiveRes = await resolveAssignment(supabase, body.data.executive_email, 'executive');
+  const inspectorEmail = extractSlotEmail(body.data, 'inspector');
+  const executiveEmail = extractSlotEmail(body.data, 'executive');
+  const inspectorRes = await resolveAssignment(supabase, inspectorEmail, 'inspector');
+  const executiveRes = await resolveAssignment(supabase, executiveEmail, 'executive');
 
   // Preserve any pre-existing { id, email } blocks; only fill id when we resolved one.
   const existingInspector = (body.data.inspector && typeof body.data.inspector === 'object') ? body.data.inspector : {};
