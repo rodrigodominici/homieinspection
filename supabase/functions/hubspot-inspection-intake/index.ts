@@ -232,7 +232,37 @@ Deno.serve(async (req: Request) => {
 
   // 5. Try insert with ON CONFLICT DO NOTHING
   const generatedStructure = generateBasicSections(body.data);
-  const normalized = { ...body.data, __generated__: generatedStructure, __snapshot__: body.data };
+
+  // Resolve assignment ids from emails (does NOT decide status — RPC does)
+  const inspectorRes = await resolveAssignment(supabase, body.data.inspector_email, 'inspector');
+  const executiveRes = await resolveAssignment(supabase, body.data.executive_email, 'executive');
+
+  // Preserve any pre-existing { id, email } blocks; only fill id when we resolved one.
+  const existingInspector = (body.data.inspector && typeof body.data.inspector === 'object') ? body.data.inspector : {};
+  const existingExecutive = (body.data.executive && typeof body.data.executive === 'object') ? body.data.executive : {};
+
+  const normalizedInspector = {
+    ...existingInspector,
+    ...(inspectorRes.resolved_profile_id ? { id: inspectorRes.resolved_profile_id } : {}),
+    ...(inspectorRes.input_email ? { email: inspectorRes.input_email } : {}),
+  };
+  const normalizedExecutive = {
+    ...existingExecutive,
+    ...(executiveRes.resolved_profile_id ? { id: executiveRes.resolved_profile_id } : {}),
+    ...(executiveRes.input_email ? { email: executiveRes.input_email } : {}),
+  };
+
+  const normalized = {
+    ...body.data,
+    inspector: Object.keys(normalizedInspector).length ? normalizedInspector : undefined,
+    executive: Object.keys(normalizedExecutive).length ? normalizedExecutive : undefined,
+    __generated__: generatedStructure,
+    __snapshot__: body.data,
+    __assignment__: {
+      inspector: inspectorRes,
+      executive: executiveRes,
+    },
+  };
 
   const { data: inserted, error: insertErr } = await supabase
     .from('inspection_source_events')
