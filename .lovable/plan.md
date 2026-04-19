@@ -2,53 +2,48 @@
 
 ## Diagnóstico
 
-El payload es válido pero usa **forma anidada** (`inspector: { email }`) mientras que el resolver actual solo lee **forma plana** (`inspector_email`). Resultado: ambos slots quedan como `absent`, no se resuelven IDs, y la inspección termina en `pending_assignment` aunque los emails existen en `profiles`.
+El error **"query has no destination for result data"** **NO** viene de los emails `null` (eso está bien manejado: ambos slots quedan `absent` → `pending_assignment`, que es válido en el constraint).
 
-```text
-payload.data.inspector.email   ← forma enviada (anidada)
-payload.data.inspector_email   ← única forma que el resolver lee hoy
+El error viene de la **RPC `create_inspection_from_event`**, en este bloque CTE:
+
+```sql
+WITH inserted_sections AS (INSERT ... RETURNING ...),
+     inserted_fields  AS (INSERT ... RETURNING 1)
+SELECT 1;   -- ← finalize CTE
 ```
 
-Confirmado en `validateEnvelope` (líneas 41–45) y en la llamada `resolveAssignment(body.data.inspector_email, ...)` del intake.
+En PL/pgSQL, una sentencia `SELECT` que devuelve filas **debe** ir a `INTO`, `PERFORM`, o `RETURN QUERY`. El `SELECT 1;` final no tiene destino, y por eso Postgres lanza `query has no destination for result data` y la inspección **nunca se inserta** (todo el bloque revierte por la transacción del `BEGIN ... EXCEPTION`).
 
-## Decisión: arreglar el procesamiento, no el payload
+Por qué este evento sí lo dispara y otros parecidos no: la RPC se ejecuta **siempre**, pero el bug solo se manifiesta cuando el CTE realmente corre hasta el `SELECT 1` final (cualquier evento que llegue al insert de inspections lo hace). Otros eventos antiguos fallaron antes por el constraint `pending_assignment`, ocultando este bug.
 
-La forma anidada `{ inspector: { email }, executive: { email } }` es la que ya documenta el contrato canónico (`PropertyPayload` en `src/lib/types.ts`) y la que usan los flujos manuales. El intake debe aceptarla como entrada primaria; los campos planos quedan como compat.
+Confirmación: el payload de este evento es válido, la sección generada (`__generated__.sections`) existe (1 sección "introduction"), y el status que computaría la RPC es `pending_assignment` (ya soportado). No hay ningún otro motivo para fallar.
 
-## Cambio (1 archivo)
+## Fix (1 cambio, en una migración)
 
-**`supabase/functions/hubspot-inspection-intake/index.ts`**
+Reemplazar el `SELECT 1;` huérfano por `PERFORM 1 FROM inserted_fields;` (o cambiar todo el CTE por sentencias separadas). La opción mínima y segura:
 
-1. **Helper de extracción** que prefiere anidado y cae a plano:
-   ```ts
-   function extractSlotEmail(data: any, slot: 'inspector' | 'executive'): string | null {
-     const nested = data?.[slot]?.email;
-     const flat = data?.[`${slot}_email`];
-     const v = (typeof nested === 'string' && nested) ? nested
-             : (typeof flat   === 'string' && flat)   ? flat
-             : null;
-     return v ? v.trim().toLowerCase() : null;
-   }
-   ```
+```sql
+-- dentro de create_inspection_from_event, donde hoy dice:
+--   ... )
+--   SELECT 1; -- finalize CTE
+-- pasarlo a:
+PERFORM 1
+FROM (
+  WITH inserted_sections AS (
+    INSERT INTO public.inspection_sections (...) SELECT ... RETURNING id, section_key
+  ),
+  inserted_fields AS (
+    INSERT INTO public.inspection_field_values (...) SELECT ... RETURNING 1
+  )
+  SELECT 1 AS done
+) cte;
+```
 
-2. **Validador**: aceptar ambas formas. Validar que si `data.inspector` existe sea objeto y que `email` (cuando esté) sea string. Mismo para `executive`. Mantener la validación actual de `inspector_email`/`executive_email` planos.
+`PERFORM` descarta el resultado correctamente y satisface a PL/pgSQL. No cambia ninguna lógica de inserción ni el orden.
 
-3. **Llamadas a `resolveAssignment`**: usar `extractSlotEmail(body.data, 'inspector' | 'executive')` en lugar de leer el campo plano.
+No hay cambios en la edge function, ni en el constraint, ni en el UI.
 
-4. **El bloque `__assignment__`** sigue registrando `input_email` con el valor extraído, así el panel de Logs muestra exactamente lo que se intentó resolver, sin importar la forma de entrada.
+## Acción posterior
 
-No se toca el RPC, ni el constraint, ni el UI de Logs (que ya soporta el panel de resolución).
-
-## Resultado esperado
-
-Con el mismo payload del usuario:
-- `inspector.email = alejandra.rodriguez@homierent.com` → resuelve vía `mapping` o `profiles` → ID inyectado.
-- `executive.email = tomas.alvarez@homierent.com` → resuelve igual → ID inyectado.
-- RPC computa `status = 'assigned'`.
-
-Si alguno no existe en BD, queda `pending_assignment` (válido en el constraint actual) con el panel de Logs mostrando el paso fallido.
-
-## Acción adicional sugerida (opcional, después del fix)
-
-Reintentar el evento `hs_evt_deal_48862344351` desde `/admin/integrations/hubspot/logs` una vez deployada la función para validar end-to-end.
+Una vez aplicada la migración, hacer click en **"Reintentar"** sobre el evento `d62acc32` (`hs_evt_deal_38462011782`). Debe quedar en `completed` con la inspección creada en estado `pending_assignment` (porque ambos emails son `null`).
 
