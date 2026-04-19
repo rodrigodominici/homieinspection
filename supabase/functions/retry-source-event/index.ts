@@ -24,11 +24,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: claims, error: claimsErr } = await userClient.auth.getClaims(auth.replace('Bearer ', ''));
-  if (claimsErr || !claims?.claims?.sub) {
+  const token = auth.replace('Bearer ', '');
+  const userClient = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+  if (userErr || !userData?.user?.id) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -36,7 +35,7 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-  const userId = claims.claims.sub;
+  const userId = userData.user.id;
   const { data: profile } = await admin.from('profiles').select('role,is_active').eq('id', userId).maybeSingle();
   if (!profile || profile.role !== 'admin' || !profile.is_active) {
     return new Response(JSON.stringify({ error: 'forbidden' }), {
