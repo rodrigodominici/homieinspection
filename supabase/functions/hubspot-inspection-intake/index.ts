@@ -38,7 +38,100 @@ function validateEnvelope(body: any): { ok: true; data: any } | { ok: false; err
   for (const f of ['property_id', 'market', 'inspection_type']) {
     if (typeof d[f] !== 'string' || !d[f]) return { ok: false, error: `missing_data.${f}` };
   }
+  for (const f of ['inspector_email', 'executive_email']) {
+    if (d[f] !== undefined && d[f] !== null && typeof d[f] !== 'string') {
+      return { ok: false, error: `invalid_data.${f}` };
+    }
+  }
   return { ok: true, data: body };
+}
+
+type ResolutionStep = { step: string; outcome: 'hit' | 'miss' | 'error'; detail: string };
+type SlotResolution = {
+  input_email: string | null;
+  resolved_via: 'mapping' | 'profile' | 'unresolved' | 'absent';
+  resolved_profile_id: string | null;
+  steps: ResolutionStep[];
+  warnings: string[];
+};
+
+async function resolveAssignment(
+  supabase: any,
+  rawEmail: string | undefined | null,
+  slot: 'inspector' | 'executive',
+): Promise<SlotResolution> {
+  const email = (rawEmail ?? '').trim().toLowerCase();
+  if (!email) {
+    return { input_email: null, resolved_via: 'absent', resolved_profile_id: null, steps: [], warnings: [] };
+  }
+  const steps: ResolutionStep[] = [];
+  const warnings: string[] = [];
+
+  // Step 1: external_user_mappings (case-insensitive on hubspot_email)
+  try {
+    const { data: mapRows, error: mapErr } = await supabase
+      .from('external_user_mappings')
+      .select('profile_id, role_hint')
+      .eq('provider', 'hubspot')
+      .eq('is_active', true)
+      .ilike('hubspot_email', email);
+
+    if (mapErr) {
+      steps.push({ step: 'external_user_mappings', outcome: 'error', detail: mapErr.message });
+    } else {
+      const match = (mapRows ?? []).find(
+        (r: any) => !r.role_hint || r.role_hint === slot,
+      );
+      if (match?.profile_id) {
+        steps.push({
+          step: 'external_user_mappings',
+          outcome: 'hit',
+          detail: `matched provider=hubspot, hubspot_email=${email}${match.role_hint ? `, role_hint=${match.role_hint}` : ', no role_hint'}`,
+        });
+        return { input_email: email, resolved_via: 'mapping', resolved_profile_id: match.profile_id, steps, warnings };
+      }
+      steps.push({
+        step: 'external_user_mappings',
+        outcome: 'miss',
+        detail: `no active mapping for hubspot_email=${email}${(mapRows ?? []).length ? ' (role_hint mismatch)' : ''}`,
+      });
+    }
+  } catch (e) {
+    steps.push({ step: 'external_user_mappings', outcome: 'error', detail: (e as Error).message });
+  }
+
+  // Step 2: profiles fallback (case-insensitive on email, role-scoped)
+  try {
+    const { data: profRows, error: profErr } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('is_active', true)
+      .eq('role', slot)
+      .ilike('email', email)
+      .limit(1);
+
+    if (profErr) {
+      steps.push({ step: 'profiles_fallback', outcome: 'error', detail: profErr.message });
+    } else if (profRows && profRows.length > 0) {
+      steps.push({
+        step: 'profiles_fallback',
+        outcome: 'hit',
+        detail: `matched profiles.email=${email} + role=${slot}`,
+      });
+      return { input_email: email, resolved_via: 'profile', resolved_profile_id: profRows[0].id, steps, warnings };
+    } else {
+      steps.push({
+        step: 'profiles_fallback',
+        outcome: 'miss',
+        detail: `no active profile with email=${email} and role=${slot}`,
+      });
+    }
+  } catch (e) {
+    steps.push({ step: 'profiles_fallback', outcome: 'error', detail: (e as Error).message });
+  }
+
+  warnings.push(`No se pudo resolver ${slot}_email=${email} en mapping ni profiles.`);
+  return { input_email: email, resolved_via: 'unresolved', resolved_profile_id: null, steps, warnings };
 }
 
 // Inline lightweight section generator mirroring src/lib/inspection-generator.ts shape.
