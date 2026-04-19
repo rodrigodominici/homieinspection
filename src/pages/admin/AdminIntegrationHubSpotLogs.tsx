@@ -25,6 +25,7 @@ type EventRow = {
   received_at: string;
   processed_at: string | null;
   processing_duration_ms: number | null;
+  processing_step: string | null;
   payload_json: any;
   normalized_payload_json: any;
   duplicate_count: number;
@@ -46,10 +47,31 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 const FAILURE_LABELS: Record<string, string> = {
   payload_validation: 'Payload inválido',
   normalization: 'Normalización',
+  structure_generation: 'Generación de estructura',
   inspection_creation: 'Creación inspección',
+  inspection_insert: 'Inserción de inspección',
+  sections_insert: 'Inserción de secciones',
+  field_values_insert: 'Inserción de campos',
+  event_update: 'Actualización del evento',
   assignment_resolution: 'Asignación',
   unknown: 'Desconocido',
 };
+
+const NON_RETRYABLE_REASONS = new Set(['payload_validation', 'structure_generation']);
+const NON_RETRYABLE_ERROR_PATTERNS = [
+  'violates check constraint',
+  'data-modifying statement',
+  'column does not exist',
+  'syntax error',
+  'invalid input syntax',
+];
+
+function isNonRetryable(reason: string | null, msg: string | null): boolean {
+  if (reason && NON_RETRYABLE_REASONS.has(reason)) return true;
+  if (!msg) return false;
+  const lower = msg.toLowerCase();
+  return NON_RETRYABLE_ERROR_PATTERNS.some((p) => lower.includes(p));
+}
 
 const RETRY_LIMIT = 5;
 
