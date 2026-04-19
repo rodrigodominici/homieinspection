@@ -31,6 +31,8 @@ const SAMPLE_PAYLOAD = {
     tenant_name: 'María González',
     tenant_whatsapp: '+56912345678',
     fecha_de_termino_real_de_contrato: '2026-03-15',
+    inspector_email: 'inspectora@homie.cl',
+    executive_email: 'ejecutivo@homie.cl',
   },
 };
 
@@ -44,8 +46,9 @@ const FIELD_MAPPING = [
   { field: 'has_storage', required: false, note: 'Activa la sección Bodega.' },
   { field: 'has_parking', required: false, note: 'Activa la sección Estacionamiento.' },
   { field: 'fecha_de_termino_real_de_contrato', required: false, note: 'Fecha real de término del contrato.' },
-  { field: 'inspector', required: false, note: '{ id, email } — si está presente se asigna directamente.' },
-  { field: 'executive', required: false, note: '{ id, email } — si está presente se asigna directamente.' },
+  { field: 'inspector_email', required: false, note: 'Resuelto vía external_user_mappings (provider=hubspot) → fallback profiles.email + role=inspector. El intake inyecta el id resuelto; el status final lo decide la RPC (assigned solo si ambos ids existen).' },
+  { field: 'executive_email', required: false, note: 'Misma resolución que inspector_email pero con role=executive.' },
+  { field: 'inspector / executive', required: false, note: 'Compat — bloque { id, email } legacy. Preferir *_email; si llega id explícito, prevalece.' },
   { field: 'typology / has_walking_closet / has_front_yard', required: false, note: '⚠️ Deprecados — ignorados por el generador.' },
 ];
 
