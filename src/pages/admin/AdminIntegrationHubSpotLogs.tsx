@@ -97,6 +97,12 @@ export default function AdminIntegrationHubSpotLogs() {
     );
   });
 
+  function hasPartialAssignment(r: EventRow): boolean {
+    const a = r.normalized_payload_json?.__assignment__;
+    if (!a) return false;
+    return a.inspector?.resolved_via === 'unresolved' || a.executive?.resolved_via === 'unresolved';
+  }
+
   async function handleRetry(row: EventRow) {
     const { data, error } = await supabase.functions.invoke('retry-source-event', {
       body: { event_id: row.id },
