@@ -317,6 +317,7 @@ export default function AdminIntegrationHubSpotLogs() {
                   )}
                   {selected.recovery_count > 0 && (
                     <Badge variant="outline">recovered: {selected.recovery_count}</Badge>
+                  )}
                   {selected.processing_step && (
                     <Badge variant="outline">paso: {selected.processing_step}</Badge>
                   )}
