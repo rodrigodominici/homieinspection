@@ -374,3 +374,82 @@ function RetryButton({ row, onRetry, expanded }: { row: EventRow; onRetry: (r: E
     </TooltipProvider>
   );
 }
+
+type SlotResolution = {
+  input_email: string | null;
+  resolved_via: 'mapping' | 'profile' | 'unresolved' | 'absent';
+  resolved_profile_id: string | null;
+  steps: Array<{ step: string; outcome: 'hit' | 'miss' | 'error'; detail: string }>;
+  warnings: string[];
+};
+
+function ResolvedViaBadge({ via }: { via: SlotResolution['resolved_via'] }) {
+  const variant: 'default' | 'secondary' | 'destructive' | 'outline' =
+    via === 'mapping' || via === 'profile' ? 'default' : via === 'unresolved' ? 'destructive' : 'outline';
+  const label =
+    via === 'mapping' ? 'mapping' :
+    via === 'profile' ? 'profile (fallback)' :
+    via === 'unresolved' ? 'unresolved' : 'absent';
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+function SlotBlock({ title, slot }: { title: string; slot?: SlotResolution }) {
+  if (!slot) return null;
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-sm">{title}</h4>
+        <ResolvedViaBadge via={slot.resolved_via} />
+      </div>
+      <div className="grid grid-cols-[140px_1fr] gap-x-2 gap-y-1 text-xs">
+        <span className="text-muted-foreground">Email recibido</span>
+        <code>{slot.input_email ?? '—'}</code>
+        <span className="text-muted-foreground">Profile resuelto</span>
+        <code className="break-all">{slot.resolved_profile_id ?? '—'}</code>
+      </div>
+      {slot.steps.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Pasos de resolución</p>
+          <ol className="space-y-1 text-xs">
+            {slot.steps.map((s, i) => (
+              <li key={i} className="flex gap-2">
+                <Badge
+                  variant={s.outcome === 'hit' ? 'default' : s.outcome === 'error' ? 'destructive' : 'outline'}
+                  className="h-5 shrink-0"
+                >
+                  {s.outcome}
+                </Badge>
+                <div>
+                  <code className="text-xs">{s.step}</code>
+                  <p className="text-muted-foreground">{s.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {slot.warnings.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-destructive mb-1">Warnings</p>
+          <ul className="list-disc list-inside text-xs text-destructive space-y-0.5">
+            {slot.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssignmentPanel({ assignment }: { assignment: { inspector?: SlotResolution; executive?: SlotResolution } }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-medium">Resolución de asignación</h3>
+      <p className="text-xs text-muted-foreground">
+        El intake inyecta los ids resueltos en el payload normalizado. El status final (<code>assigned</code> /
+        <code>pending_assignment</code>) lo decide la RPC en función de qué ids estén presentes.
+      </p>
+      <SlotBlock title="Inspector" slot={assignment.inspector} />
+      <SlotBlock title="Executive" slot={assignment.executive} />
+    </div>
+  );
+}
