@@ -224,6 +224,11 @@ export default function AdminIntegrationHubSpotLogs() {
                       <Badge variant={STATUS_VARIANTS[r.processing_status] ?? 'outline'}>
                         {r.processing_status}
                       </Badge>
+                      {hasPartialAssignment(r) && (
+                        <Badge variant="outline" className="ml-1 border-yellow-500 text-yellow-700 bg-yellow-50">
+                          Asignación parcial
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {r.inspection_id ? (
