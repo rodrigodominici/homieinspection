@@ -262,11 +262,16 @@ export default function AdminIntegrationHubSpotLogs() {
                     <td className="px-3 py-2 text-xs">
                       {r.processing_duration_ms != null ? `${r.processing_duration_ms} ms` : '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs text-destructive max-w-[200px] truncate">
+                    <td className="px-3 py-2 text-xs text-destructive max-w-[220px]">
                       {r.failure_reason && (
-                        <span className="font-medium">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}: </span>
+                        <div className="font-medium truncate">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}</div>
                       )}
-                      {r.error_message ?? ''}
+                      {r.error_message && (
+                        <div className="truncate text-[11px] opacity-90">{r.error_message}</div>
+                      )}
+                      {r.processing_step && (
+                        <div className="text-[11px] text-muted-foreground">paso: <code>{r.processing_step}</code></div>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <Button size="sm" variant="ghost" onClick={() => setSelected(r)}>Detalles</Button>
@@ -312,6 +317,8 @@ export default function AdminIntegrationHubSpotLogs() {
                   )}
                   {selected.recovery_count > 0 && (
                     <Badge variant="outline">recovered: {selected.recovery_count}</Badge>
+                  {selected.processing_step && (
+                    <Badge variant="outline">paso: {selected.processing_step}</Badge>
                   )}
                 </div>
 
