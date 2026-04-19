@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { generateSections as generateClient } from '@/lib/inspection-generator';
-// @ts-expect-error — Deno-style relative import works under Vitest as a normal TS file
+// @ts-ignore — relative .ts import resolved by Vitest
 import { generateSections as generateShared } from '../../supabase/functions/_shared/inspection-generator.ts';
 
 const departamento2D1B = {
