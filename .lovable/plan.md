@@ -1,93 +1,54 @@
 
 
-## Plan: Email-based assignment resolution — final refinements
+## Diagnóstico
 
-### 1. Status semantics (no implicit "auto assigned")
+El payload es válido pero usa **forma anidada** (`inspector: { email }`) mientras que el resolver actual solo lee **forma plana** (`inspector_email`). Resultado: ambos slots quedan como `absent`, no se resuelven IDs, y la inspección termina en `pending_assignment` aunque los emails existen en `profiles`.
 
-The intake function only **injects resolved ids** into the normalized payload before persisting:
-
-```ts
-normalized.inspector = { id: resolvedInspectorId, email: inspectorEmail };
-normalized.executive = { id: resolvedExecutiveId, email: executiveEmail };
+```text
+payload.data.inspector.email   ← forma enviada (anidada)
+payload.data.inspector_email   ← única forma que el resolver lee hoy
 ```
 
-The final `inspections.status` is decided **exclusively by the existing RPC rule** in `create_inspection_from_event`:
+Confirmado en `validateEnvelope` (líneas 41–45) y en la llamada `resolveAssignment(body.data.inspector_email, ...)` del intake.
 
-```sql
-v_status := CASE
-  WHEN v_inspector_id IS NOT NULL AND v_executive_id IS NOT NULL THEN 'assigned'
-  ELSE 'pending_assignment'
-END;
-```
+## Decisión: arreglar el procesamiento, no el payload
 
-No new status logic in the edge function. Documented inline + in admin config: "Resolution writes ids; status is computed by the RPC."
+La forma anidada `{ inspector: { email }, executive: { email } }` es la que ya documenta el contrato canónico (`PropertyPayload` en `src/lib/types.ts`) y la que usan los flujos manuales. El intake debe aceptarla como entrada primaria; los campos planos quedan como compat.
 
-### 2. Profile fallback uses canonical role values
+## Cambio (1 archivo)
 
-Confirmed against schema: `profiles.role` is a free `text` column populated from `handle_new_user` and admin assignment. Canonical values currently in use across the codebase: `admin`, `executive`, `inspector`, `pending`. Lookup uses exactly:
+**`supabase/functions/hubspot-inspection-intake/index.ts`**
 
-```ts
-.eq('role', slot === 'inspector' ? 'inspector' : 'executive')
-.eq('is_active', true)
-```
+1. **Helper de extracción** que prefiere anidado y cae a plano:
+   ```ts
+   function extractSlotEmail(data: any, slot: 'inspector' | 'executive'): string | null {
+     const nested = data?.[slot]?.email;
+     const flat = data?.[`${slot}_email`];
+     const v = (typeof nested === 'string' && nested) ? nested
+             : (typeof flat   === 'string' && flat)   ? flat
+             : null;
+     return v ? v.trim().toLowerCase() : null;
+   }
+   ```
 
-Pre-implementation check: a single `supabase--read_query` against `select distinct role from profiles` to confirm no drift (e.g. `inspectora`, `Inspector`) before wiring the filter. If drift exists, normalize to lowercase on both sides.
+2. **Validador**: aceptar ambas formas. Validar que si `data.inspector` existe sea objeto y que `email` (cuando esté) sea string. Mismo para `executive`. Mantener la validación actual de `inspector_email`/`executive_email` planos.
 
-### 3. Mapping table column name confirmed
+3. **Llamadas a `resolveAssignment`**: usar `extractSlotEmail(body.data, 'inspector' | 'executive')` en lugar de leer el campo plano.
 
-Per `<supabase-tables>`: `external_user_mappings` exposes `hubspot_email text` (not `email`). Lookup uses exactly:
+4. **El bloque `__assignment__`** sigue registrando `input_email` con el valor extraído, así el panel de Logs muestra exactamente lo que se intentó resolver, sin importar la forma de entrada.
 
-```ts
-.eq('provider', 'hubspot')
-.eq('is_active', true)
-.ilike('hubspot_email', email)   // case-insensitive
-```
+No se toca el RPC, ni el constraint, ni el UI de Logs (que ya soporta el panel de resolución).
 
-`role_hint` (also `text`, nullable) is matched with `OR role_hint IS NULL` so unscoped mappings still apply.
+## Resultado esperado
 
-### 4. Explicit assignment panel in Logs detail
+Con el mismo payload del usuario:
+- `inspector.email = alejandra.rodriguez@homierent.com` → resuelve vía `mapping` o `profiles` → ID inyectado.
+- `executive.email = tomas.alvarez@homierent.com` → resuelve igual → ID inyectado.
+- RPC computa `status = 'assigned'`.
 
-The `__assignment__` block written by intake has a per-slot structured shape so the UI can render every relevant fact:
+Si alguno no existe en BD, queda `pending_assignment` (válido en el constraint actual) con el panel de Logs mostrando el paso fallido.
 
-```jsonc
-"__assignment__": {
-  "inspector": {
-    "input_email": "inspectora@homie.cl",
-    "resolved_via": "mapping" | "profile" | "unresolved" | "absent",
-    "resolved_profile_id": "uuid | null",
-    "steps": [
-      { "step": "external_user_mappings", "outcome": "miss",   "detail": "no active mapping for hubspot_email" },
-      { "step": "profiles_fallback",       "outcome": "hit",    "detail": "matched profiles.email + role=inspector" }
-    ],
-    "warnings": []
-  },
-  "executive": { /* same shape */ }
-}
-```
+## Acción adicional sugerida (opcional, después del fix)
 
-`AdminIntegrationHubSpotLogs.tsx` detail drawer renders, per slot:
-- **Email recibido**: `input_email` (or "—" if absent)
-- **Resuelto vía**: badge (`mapping` / `profile` / `unresolved` / `absent`)
-- **Profile resuelto**: id + link to user (when present)
-- **Pasos de resolución**: ordered list of `{step, outcome, detail}` so ops sees exactly which lookup hit/missed
-- **Warnings**: bullet list (empty when none)
-
-Table-level signal: yellow `Asignación parcial` chip when any slot's `resolved_via` is `unresolved` (email present, no match). Absent emails do not produce the chip.
-
-### Files
-
-| File | Change |
-|---|---|
-| `supabase/functions/hubspot-inspection-intake/index.ts` | Add `inspector_email`/`executive_email` to validator (optional). Add `resolveAssignment(email, slot)` returning the structured per-slot record above. Inject ids into normalized payload only; let RPC decide status. |
-| `src/pages/admin/AdminIntegrationHubSpot.tsx` | Sample payload + mapping rows for the two new fields; note that status is RPC-computed. |
-| `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` | Detail drawer: explicit per-slot assignment panel (email, resolved_via, profile id, steps, warnings). Table chip for partial. |
-
-No DB migration. No RPC change.
-
-### Summary
-
-1. Intake injects ids; status remains RPC-driven (`assigned` iff both ids present).
-2. Profile fallback filters on canonical `role IN ('inspector','executive')` + `is_active`, verified against live data before wiring.
-3. Mapping lookup uses the real column `hubspot_email` (case-insensitive) plus `provider='hubspot'`, `is_active=true`, with optional `role_hint`.
-4. Logs panel surfaces input email, resolved-via, resolved profile id, the ordered resolution steps with hit/miss detail, and any warnings — making unresolved cases self-explanatory.
+Reintentar el evento `hs_evt_deal_48862344351` desde `/admin/integrations/hubspot/logs` una vez deployada la función para validar end-to-end.
 
