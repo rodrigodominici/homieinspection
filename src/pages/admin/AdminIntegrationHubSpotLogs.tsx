@@ -309,6 +309,10 @@ export default function AdminIntegrationHubSpotLogs() {
                   <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">{JSON.stringify(selected.payload_json, null, 2)}</pre>
                 </div>
 
+                {selected.normalized_payload_json?.__assignment__ && (
+                  <AssignmentPanel assignment={selected.normalized_payload_json.__assignment__} />
+                )}
+
                 {selected.normalized_payload_json && (
                   <div>
                     <h3 className="font-medium mb-1">Payload normalizado</h3>
