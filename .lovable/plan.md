@@ -1,98 +1,93 @@
 
 
-## Plan: HubSpot intake — final refinements
+## Plan: Email-based assignment resolution — final refinements
 
-### 1. Idempotency: split object id vs event id
+### 1. Status semantics (no implicit "auto assigned")
 
-Two distinct columns on `inspection_source_events`:
+The intake function only **injects resolved ids** into the normalized payload before persisting:
 
-| Column | Source | Purpose |
-|---|---|---|
-| `external_object_id` | HubSpot property/object id (e.g. `hs_prop_12345`) | grouping/search; NOT used for dedup |
-| `external_event_id` | HubSpot workflow execution id / message id | **the** idempotency key |
+```ts
+normalized.inspector = { id: resolvedInspectorId, email: inspectorEmail };
+normalized.executive = { id: resolvedExecutiveId, email: executiveEmail };
+```
 
-Payload contract updated:
-```json
-{
-  "source": "hubspot",
-  "event_type": "inspection.create",
-  "payload_version": "v1",
-  "external_event_id": "hs_evt_98765",   // required for dedup
-  "external_object_id": "hs_prop_12345", // optional, for traceability
-  "data": { ... }
+The final `inspections.status` is decided **exclusively by the existing RPC rule** in `create_inspection_from_event`:
+
+```sql
+v_status := CASE
+  WHEN v_inspector_id IS NOT NULL AND v_executive_id IS NOT NULL THEN 'assigned'
+  ELSE 'pending_assignment'
+END;
+```
+
+No new status logic in the edge function. Documented inline + in admin config: "Resolution writes ids; status is computed by the RPC."
+
+### 2. Profile fallback uses canonical role values
+
+Confirmed against schema: `profiles.role` is a free `text` column populated from `handle_new_user` and admin assignment. Canonical values currently in use across the codebase: `admin`, `executive`, `inspector`, `pending`. Lookup uses exactly:
+
+```ts
+.eq('role', slot === 'inspector' ? 'inspector' : 'executive')
+.eq('is_active', true)
+```
+
+Pre-implementation check: a single `supabase--read_query` against `select distinct role from profiles` to confirm no drift (e.g. `inspectora`, `Inspector`) before wiring the filter. If drift exists, normalize to lowercase on both sides.
+
+### 3. Mapping table column name confirmed
+
+Per `<supabase-tables>`: `external_user_mappings` exposes `hubspot_email text` (not `email`). Lookup uses exactly:
+
+```ts
+.eq('provider', 'hubspot')
+.eq('is_active', true)
+.ilike('hubspot_email', email)   // case-insensitive
+```
+
+`role_hint` (also `text`, nullable) is matched with `OR role_hint IS NULL` so unscoped mappings still apply.
+
+### 4. Explicit assignment panel in Logs detail
+
+The `__assignment__` block written by intake has a per-slot structured shape so the UI can render every relevant fact:
+
+```jsonc
+"__assignment__": {
+  "inspector": {
+    "input_email": "inspectora@homie.cl",
+    "resolved_via": "mapping" | "profile" | "unresolved" | "absent",
+    "resolved_profile_id": "uuid | null",
+    "steps": [
+      { "step": "external_user_mappings", "outcome": "miss",   "detail": "no active mapping for hubspot_email" },
+      { "step": "profiles_fallback",       "outcome": "hit",    "detail": "matched profiles.email + role=inspector" }
+    ],
+    "warnings": []
+  },
+  "executive": { /* same shape */ }
 }
 ```
 
-Fallback: if `external_event_id` is absent, derive a deterministic key as `sha256(source|event_type|external_object_id|payload_version|data.property_id|data.inspection_type|truncated_timestamp)` and store it in `external_event_id`. Documented in admin config.
+`AdminIntegrationHubSpotLogs.tsx` detail drawer renders, per slot:
+- **Email recibido**: `input_email` (or "—" if absent)
+- **Resuelto vía**: badge (`mapping` / `profile` / `unresolved` / `absent`)
+- **Profile resuelto**: id + link to user (when present)
+- **Pasos de resolución**: ordered list of `{step, outcome, detail}` so ops sees exactly which lookup hit/missed
+- **Warnings**: bullet list (empty when none)
 
-### 2. Single consistent dedup model (no contradiction)
+Table-level signal: yellow `Asignación parcial` chip when any slot's `resolved_via` is `unresolved` (email present, no match). Absent emails do not produce the chip.
 
-Drop the "insert an `ignored` row for duplicates" idea. Replace with:
+### Files
 
-- Partial unique index: `UNIQUE (source, external_event_id) WHERE external_event_id IS NOT NULL`.
-- Intake flow uses `INSERT … ON CONFLICT (source, external_event_id) DO NOTHING RETURNING id`.
-- If no row returned → it's a duplicate. We **do not** insert another row. Instead:
-  - fetch the original event row,
-  - append a structured entry to its `duplicate_attempts_json` array (`{received_at, request_id, headers_subset}`),
-  - increment `duplicate_count`,
-  - return `200 {status:'duplicate', original_event_id, original_status}`.
-- The Logs view shows duplicates inline on the original row (badge + count + expandable list of replay timestamps), so observability is preserved without violating the unique constraint.
-
-New columns: `duplicate_count integer NOT NULL DEFAULT 0`, `duplicate_attempts_json jsonb NOT NULL DEFAULT '[]'::jsonb`.
-
-### 3. Structured error outcomes
-
-Add `failure_reason text` with a constrained vocabulary, separate from free-form `error_message`:
-
-| `failure_reason` | When |
+| File | Change |
 |---|---|
-| `payload_validation` | zod schema fails at intake (row still persisted with raw body for debug) |
-| `duplicate` | only used as a transient response label — never stored on a new row (see #2) |
-| `normalization` | `normalizeIncomingPayload` / `generateSections` throws |
-| `inspection_creation` | RPC insert path fails (DB error, constraint, etc.) |
-| `assignment_resolution` | inspector/executive id not found via `external_user_mappings` and required |
-| `unknown` | catch-all for unexpected exceptions |
+| `supabase/functions/hubspot-inspection-intake/index.ts` | Add `inspector_email`/`executive_email` to validator (optional). Add `resolveAssignment(email, slot)` returning the structured per-slot record above. Inject ids into normalized payload only; let RPC decide status. |
+| `src/pages/admin/AdminIntegrationHubSpot.tsx` | Sample payload + mapping rows for the two new fields; note that status is RPC-computed. |
+| `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` | Detail drawer: explicit per-slot assignment panel (email, resolved_via, profile id, steps, warnings). Table chip for partial. |
 
-The RPC `create_inspection_from_event` returns a typed result `(inspection_id uuid, failure_reason text, error_detail text)`; the edge function writes both `failure_reason` and `error_message` to the event row. Logs UI filter chips map directly to these reasons.
+No DB migration. No RPC change.
 
-Status vocabulary stays: `received | processing | completed | failed | ignored`. `ignored` is reserved for explicit business skip cases (e.g. event_type not handled), distinct from duplicate.
+### Summary
 
-### 4. Retry — restricted and guarded
-
-`retry-source-event` edge function (admin JWT required) accepts `event_id` and:
-
-- rejects unless `processing_status = 'failed'`;
-- rejects if `failure_reason = 'payload_validation'` (would always re-fail — surfaces a clear toast: "fix payload upstream");
-- caps retries with `retry_count integer NOT NULL DEFAULT 0` and a hard limit of 5 (configurable);
-- records each attempt in `retry_attempts_json` with `{attempted_at, attempted_by, previous_failure_reason, outcome}`;
-- transitions row to `processing` then re-invokes the RPC and updates final state.
-
-UI: retry button visible only on failed rows, disabled when `retry_count >= 5` or `failure_reason = 'payload_validation'`, with tooltip explaining why.
-
-### 5. Background processing resilience
-
-`EdgeRuntime.waitUntil` is the primary async mechanism, but the system is designed so an interrupted background task is recoverable:
-
-- Intake always commits the event row with `processing_status='received'` **before** scheduling the background task. Crash before scheduling → row is still visible.
-- Background task first transitions `received → processing` and stamps `processing_started_at`. A row stuck in `processing` for > 5 minutes is considered orphaned.
-- A new lightweight scheduled edge function `recover-stalled-events` (invoked manually from admin "Reprocesar pendientes" button for now; cron-ready later) finds rows where `processing_status IN ('received','processing') AND received_at < now() - interval '5 min'` and re-invokes the RPC for each, capped per run. Each pickup increments `recovery_count`.
-- Logs UI surfaces a "Atascados" filter so ops can see and recover them with one click.
-
-Result: even if `waitUntil` is killed, the event is never lost — it's visible as `received`/`processing` in admin and recoverable on demand.
-
-### Updated DB column delta
-
-Adds to `inspection_source_events`: `external_event_id`, `external_object_id`, `event_type`, `payload_version`, `normalized_payload_json`, `inspection_id`, `processing_duration_ms`, `processing_started_at`, `failure_reason`, `duplicate_count`, `duplicate_attempts_json`, `retry_count`, `retry_attempts_json`, `recovery_count`. Plus the partial unique index on `(source, external_event_id)`.
-
-### Files unchanged from prior plan
-
-Same file set as the approved plan; only the migration SQL, the intake function logic, the RPC return shape, and the Logs UI columns/filters change to reflect refinements 1–5.
-
-### Summary of refinements applied
-
-1. `external_event_id` (true event id) is the idempotency key; `external_object_id` is metadata only.
-2. Duplicates never insert a new row — they update the original via `duplicate_count` + `duplicate_attempts_json`.
-3. `failure_reason` enum gives structured, filterable error categories distinct from free-form messages.
-4. Retry only on `failed` rows, blocked for `payload_validation`, capped at 5, fully audited.
-5. `waitUntil` for speed + `recover-stalled-events` for resilience; nothing is unobservable or unrecoverable.
+1. Intake injects ids; status remains RPC-driven (`assigned` iff both ids present).
+2. Profile fallback filters on canonical `role IN ('inspector','executive')` + `is_active`, verified against live data before wiring.
+3. Mapping lookup uses the real column `hubspot_email` (case-insensitive) plus `provider='hubspot'`, `is_active=true`, with optional `role_hint`.
+4. Logs panel surfaces input email, resolved-via, resolved profile id, the ordered resolution steps with hit/miss detail, and any warnings — making unresolved cases self-explanatory.
 
