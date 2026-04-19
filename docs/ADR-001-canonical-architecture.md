@@ -41,3 +41,34 @@ Date: 2026-04-17
   fresh signed URL derived from `inspection_photos.storage_path`.
 - TTL: 3600s (1h). Each call regenerates fresh URLs.
 - Missing/unsignable objects yield `url = null`; the renderer tolerates it.
+
+## Generator drift (intake stabilization)
+
+Two copies of the inspection structure generator exist:
+
+- **CANONICAL**: `supabase/functions/_shared/inspection-generator.ts` — used by
+  the HubSpot intake edge function and any future external webhook.
+- **MIRROR**: `src/lib/inspection-generator.ts` — used by the manual flow in
+  the client.
+
+Both must produce identical structures for the same payload. A parity test in
+`src/test/generator-parity.test.ts` enforces this for the canonical
+`departamento 2D/1B` case. When editing one, edit both.
+
+Future consolidation options: (a) build step that copies shared → src at
+build time, or (b) extract to a shared internal package. Until then, sync
+manually and rely on the parity test.
+
+## Intake failure taxonomy
+
+`inspection_source_events.failure_reason` uses a fixed vocabulary so each
+failed event is debuggable without reading SQL:
+
+`payload_validation`, `structure_generation`, `inspection_insert`,
+`sections_insert`, `field_values_insert`, `event_update`,
+`assignment_resolution`, `unknown`.
+
+`processing_step` (granular marker, written before each operation) records the
+last attempted stage even when the SQL exception bubbles up. Deterministic
+failures (`payload_validation`, `structure_generation`, SQL-syntax / constraint
+errors) are non-retryable and rejected by `retry-source-event` with HTTP 409.
