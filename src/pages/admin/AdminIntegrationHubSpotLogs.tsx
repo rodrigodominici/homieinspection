@@ -25,6 +25,7 @@ type EventRow = {
   received_at: string;
   processed_at: string | null;
   processing_duration_ms: number | null;
+  processing_step: string | null;
   payload_json: any;
   normalized_payload_json: any;
   duplicate_count: number;
@@ -46,10 +47,31 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 const FAILURE_LABELS: Record<string, string> = {
   payload_validation: 'Payload inválido',
   normalization: 'Normalización',
+  structure_generation: 'Generación de estructura',
   inspection_creation: 'Creación inspección',
+  inspection_insert: 'Inserción de inspección',
+  sections_insert: 'Inserción de secciones',
+  field_values_insert: 'Inserción de campos',
+  event_update: 'Actualización del evento',
   assignment_resolution: 'Asignación',
   unknown: 'Desconocido',
 };
+
+const NON_RETRYABLE_REASONS = new Set(['payload_validation', 'structure_generation']);
+const NON_RETRYABLE_ERROR_PATTERNS = [
+  'violates check constraint',
+  'data-modifying statement',
+  'column does not exist',
+  'syntax error',
+  'invalid input syntax',
+];
+
+function isNonRetryable(reason: string | null, msg: string | null): boolean {
+  if (reason && NON_RETRYABLE_REASONS.has(reason)) return true;
+  if (!msg) return false;
+  const lower = msg.toLowerCase();
+  return NON_RETRYABLE_ERROR_PATTERNS.some((p) => lower.includes(p));
+}
 
 const RETRY_LIMIT = 5;
 
@@ -240,11 +262,16 @@ export default function AdminIntegrationHubSpotLogs() {
                     <td className="px-3 py-2 text-xs">
                       {r.processing_duration_ms != null ? `${r.processing_duration_ms} ms` : '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs text-destructive max-w-[200px] truncate">
+                    <td className="px-3 py-2 text-xs text-destructive max-w-[220px]">
                       {r.failure_reason && (
-                        <span className="font-medium">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}: </span>
+                        <div className="font-medium truncate">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}</div>
                       )}
-                      {r.error_message ?? ''}
+                      {r.error_message && (
+                        <div className="truncate text-[11px] opacity-90">{r.error_message}</div>
+                      )}
+                      {r.processing_step && (
+                        <div className="text-[11px] text-muted-foreground">paso: <code>{r.processing_step}</code></div>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <Button size="sm" variant="ghost" onClick={() => setSelected(r)}>Detalles</Button>
@@ -290,6 +317,9 @@ export default function AdminIntegrationHubSpotLogs() {
                   )}
                   {selected.recovery_count > 0 && (
                     <Badge variant="outline">recovered: {selected.recovery_count}</Badge>
+                  )}
+                  {selected.processing_step && (
+                    <Badge variant="outline">paso: {selected.processing_step}</Badge>
                   )}
                 </div>
 
@@ -343,11 +373,11 @@ export default function AdminIntegrationHubSpotLogs() {
 }
 
 function RetryButton({ row, onRetry, expanded }: { row: EventRow; onRetry: (r: EventRow) => void; expanded?: boolean }) {
-  const blockedValidation = row.failure_reason === 'payload_validation';
+  const blockedDeterministic = isNonRetryable(row.failure_reason, row.error_message);
   const blockedLimit = (row.retry_count ?? 0) >= RETRY_LIMIT;
-  const disabled = blockedValidation || blockedLimit;
-  const tip = blockedValidation
-    ? 'No se puede reintentar: el payload es inválido. Corrige en el origen.'
+  const disabled = blockedDeterministic || blockedLimit;
+  const tip = blockedDeterministic
+    ? 'No se puede reintentar: el error es determinista (payload o estructura inválida). Corrige en el origen o redeploy.'
     : blockedLimit
     ? `Límite alcanzado (${RETRY_LIMIT}).`
     : 'Reintentar creación';

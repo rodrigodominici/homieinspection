@@ -1,4 +1,9 @@
 /**
+ * MIRROR of supabase/functions/_shared/inspection-generator.ts
+ * The shared edge-function copy is CANONICAL for external ingestion (HubSpot intake).
+ * This file is the client mirror used by the manual flow. Keep both in sync — a parity
+ * test in src/test/generator-parity.test.ts guards against drift.
+ *
  * Dynamic inspection section generation — V4 (15-screen model).
  *
  * This generator creates the 15-screen inspection structure.

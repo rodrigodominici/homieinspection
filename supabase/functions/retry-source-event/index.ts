@@ -1,5 +1,5 @@
 // Retry a failed inspection_source_events row.
-// Admin-only. Refuses non-failed rows, payload_validation failures, and rows over the retry cap.
+// Admin-only. Refuses non-failed rows, deterministic failures, and rows over the retry cap.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -12,6 +12,37 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const RETRY_LIMIT = 5;
+
+// Fix D: deterministic failure reasons that must NOT be retried blindly.
+const NON_RETRYABLE_REASONS = new Set([
+  'payload_validation',
+  'structure_generation',
+]);
+
+// Substrings in error_message that indicate the failure is deterministic
+// (re-running the same RPC against the same payload will fail the same way).
+const NON_RETRYABLE_ERROR_PATTERNS = [
+  'violates check constraint',
+  'data-modifying statement',
+  'column does not exist',
+  'syntax error',
+  'invalid input syntax',
+];
+
+function isNonRetryable(failure_reason: string | null, error_message: string | null): string | null {
+  if (failure_reason && NON_RETRYABLE_REASONS.has(failure_reason)) {
+    return `failure_reason '${failure_reason}' is deterministic and cannot be retried`;
+  }
+  if (error_message) {
+    const lower = error_message.toLowerCase();
+    for (const pat of NON_RETRYABLE_ERROR_PATTERNS) {
+      if (lower.includes(pat)) {
+        return `error matches deterministic pattern: '${pat}'`;
+      }
+    }
+  }
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -54,7 +85,7 @@ Deno.serve(async (req) => {
 
   const { data: row, error: rowErr } = await admin
     .from('inspection_source_events')
-    .select('id, processing_status, failure_reason, retry_count, retry_attempts_json')
+    .select('id, processing_status, failure_reason, error_message, retry_count, retry_attempts_json')
     .eq('id', event_id)
     .maybeSingle();
 
@@ -71,12 +102,15 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-  if (row.failure_reason === 'payload_validation') {
-    return new Response(JSON.stringify({ error: 'payload_validation_cannot_be_retried' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+
+  const blockReason = isNonRetryable(row.failure_reason, row.error_message);
+  if (blockReason) {
+    return new Response(
+      JSON.stringify({ error: 'non_retryable', reason: blockReason }),
+      { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   }
+
   if ((row.retry_count ?? 0) >= RETRY_LIMIT) {
     return new Response(JSON.stringify({ error: 'retry_limit_reached', limit: RETRY_LIMIT }), {
       status: 400,

@@ -5,6 +5,7 @@
 // - Persists raw + normalized + generated structure
 // - Returns 202 fast; processes via EdgeRuntime.waitUntil
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { generateSections, normalizeIncomingPayload } from '../_shared/inspection-generator.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,26 +154,15 @@ async function resolveAssignment(
   return { input_email: email, resolved_via: 'unresolved', resolved_profile_id: null, steps, warnings };
 }
 
-// Inline lightweight section generator mirroring src/lib/inspection-generator.ts shape.
-// Keeps the edge function self-contained; the RPC consumes whatever sections we attach.
-function generateBasicSections(data: any) {
-  // Minimal viable structure — full structure is generated client-side and may be passed in
-  // via data.__generated__. If absent, we build a minimal 1-section placeholder so the RPC
-  // succeeds; admin can re-process or operators can ingest the full structure upstream.
-  if (data.__generated__ && Array.isArray(data.__generated__.sections)) {
-    return data.__generated__;
+// Generate the full 15-screen structure using the canonical shared generator.
+// Fallback: if data.__generated__ is precomputed (replays/tests only), respect it.
+// TODO: remove __generated__ fallback after intake stabilization (target: 2 sprints).
+function buildGeneratedStructure(data: any): { sections: unknown[]; precomputed: boolean } {
+  if (data && data.__generated__ && Array.isArray(data.__generated__.sections)) {
+    return { sections: data.__generated__.sections, precomputed: true };
   }
-  return {
-    sections: [
-      {
-        section_key: 'introduction',
-        section_title: 'Introducción',
-        section_type: 'property_meta',
-        sort_order: 1,
-        fields: [],
-      },
-    ],
-  };
+  const normalized = normalizeIncomingPayload(data);
+  return { sections: generateSections(normalized as any), precomputed: false };
 }
 
 Deno.serve(async (req: Request) => {
@@ -249,8 +239,37 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 5. Try insert with ON CONFLICT DO NOTHING
-  const generatedStructure = generateBasicSections(body.data);
+  // 5. Generate full structure (Fix A: real generator, not placeholder)
+  let generatedStructure: { sections: unknown[] };
+  let structurePrecomputed = false;
+  try {
+    const built = buildGeneratedStructure(body.data);
+    generatedStructure = { sections: built.sections };
+    structurePrecomputed = built.precomputed;
+  } catch (err) {
+    const { data: failedRow } = await supabase
+      .from('inspection_source_events')
+      .insert({
+        source: 'hubspot',
+        event_type: body.event_type,
+        payload_version: body.payload_version,
+        external_event_id: null,
+        external_object_id: body.external_object_id ?? null,
+        hubspot_property_id: body.external_object_id ?? null,
+        payload_json: body,
+        processing_status: 'failed',
+        failure_reason: 'structure_generation',
+        processing_step: 'structure_generation',
+        error_message: (err as Error).message,
+        processed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    return new Response(
+      JSON.stringify({ status: 'structure_generation_failed', error: (err as Error).message, event_id: failedRow?.id }),
+      { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
 
   // Resolve assignment ids from emails (does NOT decide status — RPC does)
   const inspectorEmail = extractSlotEmail(body.data, 'inspector');
@@ -297,6 +316,7 @@ Deno.serve(async (req: Request) => {
       payload_json: body,
       normalized_payload_json: normalized,
       processing_status: 'received',
+      processing_step: structurePrecomputed ? 'structure_generation_skipped_precomputed' : 'structure_generated',
     })
     .select('id')
     .maybeSingle();

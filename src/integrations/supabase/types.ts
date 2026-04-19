@@ -611,6 +611,7 @@ export type Database = {
           processing_duration_ms: number | null
           processing_started_at: string | null
           processing_status: string
+          processing_step: string | null
           received_at: string
           recovery_count: number
           retry_attempts_json: Json
@@ -636,6 +637,7 @@ export type Database = {
           processing_duration_ms?: number | null
           processing_started_at?: string | null
           processing_status?: string
+          processing_step?: string | null
           received_at?: string
           recovery_count?: number
           retry_attempts_json?: Json
@@ -661,6 +663,7 @@ export type Database = {
           processing_duration_ms?: number | null
           processing_started_at?: string | null
           processing_status?: string
+          processing_step?: string | null
           received_at?: string
           recovery_count?: number
           retry_attempts_json?: Json
