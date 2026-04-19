@@ -373,11 +373,11 @@ export default function AdminIntegrationHubSpotLogs() {
 }
 
 function RetryButton({ row, onRetry, expanded }: { row: EventRow; onRetry: (r: EventRow) => void; expanded?: boolean }) {
-  const blockedValidation = row.failure_reason === 'payload_validation';
+  const blockedDeterministic = isNonRetryable(row.failure_reason, row.error_message);
   const blockedLimit = (row.retry_count ?? 0) >= RETRY_LIMIT;
-  const disabled = blockedValidation || blockedLimit;
-  const tip = blockedValidation
-    ? 'No se puede reintentar: el payload es inválido. Corrige en el origen.'
+  const disabled = blockedDeterministic || blockedLimit;
+  const tip = blockedDeterministic
+    ? 'No se puede reintentar: el error es determinista (payload o estructura inválida). Corrige en el origen o redeploy.'
     : blockedLimit
     ? `Límite alcanzado (${RETRY_LIMIT}).`
     : 'Reintentar creación';
