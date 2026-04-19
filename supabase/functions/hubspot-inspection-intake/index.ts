@@ -43,7 +43,26 @@ function validateEnvelope(body: any): { ok: true; data: any } | { ok: false; err
       return { ok: false, error: `invalid_data.${f}` };
     }
   }
+  for (const f of ['inspector', 'executive']) {
+    if (d[f] !== undefined && d[f] !== null) {
+      if (typeof d[f] !== 'object' || Array.isArray(d[f])) {
+        return { ok: false, error: `invalid_data.${f}` };
+      }
+      if (d[f].email !== undefined && d[f].email !== null && typeof d[f].email !== 'string') {
+        return { ok: false, error: `invalid_data.${f}.email` };
+      }
+    }
+  }
   return { ok: true, data: body };
+}
+
+function extractSlotEmail(data: any, slot: 'inspector' | 'executive'): string | null {
+  const nested = data?.[slot]?.email;
+  const flat = data?.[`${slot}_email`];
+  const v = (typeof nested === 'string' && nested) ? nested
+          : (typeof flat === 'string' && flat) ? flat
+          : null;
+  return v ? v.trim().toLowerCase() : null;
 }
 
 type ResolutionStep = { step: string; outcome: 'hit' | 'miss' | 'error'; detail: string };
@@ -234,8 +253,10 @@ Deno.serve(async (req: Request) => {
   const generatedStructure = generateBasicSections(body.data);
 
   // Resolve assignment ids from emails (does NOT decide status — RPC does)
-  const inspectorRes = await resolveAssignment(supabase, body.data.inspector_email, 'inspector');
-  const executiveRes = await resolveAssignment(supabase, body.data.executive_email, 'executive');
+  const inspectorEmail = extractSlotEmail(body.data, 'inspector');
+  const executiveEmail = extractSlotEmail(body.data, 'executive');
+  const inspectorRes = await resolveAssignment(supabase, inspectorEmail, 'inspector');
+  const executiveRes = await resolveAssignment(supabase, executiveEmail, 'executive');
 
   // Preserve any pre-existing { id, email } blocks; only fill id when we resolved one.
   const existingInspector = (body.data.inspector && typeof body.data.inspector === 'object') ? body.data.inspector : {};
