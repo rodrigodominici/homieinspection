@@ -4,7 +4,7 @@ project_id = "qlbprsnnjbzfixjrvfuh"
 verify_jwt = false
 
 [functions.retry-source-event]
-verify_jwt = true
+verify_jwt = false
 
 [functions.recover-stalled-events]
-verify_jwt = true
+verify_jwt = false
