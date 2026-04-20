@@ -176,18 +176,33 @@ export default function AdminIntegrationHubSpot() {
             <CardTitle className="text-base">Mapeo de campos</CardTitle>
             <CardDescription><code>property_type</code> es la fuente de verdad para clasificar la inspección.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              {FIELD_MAPPING.map((m) => (
-                <div key={m.field} className="grid grid-cols-[200px_80px_1fr] gap-2 items-start py-1 border-b last:border-0">
-                  <code className="text-xs">{m.field}</code>
-                  <Badge variant={m.required ? 'default' : 'outline'} className="w-fit">
-                    {m.required ? 'requerido' : 'opcional'}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">{m.note}</span>
-                </div>
-              ))}
-            </div>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase">
+                <tr>
+                  <th className="text-left py-3 px-4 align-top">Campo</th>
+                  <th className="text-left py-3 px-4 align-top w-[110px]">Requerido</th>
+                  <th className="text-left py-3 px-4 align-top">Descripción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FIELD_MAPPING.map((m) => (
+                  <tr key={m.field} className="border-b last:border-0">
+                    <td className="py-3 px-4 align-top whitespace-nowrap">
+                      <code className="text-xs">{m.field}</code>
+                    </td>
+                    <td className="py-3 px-4 align-top w-[110px]">
+                      <Badge variant={m.required ? 'default' : 'outline'} className="w-fit mr-2">
+                        {m.required ? 'requerido' : 'opcional'}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4 align-top whitespace-normal break-words text-xs text-muted-foreground">
+                      {m.note}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </CardContent>
         </Card>
 
