@@ -1,84 +1,48 @@
 
 
-## Plan refinado: estabilización end-to-end del intake
+## Plan: correcciones visuales (sin tocar lógica)
 
-### Orden de despliegue (atómico)
+Cambios estrictamente de Tailwind / markup presentacional. Cero cambios en queries, estados, contratos de datos o handlers.
 
-Fix A + Fix B se despliegan **juntos** en una sola tanda. Ningún reintento sobre eventos fallidos antes de eso — uno sin el otro deja el pipeline roto (A sin B = SQL inválido con estructura completa; B sin A = SQL válido pero placeholder de 1 sección).
+---
 
-### Fix A — Portar el generador real al edge function
+### Pantalla 1A — `src/pages/admin/AdminIntegrationHubSpot.tsx` ("Mapeo de campos")
 
-- **Nuevo archivo**: `supabase/functions/_shared/inspection-generator.ts` — copia portada de `src/lib/inspection-generator.ts` con imports relativos y sin alias `@/`. Incluye `generateSections()` y `normalizeIncomingPayload()`.
-- **Edit**: `supabase/functions/hubspot-inspection-intake/index.ts`
-  - Import: `import { generateSections, normalizeIncomingPayload } from '../_shared/inspection-generator.ts'`.
-  - Reemplazar `generateBasicSections` por:
-    ```ts
-    const normalized = normalizeIncomingPayload(body.data);
-    const generatedStructure = { sections: generateSections(normalized) };
-    ```
-  - **Fallback temporal** (deprecado, solo para replays/tests): si `body.data.__generated__` viene precomputado, se respeta y se loguea `processing_step: 'structure_generation_skipped_precomputed'`. Marcado con comentario `// TODO: remove after intake stabilization (target: 2 sprints)`.
+Hoy la sección no es un `<table>` sino un grid de 3 columnas (`grid-cols-[200px_80px_1fr]`). Lo convierto a `<table>` real para cumplir el requerimiento de `td/th`, `align-top`, padding y wrap.
 
-### Fix B — Reescribir RPC sin CTE anidado con INSERT
+- Reemplazar el bloque `FIELD_MAPPING.map(...)` por una tabla shadcn-style:
+  - `<table className="w-full text-sm">` con `<thead>` (Campo / Requerido / Descripción) y `<tbody>`.
+  - Cada `<th>` y `<td>`: `py-3 px-4 align-top text-left`.
+  - Columna "Campo": `<code className="text-xs">` (sin truncate), `whitespace-nowrap` solo en esta celda.
+  - Columna "Requerido": badge con `mr-2` respecto a cualquier texto adyacente; celda `w-[110px]`.
+  - Columna "Descripción": `whitespace-normal break-words text-xs text-muted-foreground` (sin `truncate`, sin `whitespace-nowrap`). Esto deja que `inspector_email` / `executive_email` hagan wrap completo.
+  - Filas con `border-b last:border-0`.
 
-Migración nueva que reemplaza `create_inspection_from_event`. Estructura por etapas, cada una con su propio `BEGIN ... EXCEPTION` y `failure_reason` específico:
+### Pantalla 1B — `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` (tabla "Eventos entrantes")
 
-```text
-v_processing_step := 'inspection_insert';
-INSERT INTO inspections ... RETURNING id INTO v_inspection_id;
+- **Padding de filas**: cambiar `px-3 py-2` → `px-4 py-3` en todos los `<th>` y `<td>` para dar aire.
+- **Alineación**: agregar `align-top` a todos los `<td>` (necesario porque la columna Error y Estado tienen contenido apilado).
+- **Chip de estado + "Asignación parcial"** (líneas 245–254): reorganizar en `flex flex-col gap-1 items-start`. Primer hijo: el `<Badge>` de status. Segundo hijo (si `hasPartialAssignment`): `<span className="text-xs text-muted-foreground">Asignación parcial</span>` — ya no badge.
+- **Columna Error** (líneas 265–275): envolver el bloque visible en un `<Tooltip>` shadcn:
+  - Trigger: `<div className="max-w-[200px] truncate cursor-help">` con la `failure_reason` label + `error_message` truncados (mantener jerarquía actual: título en `font-medium`, mensaje en `text-[11px] opacity-90`, `processing_step` debajo en `text-muted-foreground`).
+  - `TooltipContent`: `max-w-md whitespace-pre-wrap break-words text-xs` mostrando `failure_reason` + `error_message` + `processing_step` completos.
+  - Reutilizar el `TooltipProvider` ya importado (envolver localmente o subir uno al root del `tbody` row — usaré uno por celda, igual que `RetryButton`).
+- **Botón "Detalles"** (línea 277): cambiar `variant="ghost"` → `variant="link"`, agregar `className="text-sm px-0 h-auto"` para verse como link sin padding.
+- **Celda Error**: quitar `max-w-[220px]` (lo controla el div interno con `max-w-[200px]`).
 
-v_processing_step := 'sections_insert';
-WITH ins AS (INSERT INTO inspection_sections ... RETURNING id, section_key)
-SELECT id, section_key BULK COLLECT INTO v_section_map FROM ins;
--- alternativa: tabla temp ON COMMIT DROP
+### Pantalla 2 — `src/pages/inspector/InspectorAllInspections.tsx` (lista mobile)
 
-v_processing_step := 'field_values_insert';
-INSERT INTO inspection_field_values ...
-SELECT ... FROM jsonb_array_elements(...) JOIN _ins_sections ...;
+El contenedor ya usa `space-y-3` y `pb-24`. El solapamiento visual reportado viene de `active:scale-[0.99] transition-transform` aplicado a la `<Card>` dentro de un `<Link>` sin `block` — el Link es inline por defecto, lo que puede causar render raro al pulsar. Ajustes mínimos:
 
-v_processing_step := 'event_update';
-UPDATE inspection_source_events SET processing_status='completed' ...;
-```
-
-CTE con INSERT solo aparece como **statement raíz**, nunca anidado en `PERFORM (... )`.
-
-### Fix C — Taxonomía de fallas + processing_step
-
-- `failure_reason` (categoría): `payload_validation`, `structure_generation`, `inspection_insert`, `sections_insert`, `field_values_insert`, `event_update`, `assignment_resolution`, `unknown`.
-- **Nueva columna** `processing_step text` en `inspection_source_events` — marcador granular escrito justo antes de cada operación. Si revienta, queda como "última etapa intentada" para debug. Migración aditiva, default null.
-- Edge function actualiza `processing_step` antes de validar/normalizar/generar; la RPC lo actualiza antes de cada bloque SQL.
-- UI de Logs ya muestra `failure_reason`; agregar línea con `processing_step` debajo (1 edit en `AdminIntegrationHubSpotLogs.tsx`).
-
-### Fix D — Política de retryability
-
-Edit en `supabase/functions/retry-source-event/index.ts`:
-
-- **No-retryable** → 409: `payload_validation`, `structure_generation`, o cuando `error_message` contenga `violates check constraint` / `data-modifying statement` / `column does not exist`.
-- **Retryable**: `event_update`, `unknown`, errores de timeout/red.
-- UI deshabilita botón "Reintentar" cuando aplica (lectura de `failure_reason`).
-
-### Riesgo documentado: drift de generadores
-
-Después de portar, **`supabase/functions/_shared/inspection-generator.ts` es la fuente canónica para ingestión externa** (HubSpot y futuros webhooks). `src/lib/inspection-generator.ts` queda como espejo para el flujo manual del cliente.
-
-Mitigaciones:
-- Comentario header en ambos archivos: `// CANONICAL: supabase/functions/_shared/inspection-generator.ts. Mirror in src/lib/ — sync manually until consolidation.`
-- Nota en `docs/ADR-001-canonical-architecture.md` documentando el drift y el plan de consolidación (build step que copie shared → src, o publicar como paquete interno).
-- Test de paridad mínimo: snapshot de `generateSections()` con el payload de departamento 2D/1B en ambos lados, comparados en `vitest`.
-
-### Verificación post-deploy
-
-1. Reintentar `d62acc32` (emails null) → esperado: `completed`, inspección en `pending_assignment` con ~15 secciones.
-2. Reintentar `13eac710` (emails válidos) → esperado: `completed`, inspección en `assigned` con IDs resueltos.
-3. Confirmar en `inspection_sections` que cada inspección nueva tiene >1 fila.
+- En cada `<Link to=...>` (las 2 ramas: "Por coordinar" y card estándar) agregar `className="block"` para que el área tappable sea bloque y no inline.
+- Mantener `space-y-3` en `<main>`. Verificar que `pb-24` del wrapper exterior es suficiente sobre el `InspectorBottomNav`; si el bottom nav midió ~80px, dejar `pb-24` (ya es ≥96px). Sin cambios adicionales.
+- No tocar `active:scale-[0.99]` (es intencional como feedback táctil) — al volverse `block`, ya no hay overlap del transform sobre la card vecina.
 
 ### Archivos tocados
 
-- **Nuevo**: `supabase/functions/_shared/inspection-generator.ts`
-- **Edit**: `supabase/functions/hubspot-inspection-intake/index.ts`
-- **Edit**: `supabase/functions/retry-source-event/index.ts`
-- **Edit**: `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` (mostrar `processing_step`)
-- **Migración**: nueva RPC + columna `processing_step`
-- **Edit**: `src/lib/inspection-generator.ts` (header comment)
-- **Edit**: `docs/ADR-001-canonical-architecture.md` (sección drift)
-- **Nuevo test**: `src/test/generator-parity.test.ts`
+- `src/pages/admin/AdminIntegrationHubSpot.tsx` — refactor tabla "Mapeo de campos" a `<table>`.
+- `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` — padding, align-top, jerarquía estado/sub-label, tooltip en Error, botón link.
+- `src/pages/inspector/InspectorAllInspections.tsx` — `className="block"` en los 2 `<Link>`.
+
+Sin migraciones, sin cambios en tipos, sin cambios en handlers.
 
