@@ -211,25 +211,25 @@ export default function AdminIntegrationHubSpotLogs() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs uppercase">
                 <tr>
-                  <th className="text-left px-3 py-2">Recibido</th>
-                  <th className="text-left px-3 py-2">Tipo</th>
-                  <th className="text-left px-3 py-2">External event id</th>
-                  <th className="text-left px-3 py-2">Property</th>
-                  <th className="text-left px-3 py-2">Estado</th>
-                  <th className="text-left px-3 py-2">Inspección</th>
-                  <th className="text-left px-3 py-2">Duración</th>
-                  <th className="text-left px-3 py-2">Error</th>
-                  <th className="px-3 py-2"></th>
+                  <th className="text-left px-4 py-3">Recibido</th>
+                  <th className="text-left px-4 py-3">Tipo</th>
+                  <th className="text-left px-4 py-3">External event id</th>
+                  <th className="text-left px-4 py-3">Property</th>
+                  <th className="text-left px-4 py-3">Estado</th>
+                  <th className="text-left px-4 py-3">Inspección</th>
+                  <th className="text-left px-4 py-3">Duración</th>
+                  <th className="text-left px-4 py-3">Error</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className="border-t hover:bg-muted/30">
-                    <td className="px-3 py-2 whitespace-nowrap">{new Date(r.received_at).toLocaleString()}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">{new Date(r.received_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 align-top">
                       <code className="text-xs">{r.event_type ?? '—'}</code>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top">
                       <code className="text-xs truncate max-w-[160px] inline-block">
                         {r.external_event_id?.slice(0, 24) ?? '—'}
                       </code>
@@ -237,44 +237,61 @@ export default function AdminIntegrationHubSpotLogs() {
                         <Badge variant="outline" className="ml-1">×{r.duplicate_count + 1}</Badge>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top">
                       <code className="text-xs">
                         {r.payload_json?.data?.property_id ?? r.external_object_id ?? '—'}
                       </code>
                     </td>
-                    <td className="px-3 py-2">
-                      <Badge variant={STATUS_VARIANTS[r.processing_status] ?? 'outline'}>
-                        {r.processing_status}
-                      </Badge>
-                      {hasPartialAssignment(r) && (
-                        <Badge variant="outline" className="ml-1">
-                          Asignación parcial
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={STATUS_VARIANTS[r.processing_status] ?? 'outline'}>
+                          {r.processing_status}
                         </Badge>
-                      )}
+                        {hasPartialAssignment(r) && (
+                          <span className="text-xs text-muted-foreground">Asignación parcial</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top">
                       {r.inspection_id ? (
                         <Link to={`/admin/inspections/${r.inspection_id}`} className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
                           ver <ExternalLink className="h-3 w-3" />
                         </Link>
                       ) : '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs">
+                    <td className="px-4 py-3 align-top text-xs">
                       {r.processing_duration_ms != null ? `${r.processing_duration_ms} ms` : '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs text-destructive max-w-[220px]">
-                      {r.failure_reason && (
-                        <div className="font-medium truncate">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}</div>
-                      )}
-                      {r.error_message && (
-                        <div className="truncate text-[11px] opacity-90">{r.error_message}</div>
-                      )}
-                      {r.processing_step && (
-                        <div className="text-[11px] text-muted-foreground">paso: <code>{r.processing_step}</code></div>
-                      )}
+                    <td className="px-4 py-3 align-top text-xs text-destructive">
+                      {(r.failure_reason || r.error_message || r.processing_step) ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="max-w-[200px] truncate cursor-help">
+                                {r.failure_reason && (
+                                  <div className="font-medium truncate">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}</div>
+                                )}
+                                {r.error_message && (
+                                  <div className="truncate text-[11px] opacity-90">{r.error_message}</div>
+                                )}
+                                {r.processing_step && (
+                                  <div className="text-[11px] text-muted-foreground truncate">paso: <code>{r.processing_step}</code></div>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-md whitespace-pre-wrap break-words text-xs">
+                              {r.failure_reason && (
+                                <div className="font-medium">{FAILURE_LABELS[r.failure_reason] ?? r.failure_reason}</div>
+                              )}
+                              {r.error_message && <div className="opacity-90">{r.error_message}</div>}
+                              {r.processing_step && <div className="text-muted-foreground">paso: {r.processing_step}</div>}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <Button size="sm" variant="ghost" onClick={() => setSelected(r)}>Detalles</Button>
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
+                      <Button size="sm" variant="link" className="text-sm px-0 h-auto" onClick={() => setSelected(r)}>Detalles</Button>
                       {r.processing_status === 'failed' && (
                         <RetryButton row={r} onRetry={handleRetry} />
                       )}
