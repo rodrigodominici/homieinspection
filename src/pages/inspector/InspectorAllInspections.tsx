@@ -192,7 +192,7 @@ export default function InspectorAllInspections() {
 
             // Standard programmed/active card
             return (
-              <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
+              <Link key={insp.id} to={`/inspector/inspection/${insp.id}`} className="block">
                 <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
