@@ -328,89 +328,110 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por dirección, ID de propiedad o nombre..."
-                className="pl-9"
-              />
-            </div>
+            {/* Controls — search + bucket chips + advanced filters */}
+            <Card className="border-0 ring-1 ring-border shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar por dirección, ID de propiedad o nombre..."
+                    className="pl-9"
+                  />
+                </div>
 
-            {/* Quick bucket filter chips */}
-            <div className="flex flex-wrap gap-2">
-              {BUCKET_FILTERS.map((b) => {
-                const active = bucketFilter === b.value;
-                const count = b.value === 'all'
-                  ? inspections.length
-                  : inspections.filter((i) => {
-                      const pb = priorityBucket(i);
-                      if (b.value === 'unassigned') return pb === 0;
-                      if (b.value === 'por_coordinar') return pb === 1;
-                      if (b.value === 'programadas') return pb === 2;
-                      if (b.value === 'in_progress') return pb === 3;
-                      return true;
-                    }).length;
-                return (
-                  <button
-                    key={b.value}
-                    onClick={() => setBucketFilter(b.value)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground ring-primary'
-                        : 'bg-background text-foreground ring-border hover:bg-muted'
-                    )}
-                  >
-                    {b.label}
-                    <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
-                      {count}
+                {/* Quick bucket filter chips (operational priority) */}
+                <div className="flex flex-wrap gap-2">
+                  {BUCKET_FILTERS.map((b) => {
+                    const active = bucketFilter === b.value;
+                    const count = b.value === 'all'
+                      ? inspections.length
+                      : inspections.filter((i) => {
+                          const pb = priorityBucket(i);
+                          if (b.value === 'unassigned') return pb === 0;
+                          if (b.value === 'por_coordinar') return pb === 1;
+                          if (b.value === 'programadas') return pb === 2;
+                          if (b.value === 'in_progress') return pb === 3;
+                          return true;
+                        }).length;
+                    return (
+                      <button
+                        key={b.value}
+                        onClick={() => setBucketFilter(b.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
+                          active
+                            ? 'bg-primary text-primary-foreground ring-primary'
+                            : 'bg-background text-foreground ring-border hover:bg-muted'
+                        )}
+                      >
+                        {b.label}
+                        <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Separator />
+
+                {/* Advanced filters — lifecycle state + people + sort */}
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Filtros avanzados
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <span className="inline-flex items-center gap-2">
+                      <span>{filteredInspections.length} resultados</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger><SelectValue placeholder="Estado del workflow" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          {STATUS_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
+                        <SelectTrigger><SelectValue placeholder="Inspector" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          <SelectItem value="all">Todos los inspectores</SelectItem>
+                          {inspectors.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
+                        <SelectTrigger><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                          {executives.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          {SORT_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CardContent>
+            </Card>
 
-            {/* Filters + Sort */}
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Inspector" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los inspectores</SelectItem>
-                  {inspectors.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
-                  {executives.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-caption text-muted-foreground">{filteredInspections.length} resultados</span>
-            </div>
 
             {loading ? (
               <div className="space-y-3">
@@ -452,7 +473,7 @@ export default function AdminInspections() {
                                   <AlertCircle className="h-3 w-3" /> {missing}
                                 </span>
                               )}
-                              <InspectionStatusBadge status={insp.status} />
+                              {/* InspectionStatusBadge intentionally omitted — bucket primary already represents state. */}
                             </div>
 
                             <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
