@@ -20,13 +20,19 @@ import {
   priorityBucketLabel,
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
+import { marketLabel } from '@/lib/markets';
 import AdminLayout from '@/components/AdminLayout';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
+  LayoutGrid, Table2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
