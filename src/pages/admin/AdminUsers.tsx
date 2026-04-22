@@ -53,8 +53,24 @@ export default function AdminUsers() {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('inspector');
   const [editName, setEditName] = useState('');
-  const [editMarket, setEditMarket] = useState('');
+  const [editMarket, setEditMarket] = useState<string>('CL');
+  const [editCountryCode, setEditCountryCode] = useState<string>('+56');
+  const [editPhone, setEditPhone] = useState<string>('');
+  const [editIsActive, setEditIsActive] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
+
+  // Create user dialog
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [cuName, setCuName] = useState('');
+  const [cuEmail, setCuEmail] = useState('');
+  const [cuPassword, setCuPassword] = useState('');
+  const [cuShowPassword, setCuShowPassword] = useState(false);
+  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive'>('inspector');
+  const [cuMarket, setCuMarket] = useState<'CL' | 'MX'>('CL');
+  const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
+  const [cuPhone, setCuPhone] = useState<string>('');
+  const [cuIsActive, setCuIsActive] = useState<boolean>(true);
+  const [cuSubmitting, setCuSubmitting] = useState(false);
 
   // Mapping dialogs
   const [creating, setCreating] = useState(false);
