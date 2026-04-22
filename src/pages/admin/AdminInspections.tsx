@@ -15,11 +15,18 @@ import { useToast } from '@/hooks/use-toast';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import {
+  priorityBucket as sharedPriorityBucket,
+  priorityBucketLabel,
+  missingAssignmentLabel,
+} from '@/lib/inspector-operational';
 import AdminLayout from '@/components/AdminLayout';
+import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Inspection, Profile } from '@/lib/types';
 import {
-  UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
-  Calendar as CalendarIcon, FileText, Briefcase, Users,
+  UserCheck, AlertCircle, Search, ExternalLink, MapPin, User, UserCog,
+  Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
