@@ -96,38 +96,32 @@ interface EnrichedInspection extends Inspection {
 }
 
 /**
- * Operational priority bucket for admin sorting/filtering.
- * Lower number = higher priority. Unassigned ALWAYS outranks date urgency.
+ * Local helper: bucket lookup adapted for EnrichedInspection (which already has scheduleDatetime).
+ * Delegates to the shared `priorityBucket` so AdminInspections and AdminDashboard never drift.
  */
-function priorityBucket(insp: EnrichedInspection): number {
-  const missingAssign = !insp.inspector_id || !insp.executive_id || insp.status === 'pending_assignment';
-  if (missingAssign) return 0; // Sin asignar
-  const terminal = ['published', 'sent', 'approved'].includes(insp.status);
-  if (terminal) return 5;
-  if (insp.status === 'in_progress' || insp.status === 'submitted' || insp.status === 'in_review' || insp.status === 'needs_changes') return 3;
-  // assigned
-  if (!insp.scheduleDatetime) return 1; // Por coordinar
-  return 2; // Programadas
+function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 5 {
+  return sharedPriorityBucket({
+    inspector_id: insp.inspector_id,
+    executive_id: insp.executive_id,
+    status: insp.status,
+    scheduleDatetime: insp.scheduleDatetime,
+  });
 }
 
-function bucketLabel(b: number): { label: string; className: string } {
-  switch (b) {
-    case 0: return { label: 'Sin asignar', className: 'bg-status-bad-bg text-status-bad' };
-    case 1: return { label: 'Por coordinar', className: 'bg-amber-50 text-amber-700' };
-    case 2: return { label: 'Programada', className: 'bg-status-regular-bg text-status-regular' };
-    case 3: return { label: 'En progreso', className: 'bg-primary/10 text-primary' };
-    default: return { label: 'Completada', className: 'bg-status-good-bg text-status-good' };
-  }
-}
-
-function missingAssignmentLabel(insp: EnrichedInspection): string | null {
-  const noI = !insp.inspector_id;
-  const noE = !insp.executive_id;
-  if (noI && noE) return 'Faltan ambos';
-  if (noI) return 'Falta inspector';
-  if (noE) return 'Falta ejecutivo';
-  return null;
-}
+/**
+ * BADGE PRECEDENCE ON ADMIN CARDS (single source of truth):
+ *
+ *   1. Primary  — derived from priorityBucket via priorityBucketLabel().
+ *                 Always exactly 1 badge: "Sin asignar" | "Por coordinar"
+ *                 | "Programada" | "En progreso" | "Completada".
+ *
+ *   2. Secondary — only when bucket === 0, derived from missingAssignmentLabel():
+ *                  "Faltan ambos" | "Falta inspector" | "Falta ejecutivo".
+ *
+ *   The raw `<InspectionStatusBadge status={...}>` is intentionally NOT rendered
+ *   on the list cards: it duplicates "Sin Asignar" with the bucket primary
+ *   and adds enum noise. Raw status remains visible in AdminInspectionDetail.
+ */
 
 export default function AdminInspections() {
   const { profile } = useAuth();
