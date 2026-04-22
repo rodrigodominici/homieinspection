@@ -1,97 +1,91 @@
 
 
-# Plan — Complete, observable outbound HubSpot sync (Path A: direct API)
+# Plan — Fix `checkout_received` trigger coverage + clean up Admin Actions
 
-End-to-end fix that resolves both the outbound credential decision and the silent-trigger problem.
+## Step 1 — Diagnosis
 
-## 1. Architecture (unchanged, reaffirmed)
+**Why `fecha_de_recepcion_del_checkout` does not sync today**
 
-- `inspections` stays HubSpot-agnostic.
-- `inspection_external_references` remains the canonical resolver of the HubSpot target (`provider='hubspot'`, `external_object_type='lease_contract'`, `is_active=true`, with `external_object_type_id` falling back to `2-47492934`).
-- `hubspot_sync_log` remains the single trace of every outbound attempt.
+1. `triggerCheckoutSync(...)` is wired in **only one place**: `InspectorInspectionDetail.doSubmit()` (the inspector "Enviar inspección" button) — `src/pages/inspector/InspectorInspectionDetail.tsx` line 374.
+2. The Admin **Forzar Avance** path (`handleForceAdvance`, `AdminInspectionDetail.tsx` line 291) does a bare `update({ status })` and never calls any HubSpot helper. So when an admin forces `submitted`, the edge function is never invoked and no `hubspot_sync_log` row is written.
+3. `advanceStage()` and `handlePublish()` likewise do not call `triggerCheckoutSync`.
+4. Result: outbound sync is gated on a single UI button instead of on the business event "inspection reached checkout-received state".
 
-## 2. Outbound transport — direct HubSpot API
+**Business meaning of `checkout_received`**
 
-**New secret (request via add_secret, wait for value before deploy):**
-- `HUBSPOT_PRIVATE_APP_TOKEN` — HubSpot Private App token with `crm.objects.custom.read` + `crm.objects.custom.write` (and any object-specific scope for `2-47492934`).
+Canonical event: **inspection transitions into `submitted` for the first time** (also sets `inspection_completed_at` and moves `current_stage` to `review`). That is the moment Homie has formally received the checkout. Downstream states (`in_review`, `approved`, `published`) and re-saves of an already-`submitted` inspection must NOT re-fire.
 
-**Untouched:**
-- `HUBSPOT_INTAKE_SECRET` (inbound webhook only).
-- `LOVABLE_API_KEY` / `HUBSPOT_API_KEY` are no longer read by this function.
+**Outdated admin fields**
 
-**Request shape inside `supabase/functions/hubspot-update-inspection/index.ts`:**
-```
-PATCH https://api.hubapi.com/crm/v3/objects/{external_object_type_id}/{numericId}
-Authorization: Bearer ${HUBSPOT_PRIVATE_APP_TOKEN}
-Content-Type: application/json
-{ "properties": { [propertyName]: "YYYY-MM-DD" } }
-```
-where `numericId = external_object_id.replace(/^hs_contrato_/,'')` then validated as digits. Invalid → log `error` (`invalid_external_object_id`), no PATCH.
+- `Devolución de llave (post-inspección)` (`fecha_devolucion_llave` + `fecha_devolucion_llave_sync_status`): legacy. Only consumer is the AdminDashboard "Sin Devolución de Llave" alert card, which is itself ambiguous now that checkout reception flows through `inspection_completed_at` + outbound sync. Safe to retire from the UI.
+- `Fecha de término real de contrato`: read from `property_snapshot.fecha_de_termino_real_de_contrato`, externally sourced from HubSpot. Doesn't belong in "Acciones Administrativas".
 
-## 3. Make the trigger never silent again (the real fix)
+## Step 2 — Fix
 
-Three coordinated changes:
+### A. Centralize the checkout sync trigger
 
-### 3a. Switch `hubspot-update-inspection` to `verify_jwt = false`
-
-In `supabase/config.toml`, flip this single function to `verify_jwt = false`. JWT is still validated **inside** the function via `supabase.auth.getUser(token)` exactly as today — but now an invalid/missing JWT no longer dies at the platform gateway with no trace. Instead the in-code logger writes a `status='error'` row (`error_message='unauthorized'`) to `hubspot_sync_log` before returning 401. Same for invalid JSON body (`error_message='invalid_body'`). Result: **every invocation that reaches the function leaves a row.** The inbound function is unaffected.
-
-### 3b. Frontend triggers become awaited + visible (still non-blocking for the main save)
-
-`src/lib/hubspot-sync.ts` already returns `{ ok, error? }`. The two call sites change from fire-and-forget to:
+In `src/lib/hubspot-sync.ts`, add:
 
 ```ts
-const res = await triggerKeyCollectionSync(inspection.id);
-if (!res.ok) {
-  toast({
-    title: 'Sync HubSpot pendiente',
-    description: 'La fecha se guardó pero no se pudo enviar a HubSpot. Revisa los logs salientes.',
-    variant: 'destructive',
-  });
-}
+export async function syncCheckoutIfApplicable(opts: {
+  inspectionId: string;
+  previousStatus: string | null;
+  newStatus: string;
+  eventTimeIso: string; // canonical event timestamp
+}): Promise<SyncResult | null>
 ```
 
-The main save/submit succeeds independently — only the HubSpot side surfaces a toast on failure. Applied to:
-- `InspectorInspectionDetail.tsx` → after `handleSaveKeyCollection` (key date) and after `doSubmit` succeeds (checkout).
-- `AdminInspectionDetail.tsx` → admin inline date editor + manual "Reenviar a HubSpot" button (already awaits — no change needed beyond the toast wording reuse).
+Strict transition rule: fires `triggerCheckoutSync(inspectionId, eventTimeIso)` only when `newStatus === 'submitted'` AND `previousStatus !== 'submitted'`. Returns `null` otherwise (re-saves, downstream states, no-op transitions). Always non-blocking — caller never throws.
 
-### 3c. Function-side: `hubspot_sync_log` insert is the **first** thing on every exit path
+### B. Wire it into every status-transition path
 
-Refactor `index.ts` so every return path goes through a single `logAndRespond(status, http, fields)` helper. No early `return jsonResponse(...)` without logging. Covers: unauthorized, invalid body, missing inspection, missing date, no active reference (→ `skipped`), invalid object id, missing token, HubSpot HTTP error, network throw, success.
+1. **`InspectorInspectionDetail.doSubmit`** — generate one `now = new Date().toISOString()`, use it for both `inspection_completed_at` in the DB update and for `eventTimeIso` in the helper. Replace the direct `triggerCheckoutSync` call with `syncCheckoutIfApplicable({ previousStatus: inspection.status, newStatus: 'submitted', eventTimeIso: now })`.
+2. **`AdminInspectionDetail.handleForceAdvance`** — generate one `now` at the top. When forcing to `submitted`, include `inspection_completed_at: now` and `current_stage: 'review'` in the same `update(...)` (only if `inspection_completed_at` is currently null, so re-forces don't overwrite history). After the update succeeds, call `syncCheckoutIfApplicable({ previousStatus: old, newStatus: forceStatusValue, eventTimeIso: now })`. Same `now` for both → consistent business event time.
+3. **`advanceStage`** — defensive guard: if `extraUpdates.status === 'submitted'`, run the helper with the same timestamp used for the stage update. Today no caller does this, but the guard keeps the rule centralized.
+4. **`handlePublish`** — no checkout trigger. Add a code comment documenting that checkout fires at `submitted`, not at publish.
 
-## 4. Feature wiring (already in code, kept)
+Toast on failure mirrors the existing inspector pattern ("Sync HubSpot pendiente — revisa los logs salientes"). Status change always succeeds even if sync fails.
 
-- **Save `fecha_recoleccion_llaves`** (inspector + admin) → `triggerKeyCollectionSync(inspection_id)` → function PATCHes `fecha_recoleccion_llaves` (YYYY-MM-DD) on the resolved contract. Null date → log `skipped` (`error_message='missing_key_date'`), no PATCH.
-- **Inspector submits inspection** (`status → submitted`) → `triggerCheckoutSync(inspection_id, submitTimestampIso)` → function PATCHes `fecha_recepcion_checkout` using the explicit submit-time event_time, never `updated_at`.
+### C. Admin Actions cleanup (`AdminInspectionDetail.tsx` lines 836–920)
 
-## 5. Admin visibility (already shipped, lightly extended)
+Remove from the "Acciones Administrativas" card:
+- The `Devolución de llave (post-inspección)` date input + sync-status badge + "Reintentar" button (the entire `<div>` block at lines 842–891, including the `border-b pb-4` wrapper).
+- The `Fecha de término real de contrato` read-only field (lines 894–897). Adjust the surviving grid from `md:grid-cols-3` to `md:grid-cols-2` (Inspector + Ejecutivo).
 
-- `AdminIntegrationHubSpot.tsx` "Sincronización HubSpot saliente" card already lists the two events and the destination object — keep as-is, add a one-line credential indicator: "Token: `HUBSPOT_PRIVATE_APP_TOKEN` (configurado / faltante)" derived from a tiny health-check call to the function (or a simple "presence" shown once the secret is added — display the static label, no extra call).
-- `AdminIntegrationHubSpotOutboundLogs.tsx` already renders `hubspot_sync_log` with success/error/skipped chips, request/response panels, and links to the inspection — kept.
+The card then keeps only true operational controls: Inspector, Ejecutivo, Guardar, Forzar Avance, Eliminar Inspección.
 
-## 6. Files touched
+### D. Orphan reference sweep for the legacy key-return concept
 
-- edit `supabase/functions/hubspot-update-inspection/index.ts` — drop gateway, use `HUBSPOT_PRIVATE_APP_TOKEN`, direct `https://api.hubapi.com` PATCH, single `logAndRespond` helper covering every exit.
-- edit `supabase/config.toml` — set `[functions.hubspot-update-inspection] verify_jwt = false` (in-code JWT check stays).
-- edit `src/lib/hubspot-sync.ts` — no API change; ensure result is fully typed.
-- edit `src/pages/inspector/InspectorInspectionDetail.tsx` — `await` both triggers, surface toast on `!ok`.
-- edit `src/pages/admin/AdminIntegrationHubSpot.tsx` — small "Token configurado" status line in the outbound card.
+After removing the field, do a project-wide pass to ensure no dangling references:
 
-No DB migration. Inbound function and `HUBSPOT_INTAKE_SECRET` untouched.
+1. `src/pages/admin/AdminDashboard.tsx` — drop the `missingReturnKey` derivation (lines 70–75), the entire "Sin Devolución de Llave" card (lines 173–end of that block), the `Key` icon import if unused elsewhere, and any counter/badge tied to it.
+2. Re-run searches for: `fecha_devolucion_llave`, `missingReturnKey`, `Sin Devolución de Llave`, `Devolución de llave`, `KeyReturnSyncStatus`, `set_fecha_devolucion`. Anything still referenced **only** by removed UI is also deleted (e.g. unused `KeyReturnSyncStatus` type alias from `src/lib/types.ts` if no other file imports it — verify first).
+3. DB columns `fecha_devolucion_llave` and `fecha_devolucion_llave_sync_status` stay in the schema (no migration in this pass) to avoid touching the auto-generated `types.ts` or historical data. The fields in `Inspection` interface remain optional readers — they're just no longer surfaced or written from the UI.
+4. Confirm no edge function or audit-log writer still references `set_fecha_devolucion`.
 
-## 7. Verification after deploy
+### E. Verification checklist
 
-1. Save a key collection date as the inspector → expect a `success` row in `hubspot_sync_log` and a green chip in `/admin/integrations/hubspot/outbound-logs`. Verify HubSpot contract `fecha_recoleccion_llaves` updated.
-2. Submit an inspection → expect a `success` row with `action=checkout_received` and `event_time = submit time`. Verify HubSpot `fecha_recepcion_checkout` updated.
-3. Use admin "Reenviar a HubSpot" on `RE0001874` (`b0694de7…`) to backfill the already-saved `2026-04-25` and produce the first row.
-4. Negative paths sanity: temporarily call without auth → row with `status='error'`, `error_message='unauthorized'` appears (proves silence is gone).
+1. Inspector submit on a non-submitted inspection → one `hubspot_sync_log` row, `action='checkout_received'`.
+2. Admin Forzar Avance to `submitted` on a fresh inspection → one row appears, `event_time` matches the new `inspection_completed_at`.
+3. Admin Forzar Avance from `submitted` → `in_review` → no checkout row.
+4. Admin Forzar Avance to `submitted` again on an already-submitted inspection → no duplicate row (transition rule blocks it).
+5. Admin Actions card visually shows only: Inspector, Ejecutivo, Guardar, Forzar Avance, Eliminar.
+6. Admin Dashboard no longer shows "Sin Devolución de Llave".
+7. Project search returns zero hits for `missingReturnKey` and zero UI-surface hits for `fecha_devolucion_llave`.
 
-## Summary
+## Files touched
 
-- **External reference resolution:** outbound function takes `inspection_id`, queries `inspection_external_references` for the active HubSpot `lease_contract`, uses `external_object_id` (stripped of `hs_contrato_` prefix → numeric) and `external_object_type_id` (fallback `2-47492934`). `inspections` stays decoupled from HubSpot identity.
-- **Direct HubSpot PATCH:** `PATCH https://api.hubapi.com/crm/v3/objects/{typeId}/{numericId}` with `Authorization: Bearer ${HUBSPOT_PRIVATE_APP_TOKEN}`. Connector gateway path removed for outbound.
-- **Silent-trigger fix:** function flips to `verify_jwt = false` (in-code JWT validation kept), every exit path goes through one `logAndRespond` that always inserts into `hubspot_sync_log`, and frontend triggers are awaited so failures surface as a non-blocking toast.
-- **On save of `fecha_recoleccion_llaves`:** UI persists field + overrides, awaits `triggerKeyCollectionSync`, function resolves the contract, PATCHes `fecha_recoleccion_llaves`, logs `success`/`error`/`skipped`. Failure → toast pointing to outbound logs.
-- **On submit:** UI sets `status='submitted'`, awaits `triggerCheckoutSync(id, submitIso)`, function PATCHes `fecha_recepcion_checkout` with the explicit submit timestamp, logs the outcome. Submit UX is not blocked.
-- **Admin visibility:** existing outbound card lists the two events + destination object; outbound logs page renders every `hubspot_sync_log` row with success/error/skipped chips and request/response detail.
+- `src/lib/hubspot-sync.ts` — add `syncCheckoutIfApplicable`.
+- `src/pages/admin/AdminInspectionDetail.tsx` — wire helper into `handleForceAdvance` with shared `now`; stamp `inspection_completed_at` + `current_stage='review'` when forcing into `submitted`; remove the two outdated fields; collapse the grid to 2 columns; defensive guard in `advanceStage`.
+- `src/pages/inspector/InspectorInspectionDetail.tsx` — route through helper using the same `now` already generated.
+- `src/pages/admin/AdminDashboard.tsx` — remove `missingReturnKey`, its card, and any newly-unused imports.
+- `src/lib/types.ts` — only if `KeyReturnSyncStatus` becomes unused after the sweep.
+
+## Summary deliverable (after implementation)
+
+- **Root cause:** outbound sync was tied to a single UI button instead of the status transition.
+- **Change:** centralized `syncCheckoutIfApplicable` helper; called from inspector submit and admin Forzar Avance whenever `status` transitions into `submitted` for the first time, with one canonical timestamp shared across DB stamp and HubSpot payload.
+- **Business event:** first-time transition `status → submitted` is the single trigger for `fecha_de_recepcion_del_checkout`. Re-saves and downstream states never re-fire.
+- **`Devolución de llave (post-inspección)`** removed from Admin detail and Admin Dashboard; orphan sweep confirms no remaining references.
+- **`Fecha de término real de contrato`** removed from Acciones Administrativas (remains visible via the property briefing area which sources the snapshot directly).
 
