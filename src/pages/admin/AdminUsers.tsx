@@ -12,8 +12,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
-import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert } from 'lucide-react';
+import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  MARKET_OPTIONS,
+  COUNTRY_CODE_OPTIONS,
+  defaultCountryCodeForMarket,
+  marketLabel,
+  normalizePhone,
+  formatPhoneDisplay,
+} from '@/lib/markets';
 
 interface ExternalMapping {
   id: string;
