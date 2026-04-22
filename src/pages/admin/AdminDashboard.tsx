@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, Profile } from '@/lib/types';
-import { ClipboardList, Clock, FileSearch, AlertCircle, Plus, User, CalendarClock, AlertTriangle, Key } from 'lucide-react';
+import { ClipboardList, Clock, FileSearch, AlertCircle, Plus, User, CalendarClock, AlertTriangle } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -68,11 +68,6 @@ export default function AdminDashboard() {
       return dA - dB;
     })
     .slice(0, 5);
-
-  // Missing return key: finished but no fecha_devolucion_llave
-  const missingReturnKey = inspections.filter(
-    i => ['submitted', 'in_review', 'approved', 'published'].includes(i.status) && !i.fecha_devolucion_llave
-  );
 
   // Unassigned
   const unassigned = inspections.filter(i => !i.inspector_id || !i.executive_id).slice(0, 5);
