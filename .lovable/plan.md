@@ -1,147 +1,151 @@
 
 
-## Diagnóstico (paso 1)
+# Plan — Admin-created users + Admin Inspections list improvements
 
-**1. Dropdown "Todos los estados" tapa las cards**
-La barra de filtros (`flex flex-wrap items-center gap-3`) está pegada al listado sin contenedor visual ni separación. Los `SelectContent` de Radix se portalan correctamente (z-index OK), pero al abrirse hacia abajo cubren la primera card porque no hay margen, ni borde/contenedor que delimite la barra. Buscador + chips + 4 selects en flujo libre acentúan el efecto.
-
-**2. Badges duplicados en cada card**
-Cada card renderiza tres fuentes de estado superpuestas (líneas 494–504 de `AdminInspections.tsx`):
-- `bucketLabel(bucket)` → "Sin asignar"
-- `missingAssignmentLabel(insp)` → "Faltan ambos / Falta inspector / Falta ejecutivo"
-- `<InspectionStatusBadge status={insp.status}>` → para `pending_assignment` también imprime "Sin Asignar"
-
-Resultado para sin asignar: `Sin asignar` + `Faltan ambos` + `Sin Asignar`. Dos vocabularios distintos (bucket operativo + enum de BD) producen la misma etiqueta.
-
-**3. Workload está en la pantalla equivocada**
-`AdminInspections.tsx` declara un tab `workload` hermano de "Todas / Pendientes / Crear". Eso lo hace leer como otra forma de listar inspecciones, cuando en realidad es soporte para decisiones de asignación, que es el rol del Dashboard. El Dashboard actual tiene contadores parciales por inspector/ejecutivo sin las métricas operativas correctas.
-
-**4. Campos del snapshot disponibles pero NO renderizados en `Datos del inmueble`**
-Hoy `PropertyBriefingCard.tsx` muestra: address, property_type, tower, market, fecha_recoleccion_llaves, hora_recoleccion_llaves, unit_number, tenant_name, tenant_whatsapp, fecha_de_termino_real_de_contrato, parking_number, storage_number.
-
-Confirmado en BD que los snapshots reales también incluyen y NO se muestran:
-- `bedrooms_count`
-- `bathrooms_count`
-- `has_storage` (boolean)
-- `has_parking` (boolean)
-- `recipient_email`
-- `warranty_deposit`
+Scope strictly limited to: (A) admin-driven user creation/edit with new fields, (B) Inspections list sort label/options + Cards/Table toggle. No other admin/dashboard/detail rework.
 
 ---
 
-## Plan de corrección (paso 2)
+## Part A — Admin-created users
 
-### A. Fuente única de prioridad operativa
+### A1. Schema (migration)
+Add 2 columns to `profiles`:
+- `country_code text` — always stored with leading `+` (e.g. `+56`, `+52`)
+- `phone text` — digits only, no spaces / hyphens / parentheses
 
-Crear / extender `src/lib/inspector-operational.ts` exportando:
+`market` already exists; constrained at app level to `CL` / `MX`. No DB CHECK constraint added.
 
-```ts
-export type PriorityBucket = 0 | 1 | 2 | 3 | 5;
-export function priorityBucket(insp): PriorityBucket
-export function priorityBucketLabel(b): { label, className }
-export function missingAssignmentLabel(insp): string | null
-```
+### A2. Canonical role values (confirmed)
+The codebase consistently uses **lowercase string values**: `'admin'`, `'inspector'`, `'executive'` (plus `'pending'`, never assignable). Verified against:
+- `UserRole` type in `src/lib/types.ts`
+- `BUSINESS_ROLES` in `AdminUsers.tsx`
+- `has_role()` SQL function (text comparison, lowercase)
+- `external_user_mappings.role_hint` (`'inspector'` / `'executive'`)
+- RLS policies (`has_role(auth.uid(), 'executive'::text)`)
 
-`AdminInspections.tsx` y `AdminDashboard.tsx` consumen estas funciones — los tiles del Dashboard, los chips bucket de la lista y el sort `priority` quedan garantizados en el mismo cálculo. No puede driftear.
+The Create User role dropdown will use exactly: `admin` / `inspector` / `executive` — labels in UI: `Admin` / `Inspector` / `Executive`.
 
-### B. Mover Workload de Inspecciones → Admin Dashboard
+### A3. Edge Function `admin-create-user`
+Required because the client SDK cannot create auth users with a chosen password.
 
-`src/pages/admin/AdminInspections.tsx`:
-- Eliminar `<TabsTrigger value="workload">` y `<TabsContent value="workload">` completos.
-- Eliminar el `useMemo` `workload` y el componente local `Stat`.
-- Tabs queda: `Todas / Pendientes / Crear`.
+Flow:
+1. Validate caller JWT in code, fetch caller profile, check `role === 'admin'`. Reject 403 otherwise.
+2. Validate body with Zod: `email`, `password` (min 8), `full_name`, `role` ∈ {admin, inspector, executive}, `market` ∈ {CL, MX}, `country_code` (regex `^\+\d{1,4}$`), `phone` (regex `^\d{6,15}$`), `is_active` (bool).
+3. Use service-role client → `auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name, role } })`. The `handle_new_user` trigger seeds a `profiles` stub.
+4. Update `profiles` row with `role`, `market`, `country_code`, `phone`, `is_active`, `approval_status='approved'`.
+5. Return `{ id }` or structured error: `email_exists`, `weak_password`, `forbidden`, `validation`.
 
-`src/pages/admin/AdminDashboard.tsx` — refactor:
+CORS handled, function deployed at default settings.
 
-**B.1 Top operational summary (4 tiles)**
-`Sin asignar` · `Por coordinar` · `Programadas / por iniciar` · `En progreso`
-Reemplaza los 5 KPI actuales. Calculados con `priorityBucket` compartido.
+### A4. AdminUsers UI (`src/pages/admin/AdminUsers.tsx`)
 
-**B.2 High-priority queue: Sin asignar (top 5)**
-Card "Asignación urgente" antes de "Próximas Programadas" — la urgencia de asignación supera a la fecha. Cada item linkea a `/admin/inspections/{id}` con badge "Falta inspector/ejecutivo/ambos".
+**Create User dialog** (new "Crear Usuario" button in Usuarios Internos tab):
+- Nombre completo (required)
+- Email (required, unique)
+- Contraseña inicial (password, min 8, with show/hide toggle)
+- Rol (Select: Admin / Inspector / Executive — values lowercase)
+- Mercado (Select: Chile=`CL` / México=`MX`)
+- Código de país (Select: `+56 Chile` / `+52 México`, defaults to selected market)
+- Teléfono (input; on change, strip everything that isn't a digit)
+- Activo (Switch, default on)
+- Submit → `supabase.functions.invoke('admin-create-user', …)` → toast + refetch + close.
 
-**B.3 Workload Inspectores**
-Por cada inspector activo (rol = inspector, is_active=true): nombre + email + market + métricas: `Activas` · `Por coordinar` · `Por iniciar` · `En progreso`. Ordenado por Activas desc.
+**Edit User dialog** (extended):
+- Nombre completo — editable
+- **Email — visible, disabled (read-only)** with helper text `"Cambiar el email requiere actualización de auth y no está soportado en esta iteración."` (Refinement #2)
+- Rol — editable
+- Mercado — editable (CL/MX dropdown)
+- Código de país — editable
+- Teléfono — editable (digit-stripped on input)
+- Activo — Switch
+- Saves directly to `profiles` (no auth changes).
 
-**B.4 Workload Ejecutivos**
-Simétrico: nombre + email + market + métricas: `Activas` · `Pend. revisión` · `En revisión` · `Listas publicar` · `Publicadas`. Ordenado por Activas desc.
+**Users table** (Usuarios Internos tab): add `Teléfono` column (renders `country_code phone`); display `Mercado` as `Chile` / `México` instead of raw code.
 
-Las dos cards de workload reemplazan "Pendientes por Inspector" / "Por Revisar por Ejecutivo". Se conservan "Próximas Programadas", "Sin Devolución de Llave", "Inspecciones Recientes".
+### A5. Auth flow alignment (`src/pages/Auth.tsx`)
+Phrasing per Refinement #4:
+> Admin-created users become the **primary supported path**. Self-signup is **removed from the UI**. The backend `signUp` capability in `AuthContext` and the `handle_new_user` trigger remain as a safety net for future flows or direct admin Cloud-panel creation.
 
-### C. `AdminInspections.tsx` — overlap del dropdown + deduplicación de badges
+Concretely:
+- Remove the "¿Necesitas una cuenta? Crear una" toggle and the sign-up form branch.
+- Remove `signUpComplete` state and post-signup screen from the UI.
+- Keep `signUp()` exported from `AuthContext` (untouched).
+- Keep the `handle_new_user` DB trigger unchanged.
 
-**C.1 Barra de filtros (overlap)**
-Envolver buscador + bucket chips + filtros avanzados en una `<Card>` con `p-4 space-y-3` y `mt-4` antes del listado. Estructura:
-
-```
-Card "Controles":
-  ├── Search input (full width)
-  ├── Bucket chips row (prioridad operativa)
-  └── Separator + collapsible "Filtros avanzados":
-       ├── Estado (select, conservado)
-       ├── Inspector (select)
-       ├── Ejecutivo (select)
-       └── Ordenar por (select)
-```
-
-`Estado` se **conserva** dentro de un bloque "Filtros avanzados" (separado visualmente por `<Separator>` y un label "Filtros avanzados") porque cubre estados de ciclo de vida que los chips no exponen (`Enviada`, `En revisión`, `Aprobada`, `Publicada`, `Sent`, `Necesita cambios`). Forzar `position="popper" sideOffset={4}` en los SelectContent para evitar solapamiento residual.
-
-**C.2 Modelo de badges en cards (precedencia única)**
-
-Documentado como JSDoc encima del bloque de render. Máximo 2 badges:
-
-1. **Primario (siempre 1)** — derivado de `priorityBucket`:
-   - 0 → `Sin asignar` (status-bad)
-   - 1 → `Por coordinar` (amber)
-   - 2 → `Programada` (status-regular)
-   - 3 → `En progreso` (primary)
-   - 5 → `Completada` (status-good)
-
-2. **Secundario (solo si bucket=0)** — `missingAssignmentLabel`:
-   `Faltan ambos` | `Falta inspector` | `Falta ejecutivo`
-
-3. **Eliminar `<InspectionStatusBadge>` de las cards de la lista.** Su valor ya está representado por el bucket primario y duplica con `Sin asignar`. El estado bruto sigue visible en `AdminInspectionDetail`, donde tiene contexto.
-
-### D. `Datos del inmueble` completo y agrupado
-
-**D.1 Enriquecer `PropertyBriefingCard.tsx`** (read-only, sin reintroducir inputs). Mantiene los tres bloques agrupados existentes:
-
-**Bloque B — Fechas clave** (sin cambios):
-- Recolección de llaves
-- Término de contrato
-
-**Bloque C — Detalles de la propiedad** (agregar):
-- ID Propiedad (existente)
-- Nº Dpto/Casa (existente)
-- Tipo (existente)
-- Mercado (existente)
-- Torre (existente)
-- **Dormitorios** ← `bedrooms_count` (mostrar "Estudio" si =0 y propertyType='estudio')
-- **Baños** ← `bathrooms_count`
-- **Bodega** ← `has_storage` true → "Sí" + `storage_number` si existe; false → "No"
-- **Estacionamiento** ← `has_parking` + `parking_number`, misma lógica
-- **Garantía** ← `warranty_deposit` formateado (CLP/MXN según market), solo si presente
-
-**Bloque D — Datos de contacto/contexto** (agregar):
-- Inquilino (existente)
-- WhatsApp (existente)
-- **Correo receptor** ← `recipient_email` (icono Mail)
-- Acciones: Cómo llegar / WhatsApp (existente)
-
-**D.2 Estructurales read-only**
-Verificado: el único input del snapshot en `AdminInspectionDetail.tsx` es `Fecha de término real de contrato` y ya está `readOnly` con `bg-muted`. `PropertyOverrideEditor` ya fue removido. Header de "Acciones Administrativas" se actualiza con copy: *"Solo campos operativos. Los datos estructurales del inmueble vienen de REM y no son editables."*
-
-**D.3 Editables operacionales (sin cambios funcionales)**
-Inspector / Ejecutivo, devolución de llave + sync, forzar avance, eliminar, notas internas / observaciones por sección.
+### A6. Types & shared constants
+- Update `Profile` in `src/lib/types.ts`: add `country_code: string | null`, `phone: string | null`.
+- New `src/lib/markets.ts` exporting:
+  - `MARKET_OPTIONS = [{value:'CL',label:'Chile'},{value:'MX',label:'México'}]`
+  - `COUNTRY_CODE_OPTIONS = [{value:'+56',label:'+56 Chile'},{value:'+52',label:'+52 México'}]`
+  - Helpers `marketLabel(code)`, `normalizePhone(raw)` (strips non-digits), `normalizeCountryCode(raw)` (ensures leading `+`).
 
 ---
 
-### Archivos tocados
+## Part B — Admin Inspections list improvements
 
-- `src/lib/inspector-operational.ts` — agregar `priorityBucket`, `priorityBucketLabel`, `missingAssignmentLabel` como fuente única.
-- `src/pages/admin/AdminInspections.tsx` — quitar tab Workload + cómputo + Stat. Envolver filtros en Card con bloque "Filtros avanzados" colapsable (Estado conservado). Eliminar `<InspectionStatusBadge>` de las cards. Importar helpers compartidos. JSDoc de precedencia de badges.
-- `src/pages/admin/AdminDashboard.tsx` — reframe: 4 tiles operativos, queue Sin asignar, Workload Inspectores, Workload Ejecutivos. Conservar Próximas / Sin devolución / Recientes.
-- `src/components/PropertyBriefingCard.tsx` — agregar bedrooms_count, bathrooms_count, has_storage (+number), has_parking (+number), warranty_deposit, recipient_email, manteniendo los 3 bloques (Fechas / Detalles / Contacto).
+All edits in `src/pages/admin/AdminInspections.tsx`. No dashboard/detail logic touched.
 
-Sin migraciones. Sin cambios en RLS. Sin cambios en lógica de resolución HubSpot. Sin cambios en flujo de inspector/ejecutivo. Estructurales del inmueble permanecen read-only.
+### B1. Sort label rename
+`priority` option label `"Prioridad operativa"` → **`"Más urgente primero (recomendado)"`**. Underlying logic unchanged.
+
+### B2. Creation-date sort
+Add to `SORT_OPTIONS`:
+- `created_desc` → "Más recientes primero"
+- `created_asc` → "Más antiguos primero"
+
+Sort by `new Date(insp.created_at).getTime()` (already on the row, no extra fetch).
+
+Final order:
+1. Más urgente primero (recomendado)
+2. Última actividad
+3. Más recientes primero
+4. Más antiguos primero
+5. Término contrato ↑ / ↓
+6. Recolección llaves ↑ / ↓
+
+### B3. Cards / Table toggle
+- `viewMode: 'cards' | 'table'` persisted in URL via `?view=`, default `cards`.
+- Toggle (icon group: `LayoutGrid` / `Table2`) inside the controls Card.
+- Both views consume the same `filteredInspections` — single source of truth.
+
+### B4. Table columns
+Using existing `Table` primitives:
+| Propiedad (name + address) | ID | Estado (bucket badge) | Asignación (missing label or dash) | Inspector | Ejecutivo | Mercado | Tipo | Creada | Término contrato | Recolección llaves | Acción (Ver) |
+
+- Estado uses `priorityBucketLabel` (same as cards).
+- Asignación uses `missingAssignmentLabel` when bucket=0.
+- Row + "Ver" both Link to `/admin/inspections/:id`.
+- Horizontal scroll on narrow viewports via existing wrapper.
+
+### B5. Preserved
+Search, bucket chips, advanced filters, result count, Pendientes & Crear Nueva tabs — untouched.
+
+---
+
+## Technical details
+
+- Migration: `ALTER TABLE profiles ADD COLUMN country_code text, ADD COLUMN phone text;`
+- New: `supabase/functions/admin-create-user/index.ts` (uses `SUPABASE_SERVICE_ROLE_KEY`, already in secrets).
+- New: `src/lib/markets.ts`.
+- Edited: `src/lib/types.ts`, `src/pages/admin/AdminUsers.tsx`, `src/pages/admin/AdminInspections.tsx`, `src/pages/Auth.tsx`.
+- RLS: `profiles` already has "Admins can manage all profiles" — covers edit dialog updates.
+
+---
+
+## Out of scope
+Workload/dashboard tiles, HubSpot intake, AdminInspectionDetail, briefing card, signatures, photos, existing Pendientes approval flow, auth email update.
+
+---
+
+## Final summary (after implementation)
+- Admin-created users via dialog → edge function → auth user + profile row.
+- New profile fields: `country_code` (with `+`), `phone` (digits only).
+- Market: stored `CL`/`MX`, displayed `Chile`/`México`.
+- Phone: structured, normalized (digits only + leading `+`), WhatsApp-ready.
+- Roles: canonical lowercase `admin`/`inspector`/`executive`.
+- Auth: admin creation = primary supported path; self-signup removed from UI; backend signUp + trigger preserved as safety net.
+- Edit dialog: email read-only this iteration.
+- Inspections: added `Más recientes primero` / `Más antiguos primero`; renamed `Prioridad operativa` → `Más urgente primero (recomendado)`.
+- Cards/Table toggle persisted in `?view=`, sharing the same filtered+sorted dataset.
+- Table columns: Propiedad, ID, Estado, Asignación, Inspector, Ejecutivo, Mercado, Tipo, Creada, Término contrato, Recolección llaves, Acción.
 
