@@ -383,15 +383,20 @@ export default function AdminUsers() {
 
           {/* ─── Internal Users Tab ─── */}
           <TabsContent value="users" className="space-y-4 mt-4">
-            <div className="flex items-center gap-3">
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los roles</SelectItem>
-                  {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <span className="text-caption text-muted-foreground">{filtered.length} usuarios</span>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los roles</SelectItem>
+                    {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <span className="text-caption text-muted-foreground">{filtered.length} usuarios</span>
+              </div>
+              <Button size="sm" onClick={openCreateUser}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Crear Usuario
+              </Button>
             </div>
 
             {loading ? (
@@ -406,6 +411,7 @@ export default function AdminUsers() {
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Rol</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Mercado</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Teléfono</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
                         <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
                       </tr>
