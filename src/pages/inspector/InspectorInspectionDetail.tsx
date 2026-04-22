@@ -292,8 +292,15 @@ export default function InspectorInspectionDetail() {
     setKeyFormOpen(false);
     toast({ title: 'Recolección guardada', description: 'La fecha/hora quedó registrada para esta inspección.' });
 
-    // Outbound HubSpot sync (best-effort, non-blocking)
-    triggerKeyCollectionSync(inspection.id);
+    // Outbound HubSpot sync — awaited so failures are visible (still non-blocking for the save).
+    const syncRes = await triggerKeyCollectionSync(inspection.id);
+    if (!syncRes.ok) {
+      toast({
+        title: 'Sync HubSpot pendiente',
+        description: 'La fecha se guardó pero no se pudo enviar a HubSpot. Revisa los logs salientes.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleStart = async () => {
@@ -363,10 +370,17 @@ export default function InspectorInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      // Outbound HubSpot sync — pass the explicit submit timestamp as event_time
-      triggerCheckoutSync(inspection!.id, now);
-
-      toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
+      // Outbound HubSpot sync — explicit submit timestamp; awaited but non-blocking for navigation.
+      const syncRes = await triggerCheckoutSync(inspection!.id, now);
+      if (!syncRes.ok) {
+        toast({
+          title: 'Sync HubSpot pendiente',
+          description: 'La inspección se envió pero el checkout no llegó a HubSpot. Revisa los logs salientes.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
+      }
       navigate('/inspector');
     }
   };
