@@ -394,6 +394,22 @@ export default function AdminInspections() {
                       </button>
                     );
                   })}
+                  <div className="ml-auto">
+                    <ToggleGroup
+                      type="single"
+                      value={viewMode}
+                      onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <ToggleGroupItem value="cards" aria-label="Vista de tarjetas" title="Tarjetas">
+                        <LayoutGrid className="h-4 w-4" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="table" aria-label="Vista de tabla" title="Tabla">
+                        <Table2 className="h-4 w-4" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
                 </div>
 
                 <Separator />
