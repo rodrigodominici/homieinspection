@@ -143,3 +143,81 @@ export function isCompletedToday(inspection: Inspection, now = new Date()): bool
   if (Number.isNaN(date.getTime())) return false;
   return toChileDateKey(date) === toChileDateKey(now);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * SHARED ADMIN OPERATIONAL PRIORITY
+ *
+ * Single source of truth used by AdminInspections (list ordering, chips) AND
+ * AdminDashboard (KPI tiles, queues). Keep them aligned — never duplicate.
+ *
+ * Bucket precedence (lower = higher operational priority):
+ *   0  Sin asignar      — missing inspector OR executive OR status pending_assignment.
+ *                         ALWAYS outranks date-based urgency.
+ *   1  Por coordinar    — assigned but no fecha_recoleccion_llaves.
+ *   2  Programada       — assigned + coordinated, not yet started.
+ *   3  En progreso      — in_progress / submitted / in_review / needs_changes.
+ *   5  Completada       — published / sent / approved.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type PriorityBucket = 0 | 1 | 2 | 3 | 5;
+
+interface AdminInspectionLike {
+  inspector_id: string | null;
+  executive_id: string | null;
+  status: string;
+}
+
+export function priorityBucket(
+  insp: AdminInspectionLike & { scheduleDatetime?: Date | null },
+  fullInspection?: Inspection,
+): PriorityBucket {
+  const missingAssign =
+    !insp.inspector_id || !insp.executive_id || insp.status === 'pending_assignment';
+  if (missingAssign) return 0;
+
+  const terminal = ['published', 'sent', 'approved'].includes(insp.status);
+  if (terminal) return 5;
+
+  if (
+    insp.status === 'in_progress' ||
+    insp.status === 'submitted' ||
+    insp.status === 'in_review' ||
+    insp.status === 'needs_changes'
+  ) {
+    return 3;
+  }
+
+  // assigned/pending → distinguish coordinated vs not
+  const schedule =
+    insp.scheduleDatetime !== undefined
+      ? insp.scheduleDatetime
+      : fullInspection
+        ? getScheduleDatetime(fullInspection)
+        : null;
+  if (!schedule) return 1;
+  return 2;
+}
+
+export function priorityBucketLabel(b: PriorityBucket): { label: string; className: string } {
+  switch (b) {
+    case 0:
+      return { label: 'Sin asignar', className: 'bg-status-bad-bg text-status-bad' };
+    case 1:
+      return { label: 'Por coordinar', className: 'bg-amber-50 text-amber-700' };
+    case 2:
+      return { label: 'Programada', className: 'bg-status-regular-bg text-status-regular' };
+    case 3:
+      return { label: 'En progreso', className: 'bg-primary/10 text-primary' };
+    default:
+      return { label: 'Completada', className: 'bg-status-good-bg text-status-good' };
+  }
+}
+
+export function missingAssignmentLabel(insp: AdminInspectionLike): string | null {
+  const noI = !insp.inspector_id;
+  const noE = !insp.executive_id;
+  if (noI && noE) return 'Faltan ambos';
+  if (noI) return 'Falta inspector';
+  if (noE) return 'Falta ejecutivo';
+  return null;
+}
