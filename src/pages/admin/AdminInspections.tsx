@@ -25,7 +25,7 @@ import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Inspection, Profile } from '@/lib/types';
 import {
-  UserCheck, AlertCircle, Search, ExternalLink, MapPin, User, UserCog,
+  UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -309,55 +309,7 @@ export default function AdminInspections() {
     return sorted;
   }, [inspections, statusFilter, inspectorFilter, executiveFilter, bucketFilter, searchQuery, sortBy]);
 
-  // Workload counts per profile
-  const workload = useMemo(() => {
-    const inspectorMap = new Map<string, {
-      profile: Profile;
-      total: number; por_coordinar: number; por_iniciar: number;
-      en_progreso: number; programadas: number;
-    }>();
-    const executiveMap = new Map<string, {
-      profile: Profile;
-      total: number; pendientes_revision: number; en_revision: number;
-      listas_publicar: number; publicadas: number;
-    }>();
-
-    for (const p of inspectors) {
-      inspectorMap.set(p.id, { profile: p, total: 0, por_coordinar: 0, por_iniciar: 0, en_progreso: 0, programadas: 0 });
-    }
-    for (const p of executives) {
-      executiveMap.set(p.id, { profile: p, total: 0, pendientes_revision: 0, en_revision: 0, listas_publicar: 0, publicadas: 0 });
-    }
-
-    for (const insp of inspections) {
-      // Inspector workload
-      if (insp.inspector_id && inspectorMap.has(insp.inspector_id)) {
-        const w = inspectorMap.get(insp.inspector_id)!;
-        const isActive = !['published', 'sent', 'approved'].includes(insp.status);
-        if (isActive) w.total++;
-        if (insp.status === 'assigned' && !insp.scheduleDatetime) w.por_coordinar++;
-        if (insp.status === 'assigned' && insp.scheduleDatetime) {
-          w.programadas++;
-          w.por_iniciar++;
-        }
-        if (insp.status === 'in_progress') w.en_progreso++;
-      }
-      // Executive workload
-      if (insp.executive_id && executiveMap.has(insp.executive_id)) {
-        const w = executiveMap.get(insp.executive_id)!;
-        const isActive = !['published', 'sent'].includes(insp.status);
-        if (isActive) w.total++;
-        if (insp.status === 'submitted') w.pendientes_revision++;
-        if (insp.status === 'in_review' || insp.status === 'needs_changes') w.en_revision++;
-        if (insp.status === 'approved') w.listas_publicar++;
-        if (insp.status === 'published' || insp.status === 'sent') w.publicadas++;
-      }
-    }
-
-    return {
-      inspectors: Array.from(inspectorMap.values()).sort((a, b) => b.total - a.total),
-      executives: Array.from(executiveMap.values()).sort((a, b) => b.total - a.total),
-    };
+  // Workload moved to AdminDashboard (single source of truth for assignment decisions).
   }, [inspections, inspectors, executives]);
 
   const formatDate = (d: Date) => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -475,7 +427,7 @@ export default function AdminInspections() {
               <div className="space-y-3">
                 {filteredInspections.map((insp) => {
                   const bucket = priorityBucket(insp);
-                  const bLabel = bucketLabel(bucket);
+                  const bLabel = priorityBucketLabel(bucket);
                   const missing = missingAssignmentLabel(insp);
                   return (
                     <Card
