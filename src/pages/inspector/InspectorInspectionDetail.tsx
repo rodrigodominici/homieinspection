@@ -33,6 +33,7 @@ import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPho
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
+import { triggerKeyCollectionSync, triggerCheckoutSync } from '@/lib/hubspot-sync';
 
 export default function InspectorInspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -292,11 +293,7 @@ export default function InspectorInspectionDetail() {
     toast({ title: 'Recolección guardada', description: 'La fecha/hora quedó registrada para esta inspección.' });
 
     // Outbound HubSpot sync (best-effort, non-blocking)
-    supabase.functions
-      .invoke('hubspot-update-inspection', {
-        body: { inspection_id: inspection.id, action: 'key_collection_date' },
-      })
-      .catch((err) => console.warn('[hubspot-sync] key_collection_date failed', err));
+    triggerKeyCollectionSync(inspection.id);
   };
 
   const handleStart = async () => {
@@ -367,11 +364,7 @@ export default function InspectorInspectionDetail() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       // Outbound HubSpot sync — pass the explicit submit timestamp as event_time
-      supabase.functions
-        .invoke('hubspot-update-inspection', {
-          body: { inspection_id: inspection!.id, action: 'checkout_received', event_time: now },
-        })
-        .catch((err) => console.warn('[hubspot-sync] checkout_received failed', err));
+      triggerCheckoutSync(inspection!.id, now);
 
       toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
       navigate('/inspector');
