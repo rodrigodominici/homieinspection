@@ -148,24 +148,97 @@ export default function AdminUsers() {
     setEditingProfile(p);
     setEditRole(p.role === 'pending' ? 'inspector' : p.role);
     setEditName(p.full_name);
-    setEditMarket(p.market ?? '');
+    setEditMarket((p.market === 'CL' || p.market === 'MX') ? p.market : 'CL');
+    setEditCountryCode(p.country_code ?? defaultCountryCodeForMarket(p.market));
+    setEditPhone(p.phone ?? '');
+    setEditIsActive(p.is_active);
   };
 
   const handleEditSave = async () => {
     if (!editingProfile) return;
+    const cleanPhone = normalizePhone(editPhone);
     setSaving(true);
+    const updates = {
+      role: editRole,
+      full_name: editName,
+      market: editMarket || null,
+      country_code: editCountryCode || null,
+      phone: cleanPhone || null,
+      is_active: editIsActive,
+    };
     const { error } = await supabase
       .from('profiles')
-      .update({ role: editRole, full_name: editName, market: editMarket || null })
+      .update(updates)
       .eq('id', editingProfile.id);
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     setProfiles(prev =>
-      prev.map(x => x.id === editingProfile.id ? { ...x, role: editRole, full_name: editName, market: editMarket || null } : x)
+      prev.map(x => x.id === editingProfile.id ? { ...x, ...updates } : x)
     );
     setEditingProfile(null);
     toast({ title: 'Usuario actualizado' });
   };
+
+  /* ─── Create user (admin-driven) ─── */
+  const openCreateUser = () => {
+    setCuName('');
+    setCuEmail('');
+    setCuPassword('');
+    setCuShowPassword(false);
+    setCuRole('inspector');
+    setCuMarket('CL');
+    setCuCountryCode('+56');
+    setCuPhone('');
+    setCuIsActive(true);
+    setCreateUserOpen(true);
+  };
+
+  const handleCreateUser = async () => {
+    const name = cuName.trim();
+    const email = cuEmail.trim().toLowerCase();
+    const phone = normalizePhone(cuPhone);
+    if (!name) { toast({ title: 'Nombre requerido', variant: 'destructive' }); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Email inválido', variant: 'destructive' }); return;
+    }
+    if (cuPassword.length < 8) {
+      toast({ title: 'Contraseña muy corta', description: 'Mínimo 8 caracteres.', variant: 'destructive' }); return;
+    }
+    if (!/^\d{6,15}$/.test(phone)) {
+      toast({ title: 'Teléfono inválido', description: 'Solo dígitos, 6–15 caracteres.', variant: 'destructive' }); return;
+    }
+    setCuSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('admin-create-user', {
+      body: {
+        full_name: name,
+        email,
+        password: cuPassword,
+        role: cuRole,
+        market: cuMarket,
+        country_code: cuCountryCode,
+        phone,
+        is_active: cuIsActive,
+      },
+    });
+    setCuSubmitting(false);
+    if (error) {
+      const ctx = (error as { context?: { error?: string; detail?: string } }).context;
+      const code = ctx?.error;
+      const msg =
+        code === 'email_exists' ? 'Ya existe un usuario con ese email.' :
+        code === 'weak_password' ? 'Contraseña muy débil (mín. 8 caracteres).' :
+        code === 'forbidden' ? 'No tienes permisos para crear usuarios.' :
+        code === 'validation' ? `Datos inválidos (${ctx?.detail ?? 'campo'}).` :
+        error.message;
+      toast({ title: 'No se pudo crear el usuario', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Usuario creado', description: `${name} ya puede iniciar sesión.` });
+    setCreateUserOpen(false);
+    fetchAll();
+    void data;
+  };
+
 
   /* ─── Mapping handlers ─── */
   const handleCreateMapping = async () => {
