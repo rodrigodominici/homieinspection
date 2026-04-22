@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
@@ -55,6 +56,11 @@ export default function AdminUsers() {
   const [newProfileId, setNewProfileId] = useState('');
   const [linkingMapping, setLinkingMapping] = useState<ExternalMapping | null>(null);
   const [linkProfileId, setLinkProfileId] = useState('');
+  const [editingMapping, setEditingMapping] = useState<ExternalMapping | null>(null);
+  const [editMapEmail, setEditMapEmail] = useState('');
+  const [editMapRoleHint, setEditMapRoleHint] = useState<'inspector' | 'executive'>('inspector');
+  const [editMapIsActive, setEditMapIsActive] = useState(true);
+  const [editMapProfileId, setEditMapProfileId] = useState('');
 
   const fetchAll = async () => {
     const [pRes, mRes] = await Promise.all([
@@ -164,6 +170,34 @@ export default function AdminUsers() {
     setMappings(prev => prev.map(m => m.id === linkingMapping.id ? { ...m, profile_id: linkProfileId } : m));
     setLinkingMapping(null);
     toast({ title: 'Vinculado' });
+  };
+
+  const handleEditMappingOpen = (m: ExternalMapping) => {
+    setEditingMapping(m);
+    setEditMapEmail(m.hubspot_email ?? '');
+    setEditMapRoleHint((m.role_hint === 'executive' ? 'executive' : 'inspector'));
+    setEditMapIsActive(m.is_active);
+    setEditMapProfileId(m.profile_id ?? '');
+  };
+
+  const handleEditMappingSave = async () => {
+    if (!editingMapping) return;
+    setSaving(true);
+    const updates = {
+      hubspot_email: editMapEmail.trim() || null,
+      role_hint: editMapRoleHint,
+      is_active: editMapIsActive,
+      profile_id: editMapProfileId || null,
+    };
+    const { error } = await supabase
+      .from('external_user_mappings')
+      .update(updates)
+      .eq('id', editingMapping.id);
+    setSaving(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setMappings(prev => prev.map(m => m.id === editingMapping.id ? { ...m, ...updates } : m));
+    setEditingMapping(null);
+    toast({ title: 'Mapping actualizado' });
   };
 
   const handleUnlink = async (mapping: ExternalMapping) => {
@@ -354,9 +388,14 @@ export default function AdminUsers() {
                           </td>
                           <td className="py-3 px-4 font-medium">{profileName(m.profile_id)}</td>
                           <td className="py-3 px-4 text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUnlink(m)}>
-                              <Unlink className="h-3.5 w-3.5 text-status-bad" />
-                            </Button>
+                            <div className="inline-flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditMappingOpen(m)} title="Editar">
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUnlink(m)} title="Desvincular">
+                                <Unlink className="h-3.5 w-3.5 text-status-bad" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
