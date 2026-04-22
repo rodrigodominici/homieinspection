@@ -877,8 +877,20 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* ─── Property Briefing Card ─── */}
-        <PropertyBriefingCard inspection={inspection} />
+        {/* ─── Property Briefing Card (REM source of truth) ─── */}
+        <Card className="border-0 ring-1 ring-border shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" /> Datos del inmueble
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Sincronizados desde REM. Fuente de verdad del inmueble. No editable desde Homie.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <PropertyBriefingCard inspection={inspection} />
+          </CardContent>
+        </Card>
 
         {/* ─── Signature Status ─── */}
         {signature && (
