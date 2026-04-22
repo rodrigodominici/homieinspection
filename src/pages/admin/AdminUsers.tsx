@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
@@ -55,6 +56,11 @@ export default function AdminUsers() {
   const [newProfileId, setNewProfileId] = useState('');
   const [linkingMapping, setLinkingMapping] = useState<ExternalMapping | null>(null);
   const [linkProfileId, setLinkProfileId] = useState('');
+  const [editingMapping, setEditingMapping] = useState<ExternalMapping | null>(null);
+  const [editMapEmail, setEditMapEmail] = useState('');
+  const [editMapRoleHint, setEditMapRoleHint] = useState<'inspector' | 'executive'>('inspector');
+  const [editMapIsActive, setEditMapIsActive] = useState(true);
+  const [editMapProfileId, setEditMapProfileId] = useState('');
 
   const fetchAll = async () => {
     const [pRes, mRes] = await Promise.all([
@@ -164,6 +170,34 @@ export default function AdminUsers() {
     setMappings(prev => prev.map(m => m.id === linkingMapping.id ? { ...m, profile_id: linkProfileId } : m));
     setLinkingMapping(null);
     toast({ title: 'Vinculado' });
+  };
+
+  const handleEditMappingOpen = (m: ExternalMapping) => {
+    setEditingMapping(m);
+    setEditMapEmail(m.hubspot_email ?? '');
+    setEditMapRoleHint((m.role_hint === 'executive' ? 'executive' : 'inspector'));
+    setEditMapIsActive(m.is_active);
+    setEditMapProfileId(m.profile_id ?? '');
+  };
+
+  const handleEditMappingSave = async () => {
+    if (!editingMapping) return;
+    setSaving(true);
+    const updates = {
+      hubspot_email: editMapEmail.trim() || null,
+      role_hint: editMapRoleHint,
+      is_active: editMapIsActive,
+      profile_id: editMapProfileId || null,
+    };
+    const { error } = await supabase
+      .from('external_user_mappings')
+      .update(updates)
+      .eq('id', editingMapping.id);
+    setSaving(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setMappings(prev => prev.map(m => m.id === editingMapping.id ? { ...m, ...updates } : m));
+    setEditingMapping(null);
+    toast({ title: 'Mapping actualizado' });
   };
 
   const handleUnlink = async (mapping: ExternalMapping) => {
@@ -354,9 +388,14 @@ export default function AdminUsers() {
                           </td>
                           <td className="py-3 px-4 font-medium">{profileName(m.profile_id)}</td>
                           <td className="py-3 px-4 text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUnlink(m)}>
-                              <Unlink className="h-3.5 w-3.5 text-status-bad" />
-                            </Button>
+                            <div className="inline-flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditMappingOpen(m)} title="Editar">
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUnlink(m)} title="Desvincular">
+                                <Unlink className="h-3.5 w-3.5 text-status-bad" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -517,6 +556,59 @@ export default function AdminUsers() {
                 <Button variant="outline" onClick={() => setLinkingMapping(null)} className="flex-1">Cancelar</Button>
                 <Button onClick={handleLink} disabled={saving || !linkProfileId} className="flex-1">
                   {saving ? 'Vinculando...' : 'Vincular'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit mapping dialog */}
+      {editingMapping && (
+        <Dialog open={!!editingMapping} onOpenChange={(o) => !o && setEditingMapping(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Editar Mapping HubSpot</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Email HubSpot</Label>
+                <Input value={editMapEmail} onChange={(e) => setEditMapEmail(e.target.value)} placeholder="usuario@hubspot.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Rol sugerido</Label>
+                <Select value={editMapRoleHint} onValueChange={(v) => setEditMapRoleHint(v as 'inspector' | 'executive')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inspector">Inspector</SelectItem>
+                    <SelectItem value="executive">Executive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Mapping activo</Label>
+                  <p className="text-tiny text-muted-foreground">Si está inactivo, no se usará en la resolución del intake.</p>
+                </div>
+                <Switch checked={editMapIsActive} onCheckedChange={setEditMapIsActive} />
+              </div>
+              <div className="space-y-2">
+                <Label>Vincular a usuario</Label>
+                <Select
+                  value={editMapProfileId === '' ? '__none__' : editMapProfileId}
+                  onValueChange={(v) => setEditMapProfileId(v === '__none__' ? '' : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Sin vincular" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin vincular</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.role})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setEditingMapping(null)} className="flex-1">Cancelar</Button>
+                <Button onClick={handleEditMappingSave} disabled={saving} className="flex-1">
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
                 </Button>
               </div>
             </div>
