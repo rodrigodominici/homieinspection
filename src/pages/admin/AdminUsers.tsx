@@ -561,12 +561,19 @@ export default function AdminUsers() {
       {/* Edit user dialog */}
       {editingProfile && (
         <Dialog open={!!editingProfile} onOpenChange={(o) => !o && setEditingProfile(null)}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label>Nombre Completo</Label>
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={editingProfile.email} disabled />
+                <p className="text-tiny text-muted-foreground">
+                  Cambiar el email requiere actualización de auth y no está soportado en esta iteración.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Rol</Label>
@@ -577,11 +584,46 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Mercado</Label>
-                <Input value={editMarket} onChange={(e) => setEditMarket(e.target.value)} placeholder="CL, MX, etc." />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Mercado</Label>
+                  <Select value={editMarket} onValueChange={(v) => {
+                    setEditMarket(v);
+                    if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(v));
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MARKET_OPTIONS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Código país</Label>
+                  <Select value={editCountryCode} onValueChange={setEditCountryCode}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_CODE_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="text-tiny text-muted-foreground">Email: {editingProfile.email}</div>
+              <div className="space-y-2">
+                <Label>Teléfono</Label>
+                <Input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(normalizePhone(e.target.value))}
+                  placeholder="912345678"
+                  inputMode="numeric"
+                />
+                <p className="text-tiny text-muted-foreground">Solo dígitos, sin espacios ni guiones.</p>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Activo</Label>
+                  <p className="text-tiny text-muted-foreground">Si está inactivo, el usuario no podrá usar la app.</p>
+                </div>
+                <Switch checked={editIsActive} onCheckedChange={setEditIsActive} />
+              </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setEditingProfile(null)} className="flex-1">Cancelar</Button>
                 <Button onClick={handleEditSave} disabled={saving} className="flex-1">
@@ -592,6 +634,110 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Create user dialog */}
+      <Dialog open={createUserOpen} onOpenChange={setCreateUserOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Crear Usuario</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Nombre Completo</Label>
+              <Input value={cuName} onChange={(e) => setCuName(e.target.value)} placeholder="Ana Pérez" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={cuEmail}
+                onChange={(e) => setCuEmail(e.target.value)}
+                placeholder="usuario@homie.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contraseña inicial</Label>
+              <div className="relative">
+                <Input
+                  type={cuShowPassword ? 'text' : 'password'}
+                  value={cuPassword}
+                  onChange={(e) => setCuPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCuShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                  aria-label={cuShowPassword ? 'Ocultar' : 'Mostrar'}
+                >
+                  {cuShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-tiny text-muted-foreground">Comparte estas credenciales con el empleado.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select value={cuRole} onValueChange={(v) => setCuRole(v as 'admin' | 'inspector' | 'executive')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Mercado</Label>
+                <Select
+                  value={cuMarket}
+                  onValueChange={(v) => {
+                    const next = v as 'CL' | 'MX';
+                    setCuMarket(next);
+                    setCuCountryCode(defaultCountryCodeForMarket(next));
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MARKET_OPTIONS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Código país</Label>
+                <Select value={cuCountryCode} onValueChange={setCuCountryCode}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CODE_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input
+                value={cuPhone}
+                onChange={(e) => setCuPhone(normalizePhone(e.target.value))}
+                placeholder="912345678"
+                inputMode="numeric"
+              />
+              <p className="text-tiny text-muted-foreground">Solo dígitos, sin espacios ni guiones.</p>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label>Activo</Label>
+                <p className="text-tiny text-muted-foreground">Determina si el usuario puede iniciar sesión.</p>
+              </div>
+              <Switch checked={cuIsActive} onCheckedChange={setCuIsActive} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setCreateUserOpen(false)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleCreateUser} disabled={cuSubmitting} className="flex-1">
+                {cuSubmitting ? 'Creando...' : 'Crear Usuario'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Create mapping dialog */}
       <Dialog open={creating} onOpenChange={setCreating}>
