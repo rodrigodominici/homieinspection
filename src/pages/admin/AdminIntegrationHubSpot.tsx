@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Copy, ExternalLink, Check, FileJson, ListChecks } from 'lucide-react';
+import { Copy, ExternalLink, Check, FileJson, ListChecks, ArrowUpRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -219,6 +219,50 @@ export default function AdminIntegrationHubSpot() {
               Reenvíos del mismo <code>external_event_id</code> NO crean filas nuevas: se acumulan en el
               evento original como <code>duplicate_count</code> y se devuelve <code>200</code> con
               <code> status=duplicate</code>.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ArrowUpRight className="h-4 w-4" />
+                  Sincronización HubSpot saliente
+                </CardTitle>
+                <CardDescription>
+                  Eventos de la inspección que se reflejan automáticamente en el contrato de HubSpot.
+                </CardDescription>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/integrations/hubspot/outbound-logs">
+                  <ListChecks className="mr-2 h-4 w-4" />
+                  Ver logs salientes
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="rounded border p-3 space-y-1">
+              <div className="font-medium">
+                <code className="text-xs">fecha_recoleccion_llaves</code>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se envía al contrato cuando el inspector guarda la fecha de recolección de llaves.
+              </p>
+            </div>
+            <div className="rounded border p-3 space-y-1">
+              <div className="font-medium">
+                <code className="text-xs">fecha_recepcion_checkout</code>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se envía al contrato cuando la inspección pasa a estado <code>submitted</code>.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Object type id: <code>2-47492934</code> (Contrato de Locación). El contrato destino se resuelve
+              vía <code>inspection_external_references</code> — el modelo de inspecciones permanece desacoplado de HubSpot.
             </p>
           </CardContent>
         </Card>
