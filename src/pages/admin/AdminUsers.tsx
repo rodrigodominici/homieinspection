@@ -562,6 +562,59 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit mapping dialog */}
+      {editingMapping && (
+        <Dialog open={!!editingMapping} onOpenChange={(o) => !o && setEditingMapping(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Editar Mapping HubSpot</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Email HubSpot</Label>
+                <Input value={editMapEmail} onChange={(e) => setEditMapEmail(e.target.value)} placeholder="usuario@hubspot.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Rol sugerido</Label>
+                <Select value={editMapRoleHint} onValueChange={(v) => setEditMapRoleHint(v as 'inspector' | 'executive')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inspector">Inspector</SelectItem>
+                    <SelectItem value="executive">Executive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Mapping activo</Label>
+                  <p className="text-tiny text-muted-foreground">Si está inactivo, no se usará en la resolución del intake.</p>
+                </div>
+                <Switch checked={editMapIsActive} onCheckedChange={setEditMapIsActive} />
+              </div>
+              <div className="space-y-2">
+                <Label>Vincular a usuario</Label>
+                <Select
+                  value={editMapProfileId === '' ? '__none__' : editMapProfileId}
+                  onValueChange={(v) => setEditMapProfileId(v === '__none__' ? '' : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Sin vincular" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin vincular</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.role})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setEditingMapping(null)} className="flex-1">Cancelar</Button>
+                <Button onClick={handleEditMappingSave} disabled={saving} className="flex-1">
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </AdminLayout>
   );
 }
