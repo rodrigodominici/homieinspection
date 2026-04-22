@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.recover-stalled-events]
 verify_jwt = false
+
+[functions.hubspot-update-inspection]
+verify_jwt = true

@@ -392,6 +392,70 @@ Deno.serve(async (req: Request) => {
         const row = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
         if (row?.failure_reason) {
           console.warn('[intake] RPC reported failure', row);
+        } else if (row?.inspection_id && body.external_object_id) {
+          // Persist external reference (decoupled — inspections table stays HubSpot-agnostic)
+          try {
+            const provider = 'hubspot';
+            const externalObjectType = 'lease_contract';
+            const externalObjectTypeId = '2-47492934';
+            const objectIdStr = String(body.external_object_id);
+            const inspectionIdStr = row.inspection_id as string;
+
+            // A) Existing active reference for this exact pair on THIS inspection?
+            const { data: existingForThis } = await supabase
+              .from('inspection_external_references')
+              .select('id')
+              .eq('inspection_id', inspectionIdStr)
+              .eq('provider', provider)
+              .eq('external_object_type', externalObjectType)
+              .eq('external_object_id', objectIdStr)
+              .eq('is_active', true)
+              .maybeSingle();
+
+            if (existingForThis) {
+              await supabase
+                .from('inspection_external_references')
+                .update({
+                  metadata: {
+                    external_event_id: externalEventId,
+                    source_event_id: eventId,
+                    received_at: new Date().toISOString(),
+                  },
+                })
+                .eq('id', existingForThis.id);
+            } else {
+              // B) Deactivate any active reference for the same external object on a DIFFERENT inspection
+              await supabase
+                .from('inspection_external_references')
+                .update({ is_active: false })
+                .eq('provider', provider)
+                .eq('external_object_type', externalObjectType)
+                .eq('external_object_id', objectIdStr)
+                .eq('is_active', true);
+
+              // C) Insert the new active reference
+              const { error: refInsErr } = await supabase
+                .from('inspection_external_references')
+                .insert({
+                  inspection_id: inspectionIdStr,
+                  provider,
+                  external_object_type: externalObjectType,
+                  external_object_type_id: externalObjectTypeId,
+                  external_object_id: objectIdStr,
+                  is_active: true,
+                  metadata: {
+                    external_event_id: externalEventId,
+                    source_event_id: eventId,
+                    received_at: new Date().toISOString(),
+                  },
+                });
+              if (refInsErr) {
+                console.error('[intake] external_reference insert failed', refInsErr);
+              }
+            }
+          } catch (refErr) {
+            console.error('[intake] external_reference flow error', refErr);
+          }
         }
       }
     } catch (err) {

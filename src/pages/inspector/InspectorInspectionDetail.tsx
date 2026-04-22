@@ -290,6 +290,13 @@ export default function InspectorInspectionDetail() {
     setSavingKeyCollection(false);
     setKeyFormOpen(false);
     toast({ title: 'Recolección guardada', description: 'La fecha/hora quedó registrada para esta inspección.' });
+
+    // Outbound HubSpot sync (best-effort, non-blocking)
+    supabase.functions
+      .invoke('hubspot-update-inspection', {
+        body: { inspection_id: inspection.id, action: 'key_collection_date' },
+      })
+      .catch((err) => console.warn('[hubspot-sync] key_collection_date failed', err));
   };
 
   const handleStart = async () => {
@@ -359,6 +366,13 @@ export default function InspectorInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      // Outbound HubSpot sync — pass the explicit submit timestamp as event_time
+      supabase.functions
+        .invoke('hubspot-update-inspection', {
+          body: { inspection_id: inspection!.id, action: 'checkout_received', event_time: now },
+        })
+        .catch((err) => console.warn('[hubspot-sync] checkout_received failed', err));
+
       toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
       navigate('/inspector');
     }

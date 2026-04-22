@@ -82,6 +82,72 @@ export type Database = {
           },
         ]
       }
+      hubspot_sync_log: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          event_time: string | null
+          external_reference_id: string | null
+          hubspot_object_id: string | null
+          hubspot_object_type_id: string | null
+          id: string
+          inspection_id: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          response_status: number | null
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          event_time?: string | null
+          external_reference_id?: string | null
+          hubspot_object_id?: string | null
+          hubspot_object_type_id?: string | null
+          id?: string
+          inspection_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          event_time?: string | null
+          external_reference_id?: string | null
+          hubspot_object_id?: string | null
+          hubspot_object_type_id?: string | null
+          id?: string
+          inspection_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hubspot_sync_log_external_reference_id_fkey"
+            columns: ["external_reference_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_external_references"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hubspot_sync_log_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_audit_log: {
         Row: {
           action: string
@@ -126,6 +192,53 @@ export type Database = {
             columns: ["performed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_external_references: {
+        Row: {
+          created_at: string
+          external_object_id: string
+          external_object_type: string
+          external_object_type_id: string | null
+          id: string
+          inspection_id: string
+          is_active: boolean
+          metadata: Json | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_object_id: string
+          external_object_type: string
+          external_object_type_id?: string | null
+          id?: string
+          inspection_id: string
+          is_active?: boolean
+          metadata?: Json | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_object_id?: string
+          external_object_type?: string
+          external_object_type_id?: string | null
+          id?: string
+          inspection_id?: string
+          is_active?: boolean
+          metadata?: Json | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_external_references_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
             referencedColumns: ["id"]
           },
         ]
