@@ -19,6 +19,11 @@ const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación
 
 type Action = 'key_collection_date' | 'checkout_received';
+
+const HUBSPOT_PROPERTY_MAP = {
+  key_collection_date: 'fecha_de_recoleccion_de_llaves',
+  checkout_received: 'fecha_de_recepcion_del_checkout',
+} as const;
 type LogStatus = 'success' | 'error' | 'skipped';
 
 function jsonResponse(body: unknown, status = 200) {
@@ -262,8 +267,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── PATCH HubSpot directly ──
-  const propertyName =
-    action === 'key_collection_date' ? 'fecha_recoleccion_llaves' : 'fecha_recepcion_checkout';
+  const propertyName = HUBSPOT_PROPERTY_MAP[action];
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
 
