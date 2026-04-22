@@ -267,8 +267,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── PATCH HubSpot directly ──
-  const propertyName =
-    action === 'key_collection_date' ? 'fecha_recoleccion_llaves' : 'fecha_recepcion_checkout';
+  const propertyName = HUBSPOT_PROPERTY_MAP[action];
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
 
