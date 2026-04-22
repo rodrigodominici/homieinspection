@@ -1,48 +1,45 @@
 
 
-## Plan: correcciones visuales (sin tocar lógica)
+## Plan: Editar mapping HubSpot existente
 
-Cambios estrictamente de Tailwind / markup presentacional. Cero cambios en queries, estados, contratos de datos o handlers.
+Cambios estrictamente en `src/pages/admin/AdminUsers.tsx`. Cero cambios en lógica de resolución, RPC, edge functions o BD.
 
----
+### Cambios
 
-### Pantalla 1A — `src/pages/admin/AdminIntegrationHubSpot.tsx` ("Mapeo de campos")
+**1. Estado nuevo** (junto a los otros mapping states, ~línea 56):
+- `editingMapping: ExternalMapping | null`
+- `editMapEmail: string`
+- `editMapRoleHint: 'inspector' | 'executive'`
+- `editMapIsActive: boolean`
+- `editMapProfileId: string` (vacío = desvinculado)
 
-Hoy la sección no es un `<table>` sino un grid de 3 columnas (`grid-cols-[200px_80px_1fr]`). Lo convierto a `<table>` real para cumplir el requerimiento de `td/th`, `align-top`, padding y wrap.
+**2. Handler `handleEditMappingOpen(m)`**: pre-popula los 4 estados desde la fila.
 
-- Reemplazar el bloque `FIELD_MAPPING.map(...)` por una tabla shadcn-style:
-  - `<table className="w-full text-sm">` con `<thead>` (Campo / Requerido / Descripción) y `<tbody>`.
-  - Cada `<th>` y `<td>`: `py-3 px-4 align-top text-left`.
-  - Columna "Campo": `<code className="text-xs">` (sin truncate), `whitespace-nowrap` solo en esta celda.
-  - Columna "Requerido": badge con `mr-2` respecto a cualquier texto adyacente; celda `w-[110px]`.
-  - Columna "Descripción": `whitespace-normal break-words text-xs text-muted-foreground` (sin `truncate`, sin `whitespace-nowrap`). Esto deja que `inspector_email` / `executive_email` hagan wrap completo.
-  - Filas con `border-b last:border-0`.
+**3. Handler `handleEditMappingSave()`**:
+- `UPDATE external_user_mappings SET hubspot_email, role_hint, is_active, profile_id WHERE id = editingMapping.id`
+- `profile_id = editMapProfileId || null` (permite desvincular desde el mismo dialog).
+- Toast de éxito/error, refrescar `mappings` en estado local, cerrar dialog.
 
-### Pantalla 1B — `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` (tabla "Eventos entrantes")
+**4. Botón "Editar" en la tabla "HubSpot Links"** (línea 356–360, celda de acciones):
+- Insertar antes del botón `Unlink` un `<Button variant="ghost" size="icon" className="h-8 w-8">` con ícono `Pencil` (ya importado), `onClick={() => handleEditMappingOpen(m)}`.
 
-- **Padding de filas**: cambiar `px-3 py-2` → `px-4 py-3` en todos los `<th>` y `<td>` para dar aire.
-- **Alineación**: agregar `align-top` a todos los `<td>` (necesario porque la columna Error y Estado tienen contenido apilado).
-- **Chip de estado + "Asignación parcial"** (líneas 245–254): reorganizar en `flex flex-col gap-1 items-start`. Primer hijo: el `<Badge>` de status. Segundo hijo (si `hasPartialAssignment`): `<span className="text-xs text-muted-foreground">Asignación parcial</span>` — ya no badge.
-- **Columna Error** (líneas 265–275): envolver el bloque visible en un `<Tooltip>` shadcn:
-  - Trigger: `<div className="max-w-[200px] truncate cursor-help">` con la `failure_reason` label + `error_message` truncados (mantener jerarquía actual: título en `font-medium`, mensaje en `text-[11px] opacity-90`, `processing_step` debajo en `text-muted-foreground`).
-  - `TooltipContent`: `max-w-md whitespace-pre-wrap break-words text-xs` mostrando `failure_reason` + `error_message` + `processing_step` completos.
-  - Reutilizar el `TooltipProvider` ya importado (envolver localmente o subir uno al root del `tbody` row — usaré uno por celda, igual que `RetryButton`).
-- **Botón "Detalles"** (línea 277): cambiar `variant="ghost"` → `variant="link"`, agregar `className="text-sm px-0 h-auto"` para verse como link sin padding.
-- **Celda Error**: quitar `max-w-[220px]` (lo controla el div interno con `max-w-[200px]`).
+**5. Dialog nuevo "Editar Mapping HubSpot"** (después del Link dialog, ~línea 495):
+- `<Dialog open={!!editingMapping} onOpenChange={(o) => !o && setEditingMapping(null)}>`
+- Campos:
+  - **Email HubSpot**: `<Input>` controlado por `editMapEmail`.
+  - **Rol sugerido**: `<Select>` con opciones `inspector` / `executive`, controlado por `editMapRoleHint`.
+  - **Activo**: `<Switch>` (importar de `@/components/ui/switch`) controlado por `editMapIsActive`, con `<Label>` "Mapping activo".
+  - **Vincular a usuario**: `<Select>` con `profiles.map(...)`, mismo patrón que Create dialog. Incluir un `SelectItem value="__none__">Sin vincular</SelectItem>` al tope para permitir desvincular; mapear `__none__` ↔ `''` al guardar.
+- Botones: "Cancelar" (cierra) + "Guardar cambios" (llama `handleEditMappingSave`, deshabilitado mientras `saving`).
 
-### Pantalla 2 — `src/pages/inspector/InspectorAllInspections.tsx` (lista mobile)
+### Lo que NO se toca
 
-El contenedor ya usa `space-y-3` y `pb-24`. El solapamiento visual reportado viene de `active:scale-[0.99] transition-transform` aplicado a la `<Card>` dentro de un `<Link>` sin `block` — el Link es inline por defecto, lo que puede causar render raro al pulsar. Ajustes mínimos:
+- `external_user_mappings` columnas no editables (`id`, `provider`, `created_at`, `hubspot_user_id`, `updated_at`).
+- Lógica de resolución en `hubspot-inspection-intake/index.ts`.
+- Tab "Sin Vincular" (esa ya tiene su flujo de vincular).
+- RLS / migraciones.
 
-- En cada `<Link to=...>` (las 2 ramas: "Por coordinar" y card estándar) agregar `className="block"` para que el área tappable sea bloque y no inline.
-- Mantener `space-y-3` en `<main>`. Verificar que `pb-24` del wrapper exterior es suficiente sobre el `InspectorBottomNav`; si el bottom nav midió ~80px, dejar `pb-24` (ya es ≥96px). Sin cambios adicionales.
-- No tocar `active:scale-[0.99]` (es intencional como feedback táctil) — al volverse `block`, ya no hay overlap del transform sobre la card vecina.
+### Archivo tocado
 
-### Archivos tocados
-
-- `src/pages/admin/AdminIntegrationHubSpot.tsx` — refactor tabla "Mapeo de campos" a `<table>`.
-- `src/pages/admin/AdminIntegrationHubSpotLogs.tsx` — padding, align-top, jerarquía estado/sub-label, tooltip en Error, botón link.
-- `src/pages/inspector/InspectorAllInspections.tsx` — `className="block"` en los 2 `<Link>`.
-
-Sin migraciones, sin cambios en tipos, sin cambios en handlers.
+- `src/pages/admin/AdminUsers.tsx` — 1 import (`Switch`), 5 estados, 2 handlers, 1 botón en tabla, 1 dialog nuevo.
 
