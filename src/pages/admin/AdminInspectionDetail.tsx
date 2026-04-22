@@ -11,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
+import { triggerKeyCollectionSync } from '@/lib/hubspot-sync';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -32,7 +35,7 @@ import type {
 import {
   ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
   AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
-  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search
+  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -133,6 +136,13 @@ export default function AdminInspectionDetail() {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogItems, setCatalogItems] = useState<RepairCatalogItem[]>([]);
   const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
+
+  // Key collection date editor
+  const [keyEditorOpen, setKeyEditorOpen] = useState(false);
+  const [keyDateInput, setKeyDateInput] = useState<Date | undefined>();
+  const [keyTimeInput, setKeyTimeInput] = useState('');
+  const [savingKeyDate, setSavingKeyDate] = useState(false);
+  const [resendingKeyDate, setResendingKeyDate] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
