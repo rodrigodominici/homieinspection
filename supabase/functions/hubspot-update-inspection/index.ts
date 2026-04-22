@@ -1,7 +1,7 @@
 // Outbound HubSpot sync for inspections.
-// Pushes inspection events back to HubSpot via the connector gateway.
-// Resolves the target external object via inspection_external_references —
-// inspections themselves stay decoupled from HubSpot.
+// Direct HubSpot REST API call using HUBSPOT_PRIVATE_APP_TOKEN (Path A).
+// External target resolved via inspection_external_references — inspections
+// stay decoupled from HubSpot. Every exit path writes to hubspot_sync_log.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -13,12 +13,13 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const HUBSPOT_API_KEY = Deno.env.get('HUBSPOT_API_KEY');
+const HUBSPOT_PRIVATE_APP_TOKEN = Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN');
 
-const GATEWAY_URL = 'https://connector-gateway.lovable.dev/hubspot';
+const HUBSPOT_API_BASE = 'https://api.hubapi.com';
+const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación
 
 type Action = 'key_collection_date' | 'checkout_received';
+type LogStatus = 'success' | 'error' | 'skipped';
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,100 +28,155 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-async function logSync(
-  admin: ReturnType<typeof createClient>,
-  row: Record<string, unknown>,
-) {
-  const { data, error } = await admin
-    .from('hubspot_sync_log')
-    .insert(row)
-    .select('id')
-    .maybeSingle();
-  if (error) console.error('[hubspot-update-inspection] log insert failed', error);
-  return data?.id ?? null;
-}
-
-function deriveNumericId(raw: string): string | null {
+function deriveNumericId(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  // Strip optional 'hs_contrato_' prefix or any non-digit prefix
-  const digits = raw.replace(/[^0-9]/g, '');
-  if (!digits) return null;
-  return digits;
+  const stripped = raw.replace(/^hs_contrato_/i, '');
+  if (!/^\d+$/.test(stripped)) return null;
+  return stripped;
 }
 
 function toIsoDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  // Single exit helper — guarantees every code path leaves a hubspot_sync_log row.
+  async function logAndRespond(
+    httpStatus: number,
+    body: Record<string, unknown>,
+    logRow: {
+      status: LogStatus;
+      action?: string | null;
+      inspection_id?: string | null;
+      external_reference_id?: string | null;
+      hubspot_object_type_id?: string | null;
+      hubspot_object_id?: string | null;
+      request_payload?: unknown;
+      response_status?: number | null;
+      response_body?: unknown;
+      error_message?: string | null;
+      triggered_by?: string | null;
+      event_time?: string | null;
+    },
+  ) {
+    try {
+      const { data, error } = await admin
+        .from('hubspot_sync_log')
+        .insert({
+          inspection_id: logRow.inspection_id ?? null,
+          external_reference_id: logRow.external_reference_id ?? null,
+          action: logRow.action ?? 'unknown',
+          hubspot_object_type_id: logRow.hubspot_object_type_id ?? null,
+          hubspot_object_id: logRow.hubspot_object_id ?? null,
+          request_payload: logRow.request_payload ?? null,
+          response_status: logRow.response_status ?? null,
+          response_body: logRow.response_body ?? null,
+          status: logRow.status,
+          error_message: logRow.error_message ?? null,
+          triggered_by: logRow.triggered_by ?? null,
+          event_time: logRow.event_time ?? null,
+        })
+        .select('id')
+        .maybeSingle();
+      if (error) console.error('[hubspot-update-inspection] log insert failed', error);
+      return jsonResponse({ ...body, log_id: data?.id ?? null }, httpStatus);
+    } catch (e) {
+      console.error('[hubspot-update-inspection] logAndRespond threw', e);
+      return jsonResponse(body, httpStatus);
+    }
+  }
+
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'method_not_allowed' }, 405);
   }
 
-  // Auth: validate the caller JWT
+  // ── In-code JWT validation. Function is verify_jwt=false at the platform layer
+  //    so unauthenticated calls still reach here and get logged. ──
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
-  if (!token) return jsonResponse({ error: 'unauthorized' }, 401);
-
+  if (!token) {
+    return logAndRespond(401, { ok: false, error: 'unauthorized' }, {
+      status: 'error',
+      error_message: 'unauthorized: missing_bearer_token',
+    });
+  }
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) return jsonResponse({ error: 'unauthorized' }, 401);
+  if (userErr || !userData?.user) {
+    return logAndRespond(401, { ok: false, error: 'unauthorized' }, {
+      status: 'error',
+      error_message: `unauthorized: ${userErr?.message ?? 'invalid_token'}`,
+    });
+  }
   const triggeredBy = userData.user.id;
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-
-  // Parse body
+  // ── Parse body ──
   let body: { inspection_id?: string; action?: Action; event_time?: string };
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ error: 'invalid_json' }, 400);
+    return logAndRespond(400, { ok: false, error: 'invalid_json' }, {
+      status: 'error',
+      error_message: 'invalid_json',
+      triggered_by: triggeredBy,
+    });
   }
   const inspectionId = body.inspection_id;
   const action = body.action;
   if (!inspectionId || typeof inspectionId !== 'string') {
-    return jsonResponse({ error: 'missing_inspection_id' }, 400);
-  }
-  if (action !== 'key_collection_date' && action !== 'checkout_received') {
-    return jsonResponse({ error: 'invalid_action' }, 400);
-  }
-
-  // Connector gateway env
-  if (!LOVABLE_API_KEY || !HUBSPOT_API_KEY) {
-    await logSync(admin, {
-      inspection_id: inspectionId,
-      action,
+    return logAndRespond(400, { ok: false, error: 'missing_inspection_id' }, {
       status: 'error',
-      error_message: 'connector_secrets_missing',
+      error_message: 'missing_inspection_id',
+      action: action ?? null,
       triggered_by: triggeredBy,
     });
-    return jsonResponse({ ok: false, error: 'connector_secrets_missing' }, 500);
+  }
+  if (action !== 'key_collection_date' && action !== 'checkout_received') {
+    return logAndRespond(400, { ok: false, error: 'invalid_action' }, {
+      status: 'error',
+      error_message: `invalid_action:${String(action)}`,
+      inspection_id: inspectionId,
+      triggered_by: triggeredBy,
+    });
   }
 
-  // Fetch inspection
+  // ── Credential check ──
+  if (!HUBSPOT_PRIVATE_APP_TOKEN) {
+    return logAndRespond(500, { ok: false, error: 'hubspot_private_app_token_missing' }, {
+      status: 'error',
+      action,
+      inspection_id: inspectionId,
+      triggered_by: triggeredBy,
+      error_message: 'hubspot_private_app_token_missing',
+    });
+  }
+
+  // ── Load inspection ──
   const { data: inspection, error: inspErr } = await admin
     .from('inspections')
     .select('id, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
     .eq('id', inspectionId)
     .maybeSingle();
   if (inspErr || !inspection) {
-    await logSync(admin, {
-      inspection_id: inspectionId,
-      action,
+    return logAndRespond(404, { ok: false, error: 'inspection_not_found' }, {
       status: 'error',
-      error_message: 'inspection_not_found',
+      action,
+      inspection_id: inspectionId,
       triggered_by: triggeredBy,
+      error_message: `inspection_not_found: ${inspErr?.message ?? ''}`,
     });
-    return jsonResponse({ ok: false, error: 'inspection_not_found' }, 404);
   }
 
-  // Resolve event_time per action (refinement #3 — never use updated_at)
+  // ── Derive event_time + HubSpot date value per action ──
   let eventTimeIso: string | null = null;
   let hubspotDateValue: string | null = null;
 
@@ -134,34 +190,30 @@ Deno.serve(async (req: Request) => {
     hubspotDateValue = toIsoDate(dateStr);
     eventTimeIso = dateStr ? new Date(dateStr).toISOString() : null;
     if (!hubspotDateValue) {
-      const logId = await logSync(admin, {
-        inspection_id: inspectionId,
+      return logAndRespond(200, { ok: true, skipped: true, reason: 'missing_key_date' }, {
+        status: 'skipped',
         action,
-        status: 'error',
-        error_message: 'missing_key_date',
+        inspection_id: inspectionId,
         triggered_by: triggeredBy,
+        error_message: 'missing_key_date',
       });
-      return jsonResponse({ ok: false, error: 'missing_key_date', log_id: logId }, 400);
     }
   } else {
-    // checkout_received — explicit submit timestamp from caller, then completed_at, then now()
-    const candidate =
-      body.event_time ?? inspection.inspection_completed_at ?? new Date().toISOString();
+    const candidate = body.event_time ?? inspection.inspection_completed_at ?? new Date().toISOString();
     eventTimeIso = candidate;
     hubspotDateValue = toIsoDate(candidate);
     if (!hubspotDateValue) {
-      const logId = await logSync(admin, {
-        inspection_id: inspectionId,
-        action,
+      return logAndRespond(400, { ok: false, error: 'invalid_event_time' }, {
         status: 'error',
-        error_message: 'invalid_event_time',
+        action,
+        inspection_id: inspectionId,
         triggered_by: triggeredBy,
+        error_message: 'invalid_event_time',
       });
-      return jsonResponse({ ok: false, error: 'invalid_event_time', log_id: logId }, 400);
     }
   }
 
-  // Resolve external reference
+  // ── Resolve external reference ──
   const { data: ref, error: refErr } = await admin
     .from('inspection_external_references')
     .select('id, external_object_id, external_object_type_id')
@@ -172,62 +224,60 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (refErr) {
-    const logId = await logSync(admin, {
-      inspection_id: inspectionId,
-      action,
+    return logAndRespond(500, { ok: false, error: 'reference_lookup_failed' }, {
       status: 'error',
-      error_message: `reference_lookup_failed: ${refErr.message}`,
-      triggered_by: triggeredBy,
-      event_time: eventTimeIso,
-    });
-    return jsonResponse({ ok: false, error: 'reference_lookup_failed', log_id: logId }, 500);
-  }
-
-  if (!ref) {
-    const logId = await logSync(admin, {
-      inspection_id: inspectionId,
       action,
-      status: 'skipped',
-      error_message: 'no_active_external_reference',
+      inspection_id: inspectionId,
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
+      error_message: `reference_lookup_failed: ${refErr.message}`,
     });
-    return jsonResponse({ ok: true, skipped: true, log_id: logId });
+  }
+  if (!ref) {
+    return logAndRespond(200, { ok: true, skipped: true, reason: 'no_active_external_reference' }, {
+      status: 'skipped',
+      action,
+      inspection_id: inspectionId,
+      triggered_by: triggeredBy,
+      event_time: eventTimeIso,
+      error_message: 'no_active_external_reference',
+    });
   }
 
   const numericId = deriveNumericId(ref.external_object_id);
+  const objectTypeId = ref.external_object_type_id ?? DEFAULT_OBJECT_TYPE_ID;
+
   if (!numericId) {
-    const logId = await logSync(admin, {
+    return logAndRespond(400, { ok: false, error: 'invalid_external_object_id' }, {
+      status: 'error',
+      action,
       inspection_id: inspectionId,
       external_reference_id: ref.id,
-      action,
-      hubspot_object_type_id: ref.external_object_type_id ?? null,
+      hubspot_object_type_id: objectTypeId,
       hubspot_object_id: ref.external_object_id,
-      status: 'error',
-      error_message: 'invalid_external_object_id',
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
+      error_message: `invalid_external_object_id: ${ref.external_object_id}`,
     });
-    return jsonResponse({ ok: false, error: 'invalid_external_object_id', log_id: logId }, 400);
   }
 
-  const objectTypeId = ref.external_object_type_id ?? '2-47492934';
+  // ── PATCH HubSpot directly ──
   const propertyName =
     action === 'key_collection_date' ? 'fecha_recoleccion_llaves' : 'fecha_recepcion_checkout';
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
-  const url = `${GATEWAY_URL}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
+  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
 
-  let responseStatus = 0;
+  let responseStatus: number | null = null;
   let responseBody: unknown = null;
-  let status: 'success' | 'error' = 'error';
+  let status: LogStatus = 'error';
   let errorMessage: string | null = null;
+  let httpStatusOut = 200;
 
   try {
     const res = await fetch(url, {
       method: 'PATCH',
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'X-Connection-Api-Key': HUBSPOT_API_KEY,
+        Authorization: `Bearer ${HUBSPOT_PRIVATE_APP_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestPayload),
@@ -241,28 +291,34 @@ Deno.serve(async (req: Request) => {
     }
     if (res.ok) {
       status = 'success';
+      httpStatusOut = 200;
     } else {
       status = 'error';
       errorMessage = `hubspot_patch_failed_${res.status}`;
+      httpStatusOut = 502;
     }
   } catch (err) {
+    status = 'error';
     errorMessage = `request_failed: ${(err as Error).message}`;
+    httpStatusOut = 502;
   }
 
-  const logId = await logSync(admin, {
-    inspection_id: inspectionId,
-    external_reference_id: ref.id,
-    action,
-    hubspot_object_type_id: objectTypeId,
-    hubspot_object_id: numericId,
-    request_payload: requestPayload,
-    response_status: responseStatus || null,
-    response_body: responseBody,
-    status,
-    error_message: errorMessage,
-    triggered_by: triggeredBy,
-    event_time: eventTimeIso,
-  });
-
-  return jsonResponse({ ok: status === 'success', status, log_id: logId });
+  return logAndRespond(
+    httpStatusOut,
+    { ok: status === 'success', status, response_status: responseStatus },
+    {
+      status,
+      action,
+      inspection_id: inspectionId,
+      external_reference_id: ref.id,
+      hubspot_object_type_id: objectTypeId,
+      hubspot_object_id: numericId,
+      request_payload: requestPayload,
+      response_status: responseStatus,
+      response_body: responseBody,
+      error_message: errorMessage,
+      triggered_by: triggeredBy,
+      event_time: eventTimeIso,
+    },
+  );
 });
