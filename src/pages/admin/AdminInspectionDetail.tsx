@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
-import { triggerKeyCollectionSync } from '@/lib/hubspot-sync';
+import { triggerKeyCollectionSync, syncCheckoutIfApplicable } from '@/lib/hubspot-sync';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -249,10 +249,11 @@ export default function AdminInspectionDetail() {
   const advanceStage = async (fromStage: WorkflowStage, toStage: WorkflowStage, extraUpdates: Record<string, unknown> = {}) => {
     if (!inspection) return;
     setSaving(true);
+    const now = new Date().toISOString();
     const timestampField = `${fromStage}_completed_at`;
     const updates: Record<string, unknown> = {
       current_stage: toStage,
-      [timestampField]: new Date().toISOString(),
+      [timestampField]: now,
       ...extraUpdates,
     };
     const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
@@ -260,6 +261,24 @@ export default function AdminInspectionDetail() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       await logAudit('stage_advance', fromStage, toStage);
+      // Defensive guard: if a stage advance also flips status into `submitted`,
+      // route through the centralized checkout sync gate using the SAME timestamp.
+      const nextStatus = typeof extraUpdates.status === 'string' ? extraUpdates.status : null;
+      if (nextStatus) {
+        const syncRes = await syncCheckoutIfApplicable({
+          inspectionId: inspection.id,
+          previousStatus: inspection.status,
+          newStatus: nextStatus,
+          eventTimeIso: now,
+        });
+        if (syncRes && !syncRes.ok) {
+          toast({
+            title: 'Sync HubSpot pendiente',
+            description: 'El cambio se guardó pero el checkout no llegó a HubSpot. Revisa los logs salientes.',
+            variant: 'destructive',
+          });
+        }
+      }
       toast({ title: `Avanzado a: ${WORKFLOW_STAGES.find(s => s.key === toStage)?.label}` });
       await fetchAll();
     }
@@ -292,12 +311,40 @@ export default function AdminInspectionDetail() {
     if (!inspection || !forceStatusValue) return;
     setSaving(true);
     const old = inspection.status;
-    const { error } = await supabase.from('inspections').update({ status: forceStatusValue }).eq('id', inspection.id);
+    // One canonical timestamp for both DB stamp and HubSpot event_time.
+    const now = new Date().toISOString();
+    const updates: Record<string, unknown> = { status: forceStatusValue };
+    // When forcing into `submitted`, also stamp inspection_completed_at + advance stage to review,
+    // mirroring the inspector submit path. Only stamp completion if not already set so re-forces
+    // don't overwrite the original business event time.
+    if (forceStatusValue === 'submitted') {
+      updates.current_stage = 'review';
+      if (!inspection.inspection_completed_at) {
+        updates.inspection_completed_at = now;
+        updates.completed_at = now;
+      }
+    }
+    const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       await logAudit('force_advance', old, forceStatusValue, forceNote || undefined);
-      toast({ title: `Estado cambiado a ${forceStatusValue}` });
+      // Centralized, transition-gated checkout sync (only fires on first-time → submitted).
+      const syncRes = await syncCheckoutIfApplicable({
+        inspectionId: inspection.id,
+        previousStatus: old,
+        newStatus: forceStatusValue,
+        eventTimeIso: now,
+      });
+      if (syncRes && !syncRes.ok) {
+        toast({
+          title: 'Sync HubSpot pendiente',
+          description: 'El estado cambió pero el checkout no llegó a HubSpot. Revisa los logs salientes.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: `Estado cambiado a ${forceStatusValue}` });
+      }
       await fetchAll();
     }
     setForceStatusOpen(false);
@@ -329,6 +376,8 @@ export default function AdminInspectionDetail() {
   };
 
   /* ─── Publish ─── */
+  // Note: publishing does NOT trigger checkout_received. That outbound sync fires earlier,
+  // exactly when an inspection first transitions into `submitted` (see syncCheckoutIfApplicable).
   const handlePublish = async () => {
     if (!inspection) return;
     setPublishing(true);
