@@ -33,7 +33,7 @@ import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPho
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
-import { triggerKeyCollectionSync, triggerCheckoutSync } from '@/lib/hubspot-sync';
+import { triggerKeyCollectionSync, syncCheckoutIfApplicable } from '@/lib/hubspot-sync';
 
 export default function InspectorInspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -370,9 +370,14 @@ export default function InspectorInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      // Outbound HubSpot sync — explicit submit timestamp; awaited but non-blocking for navigation.
-      const syncRes = await triggerCheckoutSync(inspection!.id, now);
-      if (!syncRes.ok) {
+      // Outbound HubSpot sync — transition-gated, same canonical timestamp as inspection_completed_at.
+      const syncRes = await syncCheckoutIfApplicable({
+        inspectionId: inspection!.id,
+        previousStatus: inspection!.status,
+        newStatus: 'submitted',
+        eventTimeIso: now,
+      });
+      if (syncRes && !syncRes.ok) {
         toast({
           title: 'Sync HubSpot pendiente',
           description: 'La inspección se envió pero el checkout no llegó a HubSpot. Revisa los logs salientes.',

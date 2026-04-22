@@ -27,3 +27,28 @@ export function triggerKeyCollectionSync(inspectionId: string): Promise<SyncResu
 export function triggerCheckoutSync(inspectionId: string, eventTimeIso: string): Promise<SyncResult> {
   return invoke({ inspection_id: inspectionId, action: 'checkout_received', event_time: eventTimeIso });
 }
+
+/**
+ * Centralized, transition-based gate for the `checkout_received` outbound sync.
+ *
+ * Fires `triggerCheckoutSync` only when the inspection transitions INTO `submitted`
+ * for the first time (previousStatus !== 'submitted' && newStatus === 'submitted').
+ *
+ * Returns `null` for any non-applicable transition (re-saves of an already-submitted
+ * inspection, downstream states like `in_review` / `approved` / `published`, or
+ * transitions that do not land on `submitted`). Always non-blocking — never throws.
+ *
+ * Callers should pass the same `eventTimeIso` they used to stamp
+ * `inspection_completed_at` so the HubSpot business event time is consistent.
+ */
+export async function syncCheckoutIfApplicable(opts: {
+  inspectionId: string;
+  previousStatus: string | null;
+  newStatus: string;
+  eventTimeIso: string;
+}): Promise<SyncResult | null> {
+  const { inspectionId, previousStatus, newStatus, eventTimeIso } = opts;
+  if (newStatus !== 'submitted') return null;
+  if (previousStatus === 'submitted') return null;
+  return triggerCheckoutSync(inspectionId, eventTimeIso);
+}
