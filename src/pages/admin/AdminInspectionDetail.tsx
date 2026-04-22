@@ -775,15 +775,6 @@ export default function AdminInspectionDetail() {
               </div>
             </div>
 
-            {/* Pre-inspection property editing */}
-            {['pending_assignment', 'assigned'].includes(inspection.status) && (
-              <PropertyOverrideEditor inspection={inspection} onSave={async (overrides) => {
-                await supabase.from('inspections').update({ property_overrides_json: overrides as any }).eq('id', inspection.id);
-                await logAudit('property_override', null, null, JSON.stringify(overrides));
-                toast({ title: 'Datos de propiedad actualizados' });
-                await fetchAll();
-              }} />
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de término real de contrato</Label>
