@@ -775,15 +775,6 @@ export default function AdminInspectionDetail() {
               </div>
             </div>
 
-            {/* Pre-inspection property editing */}
-            {['pending_assignment', 'assigned'].includes(inspection.status) && (
-              <PropertyOverrideEditor inspection={inspection} onSave={async (overrides) => {
-                await supabase.from('inspections').update({ property_overrides_json: overrides as any }).eq('id', inspection.id);
-                await logAudit('property_override', null, null, JSON.stringify(overrides));
-                toast({ title: 'Datos de propiedad actualizados' });
-                await fetchAll();
-              }} />
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de término real de contrato</Label>
@@ -886,8 +877,20 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
-        {/* ─── Property Briefing Card ─── */}
-        <PropertyBriefingCard inspection={inspection} />
+        {/* ─── Property Briefing Card (REM source of truth) ─── */}
+        <Card className="border-0 ring-1 ring-border shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" /> Datos del inmueble
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Sincronizados desde REM. Fuente de verdad del inmueble. No editable desde Homie.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <PropertyBriefingCard inspection={inspection} />
+          </CardContent>
+        </Card>
 
         {/* ─── Signature Status ─── */}
         {signature && (
@@ -1463,60 +1466,3 @@ function SummaryItem({ label, value, muted }: { label: string; value: string; mu
   );
 }
 
-/* ─── Property Override Editor ─── */
-function PropertyOverrideEditor({ inspection, onSave }: { inspection: Inspection; onSave: (overrides: Record<string, unknown>) => Promise<void> }) {
-  const snapshot = inspection.property_snapshot_json as Record<string, unknown>;
-  const overrides = (inspection.property_overrides_json ?? {}) as Record<string, unknown>;
-  const effective = { ...snapshot, ...overrides };
-
-  const [bedrooms, setBedrooms] = useState(String(effective.bedrooms_count ?? ''));
-  const [bathrooms, setBathrooms] = useState(String(effective.bathrooms_count ?? ''));
-  const [tower, setTower] = useState(String(effective.tower ?? ''));
-  const [hasParking, setHasParking] = useState(Boolean(effective.has_parking));
-  const [hasStorage, setHasStorage] = useState(Boolean(effective.has_storage));
-  const [saving, setSaving] = useState(false);
-
-  const changed = Number(bedrooms) !== Number(snapshot.bedrooms_count) || Number(bathrooms) !== Number(snapshot.bathrooms_count);
-
-  return (
-    <div className="border-t pt-4 space-y-3">
-      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Editar Datos de Propiedad (pre-inspección)</p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Dormitorios</Label>
-          <Input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Baños</Label>
-          <Input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Torre</Label>
-          <Input value={tower} onChange={(e) => setTower(e.target.value)} className="h-8 text-xs" />
-        </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={hasParking} onChange={(e) => setHasParking(e.target.checked)} className="rounded" /> Estacionamiento</label>
-        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={hasStorage} onChange={(e) => setHasStorage(e.target.checked)} className="rounded" /> Bodega</label>
-      </div>
-      {changed && (
-        <p className="text-tiny text-status-regular flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" /> Los cambios en dormitorios/baños no regeneran secciones existentes automáticamente.
-        </p>
-      )}
-      <Button size="sm" disabled={saving} onClick={async () => {
-        setSaving(true);
-        await onSave({
-          bedrooms_count: Number(bedrooms) || 0,
-          bathrooms_count: Number(bathrooms) || 0,
-          tower: tower || null,
-          has_parking: hasParking,
-          has_storage: hasStorage,
-        });
-        setSaving(false);
-      }}>
-        {saving ? 'Guardando...' : 'Guardar cambios de propiedad'}
-      </Button>
-    </div>
-  );
-}
