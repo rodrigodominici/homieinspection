@@ -986,34 +986,40 @@ export type Database = {
       profiles: {
         Row: {
           approval_status: string
+          country_code: string | null
           created_at: string
           email: string
           full_name: string
           id: string
           is_active: boolean
           market: string | null
+          phone: string | null
           role: string
           updated_at: string
         }
         Insert: {
           approval_status?: string
+          country_code?: string | null
           created_at?: string
           email: string
           full_name: string
           id: string
           is_active?: boolean
           market?: string | null
+          phone?: string | null
           role: string
           updated_at?: string
         }
         Update: {
           approval_status?: string
+          country_code?: string | null
           created_at?: string
           email?: string
           full_name?: string
           id?: string
           is_active?: boolean
           market?: string | null
+          phone?: string | null
           role?: string
           updated_at?: string
         }
