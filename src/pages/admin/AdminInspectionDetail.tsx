@@ -585,7 +585,112 @@ export default function AdminInspectionDetail() {
                 const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;
                 const horaLlaves = (snap?.hora_recoleccion_llaves as string) ?? null;
                 const val = fechaLlaves ? `${fechaLlaves}${horaLlaves ? ` · ${horaLlaves}` : ''}` : 'Sin coordinar';
-                return <SummaryItem label="Recolección de llaves" value={val} muted={!fechaLlaves} />;
+
+                const openEditor = () => {
+                  setKeyDateInput(fechaLlaves ? new Date(`${fechaLlaves}T00:00:00`) : undefined);
+                  setKeyTimeInput(horaLlaves ?? '');
+                  setKeyEditorOpen(true);
+                };
+
+                const handleSave = async () => {
+                  if (!keyDateInput) {
+                    toast({ title: 'Falta la fecha', variant: 'destructive' });
+                    return;
+                  }
+                  setSavingKeyDate(true);
+                  const dateValue = format(keyDateInput, 'yyyy-MM-dd');
+                  const timeValue = keyTimeInput || null;
+                  const mergedOverrides = {
+                    ...((inspection.property_overrides_json as Record<string, unknown>) ?? {}),
+                    fecha_recoleccion_llaves: dateValue,
+                    hora_recoleccion_llaves: timeValue,
+                  };
+                  const { error } = await supabase
+                    .from('inspections')
+                    .update({ property_overrides_json: mergedOverrides })
+                    .eq('id', inspection.id);
+                  setSavingKeyDate(false);
+                  if (error) {
+                    toast({ title: 'Error al guardar', description: error.message, variant: 'destructive' });
+                    return;
+                  }
+                  setInspection({ ...inspection, property_overrides_json: mergedOverrides });
+                  setKeyEditorOpen(false);
+                  toast({ title: 'Recolección guardada', description: 'Fecha/hora actualizada y enviada a HubSpot.' });
+                  triggerKeyCollectionSync(inspection.id);
+                };
+
+                const handleResend = async () => {
+                  setResendingKeyDate(true);
+                  const res = await triggerKeyCollectionSync(inspection.id);
+                  setResendingKeyDate(false);
+                  toast({
+                    title: res.ok ? 'Reenviado a HubSpot' : 'Error al reenviar',
+                    description: res.ok
+                      ? 'Revisa los logs salientes para confirmar el resultado.'
+                      : 'Revisa los logs salientes para más detalles.',
+                    variant: res.ok ? 'default' : 'destructive',
+                  });
+                };
+
+                return (
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Recolección de llaves
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Popover open={keyEditorOpen} onOpenChange={setKeyEditorOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={openEditor}
+                            className={cn(
+                              'text-sm font-medium truncate text-left hover:underline',
+                              !fechaLlaves && 'text-muted-foreground italic'
+                            )}
+                          >
+                            {val}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3 space-y-3" align="start">
+                          <div>
+                            <Label className="text-xs">Fecha</Label>
+                            <Calendar
+                              mode="single"
+                              selected={keyDateInput}
+                              onSelect={setKeyDateInput}
+                              initialFocus
+                              className={cn('p-3 pointer-events-auto')}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Hora (opcional)</Label>
+                            <Input
+                              type="time"
+                              value={keyTimeInput}
+                              onChange={(e) => setKeyTimeInput(e.target.value)}
+                            />
+                          </div>
+                          <Button size="sm" onClick={handleSave} disabled={savingKeyDate} className="w-full">
+                            {savingKeyDate ? 'Guardando…' : 'Guardar y enviar a HubSpot'}
+                          </Button>
+                        </PopoverContent>
+                      </Popover>
+                      {fechaLlaves && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title="Reenviar a HubSpot"
+                          onClick={handleResend}
+                          disabled={resendingKeyDate}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
               })()}
               {(() => {
                 const snap = getEffectiveSnapshot(inspection);
