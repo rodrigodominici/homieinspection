@@ -20,13 +20,19 @@ import {
   priorityBucketLabel,
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
+import { marketLabel } from '@/lib/markets';
 import AdminLayout from '@/components/AdminLayout';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
+  LayoutGrid, Table2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,8 +57,10 @@ const STATUS_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: 'priority', label: 'Prioridad operativa' },
+  { value: 'priority', label: 'Más urgente primero (recomendado)' },
   { value: 'latest', label: 'Última actividad' },
+  { value: 'created_desc', label: 'Más recientes primero' },
+  { value: 'created_asc', label: 'Más antiguos primero' },
   { value: 'contract_asc', label: 'Término contrato ↑' },
   { value: 'contract_desc', label: 'Término contrato ↓' },
   { value: 'schedule_asc', label: 'Recolección llaves ↑' },
@@ -139,6 +147,12 @@ export default function AdminInspections() {
   const [bucketFilter, setBucketFilter] = useState<Bucket>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('priority');
+  const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
+  const setViewMode = (v: 'cards' | 'table') => {
+    const next = new URLSearchParams(searchParams);
+    if (v === 'cards') next.delete('view'); else next.set('view', 'table');
+    setSearchParams(next);
+  };
 
   // Assignment state
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -293,6 +307,12 @@ export default function AdminInspections() {
       case 'latest':
         // already updated_at desc from API
         break;
+      case 'created_desc':
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'created_asc':
+        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
       case 'priority':
       default:
         sorted.sort((a, b) => {
@@ -374,6 +394,22 @@ export default function AdminInspections() {
                       </button>
                     );
                   })}
+                  <div className="ml-auto">
+                    <ToggleGroup
+                      type="single"
+                      value={viewMode}
+                      onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <ToggleGroupItem value="cards" aria-label="Vista de tarjetas" title="Tarjetas">
+                        <LayoutGrid className="h-4 w-4" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="table" aria-label="Vista de tabla" title="Tabla">
+                        <Table2 className="h-4 w-4" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
                 </div>
 
                 <Separator />
@@ -443,6 +479,79 @@ export default function AdminInspections() {
                   No hay inspecciones con estos filtros
                 </CardContent>
               </Card>
+            ) : viewMode === 'table' ? (
+              <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Propiedad</TableHead>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Asignación</TableHead>
+                        <TableHead>Inspector</TableHead>
+                        <TableHead>Ejecutivo</TableHead>
+                        <TableHead>Mercado</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Creada</TableHead>
+                        <TableHead>Término contrato</TableHead>
+                        <TableHead>Recolección llaves</TableHead>
+                        <TableHead className="text-right">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInspections.map((insp) => {
+                        const bucket = priorityBucket(insp);
+                        const bLabel = priorityBucketLabel(bucket);
+                        const missing = missingAssignmentLabel(insp);
+                        return (
+                          <TableRow key={insp.id} className="cursor-pointer">
+                            <TableCell className="max-w-[220px]">
+                              <div className="font-medium truncate">{insp.property_name ?? insp.property_id}</div>
+                              {insp.address && (
+                                <div className="text-tiny text-muted-foreground truncate">{insp.address}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-tiny text-muted-foreground">{insp.property_id}</TableCell>
+                            <TableCell>
+                              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', bLabel.className)}>
+                                {bLabel.label}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {missing ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-status-bad-bg px-2 py-0.5 text-[10px] font-semibold text-status-bad">
+                                  <AlertCircle className="h-3 w-3" /> {missing}
+                                </span>
+                              ) : (
+                                <span className="text-tiny text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">{insp.inspectorName ?? <span className="italic text-muted-foreground">—</span>}</TableCell>
+                            <TableCell className="text-xs">{insp.executiveName ?? <span className="italic text-muted-foreground">—</span>}</TableCell>
+                            <TableCell className="text-xs">{marketLabel(insp.market)}</TableCell>
+                            <TableCell className="text-xs">{insp.inspection_type}</TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">{formatDate(new Date(insp.created_at))}</TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {insp.contractEndDate ? formatDate(insp.contractEndDate) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {insp.scheduleDatetime ? formatDate(insp.scheduleDatetime) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Link to={`/admin/inspections/${insp.id}`}>
+                                <Button variant="outline" size="sm" className="gap-1.5">
+                                  <ExternalLink className="h-3.5 w-3.5" /> Ver
+                                </Button>
+                              </Link>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
             ) : (
               <div className="space-y-3">
                 {filteredInspections.map((insp) => {
@@ -473,7 +582,6 @@ export default function AdminInspections() {
                                   <AlertCircle className="h-3 w-3" /> {missing}
                                 </span>
                               )}
-                              {/* InspectionStatusBadge intentionally omitted — bucket primary already represents state. */}
                             </div>
 
                             <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
@@ -482,7 +590,6 @@ export default function AdminInspections() {
                               <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
                             </div>
 
-                            {/* Date line — schedule if coordinated, else contract end */}
                             {insp.scheduleDatetime ? (
                               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <CalendarIcon className="h-3 w-3 shrink-0" />
@@ -498,7 +605,6 @@ export default function AdminInspections() {
                               </div>
                             ) : null}
 
-                            {/* Assignment + meta line */}
                             <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap text-tiny text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
@@ -508,7 +614,7 @@ export default function AdminInspections() {
                                 <UserCog className="h-3 w-3" />
                                 {insp.executiveName ?? <span className="italic">sin ejecutivo</span>}
                               </span>
-                              <span>{insp.inspection_type} · {insp.market}</span>
+                              <span>{insp.inspection_type} · {marketLabel(insp.market)}</span>
                             </div>
                           </div>
                           <Link to={`/admin/inspections/${insp.id}`}>

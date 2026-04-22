@@ -12,8 +12,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
-import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert } from 'lucide-react';
+import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  MARKET_OPTIONS,
+  COUNTRY_CODE_OPTIONS,
+  defaultCountryCodeForMarket,
+  marketLabel,
+  normalizePhone,
+  formatPhoneDisplay,
+} from '@/lib/markets';
 
 interface ExternalMapping {
   id: string;
@@ -45,8 +53,24 @@ export default function AdminUsers() {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('inspector');
   const [editName, setEditName] = useState('');
-  const [editMarket, setEditMarket] = useState('');
+  const [editMarket, setEditMarket] = useState<string>('CL');
+  const [editCountryCode, setEditCountryCode] = useState<string>('+56');
+  const [editPhone, setEditPhone] = useState<string>('');
+  const [editIsActive, setEditIsActive] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
+
+  // Create user dialog
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [cuName, setCuName] = useState('');
+  const [cuEmail, setCuEmail] = useState('');
+  const [cuPassword, setCuPassword] = useState('');
+  const [cuShowPassword, setCuShowPassword] = useState(false);
+  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive'>('inspector');
+  const [cuMarket, setCuMarket] = useState<'CL' | 'MX'>('CL');
+  const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
+  const [cuPhone, setCuPhone] = useState<string>('');
+  const [cuIsActive, setCuIsActive] = useState<boolean>(true);
+  const [cuSubmitting, setCuSubmitting] = useState(false);
 
   // Mapping dialogs
   const [creating, setCreating] = useState(false);
@@ -124,24 +148,97 @@ export default function AdminUsers() {
     setEditingProfile(p);
     setEditRole(p.role === 'pending' ? 'inspector' : p.role);
     setEditName(p.full_name);
-    setEditMarket(p.market ?? '');
+    setEditMarket((p.market === 'CL' || p.market === 'MX') ? p.market : 'CL');
+    setEditCountryCode(p.country_code ?? defaultCountryCodeForMarket(p.market));
+    setEditPhone(p.phone ?? '');
+    setEditIsActive(p.is_active);
   };
 
   const handleEditSave = async () => {
     if (!editingProfile) return;
+    const cleanPhone = normalizePhone(editPhone);
     setSaving(true);
+    const updates = {
+      role: editRole,
+      full_name: editName,
+      market: editMarket || null,
+      country_code: editCountryCode || null,
+      phone: cleanPhone || null,
+      is_active: editIsActive,
+    };
     const { error } = await supabase
       .from('profiles')
-      .update({ role: editRole, full_name: editName, market: editMarket || null })
+      .update(updates)
       .eq('id', editingProfile.id);
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     setProfiles(prev =>
-      prev.map(x => x.id === editingProfile.id ? { ...x, role: editRole, full_name: editName, market: editMarket || null } : x)
+      prev.map(x => x.id === editingProfile.id ? { ...x, ...updates } : x)
     );
     setEditingProfile(null);
     toast({ title: 'Usuario actualizado' });
   };
+
+  /* ─── Create user (admin-driven) ─── */
+  const openCreateUser = () => {
+    setCuName('');
+    setCuEmail('');
+    setCuPassword('');
+    setCuShowPassword(false);
+    setCuRole('inspector');
+    setCuMarket('CL');
+    setCuCountryCode('+56');
+    setCuPhone('');
+    setCuIsActive(true);
+    setCreateUserOpen(true);
+  };
+
+  const handleCreateUser = async () => {
+    const name = cuName.trim();
+    const email = cuEmail.trim().toLowerCase();
+    const phone = normalizePhone(cuPhone);
+    if (!name) { toast({ title: 'Nombre requerido', variant: 'destructive' }); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Email inválido', variant: 'destructive' }); return;
+    }
+    if (cuPassword.length < 8) {
+      toast({ title: 'Contraseña muy corta', description: 'Mínimo 8 caracteres.', variant: 'destructive' }); return;
+    }
+    if (!/^\d{6,15}$/.test(phone)) {
+      toast({ title: 'Teléfono inválido', description: 'Solo dígitos, 6–15 caracteres.', variant: 'destructive' }); return;
+    }
+    setCuSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('admin-create-user', {
+      body: {
+        full_name: name,
+        email,
+        password: cuPassword,
+        role: cuRole,
+        market: cuMarket,
+        country_code: cuCountryCode,
+        phone,
+        is_active: cuIsActive,
+      },
+    });
+    setCuSubmitting(false);
+    if (error) {
+      const ctx = (error as { context?: { error?: string; detail?: string } }).context;
+      const code = ctx?.error;
+      const msg =
+        code === 'email_exists' ? 'Ya existe un usuario con ese email.' :
+        code === 'weak_password' ? 'Contraseña muy débil (mín. 8 caracteres).' :
+        code === 'forbidden' ? 'No tienes permisos para crear usuarios.' :
+        code === 'validation' ? `Datos inválidos (${ctx?.detail ?? 'campo'}).` :
+        error.message;
+      toast({ title: 'No se pudo crear el usuario', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Usuario creado', description: `${name} ya puede iniciar sesión.` });
+    setCreateUserOpen(false);
+    fetchAll();
+    void data;
+  };
+
 
   /* ─── Mapping handlers ─── */
   const handleCreateMapping = async () => {
@@ -286,15 +383,20 @@ export default function AdminUsers() {
 
           {/* ─── Internal Users Tab ─── */}
           <TabsContent value="users" className="space-y-4 mt-4">
-            <div className="flex items-center gap-3">
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los roles</SelectItem>
-                  {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <span className="text-caption text-muted-foreground">{filtered.length} usuarios</span>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los roles</SelectItem>
+                    {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <span className="text-caption text-muted-foreground">{filtered.length} usuarios</span>
+              </div>
+              <Button size="sm" onClick={openCreateUser}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Crear Usuario
+              </Button>
             </div>
 
             {loading ? (
@@ -309,6 +411,7 @@ export default function AdminUsers() {
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Rol</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Mercado</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Teléfono</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
                         <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
                       </tr>
@@ -319,7 +422,8 @@ export default function AdminUsers() {
                           <td className="py-3 px-4 font-medium">{p.full_name}</td>
                           <td className="py-3 px-4 text-muted-foreground">{p.email}</td>
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{p.market ?? '—'}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{marketLabel(p.market)}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{formatPhoneDisplay(p.country_code, p.phone)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
                               <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium',
@@ -457,12 +561,19 @@ export default function AdminUsers() {
       {/* Edit user dialog */}
       {editingProfile && (
         <Dialog open={!!editingProfile} onOpenChange={(o) => !o && setEditingProfile(null)}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label>Nombre Completo</Label>
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={editingProfile.email} disabled />
+                <p className="text-tiny text-muted-foreground">
+                  Cambiar el email requiere actualización de auth y no está soportado en esta iteración.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Rol</Label>
@@ -473,11 +584,46 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Mercado</Label>
-                <Input value={editMarket} onChange={(e) => setEditMarket(e.target.value)} placeholder="CL, MX, etc." />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Mercado</Label>
+                  <Select value={editMarket} onValueChange={(v) => {
+                    setEditMarket(v);
+                    if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(v));
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MARKET_OPTIONS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Código país</Label>
+                  <Select value={editCountryCode} onValueChange={setEditCountryCode}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_CODE_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="text-tiny text-muted-foreground">Email: {editingProfile.email}</div>
+              <div className="space-y-2">
+                <Label>Teléfono</Label>
+                <Input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(normalizePhone(e.target.value))}
+                  placeholder="912345678"
+                  inputMode="numeric"
+                />
+                <p className="text-tiny text-muted-foreground">Solo dígitos, sin espacios ni guiones.</p>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Activo</Label>
+                  <p className="text-tiny text-muted-foreground">Si está inactivo, el usuario no podrá usar la app.</p>
+                </div>
+                <Switch checked={editIsActive} onCheckedChange={setEditIsActive} />
+              </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setEditingProfile(null)} className="flex-1">Cancelar</Button>
                 <Button onClick={handleEditSave} disabled={saving} className="flex-1">
@@ -488,6 +634,110 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Create user dialog */}
+      <Dialog open={createUserOpen} onOpenChange={setCreateUserOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Crear Usuario</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Nombre Completo</Label>
+              <Input value={cuName} onChange={(e) => setCuName(e.target.value)} placeholder="Ana Pérez" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={cuEmail}
+                onChange={(e) => setCuEmail(e.target.value)}
+                placeholder="usuario@homie.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contraseña inicial</Label>
+              <div className="relative">
+                <Input
+                  type={cuShowPassword ? 'text' : 'password'}
+                  value={cuPassword}
+                  onChange={(e) => setCuPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCuShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                  aria-label={cuShowPassword ? 'Ocultar' : 'Mostrar'}
+                >
+                  {cuShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-tiny text-muted-foreground">Comparte estas credenciales con el empleado.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select value={cuRole} onValueChange={(v) => setCuRole(v as 'admin' | 'inspector' | 'executive')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Mercado</Label>
+                <Select
+                  value={cuMarket}
+                  onValueChange={(v) => {
+                    const next = v as 'CL' | 'MX';
+                    setCuMarket(next);
+                    setCuCountryCode(defaultCountryCodeForMarket(next));
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MARKET_OPTIONS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Código país</Label>
+                <Select value={cuCountryCode} onValueChange={setCuCountryCode}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CODE_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input
+                value={cuPhone}
+                onChange={(e) => setCuPhone(normalizePhone(e.target.value))}
+                placeholder="912345678"
+                inputMode="numeric"
+              />
+              <p className="text-tiny text-muted-foreground">Solo dígitos, sin espacios ni guiones.</p>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label>Activo</Label>
+                <p className="text-tiny text-muted-foreground">Determina si el usuario puede iniciar sesión.</p>
+              </div>
+              <Switch checked={cuIsActive} onCheckedChange={setCuIsActive} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setCreateUserOpen(false)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleCreateUser} disabled={cuSubmitting} className="flex-1">
+                {cuSubmitting ? 'Creando...' : 'Crear Usuario'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Create mapping dialog */}
       <Dialog open={creating} onOpenChange={setCreating}>

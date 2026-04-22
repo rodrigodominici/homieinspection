@@ -60,6 +60,8 @@ export interface Profile {
   is_active: boolean;
   approval_status?: string;
   market: string | null;
+  country_code: string | null;
+  phone: string | null;
   created_at: string;
   updated_at: string;
 }
