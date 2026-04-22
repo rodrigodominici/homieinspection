@@ -1014,6 +1014,9 @@ export default function AdminInspectionDetail() {
           </CardContent>
         </Card>
 
+        {/* ─── Tenant Contact (read-only, REM source) ─── */}
+        <AdminTenantContactCard inspection={inspection} />
+
         {/* ─── Signature Status ─── */}
         {signature && (
           <Card className="border-0 ring-1 ring-border shadow-sm">
