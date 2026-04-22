@@ -25,7 +25,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
-import AdminTenantContactCard from '@/components/AdminTenantContactCard';
 import { isSectionCompleted } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
@@ -1013,9 +1012,6 @@ export default function AdminInspectionDetail() {
             <PropertyBriefingCard inspection={inspection} />
           </CardContent>
         </Card>
-
-        {/* ─── Tenant Contact (read-only, REM source) ─── */}
-        <AdminTenantContactCard inspection={inspection} />
 
         {/* ─── Signature Status ─── */}
         {signature && (

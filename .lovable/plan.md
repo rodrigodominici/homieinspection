@@ -1,73 +1,81 @@
 
 
-# Plan — Surface tenant/contact data in Admin inspection detail
+# Plan — Align Admin key-collection save with awaited sync + honest toast
 
-## Step 1 — Diagnosis
+## Change
 
-**Tenant/contact fields shown to the Inspector**
+Rewrite `handleSave` inside the key-collection popover in `src/pages/admin/AdminInspectionDetail.tsx` (currently lines ~644–670) to mirror the inspector flow exactly:
 
-The inspector view renders `PropertyBriefingCard`, whose Block D ("Datos de contacto") shows when any contact data is present:
+```ts
+const handleSave = async () => {
+  if (!inspection) return;
+  setSavingKeyDate(true);
+  try {
+    // 1. Persist into property_overrides_json (same source the edge function reads)
+    const overrides = {
+      ...(inspection.property_overrides_json ?? {}),
+      fecha_recoleccion_llaves: pickedDate,
+      hora_recoleccion_llaves: pickedTime,
+    };
+    const { error } = await supabase
+      .from('inspections')
+      .update({ property_overrides_json: overrides })
+      .eq('id', inspection.id);
+    if (error) throw error;
 
-- `tenant_name` (snapshot/overrides) — Inquilino
-- `tenant_whatsapp` (snapshot/overrides) — WhatsApp call icon + bottom WhatsApp CTA
-- `recipient_email` (snapshot/overrides) — Correo receptor
-- `address` — "Cómo llegar" (Google Maps) CTA
+    // 2. Update local state + close popover
+    setInspection({ ...inspection, property_overrides_json: overrides });
+    setKeyDatePopoverOpen(false);
 
-**What's available to the Admin but not surfaced reliably**
+    // 3. Honest local-save toast (does NOT claim HubSpot success)
+    toast({
+      title: 'Recolección guardada',
+      description: 'Fecha/hora actualizada.',
+    });
 
-The Admin detail (`AdminInspectionDetail.tsx` line 1012) already mounts the same `PropertyBriefingCard`, so technically the same Block D renders. **However**, that block is conditionally hidden when `tenant_name`, `tenant_whatsapp`, `recipient_email`, and `address` are all empty (`PropertyBriefingCard.tsx` line 137: `(hasContact || address) && …`). Confirmed against the current inspection (`ba73cc25-…`): all three tenant fields are `null` in `property_snapshot_json`, so the admin sees no tenant block at all and has no signal that the data is simply missing from REM/HubSpot.
+    // 4. Await sync; only then surface HubSpot outcome
+    const syncRes = await triggerKeyCollectionSync(inspection.id);
+    if (!syncRes.ok) {
+      toast({
+        variant: 'destructive',
+        title: 'Sync HubSpot pendiente',
+        description: 'La fecha se guardó pero no se pudo enviar a HubSpot. Revisa los logs salientes.',
+      });
+    }
+  } catch (err) {
+    toast({
+      variant: 'destructive',
+      title: 'Error al guardar',
+      description: err instanceof Error ? err.message : 'Inténtalo de nuevo.',
+    });
+  } finally {
+    setSavingKeyDate(false);
+  }
+};
+```
 
-So the gap is twofold:
-1. When tenant data exists, it IS already shown to the admin via PropertyBriefingCard — but tucked at the bottom of "Datos del inmueble", easy to miss.
-2. When tenant data is missing, the admin gets zero indication, making it impossible to spot "tenant info not synced" from the detail view.
+Key properties:
+- Optimistic toast only confirms the local save ("Recolección guardada / Fecha/hora actualizada."). No mention of HubSpot.
+- HubSpot feedback is strictly conditional on the awaited result. Success is silent; failure raises a destructive toast pointing to outbound logs.
+- `setSavingKeyDate(true/false)` wraps the entire try/finally so the "Guardar y enviar a HubSpot" CTA stays disabled until persistence + sync attempt both finish.
+- Persistence source (`property_overrides_json.fecha_recoleccion_llaves` / `hora_recoleccion_llaves`) is unchanged and matches what the edge function reads.
 
-**Best place to surface in the Admin UI**
+## File touched
 
-A dedicated, always-visible **"Datos del arrendatario"** card placed immediately after the existing "Datos del inmueble" card and before "Firma del Inquilino". It must:
-- Always render (so missing data is visible as "No disponible").
-- Be read-only (no edits, no inspector-style action CTAs).
-- Reuse the same source of truth (`getEffectiveSnapshot(inspection)` → snapshot + overrides merge), keeping inspector/admin aligned.
+- `src/pages/admin/AdminInspectionDetail.tsx` — only the `handleSave` block inside the key-collection popover.
 
-## Step 2 — Fix
+## Verification (in combination with the existing outbound logging fix)
 
-### A. New component: `src/components/AdminTenantContactCard.tsx`
-
-Read-only card, always rendered. Layout:
-
-- Header: `User` icon + "Datos del arrendatario", with a one-line subtitle: "Sincronizado desde REM. Solo lectura."
-- Three rows (always rendered, with "No disponible" muted placeholder when empty):
-  - **Inquilino** — `tenant_name`
-  - **WhatsApp** — `tenant_whatsapp` (rendered as a `tel:` link when present so admins can copy/click; no inspector-style WhatsApp message CTA, since admin context is coordination, not field outreach)
-  - **Correo receptor** — `recipient_email` (rendered as a `mailto:` link when present)
-- If all three are missing, append a small muted hint: "El inquilino no se ha sincronizado desde REM/HubSpot todavía."
-
-Source: `getEffectiveSnapshot(inspection)` from `@/lib/inspection-utils` — exactly what `PropertyBriefingCard` uses, guaranteeing parity.
-
-Styling matches the surrounding admin cards: `border-0 ring-1 ring-border shadow-sm`, `CardHeader` with `text-base` title + subtitle, `CardContent` with the read-only rows.
-
-### B. Mount in Admin detail
-
-In `src/pages/admin/AdminInspectionDetail.tsx`, insert `<AdminTenantContactCard inspection={inspection} />` immediately after the "Datos del inmueble" card (after line 1014) and before the signature card. No other changes to the page.
-
-### C. Inspector view stays unchanged
-
-The inspector continues to use `PropertyBriefingCard` Block D as today, which is the correct UX for the field role (action-oriented WhatsApp/Maps CTAs). The new admin card is intentionally separate because admin needs always-visible read-only context, not field actions.
-
-## Files touched
-
-- `src/components/AdminTenantContactCard.tsx` — new read-only card.
-- `src/pages/admin/AdminInspectionDetail.tsx` — one import + one render line after the existing "Datos del inmueble" card.
-
-## Verification
-
-1. On an inspection with tenant data: admin sees a new "Datos del arrendatario" card with name, WhatsApp (clickable `tel:` link), email (clickable `mailto:` link).
-2. On the current inspection (`ba73cc25-…`, no tenant data): admin sees the card with three "No disponible" rows + the muted hint about REM sync.
-3. Inspector view is visually unchanged — Block D in `PropertyBriefingCard` still works as before.
-4. Same source (`getEffectiveSnapshot`) used by both views → values stay consistent across roles.
+1. Admin picks a date and clicks "Guardar y enviar a HubSpot" → CTA stays disabled until the sync resolves.
+2. On success: only the neutral "Recolección guardada" toast appears; a `hubspot_sync_log` row with `action='key_collection_date'`, `status='success'` is written by the edge function.
+3. On failure (network, missing external reference, HubSpot 4xx): neutral save toast appears, then a destructive "Sync HubSpot pendiente — revisa los logs salientes" toast; a `hubspot_sync_log` row with `status='error'` (or `skipped`) is written.
+4. Every admin save attempt produces exactly one outbound log row visible at `/admin/integrations/hubspot/outbound-logs`.
+5. The adjacent "Reenviar a HubSpot" button (already awaited) is unaffected.
 
 ## Summary deliverable
 
-- **Fields added to Admin**: `tenant_name`, `tenant_whatsapp` (as `tel:` link), `recipient_email` (as `mailto:` link), with explicit "No disponible" placeholders.
-- **Where**: a new dedicated read-only card titled "Datos del arrendatario", placed right under the existing "Datos del inmueble" card in the Admin inspection detail.
-- **Alignment**: same data source as the inspector's PropertyBriefingCard Block D (`getEffectiveSnapshot`), so admin and inspector always see the same tenant values; admin variant is always visible and read-only, inspector variant keeps its action CTAs.
+- **Root cause (recap):** admin save was fire-and-forget with an optimistic "enviada a HubSpot" toast hiding all sync failures.
+- **Change:** admin `handleSave` now (a) persists, (b) shows a save-only toast, (c) awaits `triggerKeyCollectionSync`, (d) raises a destructive toast only on real failure, (e) keeps the CTA disabled across the full async chain.
+- **Shared path:** admin and inspector flows now use the same persistence source, the same `triggerKeyCollectionSync` helper, and the same UX contract.
+- **Observability:** combined with the prior outbound-logging fix, every admin save leaves a visible trace in `hubspot_sync_log` and the admin sees honest, conditional feedback.
 
