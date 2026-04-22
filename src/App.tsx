@@ -18,6 +18,7 @@ import AdminRepairCatalog from "./pages/admin/AdminRepairCatalog";
 import AdminIntegrations from "./pages/admin/AdminIntegrations";
 import AdminIntegrationHubSpot from "./pages/admin/AdminIntegrationHubSpot";
 import AdminIntegrationHubSpotLogs from "./pages/admin/AdminIntegrationHubSpotLogs";
+import AdminIntegrationHubSpotOutboundLogs from "./pages/admin/AdminIntegrationHubSpotOutboundLogs";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorPastInspections from "./pages/inspector/InspectorPastInspections";
 import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/admin/integrations" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrations /></ProtectedRoute>} />
             <Route path="/admin/integrations/hubspot" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpot /></ProtectedRoute>} />
             <Route path="/admin/integrations/hubspot/logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotLogs /></ProtectedRoute>} />
+            <Route path="/admin/integrations/hubspot/outbound-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotOutboundLogs /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
