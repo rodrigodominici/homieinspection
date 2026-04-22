@@ -147,6 +147,12 @@ export default function AdminInspections() {
   const [bucketFilter, setBucketFilter] = useState<Bucket>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('priority');
+  const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
+  const setViewMode = (v: 'cards' | 'table') => {
+    const next = new URLSearchParams(searchParams);
+    if (v === 'cards') next.delete('view'); else next.set('view', 'table');
+    setSearchParams(next);
+  };
 
   // Assignment state
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -300,6 +306,12 @@ export default function AdminInspections() {
         break;
       case 'latest':
         // already updated_at desc from API
+        break;
+      case 'created_desc':
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'created_asc':
+        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         break;
       case 'priority':
       default:
