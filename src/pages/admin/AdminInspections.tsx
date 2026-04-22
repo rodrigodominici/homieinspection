@@ -57,8 +57,10 @@ const STATUS_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: 'priority', label: 'Prioridad operativa' },
+  { value: 'priority', label: 'Más urgente primero (recomendado)' },
   { value: 'latest', label: 'Última actividad' },
+  { value: 'created_desc', label: 'Más recientes primero' },
+  { value: 'created_asc', label: 'Más antiguos primero' },
   { value: 'contract_asc', label: 'Término contrato ↑' },
   { value: 'contract_desc', label: 'Término contrato ↓' },
   { value: 'schedule_asc', label: 'Recolección llaves ↑' },
