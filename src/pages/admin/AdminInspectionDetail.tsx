@@ -1588,3 +1588,5 @@ function SummaryItem({ label, value, muted }: { label: string; value: string; mu
   );
 }
 
+        {/* ─── Tenant Contact (read-only, REM source) ─── */}
+        <AdminTenantContactCard inspection={inspection} />
