@@ -578,75 +578,7 @@ export default function AdminInspections() {
             )}
           </TabsContent>
 
-          {/* Workload */}
-          <TabsContent value="workload" className="space-y-6 mt-4">
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-primary" /> Inspectores
-                </CardTitle>
-                <CardDescription>Carga operativa activa por inspector. Ordenado de mayor a menor.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {workload.inspectors.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">No hay inspectores activos.</div>
-                ) : (
-                  <div className="divide-y">
-                    {workload.inspectors.map((w) => (
-                      <div key={w.profile.id} className="px-4 py-3 flex items-center gap-4 flex-wrap">
-                        <div className="min-w-[180px] flex-1">
-                          <p className="text-sm font-medium truncate">{w.profile.full_name}</p>
-                          <p className="text-tiny text-muted-foreground truncate">
-                            {w.profile.email}{w.profile.market ? ` · ${w.profile.market}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                          <Stat label="Activas" value={w.total} emphasis />
-                          <Stat label="Por coordinar" value={w.por_coordinar} />
-                          <Stat label="Por iniciar" value={w.por_iniciar} />
-                          <Stat label="En progreso" value={w.en_progreso} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" /> Ejecutivos
-                </CardTitle>
-                <CardDescription>Carga operativa activa por ejecutivo. Ordenado de mayor a menor.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {workload.executives.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">No hay ejecutivos activos.</div>
-                ) : (
-                  <div className="divide-y">
-                    {workload.executives.map((w) => (
-                      <div key={w.profile.id} className="px-4 py-3 flex items-center gap-4 flex-wrap">
-                        <div className="min-w-[180px] flex-1">
-                          <p className="text-sm font-medium truncate">{w.profile.full_name}</p>
-                          <p className="text-tiny text-muted-foreground truncate">
-                            {w.profile.email}{w.profile.market ? ` · ${w.profile.market}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                          <Stat label="Activas" value={w.total} emphasis />
-                          <Stat label="Pend. revisión" value={w.pendientes_revision} />
-                          <Stat label="En revisión" value={w.en_revision} />
-                          <Stat label="Listas publicar" value={w.listas_publicar} />
-                          <Stat label="Publicadas" value={w.publicadas} muted />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Workload moved to AdminDashboard */}
 
           {/* Manual Creation */}
           <TabsContent value="create" className="space-y-6 mt-4">
@@ -728,15 +660,3 @@ export default function AdminInspections() {
   );
 }
 
-function Stat({ label, value, emphasis, muted }: { label: string; value: number; emphasis?: boolean; muted?: boolean }) {
-  return (
-    <div className="flex flex-col items-start min-w-[80px]">
-      <span className={cn(
-        'text-base font-semibold tabular-nums',
-        emphasis && value > 0 && 'text-primary',
-        muted && 'text-muted-foreground'
-      )}>{value}</span>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-    </div>
-  );
-}
