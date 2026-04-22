@@ -422,7 +422,8 @@ export default function AdminUsers() {
                           <td className="py-3 px-4 font-medium">{p.full_name}</td>
                           <td className="py-3 px-4 text-muted-foreground">{p.email}</td>
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{p.market ?? '—'}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{marketLabel(p.market)}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{formatPhoneDisplay(p.country_code, p.phone)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
                               <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium',
