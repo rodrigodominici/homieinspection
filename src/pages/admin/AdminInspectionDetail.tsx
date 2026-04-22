@@ -647,26 +647,38 @@ export default function AdminInspectionDetail() {
                     return;
                   }
                   setSavingKeyDate(true);
-                  const dateValue = format(keyDateInput, 'yyyy-MM-dd');
-                  const timeValue = keyTimeInput || null;
-                  const mergedOverrides = {
-                    ...((inspection.property_overrides_json as Record<string, unknown>) ?? {}),
-                    fecha_recoleccion_llaves: dateValue,
-                    hora_recoleccion_llaves: timeValue,
-                  };
-                  const { error } = await supabase
-                    .from('inspections')
-                    .update({ property_overrides_json: mergedOverrides })
-                    .eq('id', inspection.id);
-                  setSavingKeyDate(false);
-                  if (error) {
-                    toast({ title: 'Error al guardar', description: error.message, variant: 'destructive' });
-                    return;
+                  try {
+                    const dateValue = format(keyDateInput, 'yyyy-MM-dd');
+                    const timeValue = keyTimeInput || null;
+                    const mergedOverrides = {
+                      ...((inspection.property_overrides_json as Record<string, unknown>) ?? {}),
+                      fecha_recoleccion_llaves: dateValue,
+                      hora_recoleccion_llaves: timeValue,
+                    };
+                    const { error } = await supabase
+                      .from('inspections')
+                      .update({ property_overrides_json: mergedOverrides })
+                      .eq('id', inspection.id);
+                    if (error) {
+                      toast({ title: 'Error al guardar', description: error.message, variant: 'destructive' });
+                      return;
+                    }
+                    setInspection({ ...inspection, property_overrides_json: mergedOverrides });
+                    setKeyEditorOpen(false);
+                    // Honest local-save toast — does NOT claim HubSpot success.
+                    toast({ title: 'Recolección guardada', description: 'Fecha/hora actualizada.' });
+                    // Await sync; surface HubSpot outcome only on failure.
+                    const syncRes = await triggerKeyCollectionSync(inspection.id);
+                    if (!syncRes.ok) {
+                      toast({
+                        variant: 'destructive',
+                        title: 'Sync HubSpot pendiente',
+                        description: 'La fecha se guardó pero no se pudo enviar a HubSpot. Revisa los logs salientes.',
+                      });
+                    }
+                  } finally {
+                    setSavingKeyDate(false);
                   }
-                  setInspection({ ...inspection, property_overrides_json: mergedOverrides });
-                  setKeyEditorOpen(false);
-                  toast({ title: 'Recolección guardada', description: 'Fecha/hora actualizada y enviada a HubSpot.' });
-                  triggerKeyCollectionSync(inspection.id);
                 };
 
                 const handleResend = async () => {
