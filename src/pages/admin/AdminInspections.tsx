@@ -15,11 +15,18 @@ import { useToast } from '@/hooks/use-toast';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import {
+  priorityBucket as sharedPriorityBucket,
+  priorityBucketLabel,
+  missingAssignmentLabel,
+} from '@/lib/inspector-operational';
 import AdminLayout from '@/components/AdminLayout';
+import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
-  Calendar as CalendarIcon, FileText, Briefcase, Users,
+  Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -89,38 +96,32 @@ interface EnrichedInspection extends Inspection {
 }
 
 /**
- * Operational priority bucket for admin sorting/filtering.
- * Lower number = higher priority. Unassigned ALWAYS outranks date urgency.
+ * Local helper: bucket lookup adapted for EnrichedInspection (which already has scheduleDatetime).
+ * Delegates to the shared `priorityBucket` so AdminInspections and AdminDashboard never drift.
  */
-function priorityBucket(insp: EnrichedInspection): number {
-  const missingAssign = !insp.inspector_id || !insp.executive_id || insp.status === 'pending_assignment';
-  if (missingAssign) return 0; // Sin asignar
-  const terminal = ['published', 'sent', 'approved'].includes(insp.status);
-  if (terminal) return 5;
-  if (insp.status === 'in_progress' || insp.status === 'submitted' || insp.status === 'in_review' || insp.status === 'needs_changes') return 3;
-  // assigned
-  if (!insp.scheduleDatetime) return 1; // Por coordinar
-  return 2; // Programadas
+function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 5 {
+  return sharedPriorityBucket({
+    inspector_id: insp.inspector_id,
+    executive_id: insp.executive_id,
+    status: insp.status,
+    scheduleDatetime: insp.scheduleDatetime,
+  });
 }
 
-function bucketLabel(b: number): { label: string; className: string } {
-  switch (b) {
-    case 0: return { label: 'Sin asignar', className: 'bg-status-bad-bg text-status-bad' };
-    case 1: return { label: 'Por coordinar', className: 'bg-amber-50 text-amber-700' };
-    case 2: return { label: 'Programada', className: 'bg-status-regular-bg text-status-regular' };
-    case 3: return { label: 'En progreso', className: 'bg-primary/10 text-primary' };
-    default: return { label: 'Completada', className: 'bg-status-good-bg text-status-good' };
-  }
-}
-
-function missingAssignmentLabel(insp: EnrichedInspection): string | null {
-  const noI = !insp.inspector_id;
-  const noE = !insp.executive_id;
-  if (noI && noE) return 'Faltan ambos';
-  if (noI) return 'Falta inspector';
-  if (noE) return 'Falta ejecutivo';
-  return null;
-}
+/**
+ * BADGE PRECEDENCE ON ADMIN CARDS (single source of truth):
+ *
+ *   1. Primary  — derived from priorityBucket via priorityBucketLabel().
+ *                 Always exactly 1 badge: "Sin asignar" | "Por coordinar"
+ *                 | "Programada" | "En progreso" | "Completada".
+ *
+ *   2. Secondary — only when bucket === 0, derived from missingAssignmentLabel():
+ *                  "Faltan ambos" | "Falta inspector" | "Falta ejecutivo".
+ *
+ *   The raw `<InspectionStatusBadge status={...}>` is intentionally NOT rendered
+ *   on the list cards: it duplicates "Sin Asignar" with the bucket primary
+ *   and adds enum noise. Raw status remains visible in AdminInspectionDetail.
+ */
 
 export default function AdminInspections() {
   const { profile } = useAuth();
@@ -308,56 +309,8 @@ export default function AdminInspections() {
     return sorted;
   }, [inspections, statusFilter, inspectorFilter, executiveFilter, bucketFilter, searchQuery, sortBy]);
 
-  // Workload counts per profile
-  const workload = useMemo(() => {
-    const inspectorMap = new Map<string, {
-      profile: Profile;
-      total: number; por_coordinar: number; por_iniciar: number;
-      en_progreso: number; programadas: number;
-    }>();
-    const executiveMap = new Map<string, {
-      profile: Profile;
-      total: number; pendientes_revision: number; en_revision: number;
-      listas_publicar: number; publicadas: number;
-    }>();
+  // Workload moved to AdminDashboard (single source of truth for assignment decisions).
 
-    for (const p of inspectors) {
-      inspectorMap.set(p.id, { profile: p, total: 0, por_coordinar: 0, por_iniciar: 0, en_progreso: 0, programadas: 0 });
-    }
-    for (const p of executives) {
-      executiveMap.set(p.id, { profile: p, total: 0, pendientes_revision: 0, en_revision: 0, listas_publicar: 0, publicadas: 0 });
-    }
-
-    for (const insp of inspections) {
-      // Inspector workload
-      if (insp.inspector_id && inspectorMap.has(insp.inspector_id)) {
-        const w = inspectorMap.get(insp.inspector_id)!;
-        const isActive = !['published', 'sent', 'approved'].includes(insp.status);
-        if (isActive) w.total++;
-        if (insp.status === 'assigned' && !insp.scheduleDatetime) w.por_coordinar++;
-        if (insp.status === 'assigned' && insp.scheduleDatetime) {
-          w.programadas++;
-          w.por_iniciar++;
-        }
-        if (insp.status === 'in_progress') w.en_progreso++;
-      }
-      // Executive workload
-      if (insp.executive_id && executiveMap.has(insp.executive_id)) {
-        const w = executiveMap.get(insp.executive_id)!;
-        const isActive = !['published', 'sent'].includes(insp.status);
-        if (isActive) w.total++;
-        if (insp.status === 'submitted') w.pendientes_revision++;
-        if (insp.status === 'in_review' || insp.status === 'needs_changes') w.en_revision++;
-        if (insp.status === 'approved') w.listas_publicar++;
-        if (insp.status === 'published' || insp.status === 'sent') w.publicadas++;
-      }
-    }
-
-    return {
-      inspectors: Array.from(inspectorMap.values()).sort((a, b) => b.total - a.total),
-      executives: Array.from(executiveMap.values()).sort((a, b) => b.total - a.total),
-    };
-  }, [inspections, inspectors, executives]);
 
   const formatDate = (d: Date) => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -370,95 +323,115 @@ export default function AdminInspections() {
           <TabsList>
             <TabsTrigger value="all">Todas ({inspections.length})</TabsTrigger>
             <TabsTrigger value="pending">Pendientes ({pendingAssignment.length})</TabsTrigger>
-            <TabsTrigger value="workload">Carga de trabajo</TabsTrigger>
             <TabsTrigger value="create">Crear Nueva</TabsTrigger>
           </TabsList>
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por dirección, ID de propiedad o nombre..."
-                className="pl-9"
-              />
-            </div>
+            {/* Controls — search + bucket chips + advanced filters */}
+            <Card className="border-0 ring-1 ring-border shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar por dirección, ID de propiedad o nombre..."
+                    className="pl-9"
+                  />
+                </div>
 
-            {/* Quick bucket filter chips */}
-            <div className="flex flex-wrap gap-2">
-              {BUCKET_FILTERS.map((b) => {
-                const active = bucketFilter === b.value;
-                const count = b.value === 'all'
-                  ? inspections.length
-                  : inspections.filter((i) => {
-                      const pb = priorityBucket(i);
-                      if (b.value === 'unassigned') return pb === 0;
-                      if (b.value === 'por_coordinar') return pb === 1;
-                      if (b.value === 'programadas') return pb === 2;
-                      if (b.value === 'in_progress') return pb === 3;
-                      return true;
-                    }).length;
-                return (
-                  <button
-                    key={b.value}
-                    onClick={() => setBucketFilter(b.value)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground ring-primary'
-                        : 'bg-background text-foreground ring-border hover:bg-muted'
-                    )}
-                  >
-                    {b.label}
-                    <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
-                      {count}
+                {/* Quick bucket filter chips (operational priority) */}
+                <div className="flex flex-wrap gap-2">
+                  {BUCKET_FILTERS.map((b) => {
+                    const active = bucketFilter === b.value;
+                    const count = b.value === 'all'
+                      ? inspections.length
+                      : inspections.filter((i) => {
+                          const pb = priorityBucket(i);
+                          if (b.value === 'unassigned') return pb === 0;
+                          if (b.value === 'por_coordinar') return pb === 1;
+                          if (b.value === 'programadas') return pb === 2;
+                          if (b.value === 'in_progress') return pb === 3;
+                          return true;
+                        }).length;
+                    return (
+                      <button
+                        key={b.value}
+                        onClick={() => setBucketFilter(b.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
+                          active
+                            ? 'bg-primary text-primary-foreground ring-primary'
+                            : 'bg-background text-foreground ring-border hover:bg-muted'
+                        )}
+                      >
+                        {b.label}
+                        <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Separator />
+
+                {/* Advanced filters — lifecycle state + people + sort */}
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Filtros avanzados
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <span className="inline-flex items-center gap-2">
+                      <span>{filteredInspections.length} resultados</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger><SelectValue placeholder="Estado del workflow" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          {STATUS_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
+                        <SelectTrigger><SelectValue placeholder="Inspector" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          <SelectItem value="all">Todos los inspectores</SelectItem>
+                          {inspectors.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
+                        <SelectTrigger><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                          {executives.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          {SORT_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CardContent>
+            </Card>
 
-            {/* Filters + Sort */}
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Inspector" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los inspectores</SelectItem>
-                  {inspectors.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
-                  {executives.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-caption text-muted-foreground">{filteredInspections.length} resultados</span>
-            </div>
 
             {loading ? (
               <div className="space-y-3">
@@ -474,7 +447,7 @@ export default function AdminInspections() {
               <div className="space-y-3">
                 {filteredInspections.map((insp) => {
                   const bucket = priorityBucket(insp);
-                  const bLabel = bucketLabel(bucket);
+                  const bLabel = priorityBucketLabel(bucket);
                   const missing = missingAssignmentLabel(insp);
                   return (
                     <Card
@@ -500,7 +473,7 @@ export default function AdminInspections() {
                                   <AlertCircle className="h-3 w-3" /> {missing}
                                 </span>
                               )}
-                              <InspectionStatusBadge status={insp.status} />
+                              {/* InspectionStatusBadge intentionally omitted — bucket primary already represents state. */}
                             </div>
 
                             <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
@@ -626,75 +599,7 @@ export default function AdminInspections() {
             )}
           </TabsContent>
 
-          {/* Workload */}
-          <TabsContent value="workload" className="space-y-6 mt-4">
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-primary" /> Inspectores
-                </CardTitle>
-                <CardDescription>Carga operativa activa por inspector. Ordenado de mayor a menor.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {workload.inspectors.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">No hay inspectores activos.</div>
-                ) : (
-                  <div className="divide-y">
-                    {workload.inspectors.map((w) => (
-                      <div key={w.profile.id} className="px-4 py-3 flex items-center gap-4 flex-wrap">
-                        <div className="min-w-[180px] flex-1">
-                          <p className="text-sm font-medium truncate">{w.profile.full_name}</p>
-                          <p className="text-tiny text-muted-foreground truncate">
-                            {w.profile.email}{w.profile.market ? ` · ${w.profile.market}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                          <Stat label="Activas" value={w.total} emphasis />
-                          <Stat label="Por coordinar" value={w.por_coordinar} />
-                          <Stat label="Por iniciar" value={w.por_iniciar} />
-                          <Stat label="En progreso" value={w.en_progreso} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" /> Ejecutivos
-                </CardTitle>
-                <CardDescription>Carga operativa activa por ejecutivo. Ordenado de mayor a menor.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {workload.executives.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">No hay ejecutivos activos.</div>
-                ) : (
-                  <div className="divide-y">
-                    {workload.executives.map((w) => (
-                      <div key={w.profile.id} className="px-4 py-3 flex items-center gap-4 flex-wrap">
-                        <div className="min-w-[180px] flex-1">
-                          <p className="text-sm font-medium truncate">{w.profile.full_name}</p>
-                          <p className="text-tiny text-muted-foreground truncate">
-                            {w.profile.email}{w.profile.market ? ` · ${w.profile.market}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                          <Stat label="Activas" value={w.total} emphasis />
-                          <Stat label="Pend. revisión" value={w.pendientes_revision} />
-                          <Stat label="En revisión" value={w.en_revision} />
-                          <Stat label="Listas publicar" value={w.listas_publicar} />
-                          <Stat label="Publicadas" value={w.publicadas} muted />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Workload moved to AdminDashboard */}
 
           {/* Manual Creation */}
           <TabsContent value="create" className="space-y-6 mt-4">
@@ -776,15 +681,3 @@ export default function AdminInspections() {
   );
 }
 
-function Stat({ label, value, emphasis, muted }: { label: string; value: number; emphasis?: boolean; muted?: boolean }) {
-  return (
-    <div className="flex flex-col items-start min-w-[80px]">
-      <span className={cn(
-        'text-base font-semibold tabular-nums',
-        emphasis && value > 0 && 'text-primary',
-        muted && 'text-muted-foreground'
-      )}>{value}</span>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-    </div>
-  );
-}
