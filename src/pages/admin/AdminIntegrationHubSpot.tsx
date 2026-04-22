@@ -264,6 +264,11 @@ export default function AdminIntegrationHubSpot() {
               Object type id: <code>2-47492934</code> (Contrato de Locación). El contrato destino se resuelve
               vía <code>inspection_external_references</code> — el modelo de inspecciones permanece desacoplado de HubSpot.
             </p>
+            <p className="text-xs text-muted-foreground">
+              Transporte: PATCH directo a <code>https://api.hubapi.com</code> autenticado con el secreto{' '}
+              <code>HUBSPOT_PRIVATE_APP_TOKEN</code> (Private App). El secreto de inbound{' '}
+              <code>HUBSPOT_INTAKE_SECRET</code> no se usa para esta ruta.
+            </p>
           </CardContent>
         </Card>
       </div>
