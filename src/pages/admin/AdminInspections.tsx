@@ -310,7 +310,7 @@ export default function AdminInspections() {
   }, [inspections, statusFilter, inspectorFilter, executiveFilter, bucketFilter, searchQuery, sortBy]);
 
   // Workload moved to AdminDashboard (single source of truth for assignment decisions).
-  }, [inspections, inspectors, executives]);
+
 
   const formatDate = (d: Date) => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -323,7 +323,6 @@ export default function AdminInspections() {
           <TabsList>
             <TabsTrigger value="all">Todas ({inspections.length})</TabsTrigger>
             <TabsTrigger value="pending">Pendientes ({pendingAssignment.length})</TabsTrigger>
-            <TabsTrigger value="workload">Carga de trabajo</TabsTrigger>
             <TabsTrigger value="create">Crear Nueva</TabsTrigger>
           </TabsList>
 
