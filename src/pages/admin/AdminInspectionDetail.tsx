@@ -888,62 +888,7 @@ export default function AdminInspectionDetail() {
             <CardTitle className="text-base">Acciones Administrativas</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
-            {/* Fecha devolución llave */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
-              <div className="space-y-2">
-                <Label>Devolución de llave (post-inspección)</Label>
-                <Input
-                  type="date"
-                  value={inspection.fecha_devolucion_llave ?? ''}
-                  onChange={async (e) => {
-                    const val = e.target.value || null;
-                    await supabase.from('inspections').update({
-                      fecha_devolucion_llave: val,
-                      fecha_devolucion_llave_sync_status: val ? 'pending' : 'not_applicable',
-                    }).eq('id', inspection.id);
-                    await logAudit('set_fecha_devolucion', null, null, `fecha_devolucion_llave: ${val}`);
-                    toast({ title: 'Fecha guardada' });
-                    await fetchAll();
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Estado sync</Label>
-                <div className="flex items-center gap-2 h-10">
-                  {(() => {
-                    const status = inspection.fecha_devolucion_llave_sync_status ?? 'not_applicable';
-                    const styles: Record<string, string> = {
-                      not_applicable: 'bg-muted text-muted-foreground',
-                      pending: 'bg-status-regular-bg text-status-regular',
-                      synced: 'bg-status-good-bg text-status-good',
-                      failed: 'bg-status-bad-bg text-status-bad',
-                    };
-                    const labels: Record<string, string> = {
-                      not_applicable: 'N/A',
-                      pending: 'Pendiente',
-                      synced: 'Sincronizado',
-                      failed: 'Error',
-                    };
-                    return (
-                      <Badge className={styles[status]}>{labels[status]}</Badge>
-                    );
-                  })()}
-                  {inspection.fecha_devolucion_llave_sync_status === 'failed' && (
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      await supabase.from('inspections').update({ fecha_devolucion_llave_sync_status: 'pending' }).eq('id', inspection.id);
-                      toast({ title: 'Reintentando sync...' });
-                      await fetchAll();
-                    }}>Reintentar</Button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha de término real de contrato</Label>
-                <Input type="text" readOnly value={(() => { const snap = getEffectiveSnapshot(inspection); return (snap?.fecha_de_termino_real_de_contrato as string) || 'No disponible'; })()} className="bg-muted cursor-default" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Inspector</Label>
                 <Select value={editInspector} onValueChange={setEditInspector}>
