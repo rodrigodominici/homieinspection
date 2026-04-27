@@ -104,6 +104,7 @@ export default function ExecutiveReviewDetail() {
   // Publish
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Signature
   const [signatureRecord, setSignatureRecord] = useState<{
