@@ -362,6 +362,7 @@ export default function ExecutiveReviewDetail() {
             description: r.description_snapshot, category: r.category_snapshot,
             unit: r.unit, quantity: r.quantity, unit_price: r.unit_price,
             subtotal: r.quantity * r.unit_price,
+            payer_role: r.payer_role, payment_nature: r.payment_nature,
           })),
       })),
       budget_total: clientTotal,
