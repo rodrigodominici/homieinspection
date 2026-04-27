@@ -1,81 +1,104 @@
+# Plan — Budget responsibility classification (Propietario/Inquilino · Obligatoria/Opcional)
 
+Inspection-level only. The repair catalog stays neutral.
 
-# Plan — Align Admin key-collection save with awaited sync + honest toast
+## 1. Data model (migration)
 
-## Change
+Add two columns to `public.inspection_repair_items`:
 
-Rewrite `handleSave` inside the key-collection popover in `src/pages/admin/AdminInspectionDetail.tsx` (currently lines ~644–670) to mirror the inspector flow exactly:
+- `payer_role text NOT NULL DEFAULT 'owner'` — values: `'owner' | 'tenant'` (CHECK constraint)
+- `payment_nature text NOT NULL DEFAULT 'required'` — values: `'required' | 'optional'` (CHECK constraint)
+
+Defaults backfill existing rows to **Propietario + Obligatoria**, matching today's implicit behavior.
+
+No changes to `repair_catalog_items`, `repair_catalog_categories`, or contractor pricing tables.
+
+## 2. Types
+
+Extend `InspectionRepairItem` in `src/lib/types.ts`:
 
 ```ts
-const handleSave = async () => {
-  if (!inspection) return;
-  setSavingKeyDate(true);
-  try {
-    // 1. Persist into property_overrides_json (same source the edge function reads)
-    const overrides = {
-      ...(inspection.property_overrides_json ?? {}),
-      fecha_recoleccion_llaves: pickedDate,
-      hora_recoleccion_llaves: pickedTime,
-    };
-    const { error } = await supabase
-      .from('inspections')
-      .update({ property_overrides_json: overrides })
-      .eq('id', inspection.id);
-    if (error) throw error;
-
-    // 2. Update local state + close popover
-    setInspection({ ...inspection, property_overrides_json: overrides });
-    setKeyDatePopoverOpen(false);
-
-    // 3. Honest local-save toast (does NOT claim HubSpot success)
-    toast({
-      title: 'Recolección guardada',
-      description: 'Fecha/hora actualizada.',
-    });
-
-    // 4. Await sync; only then surface HubSpot outcome
-    const syncRes = await triggerKeyCollectionSync(inspection.id);
-    if (!syncRes.ok) {
-      toast({
-        variant: 'destructive',
-        title: 'Sync HubSpot pendiente',
-        description: 'La fecha se guardó pero no se pudo enviar a HubSpot. Revisa los logs salientes.',
-      });
-    }
-  } catch (err) {
-    toast({
-      variant: 'destructive',
-      title: 'Error al guardar',
-      description: err instanceof Error ? err.message : 'Inténtalo de nuevo.',
-    });
-  } finally {
-    setSavingKeyDate(false);
-  }
-};
+payer_role: 'owner' | 'tenant';
+payment_nature: 'required' | 'optional';
 ```
 
-Key properties:
-- Optimistic toast only confirms the local save ("Recolección guardada / Fecha/hora actualizada."). No mention of HubSpot.
-- HubSpot feedback is strictly conditional on the awaited result. Success is silent; failure raises a destructive toast pointing to outbound logs.
-- `setSavingKeyDate(true/false)` wraps the entire try/finally so the "Guardar y enviar a HubSpot" CTA stays disabled until persistence + sync attempt both finish.
-- Persistence source (`property_overrides_json.fecha_recoleccion_llaves` / `hora_recoleccion_llaves`) is unchanged and matches what the edge function reads.
+## 3. Executive editor UI (`ExecutiveReviewDetail.tsx`)
 
-## File touched
+Inside each repair card in `SectionWorkspace` (lines 1064–1125), add a compact pill row directly under the title/description, before the qty/price grid:
 
-- `src/pages/admin/AdminInspectionDetail.tsx` — only the `handleSave` block inside the key-collection popover.
+- **Responsable**: `Propietario` | `Inquilino`
+- **Tipo**: `Obligatoria` | `Opcional`
 
-## Verification (in combination with the existing outbound logging fix)
+Implementation: pill-style toggle buttons styled with existing tokens (no new dependencies). Each click calls the existing `onUpdateRepair(repair.id, 'payer_role' | 'payment_nature', value)` — generic update path already persists and refetches.
 
-1. Admin picks a date and clicks "Guardar y enviar a HubSpot" → CTA stays disabled until the sync resolves.
-2. On success: only the neutral "Recolección guardada" toast appears; a `hubspot_sync_log` row with `action='key_collection_date'`, `status='success'` is written by the edge function.
-3. On failure (network, missing external reference, HubSpot 4xx): neutral save toast appears, then a destructive "Sync HubSpot pendiente — revisa los logs salientes" toast; a `hubspot_sync_log` row with `status='error'` (or `skipped`) is written.
-4. Every admin save attempt produces exactly one outbound log row visible at `/admin/integrations/hubspot/outbound-logs`.
-5. The adjacent "Reenviar a HubSpot" button (already awaited) is unaffected.
+Update `addRepairFromCatalog` (line 264) to insert explicit defaults (`payer_role: 'owner'`, `payment_nature: 'required'`).
 
-## Summary deliverable
+## 4. Grouped totals — internal operational scope
 
-- **Root cause (recap):** admin save was fire-and-forget with an optimistic "enviada a HubSpot" toast hiding all sync failures.
-- **Change:** admin `handleSave` now (a) persists, (b) shows a save-only toast, (c) awaits `triggerKeyCollectionSync`, (d) raises a destructive toast only on real failure, (e) keeps the CTA disabled across the full async chain.
-- **Shared path:** admin and inspector flows now use the same persistence source, the same `triggerKeyCollectionSync` helper, and the same UX contract.
-- **Observability:** combined with the prior outbound-logging fix, every admin save leaves a visible trace in `hubspot_sync_log` and the admin sees honest, conditional feedback.
+The new grouped totals are **internal operational totals**: they aggregate **all** repair items in the inspection, regardless of `visible_to_owner`. Rationale: this is a budget management view for the executive; hiding items from the owner-facing public report should not distort the executive's true budget breakdown by payer/nature.
 
+`visible_to_owner` continues to gate only:
+- the published `inspection_report_versions.normalized_payload`
+- the existing public-facing `clientTotal` used inside that payload
+
+Replace the single `clientTotal` aggregation (lines 178–184) with a memoized `budgetBreakdown`:
+
+```
+ownerRequired, ownerOptional, tenantRequired, tenantOptional,
+ownerTotal, tenantTotal, grandTotal
+```
+
+Plus a parallel set computed over `contractor_unit_price` for internal margin display.
+
+### Sticky summary bar (lines 538–600)
+
+Reorganize into two business-facing groups:
+
+- **Propietario**: `Obligatorio $X · Opcional $Y · Total $Z`
+- **Inquilino**: `Obligatorio $X · Opcional $Y · Total $Z`
+- **Total general**: emphasized chip
+- **Diferencia vs depósito**: compares `ownerRequired` against `warrantyDeposit` (only mandatory owner items are deposit-relevant)
+
+Contractor cost / utility chips remain, computed over the same internal operational set.
+
+## 5. Independent quotations
+
+Add one `QuotationDialog` parametrized by payer, triggered from the top bar via two buttons:
+
+- `Cotización Propietario`
+- `Cotización Inquilino`
+
+Reuses the same in-memory `allRepairs` — **no duplicated budgets, no extra DB writes**.
+
+Each quotation renders:
+
+- Property header (name, address)
+- **Reparaciones obligatorias** — items with `payment_nature='required'` for the selected payer
+- **Reparaciones opcionales** — items with `payment_nature='optional'` for the selected payer
+- Per-item: title, description, qty × unit_price, subtotal
+- Footer: `Subtotal obligatorias`, `Subtotal opcionales`, `Total`
+- Actions: `Imprimir` (print stylesheet on the dialog body), `Copiar resumen` (plain text)
+
+All copy stays business-facing in Spanish; no internal jargon (no "owner_required", no enum names) surfaces in the UI.
+
+## 6. Published payload — model preparation only
+
+`inspection_report_versions.normalized_payload` is enriched so each repair carries `payer_role` and `payment_nature`. This is **model preparation only** for this iteration.
+
+`OwnerReport.tsx` is **not modified** in this iteration — the public report continues to render all visible repairs grouped by section as it does today. Future work can split the public report by payer without another schema change.
+
+## 7. Scope boundaries (explicit)
+
+- No changes to `repair_catalog_items`, `repair_catalog_categories`, or contractor pricing.
+- No new tenant report route. Owner/tenant quotations are derived dialog views over the same inspection budget.
+- No backfill beyond the column defaults (`owner` + `required`).
+- Admin Inspection Detail repair listing (read-only summary) gets the same two read-only chips for parity, no editing UI.
+
+## Technical summary
+
+- **DB**: migration adds `payer_role` + `payment_nature` to `inspection_repair_items` with CHECK constraints and safe defaults.
+- **Types**: `InspectionRepairItem` extended with the two unions.
+- **Editor**: two pill toggles per repair card, persisted via existing `updateRepairItem`.
+- **Totals**: `budgetBreakdown` memo aggregates over **all** repair items (internal operational totals); sticky bar reorganized into Propietario / Inquilino / Total general; deposit comparison rebased on `ownerRequired`.
+- **Quotations**: single `QuotationDialog` parametrized by payer, business-facing copy, no DB duplication.
+- **Published payload**: enriched with `payer_role` + `payment_nature` for future use; `OwnerReport.tsx` behavior unchanged this iteration.
