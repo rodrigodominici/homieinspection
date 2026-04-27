@@ -1403,6 +1403,19 @@ export default function AdminInspectionDetail() {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate">{repair.title_snapshot}</p>
                               {repair.category_snapshot && <p className="text-[10px] text-muted-foreground">{repair.category_snapshot}</p>}
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                <span className="inline-flex items-center rounded-full border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
+                                </span>
+                                <span className={cn(
+                                  'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px]',
+                                  repair.payment_nature === 'optional'
+                                    ? 'border-muted-foreground/20 text-muted-foreground bg-muted/40'
+                                    : 'border-primary/20 text-primary bg-primary/5'
+                                )}>
+                                  {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+                                </span>
+                              </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={() => updateRepairItem(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
