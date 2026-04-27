@@ -1138,6 +1138,43 @@ function SectionWorkspace({
                 defaultValue={repair.description_snapshot ?? ''}
                 key={`desc-${repair.id}`}
               />
+              {/* Responsable / Tipo pills */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-tiny text-muted-foreground">Responsable:</span>
+                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
+                    {(['owner', 'tenant'] as const).map(role => (
+                      <button key={role} type="button"
+                        onClick={() => onUpdateRepair(repair.id, 'payer_role', role)}
+                        className={cn(
+                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
+                          repair.payer_role === role
+                            ? 'bg-card shadow-sm font-medium text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}>
+                        {role === 'owner' ? 'Propietario' : 'Inquilino'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-tiny text-muted-foreground">Tipo:</span>
+                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
+                    {(['required', 'optional'] as const).map(nat => (
+                      <button key={nat} type="button"
+                        onClick={() => onUpdateRepair(repair.id, 'payment_nature', nat)}
+                        className={cn(
+                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
+                          repair.payment_nature === nat
+                            ? 'bg-card shadow-sm font-medium text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}>
+                        {nat === 'required' ? 'Obligatoria' : 'Opcional'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
                   <Label className="text-tiny">Cantidad</Label>
