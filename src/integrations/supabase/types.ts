@@ -395,6 +395,8 @@ export type Database = {
           inspection_section_id: string
           notes: string | null
           owner_friendly_name_snapshot: string | null
+          payer_role: string
+          payment_nature: string
           pricing_type: string
           quantity: number
           repair_catalog_item_id: string | null
@@ -418,6 +420,8 @@ export type Database = {
           inspection_section_id: string
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
+          payer_role?: string
+          payment_nature?: string
           pricing_type?: string
           quantity?: number
           repair_catalog_item_id?: string | null
@@ -441,6 +445,8 @@ export type Database = {
           inspection_section_id?: string
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
+          payer_role?: string
+          payment_nature?: string
           pricing_type?: string
           quantity?: number
           repair_catalog_item_id?: string | null

@@ -32,8 +32,9 @@ import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
-  ChevronLeft, ChevronRight, ZoomIn,
+  ChevronLeft, ChevronRight, ZoomIn, FileText,
 } from 'lucide-react';
+import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -103,6 +104,7 @@ export default function ExecutiveReviewDetail() {
   // Publish
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Signature
   const [signatureRecord, setSignatureRecord] = useState<{
@@ -175,13 +177,37 @@ export default function ExecutiveReviewDetail() {
 
   // ─── Computed values ───────────────────────────────────
   const allRepairs = useMemo(() => Object.values(repairsBySection).flat(), [repairsBySection]);
+
+  // Internal operational breakdown — aggregates ALL repair items regardless of visible_to_owner.
+  // visible_to_owner only gates the published owner-facing payload (clientTotal below).
+  const budgetBreakdown = useMemo(() => {
+    const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    for (const r of allRepairs) {
+      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      if (r.payer_role === 'tenant') {
+        if (r.payment_nature === 'optional') acc.tenantOptional += amount;
+        else acc.tenantRequired += amount;
+      } else {
+        if (r.payment_nature === 'optional') acc.ownerOptional += amount;
+        else acc.ownerRequired += amount;
+      }
+    }
+    return {
+      ...acc,
+      ownerTotal: acc.ownerRequired + acc.ownerOptional,
+      tenantTotal: acc.tenantRequired + acc.tenantOptional,
+      grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
+    };
+  }, [allRepairs]);
+
   const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
-  const contractorTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
-  const utility = clientTotal - contractorTotal;
+  const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
+  const utility = budgetBreakdown.grandTotal - contractorTotal;
 
   const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
   const warrantyDeposit = typeof effectiveSnapshot.warranty_deposit === 'number' ? effectiveSnapshot.warranty_deposit : null;
-  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - clientTotal : null;
+  // Deposit comparison is rebased on owner-mandatory items only (the deposit-relevant universe).
+  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - budgetBreakdown.ownerRequired : null;
 
   const progress = useMemo(() => calculateProgress(sections), [sections]);
 
@@ -270,6 +296,7 @@ export default function ExecutiveReviewDetail() {
       unit: catalogItem.unit, pricing_type: catalogItem.pricing_type,
       quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: contractorPrice,
       notes: null, visible_to_owner: true, sort_order: existingRepairs.length,
+      payer_role: 'owner', payment_nature: 'required',
       created_by: profile?.id, updated_by: profile?.id,
     });
     setCatalogOpen(false);
@@ -335,6 +362,7 @@ export default function ExecutiveReviewDetail() {
             description: r.description_snapshot, category: r.category_snapshot,
             unit: r.unit, quantity: r.quantity, unit_price: r.unit_price,
             subtotal: r.quantity * r.unit_price,
+            payer_role: r.payer_role, payment_nature: r.payment_nature,
           })),
       })),
       budget_total: clientTotal,
@@ -545,14 +573,40 @@ export default function ExecutiveReviewDetail() {
             </div>
             <div className="w-px h-4 bg-border shrink-0" />
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Presupuesto:</span>
-              <span className="font-mono font-medium">{fmtCurrency(clientTotal)}</span>
+              <span className="text-muted-foreground">Propietario:</span>
+              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.ownerRequired)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.ownerOptional)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
+                onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
+                <FileText className="mr-1 h-3 w-3" /> Cotización
+              </Button>
             </div>
-            {warrantyDeposit !== null && clientTotal > 0 && (
+            <div className="w-px h-4 bg-border shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-muted-foreground">Inquilino:</span>
+              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.tenantRequired)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.tenantOptional)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
+                onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
+                <FileText className="mr-1 h-3 w-3" /> Cotización
+              </Button>
+            </div>
+            <div className="w-px h-4 bg-border shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/10 px-2 py-0.5">
+              <span className="text-muted-foreground">Total general:</span>
+              <span className="font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</span>
+            </div>
+            {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
               <>
                 <div className="w-px h-4 bg-border shrink-0" />
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Diferencia:</span>
+                  <span className="text-muted-foreground">Diferencia vs depósito:</span>
                   <span className={cn('font-mono font-medium', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
                     {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
                   </span>
@@ -935,6 +989,15 @@ export default function ExecutiveReviewDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Quotation dialog ──────────────────────────── */}
+      <QuotationDialog
+        open={quotationDialog.open}
+        onOpenChange={(open) => setQuotationDialog((q) => ({ ...q, open }))}
+        payer={quotationDialog.payer}
+        inspection={inspection}
+        repairs={allRepairs}
+      />
     </div>
     </ExecutiveLayout>
   );
@@ -1084,6 +1147,43 @@ function SectionWorkspace({
                 defaultValue={repair.description_snapshot ?? ''}
                 key={`desc-${repair.id}`}
               />
+              {/* Responsable / Tipo pills */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-tiny text-muted-foreground">Responsable:</span>
+                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
+                    {(['owner', 'tenant'] as const).map(role => (
+                      <button key={role} type="button"
+                        onClick={() => onUpdateRepair(repair.id, 'payer_role', role)}
+                        className={cn(
+                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
+                          repair.payer_role === role
+                            ? 'bg-card shadow-sm font-medium text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}>
+                        {role === 'owner' ? 'Propietario' : 'Inquilino'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-tiny text-muted-foreground">Tipo:</span>
+                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
+                    {(['required', 'optional'] as const).map(nat => (
+                      <button key={nat} type="button"
+                        onClick={() => onUpdateRepair(repair.id, 'payment_nature', nat)}
+                        className={cn(
+                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
+                          repair.payment_nature === nat
+                            ? 'bg-card shadow-sm font-medium text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}>
+                        {nat === 'required' ? 'Obligatoria' : 'Opcional'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
                   <Label className="text-tiny">Cantidad</Label>

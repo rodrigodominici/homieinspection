@@ -271,6 +271,8 @@ export interface InspectionRepairItem {
   subtotal: number; // generated column, read-only
   notes: string | null;
   visible_to_owner: boolean;
+  payer_role: 'owner' | 'tenant';
+  payment_nature: 'required' | 'optional';
   sort_order: number;
   created_by: string | null;
   updated_by: string | null;
