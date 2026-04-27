@@ -989,6 +989,15 @@ export default function ExecutiveReviewDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Quotation dialog ──────────────────────────── */}
+      <QuotationDialog
+        open={quotationDialog.open}
+        onOpenChange={(open) => setQuotationDialog((q) => ({ ...q, open }))}
+        payer={quotationDialog.payer}
+        inspection={inspection}
+        repairs={allRepairs}
+      />
     </div>
     </ExecutiveLayout>
   );
