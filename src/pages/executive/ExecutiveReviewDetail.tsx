@@ -32,8 +32,9 @@ import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
-  ChevronLeft, ChevronRight, ZoomIn,
+  ChevronLeft, ChevronRight, ZoomIn, FileText,
 } from 'lucide-react';
+import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
