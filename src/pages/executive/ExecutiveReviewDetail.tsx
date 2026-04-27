@@ -175,13 +175,37 @@ export default function ExecutiveReviewDetail() {
 
   // ─── Computed values ───────────────────────────────────
   const allRepairs = useMemo(() => Object.values(repairsBySection).flat(), [repairsBySection]);
+
+  // Internal operational breakdown — aggregates ALL repair items regardless of visible_to_owner.
+  // visible_to_owner only gates the published owner-facing payload (clientTotal below).
+  const budgetBreakdown = useMemo(() => {
+    const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    for (const r of allRepairs) {
+      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      if (r.payer_role === 'tenant') {
+        if (r.payment_nature === 'optional') acc.tenantOptional += amount;
+        else acc.tenantRequired += amount;
+      } else {
+        if (r.payment_nature === 'optional') acc.ownerOptional += amount;
+        else acc.ownerRequired += amount;
+      }
+    }
+    return {
+      ...acc,
+      ownerTotal: acc.ownerRequired + acc.ownerOptional,
+      tenantTotal: acc.tenantRequired + acc.tenantOptional,
+      grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
+    };
+  }, [allRepairs]);
+
   const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
-  const contractorTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
-  const utility = clientTotal - contractorTotal;
+  const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
+  const utility = budgetBreakdown.grandTotal - contractorTotal;
 
   const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
   const warrantyDeposit = typeof effectiveSnapshot.warranty_deposit === 'number' ? effectiveSnapshot.warranty_deposit : null;
-  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - clientTotal : null;
+  // Deposit comparison is rebased on owner-mandatory items only (the deposit-relevant universe).
+  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - budgetBreakdown.ownerRequired : null;
 
   const progress = useMemo(() => calculateProgress(sections), [sections]);
 
