@@ -573,14 +573,40 @@ export default function ExecutiveReviewDetail() {
             </div>
             <div className="w-px h-4 bg-border shrink-0" />
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Presupuesto:</span>
-              <span className="font-mono font-medium">{fmtCurrency(clientTotal)}</span>
+              <span className="text-muted-foreground">Propietario:</span>
+              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.ownerRequired)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.ownerOptional)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
+                onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
+                <FileText className="mr-1 h-3 w-3" /> Cotización
+              </Button>
             </div>
-            {warrantyDeposit !== null && clientTotal > 0 && (
+            <div className="w-px h-4 bg-border shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-muted-foreground">Inquilino:</span>
+              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.tenantRequired)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.tenantOptional)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
+                onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
+                <FileText className="mr-1 h-3 w-3" /> Cotización
+              </Button>
+            </div>
+            <div className="w-px h-4 bg-border shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/10 px-2 py-0.5">
+              <span className="text-muted-foreground">Total general:</span>
+              <span className="font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</span>
+            </div>
+            {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
               <>
                 <div className="w-px h-4 bg-border shrink-0" />
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Diferencia:</span>
+                  <span className="text-muted-foreground">Diferencia vs depósito:</span>
                   <span className={cn('font-mono font-medium', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
                     {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
                   </span>
