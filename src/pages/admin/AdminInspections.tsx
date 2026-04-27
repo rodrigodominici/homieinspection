@@ -505,7 +505,7 @@ export default function AdminInspections() {
                         const bLabel = priorityBucketLabel(bucket);
                         const missing = missingAssignmentLabel(insp);
                         return (
-                          <TableRow key={insp.id} className="cursor-pointer">
+                          <TableRow key={insp.id} className="cursor-pointer [&>td]:py-3">
                             <TableCell className="max-w-[220px]">
                               <div className="font-medium truncate">{insp.property_name ?? insp.property_id}</div>
                               {insp.address && (
@@ -514,17 +514,19 @@ export default function AdminInspections() {
                             </TableCell>
                             <TableCell className="text-tiny text-muted-foreground">{insp.property_id}</TableCell>
                             <TableCell>
-                              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', bLabel.className)}>
+                              <span className={cn('inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold leading-5', bLabel.className)}>
                                 {bLabel.label}
                               </span>
                             </TableCell>
                             <TableCell>
                               {missing ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-status-bad-bg px-2 py-0.5 text-[10px] font-semibold text-status-bad">
-                                  <AlertCircle className="h-3 w-3" /> {missing}
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-tiny font-medium text-status-bad">
+                                  <AlertCircle className="h-3 w-3 shrink-0" /> {missing}
                                 </span>
                               ) : (
-                                <span className="text-tiny text-muted-foreground">—</span>
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-tiny text-muted-foreground">
+                                  <span className="text-status-good">✓</span> Completa
+                                </span>
                               )}
                             </TableCell>
                             <TableCell className="text-xs">{insp.inspectorName ?? <span className="italic text-muted-foreground">—</span>}</TableCell>
