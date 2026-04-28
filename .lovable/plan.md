@@ -1,167 +1,156 @@
-## Step 1 — Diagnosis
 
-**Current published flow**
-- `handlePublish` (Executive) and `handleAdminPublish` (Admin) both build one `normalized_payload` (already includes `payer_role` + `payment_nature` per repair), set `is_latest=false` on prior rows, insert one row in `inspection_report_versions`, and produce one URL `/reportes/:propertyId/:token`.
-- `OwnerReport.tsx` is the only public renderer — calls RPC `get_published_report(property_id, token)`, which validates the token and re-signs photo URLs.
-- The payload already carries `payer_role` + `payment_nature`; only renderer + link generation need to change.
+# Executive budget UX + public images fix
 
-**Existing reads of `inspection_report_versions` (full audit)**
-1. `ExecutiveReviewDetail.tsx:376` — selects max `version_number` for next-version calc. **Safe**: per-audience rows share the same `version_number`, so the max is unchanged.
-2. `ExecutiveReviewDetail.tsx:379` and `AdminInspectionDetail.tsx:429` — `update is_latest=false WHERE inspection_id=?`. **Safe**: blanket reset works regardless of audience.
-3. `AdminInspectionDetail.tsx:213` — fetches all versions for the "Versiones Publicadas" panel, ordered by `version_number desc`. **Needs update**: must group by `version_number` so each version row collapses both audiences (otherwise list shows duplicate entries).
-4. `AdminInspectionDetail.tsx:545` — `getOwnerUrl()` does `versions.find(v => v.is_latest && v.public_token)`. **Needs update**: must filter by `audience='owner'`.
-5. `AdminInspectionDetail.tsx:887` — reads `reportVersions[0]` for "Versión actual". **Safe-after-grouping** (point 3): grouped list keeps one entry per version.
-6. `AdminInspectionDetail.tsx:365` — cascade delete on inspection deletion. **Safe**: deletes all rows.
-7. RPC `get_published_report` — looks up by `(public_token, property_id, status='published', is_latest=true)`. **Safe**: each audience has its own unique token; both rows can be `is_latest=true`.
-8. Migration `20260417125232` — uses the same lookup pattern; same safety reasoning.
+Two independent problems handled separately.
 
-No other reads exist. After refactor, every consumer either filters by `audience` or treats `version_number` as the grouping key.
+---
 
-**Filtering contract (explicit)**
-- **`audience` is the primary public-rendering filter.** It alone decides which payer's items the public view shows.
-- **`visible_to_owner` only gates the *owner-published payload*.** A repair hidden via `visible_to_owner=false` is excluded from the published payload entirely (both audience rows). It is an editorial visibility flag, not a payer flag.
-- Owner audience renders all payload items grouped by `payer_role`. Tenant audience filters payload to `payer_role==='tenant'` only.
-- Conclusion: `visible_to_owner` cannot accidentally hide tenant items the owner needs to see, because both audience rows are built from the same already-filtered visible set. If an executive needs an item explained to the owner regardless of payer, they must keep `visible_to_owner=true` — which is the existing semantic.
+## Part 1 — Diagnosis: Executive budget UI
 
-**Input contrast issue**
-- `Input` and `Textarea` use `border-input` (`220 13% 91%`) on white card sitting on `--background` (`230 25% 97%`). After the cleanup, the borders are nearly invisible. Affected throughout the executive workspace: repair description textareas, internal notes, final observation textareas, return-comment textareas, numeric pricing inputs.
+**Why the current placement creates friction**
 
-## Step 2 — Implementation
+In `ExecutiveReviewDetail.tsx` (`SectionWorkspace`), each section renders a long vertical sequence:
+status fields → other fields → side-by-side observations → internal note → **Reparaciones card** → return mode.
 
-### A. Field contrast (subtle, light)
+The repairs block sits at the very bottom of the section. To budget a repair the executive must:
 
-`src/index.css`
-- `--input: 220 13% 91%` → `220 13% 84%` (only form fields tighten; `--border` for separators stays soft).
+1. Scroll past observations and the internal note.
+2. Add/edit the repair.
+3. Scroll back up to re-read the observation or check a photo in the right rail.
+4. Repeat for each repair.
 
-`src/components/ui/input.tsx` and `textarea.tsx`
-- New base classes:
-  - `bg-background/60` (subtle gray fill on white card backgrounds)
-  - `border-input` (now slightly darker)
-  - `hover:border-foreground/30 hover:bg-background`
-  - `focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0`
-  - `placeholder:text-muted-foreground/70`
-- No shadows. Existing `className` overrides still merge.
+The right rail already shows photos for the active section, but repairs are forced into the same vertical column as text content, so review (text + photos) and budgeting (numbers + classification) compete for the same scroll axis. Each repair card is also tall (~6 rows: title, description textarea, pricing grid, notes, payer/nature row), which compounds the scroll problem when a section has 3+ items.
 
-### B. Schema migration — `audience` column
+**How much is "just stacking"**
 
-```sql
-alter table public.inspection_report_versions
-  add column audience text not null default 'owner'
-  check (audience in ('owner','tenant'));
+Most of it. The card itself is reasonable; the issue is that it's stacked below content the executive needs to keep referencing. Moving it to a parallel surface eliminates the scroll loop without redesigning the card.
 
-create index if not exists inspection_report_versions_audience_idx
-  on public.inspection_report_versions (inspection_id, audience, is_latest);
+**Inline vs secondary surface**
 
-create unique index if not exists inspection_report_versions_latest_unique
-  on public.inspection_report_versions (inspection_id, audience)
-  where is_latest = true;
+A right-side drawer is the right call:
+
+- preserves "repairs belong to a section" (drawer is opened from the active section header)
+- text review stays anchored in the center column
+- photos stay in the right rail until the drawer opens, drawer overlays the rail
+- closing returns the executive to the exact same scroll position
+- no data model change
+
+---
+
+## Part 1 — Implementation
+
+### New component: `SectionRepairsDrawer`
+
+A right-side `Sheet` (reuses existing `@/components/ui/sheet`) opened per active section. Contents:
+
+- header: section title + repair count + section subtotal (cliente)
+- "Agregar reparación" button → opens existing catalog sheet stacked on top
+- compact list of repairs, each rendered as a **collapsed summary row** by default:
+  - title · payer chip · nature chip · subtotal · expand caret · delete
+- click a row → expands inline to show the full editor (description, qty/precio/contratista grid, notes, visibility toggle, payer/nature dropdowns)
+- only one repair expanded at a time (accordion behavior)
+- empty state: "Sin reparaciones en esta sección" + primary "Agregar"
+- footer (sticky inside the drawer): subtotal cliente + count
+
+The full editing UI itself is the same controls already in `SectionWorkspace`'s repair card — just relocated and collapsed-by-default.
+
+### Trigger placement
+
+In `SectionWorkspace`, replace the entire bottom `Reparaciones` card with a **compact summary strip** placed near the top of the section (right after the section title row):
+
+```
+[Wrench] Reparaciones · 3        Subtotal $45.000   [Editar reparaciones ▸]
 ```
 
-`get_published_report` — add `audience` to the returned JSON so the renderer knows what to filter:
-```sql
--- read v_audience in the same SELECT
-SELECT irv.normalized_payload, irv.inspection_id, irv.audience
-INTO result, v_inspection_id, v_audience
-...
-result := result || jsonb_build_object('sections', v_new_sections, 'audience', v_audience);
-```
+- Click the row or the button opens the drawer.
+- Strip stays visible after closing, with updated count/subtotal.
 
-### C. Atomic publish flow (Executive + Admin)
+This satisfies "repair editor moves out of the bottom" and gives the executive a one-click path to budget without scrolling.
 
-Executive `handlePublish` and Admin `handleAdminPublish` both refactored to:
-1. Build one `payloadBase` from visible repairs (same set as today; each item already carries `payer_role` + `payment_nature`). Owner payload === tenant payload at the data layer; the renderer applies the audience filter.
-2. Compute `nextVersion` (max + 1).
-3. `update is_latest=false where inspection_id = ?` (blanket reset).
-4. Insert two rows in a single `.insert([...])` call so failures roll back together at the network layer:
-   ```ts
-   const ownerToken = crypto.randomUUID();
-   const tenantToken = crypto.randomUUID();
-   const { error } = await supabase.from('inspection_report_versions').insert([
-     { inspection_id, version_number: nextVersion, status: 'published',
-       audience: 'owner',  public_token: ownerToken,  normalized_payload: payloadBase, is_latest: true },
-     { inspection_id, version_number: nextVersion, status: 'published',
-       audience: 'tenant', public_token: tenantToken, normalized_payload: payloadBase, is_latest: true },
-   ]);
+### Mobile
+
+Mobile already has the budget per section in a stacked layout (line ~911). Keep the existing inline behavior on mobile (drawer would compete with the bottom action bar). The drawer is desktop-only (`hidden lg:flex` trigger; on mobile keep the current inline list). The compact summary strip can render on both.
+
+### What does NOT change
+
+- data model, RLS, RPC, publish flow
+- catalog sheet, contractor popover
+- subtotal logic (`budgetBreakdown`, `clientTotal`, `contractorTotal`)
+- right photo rail (drawer overlays, doesn't replace)
+
+---
+
+## Part 2 — Diagnosis: missing public images
+
+**End-to-end trace**
+
+1. Publish payload (`handlePublish`, line 362) writes `photos: [{ id, url: null, caption }]` — `url` is intentionally null; the RPC is supposed to fill it.
+2. The RPC `get_published_report` walks each photo and tries:
+   ```sql
+   SELECT (storage.sign(v_storage_path, 3600, 'inspection-photos')) INTO v_signed_url;
    ```
-   On error, surface a toast and abort — the prior `is_latest=false` reset is the only side-effect, which is recoverable on next publish.
-5. Update `inspections` row (`status='published'`, timestamps).
-6. Open the publish dialog with **both** URLs:
-   - `Cotización Propietario` → `/reportes/:propertyId/:ownerToken`
-   - `Cotización Inquilino`  → `/reportes/:propertyId/:tenantToken`
-   Each row shows a copy button and an open-in-new-tab button. WhatsApp/share buttons reuse the same URL strings.
+3. **`storage.sign` does not exist.** Verified via `pg_proc`: no function named `sign` in `storage`, `extensions`, or `public`. The call raises `undefined_function`, the `EXCEPTION WHEN OTHERS` block swallows it, `v_signed_url` stays NULL.
+4. RPC returns `{ id, url: null, caption }`.
+5. `OwnerReport.tsx` renders `<img src={photo.url ?? ''} />` → empty `src` → browser shows broken-image icon.
 
-### D. Updated existing reads
+**Scope:** affects 100% of published reports, both audiences, all sections — every photo.
 
-`AdminInspectionDetail.tsx`
-- `getOwnerUrl()` → filter by `audience==='owner'` first:
-  ```ts
-  const ownerLatest = reportVersions.find(v => v.is_latest && v.audience === 'owner' && v.public_token);
-  ```
-- Add `getTenantUrl()` mirror that filters by `audience==='tenant'`.
-- "Versiones Publicadas" panel: group rows by `version_number`, render one entry per version with two copy buttons (`Propietario` / `Inquilino`). Keep "Última" pill on the latest version_number group.
-- Header "Versión actual" reads from the grouped list (still valid).
+**Why a client-side `createSignedUrl` retry won't work**
 
-`src/lib/types.ts`
-- Add `audience: 'owner' | 'tenant'` to `InspectionReportVersion`.
+The bucket is private and storage RLS only allows authenticated roles to SELECT inspection photos. Public report viewers are anonymous. Direct anon `createSignedUrl` will be denied.
 
-### E. Audience-aware public renderer (`OwnerReport.tsx`)
+---
 
-Add the comment block at the top of the file:
-```ts
-/**
- * Audience-aware public report renderer.
- *
- * Despite the historical filename, this component now renders BOTH the owner
- * and tenant published views. It selects rendering rules based on the
- * `audience` field returned by `get_published_report` ('owner' | 'tenant').
- * The route `/reportes/:propertyId/:token` is shared — the audience is
- * resolved server-side from the token, never from the URL.
- */
-```
+## Part 2 — Implementation
 
-Renderer logic:
-- Read `report.audience`.
-- **Report tab**: identical for both audiences (sections + observations + photos).
-- **Budget tab**:
-  - **owner**: two top-level groups
-    1. *Reparaciones a cargo del propietario* → `Obligatorias` / `Opcionales`
-    2. *Reparaciones a cargo del inquilino* → `Obligatorias` / `Opcionales`
-    3. Summary: `Total propietario`, `Total inquilino`, `Total general`
-  - **tenant**: only `Reparaciones a cargo del inquilino` (`payer_role==='tenant'`) → `Obligatorias` / `Opcionales` + `Total inquilino`. Owner items are never grouped, totaled, or rendered.
-- Helper `flattenRepairs(sections)` returns `{ owner: {required, optional}, tenant: {required, optional} }` keyed off `payer_role` + `payment_nature` from the payload (defaults to `owner` / `required` for legacy payloads).
+### New edge function: `sign-public-photo`
 
-**Responsiveness**
-- Container `max-w-3xl mx-auto px-4 sm:px-6`.
-- Header `flex-col sm:flex-row` for identity + meta; meta uses `flex-wrap`.
-- Tabs: `grid grid-cols-2`, `sticky top-0 bg-background z-10` so they're reachable on mobile while scrolling.
-- Repair rows switch from absolute right-aligned price to `flex-col sm:flex-row sm:justify-between sm:items-start`. On mobile, name+desc stack above price line.
-- Numeric values: `font-mono tabular-nums whitespace-nowrap`.
-- Photos grid: `grid-cols-2 sm:grid-cols-3` (already there).
-- Totals card: stack label/value on `<sm`, side-by-side from `sm:` up.
+Public (no JWT). Inputs: `{ property_id, token, photo_id }`.
 
-### F. Files touched
+Logic (uses `SUPABASE_SERVICE_ROLE_KEY`):
 
-- `src/index.css` (`--input` token)
-- `src/components/ui/input.tsx`, `textarea.tsx` (base classes)
-- `supabase/migrations/<new>.sql` (audience column + unique index + RPC update)
-- `src/lib/types.ts` (`audience` field)
-- `src/integrations/supabase/types.ts` (auto-regenerated)
-- `src/pages/executive/ExecutiveReviewDetail.tsx` (atomic dual insert + dialog)
-- `src/pages/admin/AdminInspectionDetail.tsx` (atomic dual insert + dialog + `getOwnerUrl`/`getTenantUrl` + grouped versions panel)
-- `src/pages/public/OwnerReport.tsx` (audience-aware renderer + responsive layout + header comment)
+1. Look up `inspection_report_versions` row by `public_token` where `status = 'published'` AND `is_latest = true`.
+2. Join `inspections` and verify `property_id` matches.
+3. Verify the requested `photo_id` belongs to that `inspection_id` via `inspection_photos`.
+4. Read `storage_path` and call `storage.from('inspection-photos').createSignedUrl(path, 3600)` with the service-role client.
+5. Return `{ url }` (or 404). Cache headers: `Cache-Control: private, max-age=3000`.
 
-### G. Out of scope this iteration
+Add `[functions.sign-public-photo] verify_jwt = false` in `supabase/config.toml`.
 
-- Renaming the file/route (kept stable; comment marks it as audience-aware).
-- Email/WhatsApp delivery automation (publish dialog only, manual copy).
-- Changing `visible_to_owner` semantics (reaffirmed as editorial gate, not payer gate).
+### Renderer changes (`OwnerReport.tsx`)
 
-## Summary on completion
+- New helper `usePublicSignedPhotoUrls(photos, propertyId, token)`:
+  - Mirrors the shape of `useSignedPhotoUrls` but calls the edge function per id, batched in parallel via `Promise.all`.
+  - Caches in component state; refreshes when `photos` change.
+- Replace `<img src={photo.url ?? ''} />` with `<img src={urlOf(photo.id)} />`.
+- Graceful fallback: if a URL resolves to empty, render a neutral placeholder block (`bg-muted` square with a small "Foto no disponible" caption) instead of a broken-image icon. Use `onError` on the `img` to swap to the placeholder if the signed URL itself 404s.
 
-- **Field contrast**: `--input` darkens slightly; Input/Textarea gain a subtle gray fill, clearer hover, primary focus ring. Placeholders soften to `muted-foreground/70`.
-- **Two links**: one publish action writes two rows (owner + tenant) sharing `version_number` + payload, each with its own `public_token`. Dialog exposes both URLs with copy actions; both Executive and Admin publish flows behave the same.
-- **Existing reads audited**: `getOwnerUrl`, "Versiones Publicadas" panel, and the version-list header updated; RPC, blanket `is_latest=false` reset, and version-number max query unaffected.
-- **Filtering contract**: `audience` is the public rendering filter; `visible_to_owner` remains the editorial visibility gate applied identically for both audience payloads.
-- **Owner view**: full report + dual payer budget split with three totals.
-- **Tenant view**: full report + tenant-only items + tenant total. Owner figures never reach the tenant render path.
-- **Responsiveness**: stacked header, sticky tabs, vertical-on-mobile budget rows, fluid grids, no horizontal scroll.
+### RPC cleanup
+
+- Strip the broken `storage.sign(...)` block from `get_published_report` so the RPC no longer wastes work pretending to sign URLs. Keep the photo entry shape `{ id, url: null, caption }` so the renderer's contract is unchanged: it always signs via the edge function.
+
+### Why not just fix the RPC
+
+`storage.create_signed_url` is not exposed as a SQL-callable function in Supabase. The supported path for signing from a privileged context is the storage HTTP API, which the edge function calls cleanly. Doing it in an edge function also gives us the auth check (token + property_id + photo ownership) in one place.
+
+---
+
+## Files affected
+
+**Part 1**
+- `src/pages/executive/ExecutiveReviewDetail.tsx` — extract `SectionRepairsDrawer`, replace bottom repairs card with compact summary strip + drawer trigger.
+
+**Part 2**
+- `supabase/migrations/<new>.sql` — replace `get_published_report` body to drop the broken `storage.sign` block.
+- `supabase/functions/sign-public-photo/index.ts` — new public edge function.
+- `supabase/config.toml` — add `[functions.sign-public-photo] verify_jwt = false`.
+- `src/pages/public/OwnerReport.tsx` — new `usePublicSignedPhotoUrls` hook, swap img sources, add image fallback.
+
+---
+
+## Out of scope
+
+- No change to the inspection / repair / publish data model.
+- No change to RLS on `storage.objects`.
+- No change to the audience filtering contract.
+- No change to admin-side publishing flow (it already produces the same payload shape, so it inherits the image fix automatically).
