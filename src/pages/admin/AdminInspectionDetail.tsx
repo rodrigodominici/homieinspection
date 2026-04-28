@@ -1472,7 +1472,7 @@ export default function AdminInspectionDetail() {
                 );
               })}
 
-              {/* Published versions */}
+              {/* Published versions — grouped by version_number (one row per version, two audience links) */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Versiones Publicadas</CardTitle>
@@ -1481,31 +1481,52 @@ export default function AdminInspectionDetail() {
                   {reportVersions.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No hay versiones publicadas.</p>
                   ) : (
-                    reportVersions.map(v => (
-                      <div key={v.id} className="flex items-center gap-3 py-2 border-b last:border-0">
-                        <span className={cn('text-sm font-medium', v.is_latest && 'text-primary')}>
-                          v{v.version_number}
-                        </span>
-                        {v.is_latest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
-                        <span className="text-xs text-muted-foreground flex-1">
-                          {format(new Date(v.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                        </span>
-                        {v.public_token && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 gap-1 text-xs"
-                            onClick={() => {
-                              const url = `${window.location.origin}/reportes/${inspection.property_id}/${v.public_token}`;
-                              navigator.clipboard.writeText(url);
-                              toast({ title: 'URL copiada' });
-                            }}
-                          >
-                            <Copy className="h-3 w-3" /> Copiar
-                          </Button>
-                        )}
-                      </div>
-                    ))
+                    Array.from(
+                      reportVersions.reduce((map, v) => {
+                        const arr = map.get(v.version_number) ?? [];
+                        arr.push(v);
+                        map.set(v.version_number, arr);
+                        return map;
+                      }, new Map<number, InspectionReportVersion[]>()).entries()
+                    )
+                      .sort(([a], [b]) => b - a)
+                      .map(([version, rows]) => {
+                        const owner = rows.find(r => r.audience === 'owner');
+                        const tenant = rows.find(r => r.audience === 'tenant');
+                        const isLatest = rows.some(r => r.is_latest);
+                        const createdAt = rows[0].created_at;
+                        const copyUrl = (token: string | null, label: string) => {
+                          if (!token || !inspection) return;
+                          const url = `${window.location.origin}/reportes/${inspection.property_id}/${token}`;
+                          navigator.clipboard.writeText(url);
+                          toast({ title: `URL ${label} copiada` });
+                        };
+                        return (
+                          <div key={version} className="flex flex-wrap items-center gap-3 py-2 border-b last:border-0">
+                            <span className={cn('text-sm font-medium', isLatest && 'text-primary')}>
+                              v{version}
+                            </span>
+                            {isLatest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
+                            <span className="text-xs text-muted-foreground flex-1 min-w-[120px]">
+                              {format(new Date(createdAt), 'dd MMM yyyy HH:mm', { locale: es })}
+                            </span>
+                            <Button
+                              variant="ghost" size="sm" disabled={!owner?.public_token}
+                              className="h-7 gap-1 text-xs"
+                              onClick={() => copyUrl(owner?.public_token ?? null, 'Propietario')}
+                            >
+                              <Copy className="h-3 w-3" /> Propietario
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" disabled={!tenant?.public_token}
+                              className="h-7 gap-1 text-xs"
+                              onClick={() => copyUrl(tenant?.public_token ?? null, 'Inquilino')}
+                            >
+                              <Copy className="h-3 w-3" /> Inquilino
+                            </Button>
+                          </div>
+                        );
+                      })
                   )}
                 </CardContent>
               </Card>
