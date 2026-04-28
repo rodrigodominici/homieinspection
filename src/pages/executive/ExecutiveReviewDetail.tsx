@@ -788,19 +788,17 @@ export default function ExecutiveReviewDetail() {
             />
           )}
 
-          {/* Section-level subtotal only (global financials are in top bar) */}
+          {/* Section-level subtotal — flat inline block */}
           {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardContent className="p-3 space-y-1.5">
-                <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Subtotal sección</p>
-                <p className="text-body-lg font-semibold font-mono">
-                  {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
-                </p>
-                <p className="text-tiny text-muted-foreground">
-                  {(repairsBySection[activeSection.id] ?? []).length} reparaciones en {activeSection.section_title}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="pt-3 border-t border-border/40 space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal sección</p>
+              <p className="text-sm font-mono font-semibold">
+                {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {(repairsBySection[activeSection.id] ?? []).length} reparaciones
+              </p>
+            </div>
           )}
         </aside>
       </div>
