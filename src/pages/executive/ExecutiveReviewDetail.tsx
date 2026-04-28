@@ -1045,6 +1045,12 @@ export default function ExecutiveReviewDetail() {
 }
 
 // ─── Section Workspace (Center Panel) ────────────────────
+//
+// Repairs are NOT edited inline anymore (was a long scroll).
+// SectionWorkspace renders only the review content (fields, observations,
+// photos, internal note). A compact "Reparaciones" strip near the top
+// shows the section's repair count + subtotal and triggers
+// `SectionRepairsDrawer` (right side panel) for editing.
 interface SectionWorkspaceProps {
   section: InspectionSection;
   fields: InspectionFieldValue[];
@@ -1058,10 +1064,7 @@ interface SectionWorkspaceProps {
   onSaveFinalObs: () => void;
   onSaveNote: () => void;
   savingField: string | null;
-  onOpenCatalog: () => void;
-  onUpdateRepair: (id: string, field: string, value: any) => void;
-  onDeleteRepair: (id: string) => void;
-  hasContractor: boolean;
+  onOpenRepairsDrawer: () => void;
   returnMode: boolean;
   returnSelected: boolean;
   onToggleReturn: () => void;
@@ -1072,7 +1075,7 @@ interface SectionWorkspaceProps {
 function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
   onFinalObsChange, onInternalNoteChange, onSaveFinalObs, onSaveNote,
-  savingField, onOpenCatalog, onUpdateRepair, onDeleteRepair, hasContractor,
+  savingField, onOpenRepairsDrawer,
   returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter(f => f.group_key === 'status');
