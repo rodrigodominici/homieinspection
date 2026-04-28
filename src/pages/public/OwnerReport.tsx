@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Building, Calendar, FileText, DollarSign, User, Users } from 'lucide-react';
+import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff } from 'lucide-react';
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
