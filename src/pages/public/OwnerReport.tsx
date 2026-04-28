@@ -325,11 +325,12 @@ export default function OwnerReport() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                         {section.photos.map(photo => (
                           <div key={photo.id} className="space-y-1">
-                            <img
-                              src={photo.url ?? ''}
+                            <PublicPhoto
+                              photoId={photo.id}
+                              propertyId={propertyId!}
+                              token={token!}
                               alt={photo.caption ?? ''}
-                              className="aspect-square rounded-xl object-cover w-full"
-                              loading="lazy" decoding="async" width={400} height={400}
+                              caption={photo.caption}
                             />
                             {photo.caption && <p className="text-tiny text-muted-foreground">{photo.caption}</p>}
                           </div>
