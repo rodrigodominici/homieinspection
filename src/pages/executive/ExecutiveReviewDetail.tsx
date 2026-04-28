@@ -487,9 +487,9 @@ export default function ExecutiveReviewDetail() {
     <ExecutiveLayout>
     <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30">
       {/* ── STICKY TOP SUMMARY BAR ─────────────────────── */}
-      <header className="sticky top-0 z-30 border-b bg-card shadow-sm">
+      <header className="sticky top-0 z-30 border-b bg-card">
         <div className="px-4 lg:px-6">
-          {/* Row 1: Property + status */}
+          {/* Row 1: Identity + primary actions */}
           <div className="flex items-center gap-3 h-14">
             <Button variant="ghost" size="icon" onClick={() => navigate('/executive')} className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
@@ -499,7 +499,13 @@ export default function ExecutiveReviewDetail() {
                 <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
                 <InspectionStatusBadge status={inspection.status} />
               </div>
-              <p className="text-tiny text-muted-foreground truncate">{inspection.address}</p>
+              <div className="flex items-center gap-2 text-tiny text-muted-foreground truncate">
+                <span className="truncate">{inspection.address}</span>
+                <span className="text-border">·</span>
+                <Clock className="h-3 w-3 shrink-0" />
+                <span className="shrink-0">{inspectorProgressLabel} {progress.completed}/{progress.total}</span>
+                {lastActiveRelative && <span className="shrink-0 truncate">· {lastActiveRelative}</span>}
+              </div>
             </div>
             {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
@@ -529,12 +535,12 @@ export default function ExecutiveReviewDetail() {
               )}
               {isPublished && (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => {
+                  <Button variant="ghost" size="sm" onClick={() => {
                     window.open(`/reportes/${inspection.property_id}`, '_blank');
                   }}>
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
+                  <Button variant="ghost" size="sm" onClick={() => {
                     const url = `${window.location.origin}/reportes/${inspection.property_id}`;
                     navigator.clipboard.writeText(url);
                     toast({ title: 'Link copiado' });
@@ -567,121 +573,131 @@ export default function ExecutiveReviewDetail() {
             </div>
           )}
 
-          {/* Row 2: Financial summary + contractor */}
-          <div className="flex items-center gap-4 pb-3 overflow-x-auto text-caption border-t pt-2">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Depósito en garantía:</span>
-              <span className="font-mono font-medium">
-                {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : 'No disponible'}
-              </span>
+          {/* Row 2: Financial summary blocks + secondary actions */}
+          <div className="flex items-stretch gap-2 pb-3 pt-2 border-t overflow-x-auto">
+            {/* Depósito */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Depósito</p>
+              <p className="text-sm font-mono font-semibold">
+                {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}
+              </p>
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Propietario:</span>
-              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.ownerRequired)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.ownerOptional)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
-                onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
-                <FileText className="mr-1 h-3 w-3" /> Cotización
-              </Button>
+            {/* Propietario */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
+              {budgetBreakdown.ownerOptional > 0 && (
+                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.ownerOptional)}</p>
+              )}
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Inquilino:</span>
-              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.tenantRequired)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.tenantOptional)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
-                onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
-                <FileText className="mr-1 h-3 w-3" /> Cotización
-              </Button>
+            {/* Inquilino */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inquilino</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantRequired)}</p>
+              {budgetBreakdown.tenantOptional > 0 && (
+                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.tenantOptional)}</p>
+              )}
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/10 px-2 py-0.5">
-              <span className="text-muted-foreground">Total general:</span>
-              <span className="font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</span>
+            {/* Total general — single strong emphasis */}
+            <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
+              <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
+              <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
+              {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
+                <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                  vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
+                </p>
+              )}
             </div>
-            {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-              <>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Diferencia vs depósito:</span>
-                  <span className={cn('font-mono font-medium', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                    {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-                  </span>
-                </div>
-              </>
-            )}
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Contratista:</span>
-              <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
-                <SelectTrigger className="h-7 w-40 text-tiny">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin seleccionar</SelectItem>
-                  {contractors.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedContractorId && contractorTotal > 0 && (
-              <>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Costo contratista:</span>
-                  <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
-                </div>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Utilidad:</span>
-                  <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                    {fmtCurrency(utility)}
-                  </span>
-                </div>
-              </>
-            )}
-            {/* Inspector progress */}
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">{inspectorProgressLabel}</span>
-              <span className="font-medium">{progress.completed}/{progress.total}</span>
-              {lastActiveRelative && <span className="text-muted-foreground">· {lastActiveRelative}</span>}
+
+            <div className="flex-1" />
+
+            {/* Secondary actions: Cotización + Contratista */}
+            <div className="flex items-center gap-1 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                    <FileText className="mr-1 h-3.5 w-3.5" /> Cotización <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
+                    Propietario
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
+                    Inquilino
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground max-w-[200px]">
+                    <Wrench className="mr-1 h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {selectedContractorId
+                        ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
+                        : 'Asignar contratista'}
+                    </span>
+                    <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Contratista</Label>
+                    <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin seleccionar</SelectItem>
+                        {contractors.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedContractorId && contractorTotal > 0 && (
+                    <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Costo contratista</span>
+                        <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Utilidad</span>
+                        <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                          {fmtCurrency(utility)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
-          {/* Row 3: Blocker indicators */}
-          {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
-            <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
-              {showObservationWarnings && missingSections.length > 0 && (
-                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  {missingSections.length} observaciones finales pendientes
-                </Badge>
-              )}
-              {allRepairs.length > 0 && !selectedContractorId && (
-                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))] bg-[hsl(var(--status-regular))]/5">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  Sin contratista asignado
-                </Badge>
-              )}
-              {!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status) && (
-                <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600 bg-amber-50">
-                  Sin publicar
-                </Badge>
-              )}
-            </div>
-          )}
+          {/* Row 3: Consolidated blocker strip — single muted line */}
+          {(() => {
+            const blockers: string[] = [];
+            if (showObservationWarnings && missingSections.length > 0) {
+              blockers.push(`${missingSections.length} observaciones finales pendientes`);
+            }
+            if (allRepairs.length > 0 && !selectedContractorId) {
+              blockers.push('sin contratista');
+            }
+            if (!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status)) {
+              blockers.push('sin publicar');
+            }
+            if (blockers.length === 0) return null;
+            return (
+              <div className="flex items-center gap-1.5 pb-2 text-tiny text-muted-foreground">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <span className="truncate">{blockers.join(' · ')}</span>
+              </div>
+            );
+          })()}
         </div>
       </header>
+
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
       <div className="hidden lg:grid lg:grid-cols-[240px_1fr_300px] h-[calc(100vh-7rem)]">
