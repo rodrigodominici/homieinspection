@@ -1277,8 +1277,8 @@ function PhotoPanel({ photos, onToggleVisibility }: {
 
   return (
     <div>
-      <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">
-        Fotos ({photos.length})
+      <p className="text-xs text-muted-foreground mb-2">
+        Fotos · {photos.length}
       </p>
 
       {hasManyPhotos ? (
