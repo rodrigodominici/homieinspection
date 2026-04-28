@@ -24,6 +24,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
@@ -32,7 +36,7 @@ import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
-  ChevronLeft, ChevronRight, ZoomIn, FileText,
+  ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
@@ -483,9 +487,9 @@ export default function ExecutiveReviewDetail() {
     <ExecutiveLayout>
     <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30">
       {/* ── STICKY TOP SUMMARY BAR ─────────────────────── */}
-      <header className="sticky top-0 z-30 border-b bg-card shadow-sm">
+      <header className="sticky top-0 z-30 border-b bg-card">
         <div className="px-4 lg:px-6">
-          {/* Row 1: Property + status */}
+          {/* Row 1: Identity + primary actions */}
           <div className="flex items-center gap-3 h-14">
             <Button variant="ghost" size="icon" onClick={() => navigate('/executive')} className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
@@ -495,7 +499,13 @@ export default function ExecutiveReviewDetail() {
                 <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
                 <InspectionStatusBadge status={inspection.status} />
               </div>
-              <p className="text-tiny text-muted-foreground truncate">{inspection.address}</p>
+              <div className="flex items-center gap-2 text-tiny text-muted-foreground truncate">
+                <span className="truncate">{inspection.address}</span>
+                <span className="text-border">·</span>
+                <Clock className="h-3 w-3 shrink-0" />
+                <span className="shrink-0">{inspectorProgressLabel} {progress.completed}/{progress.total}</span>
+                {lastActiveRelative && <span className="shrink-0 truncate">· {lastActiveRelative}</span>}
+              </div>
             </div>
             {/* Global publication actions — single source */}
             <div className="hidden lg:flex items-center gap-2">
@@ -525,12 +535,12 @@ export default function ExecutiveReviewDetail() {
               )}
               {isPublished && (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => {
+                  <Button variant="ghost" size="sm" onClick={() => {
                     window.open(`/reportes/${inspection.property_id}`, '_blank');
                   }}>
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir reporte
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
+                  <Button variant="ghost" size="sm" onClick={() => {
                     const url = `${window.location.origin}/reportes/${inspection.property_id}`;
                     navigator.clipboard.writeText(url);
                     toast({ title: 'Link copiado' });
@@ -563,180 +573,172 @@ export default function ExecutiveReviewDetail() {
             </div>
           )}
 
-          {/* Row 2: Financial summary + contractor */}
-          <div className="flex items-center gap-4 pb-3 overflow-x-auto text-caption border-t pt-2">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Depósito en garantía:</span>
-              <span className="font-mono font-medium">
-                {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : 'No disponible'}
-              </span>
+          {/* Row 2: Financial summary blocks + secondary actions */}
+          <div className="flex items-stretch gap-2 pb-3 pt-2 border-t overflow-x-auto">
+            {/* Depósito */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Depósito</p>
+              <p className="text-sm font-mono font-semibold">
+                {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}
+              </p>
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Propietario:</span>
-              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.ownerRequired)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.ownerOptional)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
-                onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
-                <FileText className="mr-1 h-3 w-3" /> Cotización
-              </Button>
+            {/* Propietario */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
+              {budgetBreakdown.ownerOptional > 0 && (
+                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.ownerOptional)}</p>
+              )}
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Inquilino:</span>
-              <span className="font-mono">Oblig. {fmtCurrency(budgetBreakdown.tenantRequired)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono">Opc. {fmtCurrency(budgetBreakdown.tenantOptional)}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-tiny"
-                onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
-                <FileText className="mr-1 h-3 w-3" /> Cotización
-              </Button>
+            {/* Inquilino */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inquilino</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantRequired)}</p>
+              {budgetBreakdown.tenantOptional > 0 && (
+                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.tenantOptional)}</p>
+              )}
             </div>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/10 px-2 py-0.5">
-              <span className="text-muted-foreground">Total general:</span>
-              <span className="font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</span>
+            {/* Total general — single strong emphasis */}
+            <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
+              <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
+              <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
+              {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
+                <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                  vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
+                </p>
+              )}
             </div>
-            {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-              <>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Diferencia vs depósito:</span>
-                  <span className={cn('font-mono font-medium', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                    {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-                  </span>
-                </div>
-              </>
-            )}
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-muted-foreground">Contratista:</span>
-              <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
-                <SelectTrigger className="h-7 w-40 text-tiny">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin seleccionar</SelectItem>
-                  {contractors.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedContractorId && contractorTotal > 0 && (
-              <>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Costo contratista:</span>
-                  <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
-                </div>
-                <div className="w-px h-4 bg-border shrink-0" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground">Utilidad:</span>
-                  <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                    {fmtCurrency(utility)}
-                  </span>
-                </div>
-              </>
-            )}
-            {/* Inspector progress */}
-            <div className="w-px h-4 bg-border shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">{inspectorProgressLabel}</span>
-              <span className="font-medium">{progress.completed}/{progress.total}</span>
-              {lastActiveRelative && <span className="text-muted-foreground">· {lastActiveRelative}</span>}
+
+            <div className="flex-1" />
+
+            {/* Secondary actions: Cotización + Contratista */}
+            <div className="flex items-center gap-1 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                    <FileText className="mr-1 h-3.5 w-3.5" /> Cotización <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
+                    Propietario
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
+                    Inquilino
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground max-w-[200px]">
+                    <Wrench className="mr-1 h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {selectedContractorId
+                        ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
+                        : 'Asignar contratista'}
+                    </span>
+                    <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Contratista</Label>
+                    <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin seleccionar</SelectItem>
+                        {contractors.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedContractorId && contractorTotal > 0 && (
+                    <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Costo contratista</span>
+                        <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Utilidad</span>
+                        <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                          {fmtCurrency(utility)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
-          {/* Row 3: Blocker indicators */}
-          {(missingSections.length > 0 || (allRepairs.length > 0 && !selectedContractorId) || !isPublished) && (
-            <div className="flex items-center gap-2 pb-2 overflow-x-auto flex-wrap">
-              {showObservationWarnings && missingSections.length > 0 && (
-                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-bad))]/30 text-[hsl(var(--status-bad))] bg-[hsl(var(--status-bad))]/5">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  {missingSections.length} observaciones finales pendientes
-                </Badge>
-              )}
-              {allRepairs.length > 0 && !selectedContractorId && (
-                <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))] bg-[hsl(var(--status-regular))]/5">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  Sin contratista asignado
-                </Badge>
-              )}
-              {!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status) && (
-                <Badge variant="outline" className="text-tiny border-amber-300 text-amber-600 bg-amber-50">
-                  Sin publicar
-                </Badge>
-              )}
-            </div>
-          )}
+          {/* Row 3: Consolidated blocker strip — single muted line */}
+          {(() => {
+            const blockers: string[] = [];
+            if (showObservationWarnings && missingSections.length > 0) {
+              blockers.push(`${missingSections.length} observaciones finales pendientes`);
+            }
+            if (allRepairs.length > 0 && !selectedContractorId) {
+              blockers.push('sin contratista');
+            }
+            if (!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status)) {
+              blockers.push('sin publicar');
+            }
+            if (blockers.length === 0) return null;
+            return (
+              <div className="flex items-center gap-1.5 pb-2 text-tiny text-muted-foreground">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <span className="truncate">{blockers.join(' · ')}</span>
+              </div>
+            );
+          })()}
         </div>
       </header>
+
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
       <div className="hidden lg:grid lg:grid-cols-[240px_1fr_300px] h-[calc(100vh-7rem)]">
         {/* LEFT SIDEBAR: Section nav */}
         <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
           <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Secciones</p>
-          {/* Signature compliance block */}
+          {/* Signature compliance block — neutral container */}
           {signatureRecord && (
-            <Card className={cn('mb-3 border-0 ring-1 shadow-sm',
-              signatureRecord.signature_status === 'signed' ? 'ring-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good))]/5'
-              : signatureRecord.signature_status === 'refused' ? 'ring-[hsl(var(--status-bad))]/30 bg-[hsl(var(--status-bad))]/5'
-              : 'ring-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/5'
-            )}>
-              <CardContent className="p-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 text-tiny font-medium">
-                  {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
-                   signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
-                   <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
-                  <span>Firma del inquilino</span>
-                </div>
-                <p className="text-tiny text-muted-foreground">
-                  {signatureRecord.signature_status === 'signed'
-                    ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
-                    : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
-                    : 'Inquilino no disponible'}
-                </p>
-                {signatureRecord.skip_reason && (
-                  <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
-                )}
-              </CardContent>
-            </Card>
+            <div className="mb-3 rounded-md border border-border/60 bg-card p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5 text-tiny font-medium">
+                {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
+                 signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
+                 <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
+                <span>Firma del inquilino</span>
+              </div>
+              <p className="text-tiny text-muted-foreground">
+                {signatureRecord.signature_status === 'signed'
+                  ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
+                  : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
+                  : 'Inquilino no disponible'}
+              </p>
+              {signatureRecord.skip_reason && (
+                <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
+              )}
+            </div>
           )}
           {operationalSections.map((s) => {
             const isActive = s.id === activeSectionId;
-            const needsObs = requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim();
-            const photoCount = (photosBySection[s.id] ?? []).length;
             const repairCount = (repairsBySection[s.id] ?? []).length;
             return (
               <button key={s.id} onClick={() => setActiveSectionId(s.id)}
                 className={cn(
-                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors',
+                  'w-full text-left px-2 py-1.5 rounded-md text-caption transition-colors',
                   isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
                 )}>
                 <div className="flex items-center gap-1.5">
                   <span className="flex-1 truncate">{s.section_title}</span>
-                  {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
-                  <SectionStatusBadge status={s.status} />
-                </div>
-                {/* Indicator row */}
-                <div className="flex items-center gap-2 mt-0.5 text-tiny text-muted-foreground">
-                  {photoCount > 0 && (
-                    <span className="flex items-center gap-0.5"><Camera className="h-3 w-3" />{photoCount}</span>
-                  )}
                   {repairCount > 0 && (
-                    <span className="flex items-center gap-0.5"><Wrench className="h-3 w-3" />{repairCount}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">· {repairCount}</span>
                   )}
-                  {needsObs && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-bad))] shrink-0" title="Falta observación final" />
-                  )}
+                  <SectionStatusBadge status={s.status} />
                 </div>
               </button>
             );
@@ -786,19 +788,17 @@ export default function ExecutiveReviewDetail() {
             />
           )}
 
-          {/* Section-level subtotal only (global financials are in top bar) */}
+          {/* Section-level subtotal — flat inline block */}
           {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardContent className="p-3 space-y-1.5">
-                <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Subtotal sección</p>
-                <p className="text-body-lg font-semibold font-mono">
-                  {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
-                </p>
-                <p className="text-tiny text-muted-foreground">
-                  {(repairsBySection[activeSection.id] ?? []).length} reparaciones en {activeSection.section_title}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="pt-3 border-t border-border/40 space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal sección</p>
+              <p className="text-sm font-mono font-semibold">
+                {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {(repairsBySection[activeSection.id] ?? []).length} reparaciones
+              </p>
+            </div>
           )}
         </aside>
       </div>
@@ -1072,15 +1072,15 @@ function SectionWorkspace({
         </div>
       )}
 
-      {/* Side-by-side observations */}
+      {/* Side-by-side observations — neutral containers */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl bg-accent/30 p-4 space-y-2">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Observación del Inspector</p>
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observación del Inspector</p>
           <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
-        <div className="rounded-xl bg-[hsl(var(--status-good))]/5 p-4 space-y-2 ring-1 ring-[hsl(var(--status-good))]/10">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-            Observación Final <Badge variant="secondary" className="text-tiny">Pública</Badge>
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+            Observación Final <span className="text-[10px] text-muted-foreground normal-case tracking-normal">· Pública</span>
           </p>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
@@ -1093,8 +1093,8 @@ function SectionWorkspace({
       </div>
 
       {/* Internal note */}
-      <div className="space-y-2">
-        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Comentario Interno</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
         <Textarea value={internalNote} rows={2} className="text-caption"
           placeholder="Nota interna (no visible al propietario)..."
           onChange={(e) => onInternalNoteChange(e.target.value)} />
@@ -1104,19 +1104,19 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repair items — prominent card */}
-      <Card className="border-l-4 border-l-primary ring-1 ring-border shadow-sm">
-        <CardContent className="p-4 space-y-3">
+      {/* Repair items — calmer container */}
+      <Card className="border border-border/60 shadow-none">
+        <CardContent className="p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-primary" />
-              <p className="text-body-lg font-semibold">Reparaciones</p>
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold">Reparaciones</p>
               {repairs.length > 0 && (
-                <Badge variant="secondary" className="text-tiny">{repairs.length} items</Badge>
+                <span className="text-[10px] text-muted-foreground">· {repairs.length}</span>
               )}
             </div>
-            <Button size="sm" onClick={onOpenCatalog}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+            <Button size="sm" variant="outline" onClick={onOpenCatalog} className="h-8 text-xs">
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
             </Button>
           </div>
 
@@ -1125,109 +1125,113 @@ function SectionWorkspace({
           )}
 
           {repairs.map((repair) => (
-            <div key={repair.id} className={cn('rounded-lg border-2 p-3 space-y-2', !repair.visible_to_owner ? 'opacity-50 border-dashed' : 'border-border')}>
+            <div key={repair.id} className={cn(
+              'rounded-md border bg-card p-3 space-y-2.5',
+              !repair.visible_to_owner ? 'opacity-60 border-dashed border-border/60' : 'border-border/60'
+            )}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-caption font-medium">{repair.title_snapshot}</p>
-                  {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
+                  <p className="text-sm font-medium">{repair.title_snapshot}</p>
+                  {repair.category_snapshot && <p className="text-xs text-muted-foreground">{repair.category_snapshot}</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
-                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   </button>
-                  <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                  <button onClick={() => onDeleteRepair(repair.id)}
+                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
-              {/* Editable description */}
-              <Textarea rows={2} className="text-tiny"
+
+              {/* Compact description */}
+              <Textarea rows={1} className="text-xs min-h-[36px] resize-none"
                 placeholder="Descripción de reparación..."
                 onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
                 defaultValue={repair.description_snapshot ?? ''}
                 key={`desc-${repair.id}`}
               />
-              {/* Responsable / Tipo pills */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-tiny text-muted-foreground">Responsable:</span>
-                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
-                    {(['owner', 'tenant'] as const).map(role => (
-                      <button key={role} type="button"
-                        onClick={() => onUpdateRepair(repair.id, 'payer_role', role)}
-                        className={cn(
-                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
-                          repair.payer_role === role
-                            ? 'bg-card shadow-sm font-medium text-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}>
-                        {role === 'owner' ? 'Propietario' : 'Inquilino'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-tiny text-muted-foreground">Tipo:</span>
-                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
-                    {(['required', 'optional'] as const).map(nat => (
-                      <button key={nat} type="button"
-                        onClick={() => onUpdateRepair(repair.id, 'payment_nature', nat)}
-                        className={cn(
-                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
-                          repair.payment_nature === nat
-                            ? 'bg-card shadow-sm font-medium text-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}>
-                        {nat === 'required' ? 'Obligatoria' : 'Opcional'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+
+              {/* Pricing row — tighter */}
               <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
-                  <Label className="text-tiny">Cantidad</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
                   <Input type="number" step="0.01" value={repair.quantity}
                     onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-caption" />
+                    className="h-8 text-xs font-mono" />
                 </div>
                 <div>
-                  <Label className="text-tiny">Precio cliente</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
                   <Input type="number" step="1" value={repair.unit_price}
                     onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-caption" />
+                    className="h-8 text-xs font-mono" />
                 </div>
                 {hasContractor && (
                   <div>
-                    <Label className="text-tiny">Precio contratista</Label>
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
                     <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
                       onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-caption" />
+                      className="h-8 text-xs font-mono" />
                   </div>
                 )}
                 <div>
-                  <Label className="text-tiny">Subtotal</Label>
-                  <p className="h-8 flex items-center text-caption font-mono font-medium">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Subtotal</Label>
+                  <p className="h-8 flex items-center justify-end text-xs font-mono font-medium">
                     {fmtCurrency(repair.quantity * repair.unit_price)}
                   </p>
                 </div>
                 {hasContractor && (
                   <div>
-                    <Label className="text-tiny text-muted-foreground">Utilidad</Label>
-                    <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Utilidad</Label>
+                    <p className="h-8 flex items-center justify-end text-xs font-mono text-muted-foreground">
                       {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
                     </p>
                   </div>
                 )}
               </div>
-              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
+
+              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
                 onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
+
+              {/* Inline secondary classification — interactive but quiet */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button"
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                      {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-36">
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-muted-foreground/50 text-xs">·</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button"
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                      {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-36">
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           ))}
 
           {sectionSubtotalClient > 0 && (
-            <div className="flex justify-end text-body font-semibold font-mono pt-1 border-t">
+            <div className="flex justify-end text-sm font-mono font-medium pt-2 border-t border-border/40">
               Subtotal: {fmtCurrency(sectionSubtotalClient)}
+
             </div>
           )}
         </CardContent>
@@ -1265,7 +1269,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
   if (photos.length === 0) {
     return (
       <div>
-        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos (0)</p>
+        <p className="text-xs text-muted-foreground mb-2">Fotos · 0</p>
         <p className="text-tiny text-muted-foreground py-4 text-center">Sin fotos</p>
       </div>
     );
@@ -1273,8 +1277,8 @@ function PhotoPanel({ photos, onToggleVisibility }: {
 
   return (
     <div>
-      <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">
-        Fotos ({photos.length})
+      <p className="text-xs text-muted-foreground mb-2">
+        Fotos · {photos.length}
       </p>
 
       {hasManyPhotos ? (
@@ -1306,8 +1310,8 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {photos.map((p, idx) => (
               <button key={p.id} onClick={() => setFeaturedIdx(idx)}
-                className={cn('shrink-0 rounded-md overflow-hidden ring-2 transition-all',
-                  idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
+                className={cn('shrink-0 rounded-md overflow-hidden border transition-all',
+                  idx === featuredIdx ? 'border-primary' : 'border-transparent hover:border-border',
                   (p as any).visible_to_owner === false && 'opacity-40'
                 )}>
                 <img src={urlOf(p.id)} alt="" className="h-12 w-12 object-cover" />

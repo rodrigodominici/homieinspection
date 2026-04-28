@@ -1,104 +1,153 @@
-# Plan — Budget responsibility classification (Propietario/Inquilino · Obligatoria/Opcional)
+# Executive Review Workspace — UI/UX Cleanup Pass (Refined)
 
-Inspection-level only. The repair catalog stays neutral.
+Scope is strictly **hierarchy + saturation reduction**. No business logic, no feature removal — every existing capability stays accessible.
 
-## 1. Data model (migration)
+## Step 1 — Diagnosis
 
-Add two columns to `public.inspection_repair_items`:
+Sources of visual noise in the current Executive workspace:
 
-- `payer_role text NOT NULL DEFAULT 'owner'` — values: `'owner' | 'tenant'` (CHECK constraint)
-- `payment_nature text NOT NULL DEFAULT 'required'` — values: `'required' | 'optional'` (CHECK constraint)
+1. **Top header** — three dense rows in one strip mixing identity, actions, deposit, owner totals, tenant totals, two `Cotización` ghost buttons, total general, deposit diff, contractor selector, contractor cost, utility, inspector progress, and warning badges. Every chip carries similar weight and `bg-border` separators compete with the data.
+2. **Repair cards** — `border-2` containers with header + oversized `Textarea` + a bordered/tinted `Responsable / Tipo` pill block + 3-or-5 column input grid + notes input + subtotal divider. Each card reads like a mini-form.
+3. **`Responsable` / `Tipo` pills feel too dominant** — they sit inside a visible `border` + `bg-muted/40` chip container before pricing, occupying horizontal space the pricing grid should own. Visually they read as primary controls instead of metadata.
+4. **Left rail** — duplicate signals per row: red dot + `SectionStatusBadge` + photo count + repair count + a second red dot for the same missing-observation condition.
+5. **Right rail** — uppercase tracking-wider photo header + featured image with `ring-2` thumbnails + a separate `Card` with `ring-1 shadow-sm` for the section subtotal. Two visually heavy boxes stacked.
+6. **Center column** — observations use two different colored backgrounds, then the repairs `Card` re-asserts strong color emphasis with `border-l-4 border-l-primary`.
 
-Defaults backfill existing rows to **Propietario + Obligatoria**, matching today's implicit behavior.
+---
 
-No changes to `repair_catalog_items`, `repair_catalog_categories`, or contractor pricing tables.
+## Step 2 — Fix Plan
 
-## 2. Types
+### 2.1 Header — split identity from finance, demote secondary actions
 
-Extend `InspectionRepairItem` in `src/lib/types.ts`:
+Two clean rows, no vertical `bg-border` separators:
 
-```ts
-payer_role: 'owner' | 'tenant';
-payment_nature: 'required' | 'optional';
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ ←  Property name · status badge      [Devolver] [Aprobar] [Publicar] │  Row 1 (h-14)
+│    address · inspector progress (Clock 11/15 · 2h ago)               │
+├──────────────────────────────────────────────────────────────────────┤
+│ ┌Depósito┐ ┌Propietario┐ ┌Inquilino┐ ┌Total general┐  Cotización ▾  │  Row 2
+│ │ $X     │ │ $X         │ │ $X      │ │ $X           │ Contratista ▾ │
+│ │        │ │ +Opc $X    │ │ +Opc $X │ │ vs depósito  │               │
+│ └────────┘ └────────────┘ └─────────┘ └──────────────┘               │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## 3. Executive editor UI (`ExecutiveReviewDetail.tsx`)
+**Summary blocks (refinement #2 — keep extremely concise):**
+- Each block is rounded with very subtle `bg-muted/40`, no shadow, no rings.
+- Exactly **three lines max** per block:
+  - tiny uppercase label (`text-[10px] text-muted-foreground tracking-wide`)
+  - one main value (`text-sm font-mono font-semibold`)
+  - at most one short secondary line (`text-[10px] text-muted-foreground`) — e.g. `+Opc $X` for owner/tenant blocks, `vs depósito ±$X` for total
+- Owner/tenant blocks: `Oblig. $X` is the main value; `+Opc $X` is the secondary line. Never put `Oblig./Opc./Total` on one inline string.
+- **Total general** is the only block tinted with `bg-primary/10 text-primary` — single strong emphasis per region.
 
-Inside each repair card in `SectionWorkspace` (lines 1064–1125), add a compact pill row directly under the title/description, before the qty/price grid:
+**Quotation actions:** consolidate the two ghost buttons into a single `DropdownMenu`: `[FileText] Cotización ▾` → items `Propietario`, `Inquilino`. Calls existing `setQuotationDialog({ open: true, payer })`.
 
-- **Responsable**: `Propietario` | `Inquilino`
-- **Tipo**: `Obligatoria` | `Opcional`
+**Contractor selector (refinement #3):** Used once per inspection then mostly static — qualifies as infrequent. Use a `Popover` trigger that **stays visible at all times in a quiet compact form**:
+- When unset: ghost button `[Wrench] Asignar contratista` (`text-xs text-muted-foreground`).
+- When set: ghost button `[Wrench] {contractorName}` with the same quiet styling — still visible, never hidden behind a state.
+- Popover content holds the `Select`, plus contractor cost + utility readouts (only meaningful once a contractor is assigned). Defaults closed; opens on click.
 
-Implementation: pill-style toggle buttons styled with existing tokens (no new dependencies). Each click calls the existing `onUpdateRepair(repair.id, 'payer_role' | 'payment_nature', value)` — generic update path already persists and refetches.
+**Row 3 blocker indicators:** keep functionality, but render as **a single muted strip** — one `AlertTriangle` icon + a single sentence (`text-tiny text-muted-foreground`) that concatenates active warnings (e.g. `2 observaciones finales pendientes · sin contratista · sin publicar`). Replaces the multiple colored Badge variants.
 
-Update `addRepairFromCatalog` (line 264) to insert explicit defaults (`payer_role: 'owner'`, `payment_nature: 'required'`).
+### 2.2 Repair card — simplify and demote classification
 
-## 4. Grouped totals — internal operational scope
+Repairs `Card` parent: drop `border-l-4 border-l-primary`. Plain `Card` with `border` only and `p-3`.
 
-The new grouped totals are **internal operational totals**: they aggregate **all** repair items in the inspection, regardless of `visible_to_owner`. Rationale: this is a budget management view for the executive; hiding items from the owner-facing public report should not distort the executive's true budget breakdown by payer/nature.
+Each repair item becomes:
 
-`visible_to_owner` continues to gate only:
-- the published `inspection_report_versions.normalized_payload`
-- the existing public-facing `clientTotal` used inside that payload
-
-Replace the single `clientTotal` aggregation (lines 178–184) with a memoized `budgetBreakdown`:
-
+```text
+┌─────────────────────────────────────────────────────┐
+│ Title                                       👁  🗑   │
+│ category · subdued                                  │
+│                                                     │
+│ Descripción (rows=1, autogrow, text-xs)             │
+│                                                     │
+│ Cant.[__]  Cliente[___]  Contratista[___]  Sub $X  │
+│                                                     │
+│ Notas [_______________]                             │
+│ ─────────────────────────────────────────────────── │
+│ Propietario ▾   ·   Obligatoria ▾                   │  ← inline secondary
+└─────────────────────────────────────────────────────┘
 ```
-ownerRequired, ownerOptional, tenantRequired, tenantOptional,
-ownerTotal, tenantTotal, grandTotal
-```
 
-Plus a parallel set computed over `contractor_unit_price` for internal margin display.
+- Container: `rounded-md border border-border/60 bg-card p-3 space-y-2.5`. Hidden items: `opacity-60 border-dashed`.
+- Title `text-sm font-medium`; category `text-xs text-muted-foreground`.
+- Icon buttons: `text-muted-foreground hover:text-foreground` (lower visual weight).
+- Description `Textarea`: `rows={1}` with `min-h-[36px] resize-none text-xs` plain border.
+- Pricing grid: `gap-2`, all inputs `h-8 text-xs font-mono`, labels become `text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5`. Subtotal and Utilidad are read-only spans with `h-8` aligned right.
+- Notes input stays as a single compact `h-8 text-xs` row (kept, just demoted in size) — preserves functionality.
 
-### Sticky summary bar (lines 538–600)
+**`Responsable` / `Tipo` controls (refinement #1) — secondary but clearly interactive:**
+- Render as **two `DropdownMenu` triggers** at the bottom of the card, separated by a thin `border-t border-border/40 pt-2`.
+- Each trigger is a small button: `text-xs text-muted-foreground hover:text-foreground cursor-pointer inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-muted/40 transition-colors`.
+- Each shows the current value followed by a **visible `ChevronDown` caret** (`h-3 w-3 opacity-60`): e.g. `Propietario ▾`, `Obligatoria ▾`.
+- Subtle but unmistakably interactive: pointer cursor, hover background, hover text-color shift, visible caret. Removes the bordered/tinted pill container entirely so they read as metadata, not CTAs.
+- Same business calls: `onUpdateRepair(id, 'payer_role'|'payment_nature', value)`.
 
-Reorganize into two business-facing groups:
+Section subtotal at bottom of repairs card: `text-sm` (not `text-body font-semibold`) with `border-t border-border/40` divider.
 
-- **Propietario**: `Obligatorio $X · Opcional $Y · Total $Z`
-- **Inquilino**: `Obligatorio $X · Opcional $Y · Total $Z`
-- **Total general**: emphasized chip
-- **Diferencia vs depósito**: compares `ownerRequired` against `warrantyDeposit` (only mandatory owner items are deposit-relevant)
+### 2.3 Left sidebar — one signal per row
 
-Contractor cost / utility chips remain, computed over the same internal operational set.
+Each section button:
+- Single line: `section name … SectionStatusBadge`.
+- Optional muted counter on the right *only when meaningful*: `· 3` for repair count (`text-[10px] text-muted-foreground`). Photo count icon is dropped here (photos are visible in the right panel).
+- Drop the second indicator row and the duplicate red dot. Status badge already encodes "missing observation" via section status; the bottom aggregate "Faltan observaciones en N secciones" stays as the single rollup signal.
+- Signature block: drop tinted backgrounds. Plain `border` card with the icon colored by status; text stays neutral.
 
-## 5. Independent quotations
+### 2.4 Right sidebar — flatten
 
-Add one `QuotationDialog` parametrized by payer, triggered from the top bar via two buttons:
+- `PhotoPanel`: drop the uppercase tracking-wider label. Header becomes `Fotos · {count}` in `text-xs text-muted-foreground`. Active thumbnail uses `border` (not `ring-2`), inactive uses `border-transparent`.
+- Section subtotal Card → plain inline block, no Card / ring / shadow:
+  ```
+  Subtotal sección
+  $X     ·   N reparaciones
+  ```
+  Implemented with `space-y-1 pt-3 border-t border-border/40`.
 
-- `Cotización Propietario`
-- `Cotización Inquilino`
+### 2.5 Center column — calmer observations
 
-Reuses the same in-memory `allRepairs` — **no duplicated budgets, no extra DB writes**.
+- Both observation panels (Inspector + Final): single shared `border border-border/60 rounded-lg p-3` look. Drop `bg-accent/30` and `bg-status-good/5 ring-1`. Differentiate via small label only.
+- "Pública" Badge → plain `text-[10px] text-muted-foreground` (no Badge).
+- Internal note: keep, with `text-xs` label and matching neutral container.
 
-Each quotation renders:
+### 2.6 Saturation principles applied throughout the file
 
-- Property header (name, address)
-- **Reparaciones obligatorias** — items with `payment_nature='required'` for the selected payer
-- **Reparaciones opcionales** — items with `payment_nature='optional'` for the selected payer
-- Per-item: title, description, qty × unit_price, subtotal
-- Footer: `Subtotal obligatorias`, `Subtotal opcionales`, `Total`
-- Actions: `Imprimir` (print stylesheet on the dialog body), `Copiar resumen` (plain text)
+- Replace `ring-1 ring-border shadow-sm` on inner cards with plain `border border-border/60`.
+- Soft dividers: `border-border/40`. Containers: `border-border/60`.
+- Limit strong tints to one element per region (header total chip; status badges; the consolidated blocker strip).
+- Standardize repair editor sizing: inputs `h-8`, labels `text-[10px] uppercase`, body `text-xs`.
 
-All copy stays business-facing in Spanish; no internal jargon (no "owner_required", no enum names) surfaces in the UI.
+---
 
-## 6. Published payload — model preparation only
+## Refinements summary
 
-`inspection_report_versions.normalized_payload` is enriched so each repair carries `payer_role` and `payment_nature`. This is **model preparation only** for this iteration.
+1. **`Responsable ▾` / `Obligatoria ▾`** — `DropdownMenu` triggers with pointer cursor, hover bg + text shift, and a visible `ChevronDown` caret. Secondary in weight, unmistakably interactive.
+2. **Header summary blocks** — strict 3-line ceiling: label / main value / one short secondary line. No inline `Oblig. · Opc. · Total` strings.
+3. **Contractor selector** — kept always visible in a quiet compact ghost-button form (`[Wrench] {contractorName}` or `Asignar contratista`); the heavier select + cost + utility readouts live inside its `Popover`.
+4. **Scope** — purely hierarchy/saturation; every feature (return mode, approve, publish, contractor select, contractor cost, utility, deposit diff, blockers, photo visibility, classification) stays fully accessible.
 
-`OwnerReport.tsx` is **not modified** in this iteration — the public report continues to render all visible repairs grouped by section as it does today. Future work can split the public report by payer without another schema change.
+---
 
-## 7. Scope boundaries (explicit)
+## Files to modify
 
-- No changes to `repair_catalog_items`, `repair_catalog_categories`, or contractor pricing.
-- No new tenant report route. Owner/tenant quotations are derived dialog views over the same inspection budget.
-- No backfill beyond the column defaults (`owner` + `required`).
-- Admin Inspection Detail repair listing (read-only summary) gets the same two read-only chips for parity, no editing UI.
+- `src/pages/executive/ExecutiveReviewDetail.tsx` — header, sidebars, `SectionWorkspace`, `PhotoPanel`.
+- New imports from existing UI primitives only: `DropdownMenu*` (`@/components/ui/dropdown-menu`), `Popover*` (`@/components/ui/popover`), `ChevronDown` from `lucide-react`.
 
-## Technical summary
+## Out of scope (unchanged)
 
-- **DB**: migration adds `payer_role` + `payment_nature` to `inspection_repair_items` with CHECK constraints and safe defaults.
-- **Types**: `InspectionRepairItem` extended with the two unions.
-- **Editor**: two pill toggles per repair card, persisted via existing `updateRepairItem`.
-- **Totals**: `budgetBreakdown` memo aggregates over **all** repair items (internal operational totals); sticky bar reorganized into Propietario / Inquilino / Total general; deposit comparison rebased on `ownerRequired`.
-- **Quotations**: single `QuotationDialog` parametrized by payer, business-facing copy, no DB duplication.
-- **Published payload**: enriched with `payer_role` + `payment_nature` for future use; `OwnerReport.tsx` behavior unchanged this iteration.
+- Business logic: `budgetBreakdown`, totals, `onUpdateRepair`, contractor pricing, deposit diff math.
+- Section completion, approval/return, publish flow.
+- Mobile fallback layout (no structural rework).
+- `QuotationDialog` content.
+- Database schema, RLS, types.
+
+## Final summary will cover
+
+- Header: two rows, 4 concise summary blocks (3-line max), single `Cotización ▾`, contractor as quiet always-visible popover, blocker badges consolidated.
+- Repair cards: lighter container, compact description, tighter pricing row, classification demoted to `Propietario ▾ · Obligatoria ▾` dropdown triggers.
+- `Responsable` / `Tipo`: secondary metadata look with caret + hover state — clearly interactive without competing with primary content.
+- Left rail: one status signal per row + optional repair counter.
+- Right rail: flat photo header, plain inline subtotal.
+- Overall: one strong emphasis per region; soft borders replace rings/shadows; tinted backgrounds removed except where they communicate the single most important value in a region.
