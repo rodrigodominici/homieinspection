@@ -787,10 +787,7 @@ export default function ExecutiveReviewDetail() {
             onSaveFinalObs={() => saveFinalObservation(activeSection.id)}
             onSaveNote={() => saveInternalNote(activeSection.id)}
             savingField={savingField}
-            onOpenCatalog={() => openCatalog(activeSection.id)}
-            onUpdateRepair={updateRepairItem}
-            onDeleteRepair={deleteRepairItem}
-            hasContractor={!!selectedContractorId}
+            onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
             returnMode={returnMode}
             returnSelected={selectedReturnSections.has(activeSection.id)}
             onToggleReturn={() => toggleReturnSection(activeSection.id)}
