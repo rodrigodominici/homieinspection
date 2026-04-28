@@ -1089,6 +1089,29 @@ function SectionWorkspace({
         <SectionStatusBadge status={section.status} />
       </div>
 
+      {/* Compact repairs strip — replaces the old bottom-of-section card.
+          Click to open the right-side repairs drawer. */}
+      <button
+        type="button"
+        onClick={onOpenRepairsDrawer}
+        className="w-full flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2 hover:bg-muted/40 hover:border-border transition-colors text-left group"
+      >
+        <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-medium">Reparaciones</span>
+          <span className="text-xs text-muted-foreground">· {repairs.length}</span>
+        </div>
+        <div className="flex-1" />
+        {sectionSubtotalClient > 0 && (
+          <span className="text-xs font-mono text-muted-foreground">
+            Subtotal {fmtCurrency(sectionSubtotalClient)}
+          </span>
+        )}
+        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 group-hover:underline">
+          Editar <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      </button>
+
       {/* Status fields */}
       {statusFields.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
