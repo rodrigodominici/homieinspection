@@ -106,7 +106,7 @@ export default function ExecutiveReviewDetail() {
   const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
 
   // Publish
-  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [publishedUrls, setPublishedUrls] = useState<{ owner: string; tenant: string } | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
@@ -376,12 +376,24 @@ export default function ExecutiveReviewDetail() {
       .from('inspection_report_versions').select('version_number')
       .eq('inspection_id', id!).order('version_number', { ascending: false }).limit(1);
     const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
+
+    // Atomic-in-practice publish:
+    // 1) unset previous latest rows (covers all prior audiences)
+    // 2) insert owner row + tenant row in a single .insert([...]) call
+    //    sharing version_number and payload — only public_token + audience differ.
+    // The shared payload already carries `payer_role` + `payment_nature` per repair,
+    // and is filtered by `visible_to_owner` (editorial gate, NOT a payer gate).
+    // The audience-aware public renderer applies payer filtering at render time.
     await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
-    const publicToken = crypto.randomUUID();
-    const { error } = await supabase.from('inspection_report_versions').insert({
-      inspection_id: id!, version_number: nextVersion, status: 'published',
-      public_token: publicToken, normalized_payload: payload as any, is_latest: true,
-    });
+
+    const ownerToken = crypto.randomUUID();
+    const tenantToken = crypto.randomUUID();
+    const { error } = await supabase.from('inspection_report_versions').insert([
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
+    ]);
     if (error) {
       toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
       setSubmitting(false);
@@ -392,8 +404,11 @@ export default function ExecutiveReviewDetail() {
       owner_url_generated_at: new Date().toISOString(),
       approved_at: new Date().toISOString(), approved_by: profile?.id,
     }).eq('id', id!);
-    const url = `${window.location.origin}/reportes/${inspection.property_id}/${publicToken}`;
-    setPublishedUrl(url);
+    const origin = window.location.origin;
+    setPublishedUrls({
+      owner: `${origin}/reportes/${inspection.property_id}/${ownerToken}`,
+      tenant: `${origin}/reportes/${inspection.property_id}/${tenantToken}`,
+    });
     setPublishDialogOpen(true);
     setSubmitting(false);
     toast({ title: `Reporte v${nextVersion} publicado` });
@@ -964,25 +979,46 @@ export default function ExecutiveReviewDetail() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Published URL dialog ──────────────────────── */}
+      {/* ── Published URL dialog (dual: owner + tenant) ──── */}
       <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-[hsl(var(--status-good))]" /> Reporte Publicado
+              <Link2 className="h-5 w-5 text-[hsl(var(--status-good))]" /> Reporte publicado
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-caption text-muted-foreground">Comparte este link con el propietario:</p>
-            <div className="flex gap-2">
-              <Input readOnly value={publishedUrl ?? ''} className="flex-1 text-caption font-mono" />
-              <Button variant="outline" size="icon" onClick={() => publishedUrl && copyToClipboard(publishedUrl)}>
-                <Copy className="h-4 w-4" />
-              </Button>
+          <div className="space-y-4">
+            <p className="text-caption text-muted-foreground">
+              Se generaron dos enlaces. Comparte cada uno con la audiencia correspondiente.
+            </p>
+
+            {/* Owner link */}
+            <div className="space-y-1.5">
+              <label className="text-tiny font-semibold uppercase tracking-wide text-muted-foreground">Cotización Propietario</label>
+              <div className="flex gap-2">
+                <Input readOnly value={publishedUrls?.owner ?? ''} className="flex-1 text-caption font-mono" />
+                <Button variant="outline" size="icon" onClick={() => publishedUrls && copyToClipboard(publishedUrls.owner)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => publishedUrls && window.open(publishedUrls.owner, '_blank')}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={() => publishedUrl && window.open(publishedUrl, '_blank')}>
-              <ExternalLink className="mr-2 h-4 w-4" /> Abrir reporte propietario
-            </Button>
+
+            {/* Tenant link */}
+            <div className="space-y-1.5">
+              <label className="text-tiny font-semibold uppercase tracking-wide text-muted-foreground">Cotización Inquilino</label>
+              <div className="flex gap-2">
+                <Input readOnly value={publishedUrls?.tenant ?? ''} className="flex-1 text-caption font-mono" />
+                <Button variant="outline" size="icon" onClick={() => publishedUrls && copyToClipboard(publishedUrls.tenant)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => publishedUrls && window.open(publishedUrls.tenant, '_blank')}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button onClick={() => setPublishDialogOpen(false)}>Cerrar</Button>
