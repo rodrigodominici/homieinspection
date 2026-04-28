@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Building, Calendar, FileText, DollarSign, User, Users } from 'lucide-react';
+import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff } from 'lucide-react';
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
@@ -74,6 +74,54 @@ const fmt = (n: number) =>
 
 function Shimmer({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-muted ${className ?? ''}`} />;
+}
+
+/**
+ * Lazy public photo signing.
+ *
+ * Public reports run as anon, so storage RLS forbids direct `createSignedUrl`.
+ * The `sign-public-photo` edge function checks the (token, property_id, photo_id)
+ * triple with the service role and returns a 1h signed URL.
+ */
+function PublicPhoto({
+  photoId, propertyId, token, alt, caption,
+}: { photoId: string; propertyId: string; token: string; alt: string; caption: string | null }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    setUrl(null);
+    supabase.functions
+      .invoke('sign-public-photo', { body: { property_id: propertyId, token, photo_id: photoId } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.url) setFailed(true);
+        else setUrl(data.url as string);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [photoId, propertyId, token]);
+
+  if (failed) {
+    return (
+      <div className="aspect-square rounded-xl bg-muted flex flex-col items-center justify-center gap-1 text-muted-foreground">
+        <ImageOff className="h-5 w-5" />
+        <span className="text-tiny">Foto no disponible</span>
+      </div>
+    );
+  }
+  if (!url) return <Shimmer className="aspect-square w-full" />;
+  return (
+    <img
+      src={url}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className="aspect-square rounded-xl object-cover w-full"
+      loading="lazy" decoding="async" width={400} height={400}
+    />
+  );
 }
 
 /** Flatten section repairs into payer/nature buckets. Defaults legacy items to owner/required. */
@@ -277,11 +325,12 @@ export default function OwnerReport() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                         {section.photos.map(photo => (
                           <div key={photo.id} className="space-y-1">
-                            <img
-                              src={photo.url ?? ''}
+                            <PublicPhoto
+                              photoId={photo.id}
+                              propertyId={propertyId!}
+                              token={token!}
                               alt={photo.caption ?? ''}
-                              className="aspect-square rounded-xl object-cover w-full"
-                              loading="lazy" decoding="async" width={400} height={400}
+                              caption={photo.caption}
                             />
                             {photo.caption && <p className="text-tiny text-muted-foreground">{photo.caption}</p>}
                           </div>

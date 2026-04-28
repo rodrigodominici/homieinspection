@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.hubspot-update-inspection]
 verify_jwt = false
+
+[functions.sign-public-photo]
+verify_jwt = false

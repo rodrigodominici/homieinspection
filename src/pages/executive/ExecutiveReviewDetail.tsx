@@ -119,6 +119,11 @@ export default function ExecutiveReviewDetail() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
+  // Repairs side drawer (desktop). Holds the section id whose repairs are open.
+  const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
+  // Which repair row inside the drawer is expanded for editing (accordion).
+  const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
+
   // ─── Data fetching ─────────────────────────────────────
   const fetchAll = useCallback(async () => {
     const [{ data: insp }, { data: contractorData }] = await Promise.all([
@@ -782,10 +787,7 @@ export default function ExecutiveReviewDetail() {
             onSaveFinalObs={() => saveFinalObservation(activeSection.id)}
             onSaveNote={() => saveInternalNote(activeSection.id)}
             savingField={savingField}
-            onOpenCatalog={() => openCatalog(activeSection.id)}
-            onUpdateRepair={updateRepairItem}
-            onDeleteRepair={deleteRepairItem}
-            hasContractor={!!selectedContractorId}
+            onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
             returnMode={returnMode}
             returnSelected={selectedReturnSections.has(activeSection.id)}
             onToggleReturn={() => toggleReturnSection(activeSection.id)}
@@ -948,8 +950,25 @@ export default function ExecutiveReviewDetail() {
         )}
       </div>
 
-
-
+      {/* ── Repairs drawer (per-section, desktop-first) ─── */}
+      {(() => {
+        const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
+        if (!sec) return null;
+        return (
+          <SectionRepairsDrawer
+            open={!!repairsDrawerSectionId}
+            onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
+            section={sec}
+            repairs={repairsBySection[sec.id] ?? []}
+            hasContractor={!!selectedContractorId}
+            expandedRepairId={expandedRepairId}
+            onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
+            onOpenCatalog={() => openCatalog(sec.id)}
+            onUpdateRepair={updateRepairItem}
+            onDeleteRepair={deleteRepairItem}
+          />
+        );
+      })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
@@ -1040,6 +1059,12 @@ export default function ExecutiveReviewDetail() {
 }
 
 // ─── Section Workspace (Center Panel) ────────────────────
+//
+// Repairs are NOT edited inline anymore (was a long scroll).
+// SectionWorkspace renders only the review content (fields, observations,
+// photos, internal note). A compact "Reparaciones" strip near the top
+// shows the section's repair count + subtotal and triggers
+// `SectionRepairsDrawer` (right side panel) for editing.
 interface SectionWorkspaceProps {
   section: InspectionSection;
   fields: InspectionFieldValue[];
@@ -1053,10 +1078,7 @@ interface SectionWorkspaceProps {
   onSaveFinalObs: () => void;
   onSaveNote: () => void;
   savingField: string | null;
-  onOpenCatalog: () => void;
-  onUpdateRepair: (id: string, field: string, value: any) => void;
-  onDeleteRepair: (id: string) => void;
-  hasContractor: boolean;
+  onOpenRepairsDrawer: () => void;
   returnMode: boolean;
   returnSelected: boolean;
   onToggleReturn: () => void;
@@ -1067,7 +1089,7 @@ interface SectionWorkspaceProps {
 function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
   onFinalObsChange, onInternalNoteChange, onSaveFinalObs, onSaveNote,
-  savingField, onOpenCatalog, onUpdateRepair, onDeleteRepair, hasContractor,
+  savingField, onOpenRepairsDrawer,
   returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter(f => f.group_key === 'status');
@@ -1080,6 +1102,29 @@ function SectionWorkspace({
         <h2 className="text-h4 font-semibold">{section.section_title}</h2>
         <SectionStatusBadge status={section.status} />
       </div>
+
+      {/* Compact repairs strip — replaces the old bottom-of-section card.
+          Click to open the right-side repairs drawer. */}
+      <button
+        type="button"
+        onClick={onOpenRepairsDrawer}
+        className="w-full flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2 hover:bg-muted/40 hover:border-border transition-colors text-left group"
+      >
+        <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-medium">Reparaciones</span>
+          <span className="text-xs text-muted-foreground">· {repairs.length}</span>
+        </div>
+        <div className="flex-1" />
+        {sectionSubtotalClient > 0 && (
+          <span className="text-xs font-mono text-muted-foreground">
+            Subtotal {fmtCurrency(sectionSubtotalClient)}
+          </span>
+        )}
+        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 group-hover:underline">
+          Editar <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      </button>
 
       {/* Status fields */}
       {statusFields.length > 0 && (
@@ -1140,138 +1185,8 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repair items — calmer container */}
-      <Card className="border border-border/60 shadow-none">
-        <CardContent className="p-3 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-semibold">Reparaciones</p>
-              {repairs.length > 0 && (
-                <span className="text-[10px] text-muted-foreground">· {repairs.length}</span>
-              )}
-            </div>
-            <Button size="sm" variant="outline" onClick={onOpenCatalog} className="h-8 text-xs">
-              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-            </Button>
-          </div>
-
-          {repairs.length === 0 && (
-            <p className="text-caption text-muted-foreground text-center py-4">Sin reparaciones en esta sección</p>
-          )}
-
-          {repairs.map((repair) => (
-            <div key={repair.id} className={cn(
-              'rounded-md border bg-card p-3 space-y-2.5',
-              !repair.visible_to_owner ? 'opacity-60 border-dashed border-border/60' : 'border-border/60'
-            )}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{repair.title_snapshot}</p>
-                  {repair.category_snapshot && <p className="text-xs text-muted-foreground">{repair.category_snapshot}</p>}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
-                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
-                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  </button>
-                  <button onClick={() => onDeleteRepair(repair.id)}
-                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Compact description */}
-              <Textarea rows={1} className="text-xs min-h-[36px] resize-none"
-                placeholder="Descripción de reparación..."
-                onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
-                defaultValue={repair.description_snapshot ?? ''}
-                key={`desc-${repair.id}`}
-              />
-
-              {/* Pricing row — tighter */}
-              <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
-                  <Input type="number" step="0.01" value={repair.quantity}
-                    onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-xs font-mono" />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
-                  <Input type="number" step="1" value={repair.unit_price}
-                    onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-xs font-mono" />
-                </div>
-                {hasContractor && (
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
-                    <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
-                      onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-xs font-mono" />
-                  </div>
-                )}
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Subtotal</Label>
-                  <p className="h-8 flex items-center justify-end text-xs font-mono font-medium">
-                    {fmtCurrency(repair.quantity * repair.unit_price)}
-                  </p>
-                </div>
-                {hasContractor && (
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Utilidad</Label>
-                    <p className="h-8 flex items-center justify-end text-xs font-mono text-muted-foreground">
-                      {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
-                onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
-
-              {/* Inline secondary classification — interactive but quiet */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button"
-                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                      {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-36">
-                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <span className="text-muted-foreground/50 text-xs">·</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button"
-                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                      {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-36">
-                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          ))}
-
-          {sectionSubtotalClient > 0 && (
-            <div className="flex justify-end text-sm font-mono font-medium pt-2 border-t border-border/40">
-              Subtotal: {fmtCurrency(sectionSubtotalClient)}
-
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Repairs are edited in the right-side `SectionRepairsDrawer`,
+          opened from the compact strip near the section title above. */}
 
       {/* Return mode */}
       {returnMode && (
@@ -1406,5 +1321,208 @@ function PhotoPanel({ photos, onToggleVisibility }: {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─── Section Repairs Drawer (right side panel) ───────────
+//
+// Lifts the per-section repair editor out of the main scroll column.
+// Each repair renders as a compact summary row by default; clicking it
+// expands the full editor inline (accordion: only one open at a time).
+// All write actions reuse the parent's existing handlers — no data model
+// or save-flow changes.
+interface SectionRepairsDrawerProps {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  section: InspectionSection;
+  repairs: InspectionRepairItem[];
+  hasContractor: boolean;
+  expandedRepairId: string | null;
+  onToggleExpand: (id: string) => void;
+  onOpenCatalog: () => void;
+  onUpdateRepair: (id: string, field: string, value: any) => void;
+  onDeleteRepair: (id: string) => void;
+}
+
+function SectionRepairsDrawer({
+  open, onOpenChange, section, repairs, hasContractor,
+  expandedRepairId, onToggleExpand, onOpenCatalog, onUpdateRepair, onDeleteRepair,
+}: SectionRepairsDrawerProps) {
+  const subtotalClient = repairs
+    .filter(r => r.visible_to_owner)
+    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
+        <SheetHeader className="px-5 py-4 border-b">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Wrench className="h-4 w-4 text-muted-foreground" />
+            Reparaciones
+            <span className="text-xs font-normal text-muted-foreground">· {section.section_title}</span>
+          </SheetTitle>
+        </SheetHeader>
+
+        {/* Scrollable list */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          <div className="flex items-center justify-between pb-2">
+            <p className="text-xs text-muted-foreground">{repairs.length} reparaciones</p>
+            <Button size="sm" onClick={onOpenCatalog} className="h-8 text-xs">
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
+            </Button>
+          </div>
+
+          {repairs.length === 0 && (
+            <p className="text-caption text-muted-foreground text-center py-8">
+              Sin reparaciones en esta sección
+            </p>
+          )}
+
+          {repairs.map((repair) => {
+            const expanded = expandedRepairId === repair.id;
+            const itemSubtotal = repair.quantity * repair.unit_price;
+            return (
+              <div key={repair.id} className={cn(
+                'rounded-md border bg-card transition-colors',
+                !repair.visible_to_owner ? 'opacity-60 border-dashed border-border/60' : 'border-border/60',
+                expanded && 'ring-1 ring-primary/30'
+              )}>
+                {/* Compact summary row (always visible) */}
+                <button
+                  type="button"
+                  onClick={() => onToggleExpand(repair.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                >
+                  <ChevronRight className={cn(
+                    'h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform',
+                    expanded && 'rotate-90'
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{repair.title_snapshot}</p>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span>{repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}</span>
+                      <span className="opacity-50">·</span>
+                      <span>{repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-medium shrink-0">{fmtCurrency(itemSubtotal)}</span>
+                </button>
+
+                {/* Expanded editor */}
+                {expanded && (
+                  <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/40">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {repair.category_snapshot && (
+                          <p className="text-xs text-muted-foreground">{repair.category_snapshot}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner); }}
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                          title={repair.visible_to_owner ? 'Visible al propietario' : 'Oculta al propietario'}
+                        >
+                          {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDeleteRepair(repair.id); }}
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <Textarea rows={1} className="text-xs min-h-[36px] resize-none"
+                      placeholder="Descripción de reparación..."
+                      onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
+                      defaultValue={repair.description_snapshot ?? ''}
+                      key={`desc-${repair.id}`}
+                    />
+
+                    <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
+                        <Input type="number" step="0.01" value={repair.quantity}
+                          onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
+                        <Input type="number" step="1" value={repair.unit_price}
+                          onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono" />
+                      </div>
+                      {hasContractor && (
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
+                          <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
+                            onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                            className="h-8 text-xs font-mono" />
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Subtotal</Label>
+                        <p className="h-8 flex items-center justify-end text-xs font-mono font-medium">
+                          {fmtCurrency(itemSubtotal)}
+                        </p>
+                      </div>
+                      {hasContractor && (
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Utilidad</Label>
+                          <p className="h-8 flex items-center justify-end text-xs font-mono text-muted-foreground">
+                            {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Input placeholder="Notas..." defaultValue={repair.notes ?? ''} className="h-8 text-xs"
+                      onBlur={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button"
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                            {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
+                            <ChevronDown className="h-3 w-3 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-36">
+                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <span className="text-muted-foreground/50 text-xs">·</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button"
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                            {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+                            <ChevronDown className="h-3 w-3 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-36">
+                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sticky footer */}
+        <div className="border-t px-5 py-3 flex items-center justify-between bg-card">
+          <span className="text-xs text-muted-foreground">Subtotal cliente</span>
+          <span className="text-sm font-mono font-semibold">{fmtCurrency(subtotalClient)}</span>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
