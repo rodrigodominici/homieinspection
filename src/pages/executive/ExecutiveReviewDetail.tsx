@@ -1072,15 +1072,15 @@ function SectionWorkspace({
         </div>
       )}
 
-      {/* Side-by-side observations */}
+      {/* Side-by-side observations — neutral containers */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl bg-accent/30 p-4 space-y-2">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Observación del Inspector</p>
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observación del Inspector</p>
           <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
-        <div className="rounded-xl bg-[hsl(var(--status-good))]/5 p-4 space-y-2 ring-1 ring-[hsl(var(--status-good))]/10">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-            Observación Final <Badge variant="secondary" className="text-tiny">Pública</Badge>
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+            Observación Final <span className="text-[10px] text-muted-foreground normal-case tracking-normal">· Pública</span>
           </p>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
@@ -1093,8 +1093,8 @@ function SectionWorkspace({
       </div>
 
       {/* Internal note */}
-      <div className="space-y-2">
-        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Comentario Interno</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
         <Textarea value={internalNote} rows={2} className="text-caption"
           placeholder="Nota interna (no visible al propietario)..."
           onChange={(e) => onInternalNoteChange(e.target.value)} />
@@ -1104,19 +1104,19 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repair items — prominent card */}
-      <Card className="border-l-4 border-l-primary ring-1 ring-border shadow-sm">
-        <CardContent className="p-4 space-y-3">
+      {/* Repair items — calmer container */}
+      <Card className="border border-border/60 shadow-none">
+        <CardContent className="p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-primary" />
-              <p className="text-body-lg font-semibold">Reparaciones</p>
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold">Reparaciones</p>
               {repairs.length > 0 && (
-                <Badge variant="secondary" className="text-tiny">{repairs.length} items</Badge>
+                <span className="text-[10px] text-muted-foreground">· {repairs.length}</span>
               )}
             </div>
-            <Button size="sm" onClick={onOpenCatalog}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+            <Button size="sm" variant="outline" onClick={onOpenCatalog} className="h-8 text-xs">
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
             </Button>
           </div>
 
@@ -1125,109 +1125,113 @@ function SectionWorkspace({
           )}
 
           {repairs.map((repair) => (
-            <div key={repair.id} className={cn('rounded-lg border-2 p-3 space-y-2', !repair.visible_to_owner ? 'opacity-50 border-dashed' : 'border-border')}>
+            <div key={repair.id} className={cn(
+              'rounded-md border bg-card p-3 space-y-2.5',
+              !repair.visible_to_owner ? 'opacity-60 border-dashed border-border/60' : 'border-border/60'
+            )}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-caption font-medium">{repair.title_snapshot}</p>
-                  {repair.category_snapshot && <p className="text-tiny text-muted-foreground">{repair.category_snapshot}</p>}
+                  <p className="text-sm font-medium">{repair.title_snapshot}</p>
+                  {repair.category_snapshot && <p className="text-xs text-muted-foreground">{repair.category_snapshot}</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)} className="p-1 rounded hover:bg-muted/50">
-                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                  <button onClick={() => onUpdateRepair(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+                    {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   </button>
-                  <button onClick={() => onDeleteRepair(repair.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                  <button onClick={() => onDeleteRepair(repair.id)}
+                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
-              {/* Editable description */}
-              <Textarea rows={2} className="text-tiny"
+
+              {/* Compact description */}
+              <Textarea rows={1} className="text-xs min-h-[36px] resize-none"
                 placeholder="Descripción de reparación..."
                 onBlur={(e) => onUpdateRepair(repair.id, 'description_snapshot', e.target.value || null)}
                 defaultValue={repair.description_snapshot ?? ''}
                 key={`desc-${repair.id}`}
               />
-              {/* Responsable / Tipo pills */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-tiny text-muted-foreground">Responsable:</span>
-                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
-                    {(['owner', 'tenant'] as const).map(role => (
-                      <button key={role} type="button"
-                        onClick={() => onUpdateRepair(repair.id, 'payer_role', role)}
-                        className={cn(
-                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
-                          repair.payer_role === role
-                            ? 'bg-card shadow-sm font-medium text-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}>
-                        {role === 'owner' ? 'Propietario' : 'Inquilino'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-tiny text-muted-foreground">Tipo:</span>
-                  <div className="inline-flex rounded-full border bg-muted/40 p-0.5">
-                    {(['required', 'optional'] as const).map(nat => (
-                      <button key={nat} type="button"
-                        onClick={() => onUpdateRepair(repair.id, 'payment_nature', nat)}
-                        className={cn(
-                          'px-2.5 py-0.5 text-tiny rounded-full transition-colors',
-                          repair.payment_nature === nat
-                            ? 'bg-card shadow-sm font-medium text-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}>
-                        {nat === 'required' ? 'Obligatoria' : 'Opcional'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+
+              {/* Pricing row — tighter */}
               <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                 <div>
-                  <Label className="text-tiny">Cantidad</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
                   <Input type="number" step="0.01" value={repair.quantity}
                     onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-caption" />
+                    className="h-8 text-xs font-mono" />
                 </div>
                 <div>
-                  <Label className="text-tiny">Precio cliente</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
                   <Input type="number" step="1" value={repair.unit_price}
                     onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                    className="h-8 text-caption" />
+                    className="h-8 text-xs font-mono" />
                 </div>
                 {hasContractor && (
                   <div>
-                    <Label className="text-tiny">Precio contratista</Label>
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
                     <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
                       onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-caption" />
+                      className="h-8 text-xs font-mono" />
                   </div>
                 )}
                 <div>
-                  <Label className="text-tiny">Subtotal</Label>
-                  <p className="h-8 flex items-center text-caption font-mono font-medium">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Subtotal</Label>
+                  <p className="h-8 flex items-center justify-end text-xs font-mono font-medium">
                     {fmtCurrency(repair.quantity * repair.unit_price)}
                   </p>
                 </div>
                 {hasContractor && (
                   <div>
-                    <Label className="text-tiny text-muted-foreground">Utilidad</Label>
-                    <p className="h-8 flex items-center text-caption font-mono text-muted-foreground">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Utilidad</Label>
+                    <p className="h-8 flex items-center justify-end text-xs font-mono text-muted-foreground">
                       {fmtCurrency((repair.unit_price - ((repair as any).contractor_unit_price ?? 0)) * repair.quantity)}
                     </p>
                   </div>
                 )}
               </div>
-              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-caption"
+
+              <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
                 onChange={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
+
+              {/* Inline secondary classification — interactive but quiet */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button"
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                      {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-36">
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-muted-foreground/50 text-xs">·</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button"
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+                      {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-36">
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           ))}
 
           {sectionSubtotalClient > 0 && (
-            <div className="flex justify-end text-body font-semibold font-mono pt-1 border-t">
+            <div className="flex justify-end text-sm font-mono font-medium pt-2 border-t border-border/40">
               Subtotal: {fmtCurrency(sectionSubtotalClient)}
+
             </div>
           )}
         </CardContent>
