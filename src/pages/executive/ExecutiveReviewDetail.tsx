@@ -1269,7 +1269,7 @@ function PhotoPanel({ photos, onToggleVisibility }: {
   if (photos.length === 0) {
     return (
       <div>
-        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos (0)</p>
+        <p className="text-xs text-muted-foreground mb-2">Fotos · 0</p>
         <p className="text-tiny text-muted-foreground py-4 text-center">Sin fotos</p>
       </div>
     );
