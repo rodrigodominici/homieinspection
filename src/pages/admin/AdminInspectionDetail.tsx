@@ -412,6 +412,8 @@ export default function AdminInspectionDetail() {
             quantity: r.quantity,
             unit_price: r.unit_price,
             subtotal: r.subtotal,
+            payer_role: r.payer_role,
+            payment_nature: r.payment_nature,
           })),
       })),
       budget_total: visibleRepairs.reduce((sum, r) => sum + Number(r.subtotal ?? r.quantity * r.unit_price), 0),
@@ -426,17 +428,19 @@ export default function AdminInspectionDetail() {
       .limit(1);
     const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
 
+    // Atomic-in-practice publish: clear previous latest rows, then insert
+    // owner + tenant rows in one batch so the RPC always finds exactly one
+    // is_latest=true row per (inspection, audience).
     await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
 
-    const publicToken = crypto.randomUUID();
-    const { error } = await supabase.from('inspection_report_versions').insert({
-      inspection_id: id!,
-      version_number: nextVersion,
-      status: 'published',
-      public_token: publicToken,
-      normalized_payload: payload as any,
-      is_latest: true,
-    });
+    const ownerToken = crypto.randomUUID();
+    const tenantToken = crypto.randomUUID();
+    const { error } = await supabase.from('inspection_report_versions').insert([
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
+    ]);
 
     if (error) {
       toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
@@ -452,8 +456,8 @@ export default function AdminInspectionDetail() {
       approved_by: profile?.id,
     }).eq('id', inspection.id);
 
-    await logAudit('publish', inspection.status, 'published', `v${nextVersion}`);
-    toast({ title: `Reporte v${nextVersion} publicado` });
+    await logAudit('publish', inspection.status, 'published', `v${nextVersion} (owner+tenant)`);
+    toast({ title: `Reporte v${nextVersion} publicado (Propietario + Inquilino)` });
     await fetchAll();
     setPublishing(false);
   };
@@ -540,9 +544,15 @@ export default function AdminInspectionDetail() {
     setRepairsBySection(groupBy(rps));
   };
 
-  /* ─── Copy owner URL ─── */
+  /* ─── Copy public URLs (per audience) ─── */
   const getOwnerUrl = () => {
-    const latest = reportVersions.find(v => v.is_latest && v.public_token);
+    const latest = reportVersions.find(v => v.is_latest && v.audience === 'owner' && v.public_token);
+    if (!latest || !inspection) return null;
+    return `${window.location.origin}/reportes/${inspection.property_id}/${latest.public_token}`;
+  };
+
+  const getTenantUrl = () => {
+    const latest = reportVersions.find(v => v.is_latest && v.audience === 'tenant' && v.public_token);
     if (!latest || !inspection) return null;
     return `${window.location.origin}/reportes/${inspection.property_id}/${latest.public_token}`;
   };
@@ -551,7 +561,7 @@ export default function AdminInspectionDetail() {
     const url = getOwnerUrl();
     if (url) {
       navigator.clipboard.writeText(url);
-      toast({ title: 'URL copiada al portapapeles' });
+      toast({ title: 'URL Propietario copiada' });
     }
   };
 
