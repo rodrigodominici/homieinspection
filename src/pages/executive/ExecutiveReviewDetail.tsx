@@ -24,6 +24,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
@@ -32,7 +36,7 @@ import {
   ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
-  ChevronLeft, ChevronRight, ZoomIn, FileText,
+  ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
