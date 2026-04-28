@@ -1310,8 +1310,8 @@ function PhotoPanel({ photos, onToggleVisibility }: {
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {photos.map((p, idx) => (
               <button key={p.id} onClick={() => setFeaturedIdx(idx)}
-                className={cn('shrink-0 rounded-md overflow-hidden ring-2 transition-all',
-                  idx === featuredIdx ? 'ring-primary' : 'ring-transparent hover:ring-muted-foreground/30',
+                className={cn('shrink-0 rounded-md overflow-hidden border transition-all',
+                  idx === featuredIdx ? 'border-primary' : 'border-transparent hover:border-border',
                   (p as any).visible_to_owner === false && 'opacity-40'
                 )}>
                 <img src={urlOf(p.id)} alt="" className="h-12 w-12 object-cover" />
