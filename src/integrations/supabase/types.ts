@@ -499,6 +499,7 @@ export type Database = {
       }
       inspection_report_versions: {
         Row: {
+          audience: string
           created_at: string
           id: string
           inspection_id: string
@@ -509,6 +510,7 @@ export type Database = {
           version_number: number
         }
         Insert: {
+          audience?: string
           created_at?: string
           id?: string
           inspection_id: string
@@ -519,6 +521,7 @@ export type Database = {
           version_number: number
         }
         Update: {
+          audience?: string
           created_at?: string
           id?: string
           inspection_id?: string

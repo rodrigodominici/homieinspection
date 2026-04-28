@@ -280,6 +280,8 @@ export interface InspectionRepairItem {
   updated_at: string;
 }
 
+export type ReportAudience = 'owner' | 'tenant';
+
 export interface InspectionReportVersion {
   id: string;
   inspection_id: string;
@@ -288,6 +290,8 @@ export interface InspectionReportVersion {
   public_token: string | null;
   normalized_payload: Record<string, unknown>;
   is_latest: boolean;
+  /** Audience this published link targets. One row per audience per version. */
+  audience: ReportAudience;
   created_at: string;
   executive?: { id: string; name: string; email: string };
 }

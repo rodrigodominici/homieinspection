@@ -1,153 +1,167 @@
-# Executive Review Workspace — UI/UX Cleanup Pass (Refined)
-
-Scope is strictly **hierarchy + saturation reduction**. No business logic, no feature removal — every existing capability stays accessible.
-
 ## Step 1 — Diagnosis
 
-Sources of visual noise in the current Executive workspace:
+**Current published flow**
+- `handlePublish` (Executive) and `handleAdminPublish` (Admin) both build one `normalized_payload` (already includes `payer_role` + `payment_nature` per repair), set `is_latest=false` on prior rows, insert one row in `inspection_report_versions`, and produce one URL `/reportes/:propertyId/:token`.
+- `OwnerReport.tsx` is the only public renderer — calls RPC `get_published_report(property_id, token)`, which validates the token and re-signs photo URLs.
+- The payload already carries `payer_role` + `payment_nature`; only renderer + link generation need to change.
 
-1. **Top header** — three dense rows in one strip mixing identity, actions, deposit, owner totals, tenant totals, two `Cotización` ghost buttons, total general, deposit diff, contractor selector, contractor cost, utility, inspector progress, and warning badges. Every chip carries similar weight and `bg-border` separators compete with the data.
-2. **Repair cards** — `border-2` containers with header + oversized `Textarea` + a bordered/tinted `Responsable / Tipo` pill block + 3-or-5 column input grid + notes input + subtotal divider. Each card reads like a mini-form.
-3. **`Responsable` / `Tipo` pills feel too dominant** — they sit inside a visible `border` + `bg-muted/40` chip container before pricing, occupying horizontal space the pricing grid should own. Visually they read as primary controls instead of metadata.
-4. **Left rail** — duplicate signals per row: red dot + `SectionStatusBadge` + photo count + repair count + a second red dot for the same missing-observation condition.
-5. **Right rail** — uppercase tracking-wider photo header + featured image with `ring-2` thumbnails + a separate `Card` with `ring-1 shadow-sm` for the section subtotal. Two visually heavy boxes stacked.
-6. **Center column** — observations use two different colored backgrounds, then the repairs `Card` re-asserts strong color emphasis with `border-l-4 border-l-primary`.
+**Existing reads of `inspection_report_versions` (full audit)**
+1. `ExecutiveReviewDetail.tsx:376` — selects max `version_number` for next-version calc. **Safe**: per-audience rows share the same `version_number`, so the max is unchanged.
+2. `ExecutiveReviewDetail.tsx:379` and `AdminInspectionDetail.tsx:429` — `update is_latest=false WHERE inspection_id=?`. **Safe**: blanket reset works regardless of audience.
+3. `AdminInspectionDetail.tsx:213` — fetches all versions for the "Versiones Publicadas" panel, ordered by `version_number desc`. **Needs update**: must group by `version_number` so each version row collapses both audiences (otherwise list shows duplicate entries).
+4. `AdminInspectionDetail.tsx:545` — `getOwnerUrl()` does `versions.find(v => v.is_latest && v.public_token)`. **Needs update**: must filter by `audience='owner'`.
+5. `AdminInspectionDetail.tsx:887` — reads `reportVersions[0]` for "Versión actual". **Safe-after-grouping** (point 3): grouped list keeps one entry per version.
+6. `AdminInspectionDetail.tsx:365` — cascade delete on inspection deletion. **Safe**: deletes all rows.
+7. RPC `get_published_report` — looks up by `(public_token, property_id, status='published', is_latest=true)`. **Safe**: each audience has its own unique token; both rows can be `is_latest=true`.
+8. Migration `20260417125232` — uses the same lookup pattern; same safety reasoning.
 
----
+No other reads exist. After refactor, every consumer either filters by `audience` or treats `version_number` as the grouping key.
 
-## Step 2 — Fix Plan
+**Filtering contract (explicit)**
+- **`audience` is the primary public-rendering filter.** It alone decides which payer's items the public view shows.
+- **`visible_to_owner` only gates the *owner-published payload*.** A repair hidden via `visible_to_owner=false` is excluded from the published payload entirely (both audience rows). It is an editorial visibility flag, not a payer flag.
+- Owner audience renders all payload items grouped by `payer_role`. Tenant audience filters payload to `payer_role==='tenant'` only.
+- Conclusion: `visible_to_owner` cannot accidentally hide tenant items the owner needs to see, because both audience rows are built from the same already-filtered visible set. If an executive needs an item explained to the owner regardless of payer, they must keep `visible_to_owner=true` — which is the existing semantic.
 
-### 2.1 Header — split identity from finance, demote secondary actions
+**Input contrast issue**
+- `Input` and `Textarea` use `border-input` (`220 13% 91%`) on white card sitting on `--background` (`230 25% 97%`). After the cleanup, the borders are nearly invisible. Affected throughout the executive workspace: repair description textareas, internal notes, final observation textareas, return-comment textareas, numeric pricing inputs.
 
-Two clean rows, no vertical `bg-border` separators:
+## Step 2 — Implementation
 
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│ ←  Property name · status badge      [Devolver] [Aprobar] [Publicar] │  Row 1 (h-14)
-│    address · inspector progress (Clock 11/15 · 2h ago)               │
-├──────────────────────────────────────────────────────────────────────┤
-│ ┌Depósito┐ ┌Propietario┐ ┌Inquilino┐ ┌Total general┐  Cotización ▾  │  Row 2
-│ │ $X     │ │ $X         │ │ $X      │ │ $X           │ Contratista ▾ │
-│ │        │ │ +Opc $X    │ │ +Opc $X │ │ vs depósito  │               │
-│ └────────┘ └────────────┘ └─────────┘ └──────────────┘               │
-└──────────────────────────────────────────────────────────────────────┘
+### A. Field contrast (subtle, light)
+
+`src/index.css`
+- `--input: 220 13% 91%` → `220 13% 84%` (only form fields tighten; `--border` for separators stays soft).
+
+`src/components/ui/input.tsx` and `textarea.tsx`
+- New base classes:
+  - `bg-background/60` (subtle gray fill on white card backgrounds)
+  - `border-input` (now slightly darker)
+  - `hover:border-foreground/30 hover:bg-background`
+  - `focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0`
+  - `placeholder:text-muted-foreground/70`
+- No shadows. Existing `className` overrides still merge.
+
+### B. Schema migration — `audience` column
+
+```sql
+alter table public.inspection_report_versions
+  add column audience text not null default 'owner'
+  check (audience in ('owner','tenant'));
+
+create index if not exists inspection_report_versions_audience_idx
+  on public.inspection_report_versions (inspection_id, audience, is_latest);
+
+create unique index if not exists inspection_report_versions_latest_unique
+  on public.inspection_report_versions (inspection_id, audience)
+  where is_latest = true;
 ```
 
-**Summary blocks (refinement #2 — keep extremely concise):**
-- Each block is rounded with very subtle `bg-muted/40`, no shadow, no rings.
-- Exactly **three lines max** per block:
-  - tiny uppercase label (`text-[10px] text-muted-foreground tracking-wide`)
-  - one main value (`text-sm font-mono font-semibold`)
-  - at most one short secondary line (`text-[10px] text-muted-foreground`) — e.g. `+Opc $X` for owner/tenant blocks, `vs depósito ±$X` for total
-- Owner/tenant blocks: `Oblig. $X` is the main value; `+Opc $X` is the secondary line. Never put `Oblig./Opc./Total` on one inline string.
-- **Total general** is the only block tinted with `bg-primary/10 text-primary` — single strong emphasis per region.
-
-**Quotation actions:** consolidate the two ghost buttons into a single `DropdownMenu`: `[FileText] Cotización ▾` → items `Propietario`, `Inquilino`. Calls existing `setQuotationDialog({ open: true, payer })`.
-
-**Contractor selector (refinement #3):** Used once per inspection then mostly static — qualifies as infrequent. Use a `Popover` trigger that **stays visible at all times in a quiet compact form**:
-- When unset: ghost button `[Wrench] Asignar contratista` (`text-xs text-muted-foreground`).
-- When set: ghost button `[Wrench] {contractorName}` with the same quiet styling — still visible, never hidden behind a state.
-- Popover content holds the `Select`, plus contractor cost + utility readouts (only meaningful once a contractor is assigned). Defaults closed; opens on click.
-
-**Row 3 blocker indicators:** keep functionality, but render as **a single muted strip** — one `AlertTriangle` icon + a single sentence (`text-tiny text-muted-foreground`) that concatenates active warnings (e.g. `2 observaciones finales pendientes · sin contratista · sin publicar`). Replaces the multiple colored Badge variants.
-
-### 2.2 Repair card — simplify and demote classification
-
-Repairs `Card` parent: drop `border-l-4 border-l-primary`. Plain `Card` with `border` only and `p-3`.
-
-Each repair item becomes:
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ Title                                       👁  🗑   │
-│ category · subdued                                  │
-│                                                     │
-│ Descripción (rows=1, autogrow, text-xs)             │
-│                                                     │
-│ Cant.[__]  Cliente[___]  Contratista[___]  Sub $X  │
-│                                                     │
-│ Notas [_______________]                             │
-│ ─────────────────────────────────────────────────── │
-│ Propietario ▾   ·   Obligatoria ▾                   │  ← inline secondary
-└─────────────────────────────────────────────────────┘
+`get_published_report` — add `audience` to the returned JSON so the renderer knows what to filter:
+```sql
+-- read v_audience in the same SELECT
+SELECT irv.normalized_payload, irv.inspection_id, irv.audience
+INTO result, v_inspection_id, v_audience
+...
+result := result || jsonb_build_object('sections', v_new_sections, 'audience', v_audience);
 ```
 
-- Container: `rounded-md border border-border/60 bg-card p-3 space-y-2.5`. Hidden items: `opacity-60 border-dashed`.
-- Title `text-sm font-medium`; category `text-xs text-muted-foreground`.
-- Icon buttons: `text-muted-foreground hover:text-foreground` (lower visual weight).
-- Description `Textarea`: `rows={1}` with `min-h-[36px] resize-none text-xs` plain border.
-- Pricing grid: `gap-2`, all inputs `h-8 text-xs font-mono`, labels become `text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5`. Subtotal and Utilidad are read-only spans with `h-8` aligned right.
-- Notes input stays as a single compact `h-8 text-xs` row (kept, just demoted in size) — preserves functionality.
+### C. Atomic publish flow (Executive + Admin)
 
-**`Responsable` / `Tipo` controls (refinement #1) — secondary but clearly interactive:**
-- Render as **two `DropdownMenu` triggers** at the bottom of the card, separated by a thin `border-t border-border/40 pt-2`.
-- Each trigger is a small button: `text-xs text-muted-foreground hover:text-foreground cursor-pointer inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-muted/40 transition-colors`.
-- Each shows the current value followed by a **visible `ChevronDown` caret** (`h-3 w-3 opacity-60`): e.g. `Propietario ▾`, `Obligatoria ▾`.
-- Subtle but unmistakably interactive: pointer cursor, hover background, hover text-color shift, visible caret. Removes the bordered/tinted pill container entirely so they read as metadata, not CTAs.
-- Same business calls: `onUpdateRepair(id, 'payer_role'|'payment_nature', value)`.
+Executive `handlePublish` and Admin `handleAdminPublish` both refactored to:
+1. Build one `payloadBase` from visible repairs (same set as today; each item already carries `payer_role` + `payment_nature`). Owner payload === tenant payload at the data layer; the renderer applies the audience filter.
+2. Compute `nextVersion` (max + 1).
+3. `update is_latest=false where inspection_id = ?` (blanket reset).
+4. Insert two rows in a single `.insert([...])` call so failures roll back together at the network layer:
+   ```ts
+   const ownerToken = crypto.randomUUID();
+   const tenantToken = crypto.randomUUID();
+   const { error } = await supabase.from('inspection_report_versions').insert([
+     { inspection_id, version_number: nextVersion, status: 'published',
+       audience: 'owner',  public_token: ownerToken,  normalized_payload: payloadBase, is_latest: true },
+     { inspection_id, version_number: nextVersion, status: 'published',
+       audience: 'tenant', public_token: tenantToken, normalized_payload: payloadBase, is_latest: true },
+   ]);
+   ```
+   On error, surface a toast and abort — the prior `is_latest=false` reset is the only side-effect, which is recoverable on next publish.
+5. Update `inspections` row (`status='published'`, timestamps).
+6. Open the publish dialog with **both** URLs:
+   - `Cotización Propietario` → `/reportes/:propertyId/:ownerToken`
+   - `Cotización Inquilino`  → `/reportes/:propertyId/:tenantToken`
+   Each row shows a copy button and an open-in-new-tab button. WhatsApp/share buttons reuse the same URL strings.
 
-Section subtotal at bottom of repairs card: `text-sm` (not `text-body font-semibold`) with `border-t border-border/40` divider.
+### D. Updated existing reads
 
-### 2.3 Left sidebar — one signal per row
-
-Each section button:
-- Single line: `section name … SectionStatusBadge`.
-- Optional muted counter on the right *only when meaningful*: `· 3` for repair count (`text-[10px] text-muted-foreground`). Photo count icon is dropped here (photos are visible in the right panel).
-- Drop the second indicator row and the duplicate red dot. Status badge already encodes "missing observation" via section status; the bottom aggregate "Faltan observaciones en N secciones" stays as the single rollup signal.
-- Signature block: drop tinted backgrounds. Plain `border` card with the icon colored by status; text stays neutral.
-
-### 2.4 Right sidebar — flatten
-
-- `PhotoPanel`: drop the uppercase tracking-wider label. Header becomes `Fotos · {count}` in `text-xs text-muted-foreground`. Active thumbnail uses `border` (not `ring-2`), inactive uses `border-transparent`.
-- Section subtotal Card → plain inline block, no Card / ring / shadow:
+`AdminInspectionDetail.tsx`
+- `getOwnerUrl()` → filter by `audience==='owner'` first:
+  ```ts
+  const ownerLatest = reportVersions.find(v => v.is_latest && v.audience === 'owner' && v.public_token);
   ```
-  Subtotal sección
-  $X     ·   N reparaciones
-  ```
-  Implemented with `space-y-1 pt-3 border-t border-border/40`.
+- Add `getTenantUrl()` mirror that filters by `audience==='tenant'`.
+- "Versiones Publicadas" panel: group rows by `version_number`, render one entry per version with two copy buttons (`Propietario` / `Inquilino`). Keep "Última" pill on the latest version_number group.
+- Header "Versión actual" reads from the grouped list (still valid).
 
-### 2.5 Center column — calmer observations
+`src/lib/types.ts`
+- Add `audience: 'owner' | 'tenant'` to `InspectionReportVersion`.
 
-- Both observation panels (Inspector + Final): single shared `border border-border/60 rounded-lg p-3` look. Drop `bg-accent/30` and `bg-status-good/5 ring-1`. Differentiate via small label only.
-- "Pública" Badge → plain `text-[10px] text-muted-foreground` (no Badge).
-- Internal note: keep, with `text-xs` label and matching neutral container.
+### E. Audience-aware public renderer (`OwnerReport.tsx`)
 
-### 2.6 Saturation principles applied throughout the file
+Add the comment block at the top of the file:
+```ts
+/**
+ * Audience-aware public report renderer.
+ *
+ * Despite the historical filename, this component now renders BOTH the owner
+ * and tenant published views. It selects rendering rules based on the
+ * `audience` field returned by `get_published_report` ('owner' | 'tenant').
+ * The route `/reportes/:propertyId/:token` is shared — the audience is
+ * resolved server-side from the token, never from the URL.
+ */
+```
 
-- Replace `ring-1 ring-border shadow-sm` on inner cards with plain `border border-border/60`.
-- Soft dividers: `border-border/40`. Containers: `border-border/60`.
-- Limit strong tints to one element per region (header total chip; status badges; the consolidated blocker strip).
-- Standardize repair editor sizing: inputs `h-8`, labels `text-[10px] uppercase`, body `text-xs`.
+Renderer logic:
+- Read `report.audience`.
+- **Report tab**: identical for both audiences (sections + observations + photos).
+- **Budget tab**:
+  - **owner**: two top-level groups
+    1. *Reparaciones a cargo del propietario* → `Obligatorias` / `Opcionales`
+    2. *Reparaciones a cargo del inquilino* → `Obligatorias` / `Opcionales`
+    3. Summary: `Total propietario`, `Total inquilino`, `Total general`
+  - **tenant**: only `Reparaciones a cargo del inquilino` (`payer_role==='tenant'`) → `Obligatorias` / `Opcionales` + `Total inquilino`. Owner items are never grouped, totaled, or rendered.
+- Helper `flattenRepairs(sections)` returns `{ owner: {required, optional}, tenant: {required, optional} }` keyed off `payer_role` + `payment_nature` from the payload (defaults to `owner` / `required` for legacy payloads).
 
----
+**Responsiveness**
+- Container `max-w-3xl mx-auto px-4 sm:px-6`.
+- Header `flex-col sm:flex-row` for identity + meta; meta uses `flex-wrap`.
+- Tabs: `grid grid-cols-2`, `sticky top-0 bg-background z-10` so they're reachable on mobile while scrolling.
+- Repair rows switch from absolute right-aligned price to `flex-col sm:flex-row sm:justify-between sm:items-start`. On mobile, name+desc stack above price line.
+- Numeric values: `font-mono tabular-nums whitespace-nowrap`.
+- Photos grid: `grid-cols-2 sm:grid-cols-3` (already there).
+- Totals card: stack label/value on `<sm`, side-by-side from `sm:` up.
 
-## Refinements summary
+### F. Files touched
 
-1. **`Responsable ▾` / `Obligatoria ▾`** — `DropdownMenu` triggers with pointer cursor, hover bg + text shift, and a visible `ChevronDown` caret. Secondary in weight, unmistakably interactive.
-2. **Header summary blocks** — strict 3-line ceiling: label / main value / one short secondary line. No inline `Oblig. · Opc. · Total` strings.
-3. **Contractor selector** — kept always visible in a quiet compact ghost-button form (`[Wrench] {contractorName}` or `Asignar contratista`); the heavier select + cost + utility readouts live inside its `Popover`.
-4. **Scope** — purely hierarchy/saturation; every feature (return mode, approve, publish, contractor select, contractor cost, utility, deposit diff, blockers, photo visibility, classification) stays fully accessible.
+- `src/index.css` (`--input` token)
+- `src/components/ui/input.tsx`, `textarea.tsx` (base classes)
+- `supabase/migrations/<new>.sql` (audience column + unique index + RPC update)
+- `src/lib/types.ts` (`audience` field)
+- `src/integrations/supabase/types.ts` (auto-regenerated)
+- `src/pages/executive/ExecutiveReviewDetail.tsx` (atomic dual insert + dialog)
+- `src/pages/admin/AdminInspectionDetail.tsx` (atomic dual insert + dialog + `getOwnerUrl`/`getTenantUrl` + grouped versions panel)
+- `src/pages/public/OwnerReport.tsx` (audience-aware renderer + responsive layout + header comment)
 
----
+### G. Out of scope this iteration
 
-## Files to modify
+- Renaming the file/route (kept stable; comment marks it as audience-aware).
+- Email/WhatsApp delivery automation (publish dialog only, manual copy).
+- Changing `visible_to_owner` semantics (reaffirmed as editorial gate, not payer gate).
 
-- `src/pages/executive/ExecutiveReviewDetail.tsx` — header, sidebars, `SectionWorkspace`, `PhotoPanel`.
-- New imports from existing UI primitives only: `DropdownMenu*` (`@/components/ui/dropdown-menu`), `Popover*` (`@/components/ui/popover`), `ChevronDown` from `lucide-react`.
+## Summary on completion
 
-## Out of scope (unchanged)
-
-- Business logic: `budgetBreakdown`, totals, `onUpdateRepair`, contractor pricing, deposit diff math.
-- Section completion, approval/return, publish flow.
-- Mobile fallback layout (no structural rework).
-- `QuotationDialog` content.
-- Database schema, RLS, types.
-
-## Final summary will cover
-
-- Header: two rows, 4 concise summary blocks (3-line max), single `Cotización ▾`, contractor as quiet always-visible popover, blocker badges consolidated.
-- Repair cards: lighter container, compact description, tighter pricing row, classification demoted to `Propietario ▾ · Obligatoria ▾` dropdown triggers.
-- `Responsable` / `Tipo`: secondary metadata look with caret + hover state — clearly interactive without competing with primary content.
-- Left rail: one status signal per row + optional repair counter.
-- Right rail: flat photo header, plain inline subtotal.
-- Overall: one strong emphasis per region; soft borders replace rings/shadows; tinted backgrounds removed except where they communicate the single most important value in a region.
+- **Field contrast**: `--input` darkens slightly; Input/Textarea gain a subtle gray fill, clearer hover, primary focus ring. Placeholders soften to `muted-foreground/70`.
+- **Two links**: one publish action writes two rows (owner + tenant) sharing `version_number` + payload, each with its own `public_token`. Dialog exposes both URLs with copy actions; both Executive and Admin publish flows behave the same.
+- **Existing reads audited**: `getOwnerUrl`, "Versiones Publicadas" panel, and the version-list header updated; RPC, blanket `is_latest=false` reset, and version-number max query unaffected.
+- **Filtering contract**: `audience` is the public rendering filter; `visible_to_owner` remains the editorial visibility gate applied identically for both audience payloads.
+- **Owner view**: full report + dual payer budget split with three totals.
+- **Tenant view**: full report + tenant-only items + tenant total. Owner figures never reach the tenant render path.
+- **Responsiveness**: stacked header, sticky tabs, vertical-on-mobile budget rows, fluid grids, no horizontal scroll.

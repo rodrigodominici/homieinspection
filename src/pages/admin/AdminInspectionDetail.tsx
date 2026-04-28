@@ -412,6 +412,8 @@ export default function AdminInspectionDetail() {
             quantity: r.quantity,
             unit_price: r.unit_price,
             subtotal: r.subtotal,
+            payer_role: r.payer_role,
+            payment_nature: r.payment_nature,
           })),
       })),
       budget_total: visibleRepairs.reduce((sum, r) => sum + Number(r.subtotal ?? r.quantity * r.unit_price), 0),
@@ -426,17 +428,19 @@ export default function AdminInspectionDetail() {
       .limit(1);
     const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
 
+    // Atomic-in-practice publish: clear previous latest rows, then insert
+    // owner + tenant rows in one batch so the RPC always finds exactly one
+    // is_latest=true row per (inspection, audience).
     await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
 
-    const publicToken = crypto.randomUUID();
-    const { error } = await supabase.from('inspection_report_versions').insert({
-      inspection_id: id!,
-      version_number: nextVersion,
-      status: 'published',
-      public_token: publicToken,
-      normalized_payload: payload as any,
-      is_latest: true,
-    });
+    const ownerToken = crypto.randomUUID();
+    const tenantToken = crypto.randomUUID();
+    const { error } = await supabase.from('inspection_report_versions').insert([
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
+      { inspection_id: id!, version_number: nextVersion, status: 'published',
+        audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
+    ]);
 
     if (error) {
       toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
@@ -452,8 +456,8 @@ export default function AdminInspectionDetail() {
       approved_by: profile?.id,
     }).eq('id', inspection.id);
 
-    await logAudit('publish', inspection.status, 'published', `v${nextVersion}`);
-    toast({ title: `Reporte v${nextVersion} publicado` });
+    await logAudit('publish', inspection.status, 'published', `v${nextVersion} (owner+tenant)`);
+    toast({ title: `Reporte v${nextVersion} publicado (Propietario + Inquilino)` });
     await fetchAll();
     setPublishing(false);
   };
@@ -540,9 +544,15 @@ export default function AdminInspectionDetail() {
     setRepairsBySection(groupBy(rps));
   };
 
-  /* ─── Copy owner URL ─── */
+  /* ─── Copy public URLs (per audience) ─── */
   const getOwnerUrl = () => {
-    const latest = reportVersions.find(v => v.is_latest && v.public_token);
+    const latest = reportVersions.find(v => v.is_latest && v.audience === 'owner' && v.public_token);
+    if (!latest || !inspection) return null;
+    return `${window.location.origin}/reportes/${inspection.property_id}/${latest.public_token}`;
+  };
+
+  const getTenantUrl = () => {
+    const latest = reportVersions.find(v => v.is_latest && v.audience === 'tenant' && v.public_token);
     if (!latest || !inspection) return null;
     return `${window.location.origin}/reportes/${inspection.property_id}/${latest.public_token}`;
   };
@@ -551,7 +561,7 @@ export default function AdminInspectionDetail() {
     const url = getOwnerUrl();
     if (url) {
       navigator.clipboard.writeText(url);
-      toast({ title: 'URL copiada al portapapeles' });
+      toast({ title: 'URL Propietario copiada' });
     }
   };
 
@@ -1462,7 +1472,7 @@ export default function AdminInspectionDetail() {
                 );
               })}
 
-              {/* Published versions */}
+              {/* Published versions — grouped by version_number (one row per version, two audience links) */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Versiones Publicadas</CardTitle>
@@ -1471,31 +1481,52 @@ export default function AdminInspectionDetail() {
                   {reportVersions.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No hay versiones publicadas.</p>
                   ) : (
-                    reportVersions.map(v => (
-                      <div key={v.id} className="flex items-center gap-3 py-2 border-b last:border-0">
-                        <span className={cn('text-sm font-medium', v.is_latest && 'text-primary')}>
-                          v{v.version_number}
-                        </span>
-                        {v.is_latest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
-                        <span className="text-xs text-muted-foreground flex-1">
-                          {format(new Date(v.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                        </span>
-                        {v.public_token && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 gap-1 text-xs"
-                            onClick={() => {
-                              const url = `${window.location.origin}/reportes/${inspection.property_id}/${v.public_token}`;
-                              navigator.clipboard.writeText(url);
-                              toast({ title: 'URL copiada' });
-                            }}
-                          >
-                            <Copy className="h-3 w-3" /> Copiar
-                          </Button>
-                        )}
-                      </div>
-                    ))
+                    Array.from(
+                      reportVersions.reduce((map, v) => {
+                        const arr = map.get(v.version_number) ?? [];
+                        arr.push(v);
+                        map.set(v.version_number, arr);
+                        return map;
+                      }, new Map<number, InspectionReportVersion[]>()).entries()
+                    )
+                      .sort(([a], [b]) => b - a)
+                      .map(([version, rows]) => {
+                        const owner = rows.find(r => r.audience === 'owner');
+                        const tenant = rows.find(r => r.audience === 'tenant');
+                        const isLatest = rows.some(r => r.is_latest);
+                        const createdAt = rows[0].created_at;
+                        const copyUrl = (token: string | null, label: string) => {
+                          if (!token || !inspection) return;
+                          const url = `${window.location.origin}/reportes/${inspection.property_id}/${token}`;
+                          navigator.clipboard.writeText(url);
+                          toast({ title: `URL ${label} copiada` });
+                        };
+                        return (
+                          <div key={version} className="flex flex-wrap items-center gap-3 py-2 border-b last:border-0">
+                            <span className={cn('text-sm font-medium', isLatest && 'text-primary')}>
+                              v{version}
+                            </span>
+                            {isLatest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
+                            <span className="text-xs text-muted-foreground flex-1 min-w-[120px]">
+                              {format(new Date(createdAt), 'dd MMM yyyy HH:mm', { locale: es })}
+                            </span>
+                            <Button
+                              variant="ghost" size="sm" disabled={!owner?.public_token}
+                              className="h-7 gap-1 text-xs"
+                              onClick={() => copyUrl(owner?.public_token ?? null, 'Propietario')}
+                            >
+                              <Copy className="h-3 w-3" /> Propietario
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" disabled={!tenant?.public_token}
+                              className="h-7 gap-1 text-xs"
+                              onClick={() => copyUrl(tenant?.public_token ?? null, 'Inquilino')}
+                            >
+                              <Copy className="h-3 w-3" /> Inquilino
+                            </Button>
+                          </div>
+                        );
+                      })
                   )}
                 </CardContent>
               </Card>

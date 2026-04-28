@@ -32,8 +32,8 @@
     --destructive: 24 85% 57%;        /* #ED8735 — danger */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;            /* #E5E7EB */
-    --input: 220 13% 91%;
+    --border: 220 13% 91%;            /* #E5E7EB — separators */
+    --input: 220 13% 84%;             /* darker than --border so form fields read clearly on white cards */
     --ring: 231 32% 48%;
 
     --radius: 0.75rem;
