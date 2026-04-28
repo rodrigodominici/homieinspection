@@ -950,8 +950,25 @@ export default function ExecutiveReviewDetail() {
         )}
       </div>
 
-
-
+      {/* ── Repairs drawer (per-section, desktop-first) ─── */}
+      {(() => {
+        const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
+        if (!sec) return null;
+        return (
+          <SectionRepairsDrawer
+            open={!!repairsDrawerSectionId}
+            onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
+            section={sec}
+            repairs={repairsBySection[sec.id] ?? []}
+            hasContractor={!!selectedContractorId}
+            expandedRepairId={expandedRepairId}
+            onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
+            onOpenCatalog={() => openCatalog(sec.id)}
+            onUpdateRepair={updateRepairItem}
+            onDeleteRepair={deleteRepairItem}
+          />
+        );
+      })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
