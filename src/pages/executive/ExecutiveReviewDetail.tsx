@@ -119,6 +119,11 @@ export default function ExecutiveReviewDetail() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
+  // Repairs side drawer (desktop). Holds the section id whose repairs are open.
+  const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
+  // Which repair row inside the drawer is expanded for editing (accordion).
+  const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
+
   // ─── Data fetching ─────────────────────────────────────
   const fetchAll = useCallback(async () => {
     const [{ data: insp }, { data: contractorData }] = await Promise.all([
