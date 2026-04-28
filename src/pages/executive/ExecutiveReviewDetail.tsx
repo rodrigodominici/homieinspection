@@ -704,59 +704,41 @@ export default function ExecutiveReviewDetail() {
         {/* LEFT SIDEBAR: Section nav */}
         <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
           <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Secciones</p>
-          {/* Signature compliance block */}
+          {/* Signature compliance block — neutral container */}
           {signatureRecord && (
-            <Card className={cn('mb-3 border-0 ring-1 shadow-sm',
-              signatureRecord.signature_status === 'signed' ? 'ring-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good))]/5'
-              : signatureRecord.signature_status === 'refused' ? 'ring-[hsl(var(--status-bad))]/30 bg-[hsl(var(--status-bad))]/5'
-              : 'ring-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/5'
-            )}>
-              <CardContent className="p-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 text-tiny font-medium">
-                  {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
-                   signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
-                   <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
-                  <span>Firma del inquilino</span>
-                </div>
-                <p className="text-tiny text-muted-foreground">
-                  {signatureRecord.signature_status === 'signed'
-                    ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
-                    : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
-                    : 'Inquilino no disponible'}
-                </p>
-                {signatureRecord.skip_reason && (
-                  <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
-                )}
-              </CardContent>
-            </Card>
+            <div className="mb-3 rounded-md border border-border/60 bg-card p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5 text-tiny font-medium">
+                {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
+                 signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
+                 <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
+                <span>Firma del inquilino</span>
+              </div>
+              <p className="text-tiny text-muted-foreground">
+                {signatureRecord.signature_status === 'signed'
+                  ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
+                  : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
+                  : 'Inquilino no disponible'}
+              </p>
+              {signatureRecord.skip_reason && (
+                <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
+              )}
+            </div>
           )}
           {operationalSections.map((s) => {
             const isActive = s.id === activeSectionId;
-            const needsObs = requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim();
-            const photoCount = (photosBySection[s.id] ?? []).length;
             const repairCount = (repairsBySection[s.id] ?? []).length;
             return (
               <button key={s.id} onClick={() => setActiveSectionId(s.id)}
                 className={cn(
-                  'w-full text-left px-2 py-2 rounded-lg text-caption transition-colors',
+                  'w-full text-left px-2 py-1.5 rounded-md text-caption transition-colors',
                   isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
                 )}>
                 <div className="flex items-center gap-1.5">
                   <span className="flex-1 truncate">{s.section_title}</span>
-                  {needsObs && <span className="h-2 w-2 rounded-full bg-[hsl(var(--status-bad))] shrink-0" />}
-                  <SectionStatusBadge status={s.status} />
-                </div>
-                {/* Indicator row */}
-                <div className="flex items-center gap-2 mt-0.5 text-tiny text-muted-foreground">
-                  {photoCount > 0 && (
-                    <span className="flex items-center gap-0.5"><Camera className="h-3 w-3" />{photoCount}</span>
-                  )}
                   {repairCount > 0 && (
-                    <span className="flex items-center gap-0.5"><Wrench className="h-3 w-3" />{repairCount}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">· {repairCount}</span>
                   )}
-                  {needsObs && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-bad))] shrink-0" title="Falta observación final" />
-                  )}
+                  <SectionStatusBadge status={s.status} />
                 </div>
               </button>
             );
