@@ -76,8 +76,8 @@ export default function AdminCommunicationTemplates() {
       is_active: editing.is_active ?? true,
     };
     const { error } = editing.id
-      ? await supabase.from('communication_templates').update(payload).eq('id', editing.id)
-      : await supabase.from('communication_templates').insert(payload);
+      ? await supabase.from('communication_templates').update(payload as never).eq('id', editing.id)
+      : await supabase.from('communication_templates').insert(payload as never);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else { setOpen(false); fetchAll(); }
   };
