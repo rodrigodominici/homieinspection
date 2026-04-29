@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ClipboardList, Users, Settings, LogOut, CalendarClock, Wrench, Plug } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, Settings, LogOut, CalendarClock, Wrench, Plug, MessageSquare, FileType, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -20,6 +20,9 @@ const navItems = [
   { title: 'Inspecciones', url: '/admin/inspections', icon: ClipboardList },
   { title: 'Agenda', url: '/admin/schedule', icon: CalendarClock },
   { title: 'Catálogo', url: '/admin/catalog', icon: Wrench },
+  { title: 'Reglas comunicación', url: '/admin/comunicaciones/reglas', icon: MessageSquare },
+  { title: 'Templates', url: '/admin/comunicaciones/templates', icon: FileType },
+  { title: 'Historial envíos', url: '/admin/comunicaciones/historial', icon: History },
   { title: 'Usuarios', url: '/admin/users', icon: Users },
   { title: 'Integraciones', url: '/admin/integrations', icon: Plug },
   { title: 'Configuración', url: '/admin/settings', icon: Settings },

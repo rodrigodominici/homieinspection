@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
+import { emitCommunicationEvent } from '@/lib/communications/emit';
+import { COMMUNICATION_EVENTS } from '@/lib/communications/events';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -413,6 +415,17 @@ export default function ExecutiveReviewDetail() {
     setPublishedUrls({
       owner: `${origin}/reportes/${inspection.property_id}/${ownerToken}`,
       tenant: `${origin}/reportes/${inspection.property_id}/${tenantToken}`,
+    });
+    // Fire system events for the Communications module (fire-and-forget).
+    emitCommunicationEvent({
+      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_OWNER,
+      inspectionId: id!,
+      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${ownerToken}` },
+    });
+    emitCommunicationEvent({
+      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_TENANT,
+      inspectionId: id!,
+      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${tenantToken}` },
     });
     setPublishDialogOpen(true);
     setSubmitting(false);
