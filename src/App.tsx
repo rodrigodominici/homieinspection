@@ -19,6 +19,9 @@ import AdminIntegrations from "./pages/admin/AdminIntegrations";
 import AdminIntegrationHubSpot from "./pages/admin/AdminIntegrationHubSpot";
 import AdminIntegrationHubSpotLogs from "./pages/admin/AdminIntegrationHubSpotLogs";
 import AdminIntegrationHubSpotOutboundLogs from "./pages/admin/AdminIntegrationHubSpotOutboundLogs";
+import AdminCommunicationRules from "./pages/admin/AdminCommunicationRules";
+import AdminCommunicationTemplates from "./pages/admin/AdminCommunicationTemplates";
+import AdminCommunicationHistory from "./pages/admin/AdminCommunicationHistory";
 import InspectorDashboard from "./pages/inspector/InspectorDashboard";
 import InspectorPastInspections from "./pages/inspector/InspectorPastInspections";
 import InspectorAllInspections from "./pages/inspector/InspectorAllInspections";
@@ -56,6 +59,9 @@ const App = () => (
             <Route path="/admin/integrations/hubspot" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpot /></ProtectedRoute>} />
             <Route path="/admin/integrations/hubspot/logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotLogs /></ProtectedRoute>} />
             <Route path="/admin/integrations/hubspot/outbound-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotOutboundLogs /></ProtectedRoute>} />
+            <Route path="/admin/comunicaciones/reglas" element={<ProtectedRoute allowedRoles={['admin']}><AdminCommunicationRules /></ProtectedRoute>} />
+            <Route path="/admin/comunicaciones/templates" element={<ProtectedRoute allowedRoles={['admin']}><AdminCommunicationTemplates /></ProtectedRoute>} />
+            <Route path="/admin/comunicaciones/historial" element={<ProtectedRoute allowedRoles={['admin']}><AdminCommunicationHistory /></ProtectedRoute>} />
             
             {/* Inspector routes */}
             <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
