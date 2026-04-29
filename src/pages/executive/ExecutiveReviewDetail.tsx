@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { cn } from '@/lib/utils';
+import { emitCommunicationEvent } from '@/lib/communications/emit';
+import { COMMUNICATION_EVENTS } from '@/lib/communications/events';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 

@@ -38,6 +38,8 @@ import {
   ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { emitCommunicationEvent } from '@/lib/communications/emit';
+import { COMMUNICATION_EVENTS } from '@/lib/communications/events';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
