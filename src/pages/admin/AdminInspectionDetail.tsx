@@ -457,6 +457,18 @@ export default function AdminInspectionDetail() {
     }).eq('id', inspection.id);
 
     await logAudit('publish', inspection.status, 'published', `v${nextVersion} (owner+tenant)`);
+    // Fire system events for the Communications module (fire-and-forget).
+    const origin = window.location.origin;
+    emitCommunicationEvent({
+      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_OWNER,
+      inspectionId: inspection.id,
+      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${ownerToken}` },
+    });
+    emitCommunicationEvent({
+      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_TENANT,
+      inspectionId: inspection.id,
+      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${tenantToken}` },
+    });
     toast({ title: `Reporte v${nextVersion} publicado (Propietario + Inquilino)` });
     await fetchAll();
     setPublishing(false);
