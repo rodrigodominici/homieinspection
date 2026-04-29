@@ -221,6 +221,12 @@ export default function AdminInspections() {
       toast({ title: 'Inspección asignada' });
       const inspectorName = inspectors.find(p => p.id === assignInspector)?.full_name ?? null;
       const executiveName = executives.find(p => p.id === assignExecutive)?.full_name ?? null;
+      // Fire system event for the Communications module (fire-and-forget).
+      emitCommunicationEvent({
+        eventName: COMMUNICATION_EVENTS.INSPECTION_ASSIGNED_INSPECTOR,
+        inspectionId: inspectionId,
+        payload: { inspector_id: assignInspector, executive_id: assignExecutive },
+      });
       setInspections((prev) =>
         prev.map((i) =>
           i.id === inspectionId
