@@ -1,156 +1,172 @@
 
-# Executive budget UX + public images fix
+# MVP Comunicaciones Transaccionales
 
-Two independent problems handled separately.
-
----
-
-## Part 1 — Diagnosis: Executive budget UI
-
-**Why the current placement creates friction**
-
-In `ExecutiveReviewDetail.tsx` (`SectionWorkspace`), each section renders a long vertical sequence:
-status fields → other fields → side-by-side observations → internal note → **Reparaciones card** → return mode.
-
-The repairs block sits at the very bottom of the section. To budget a repair the executive must:
-
-1. Scroll past observations and the internal note.
-2. Add/edit the repair.
-3. Scroll back up to re-read the observation or check a photo in the right rail.
-4. Repeat for each repair.
-
-The right rail already shows photos for the active section, but repairs are forced into the same vertical column as text content, so review (text + photos) and budgeting (numbers + classification) compete for the same scroll axis. Each repair card is also tall (~6 rows: title, description textarea, pricing grid, notes, payer/nature row), which compounds the scroll problem when a section has 3+ items.
-
-**How much is "just stacking"**
-
-Most of it. The card itself is reasonable; the issue is that it's stacked below content the executive needs to keep referencing. Moving it to a parallel surface eliminates the scroll loop without redesigning the card.
-
-**Inline vs secondary surface**
-
-A right-side drawer is the right call:
-
-- preserves "repairs belong to a section" (drawer is opened from the active section header)
-- text review stays anchored in the center column
-- photos stay in the right rail until the drawer opens, drawer overlays the rail
-- closing returns the executive to the exact same scroll position
-- no data model change
+Módulo desacoplado para disparar comunicaciones (WhatsApp / email) ante eventos del sistema, configurable desde UI sin tocar código.
 
 ---
 
-## Part 1 — Implementation
+## Arquitectura — 4 capas
 
-### New component: `SectionRepairsDrawer`
-
-A right-side `Sheet` (reuses existing `@/components/ui/sheet`) opened per active section. Contents:
-
-- header: section title + repair count + section subtotal (cliente)
-- "Agregar reparación" button → opens existing catalog sheet stacked on top
-- compact list of repairs, each rendered as a **collapsed summary row** by default:
-  - title · payer chip · nature chip · subtotal · expand caret · delete
-- click a row → expands inline to show the full editor (description, qty/precio/contratista grid, notes, visibility toggle, payer/nature dropdowns)
-- only one repair expanded at a time (accordion behavior)
-- empty state: "Sin reparaciones en esta sección" + primary "Agregar"
-- footer (sticky inside the drawer): subtotal cliente + count
-
-The full editing UI itself is the same controls already in `SectionWorkspace`'s repair card — just relocated and collapsed-by-default.
-
-### Trigger placement
-
-In `SectionWorkspace`, replace the entire bottom `Reparaciones` card with a **compact summary strip** placed near the top of the section (right after the section title row):
-
-```
-[Wrench] Reparaciones · 3        Subtotal $45.000   [Editar reparaciones ▸]
+```text
+[Acción de negocio]
+   │ emite
+   ▼
+[Evento del sistema] ──► [Reglas activas] ──► [Template] ──► [Provider Adapter] ──► [Delivery log]
 ```
 
-- Click the row or the button opens the drawer.
-- Strip stays visible after closing, with updated count/subtotal.
+- **Eventos**: catálogo fijo en código (no editable en UI en MVP).
+- **Reglas**: configurables (activa, canal, proveedor, template, destinatario, mercado).
+- **Templates**: mapeo interno → template real del proveedor.
+- **Deliveries**: trazabilidad completa (1 fila por intento).
 
-This satisfies "repair editor moves out of the bottom" and gives the executive a one-click path to budget without scrolling.
-
-### Mobile
-
-Mobile already has the budget per section in a stacked layout (line ~911). Keep the existing inline behavior on mobile (drawer would compete with the bottom action bar). The drawer is desktop-only (`hidden lg:flex` trigger; on mobile keep the current inline list). The compact summary strip can render on both.
-
-### What does NOT change
-
-- data model, RLS, RPC, publish flow
-- catalog sheet, contractor popover
-- subtotal logic (`budgetBreakdown`, `clientTotal`, `contractorTotal`)
-- right photo rail (drawer overlays, doesn't replace)
+El core de inspecciones nunca llama a un SDK de proveedor. Solo emite eventos.
 
 ---
 
-## Part 2 — Diagnosis: missing public images
+## 1. Modelo de datos
 
-**End-to-end trace**
+Migración nueva con 3 tablas:
 
-1. Publish payload (`handlePublish`, line 362) writes `photos: [{ id, url: null, caption }]` — `url` is intentionally null; the RPC is supposed to fill it.
-2. The RPC `get_published_report` walks each photo and tries:
-   ```sql
-   SELECT (storage.sign(v_storage_path, 3600, 'inspection-photos')) INTO v_signed_url;
-   ```
-3. **`storage.sign` does not exist.** Verified via `pg_proc`: no function named `sign` in `storage`, `extensions`, or `public`. The call raises `undefined_function`, the `EXCEPTION WHEN OTHERS` block swallows it, `v_signed_url` stays NULL.
-4. RPC returns `{ id, url: null, caption }`.
-5. `OwnerReport.tsx` renders `<img src={photo.url ?? ''} />` → empty `src` → browser shows broken-image icon.
+### `communication_rules`
+`id, name, event_name, is_active, channel, provider_key, template_key, recipient_type, market, conditions_json, created_at, updated_at`
 
-**Scope:** affects 100% of published reports, both audiences, all sections — every photo.
+### `communication_templates`
+`id, template_key (unique), name, channel, provider_key, market, language, external_template_name, variables_json, preview_text, is_active, created_at, updated_at`
 
-**Why a client-side `createSignedUrl` retry won't work**
+### `communication_deliveries`
+`id, event_name, inspection_id (FK set null), rule_id (FK set null), channel, provider_key, recipient_type, recipient_value, template_key, request_payload_json, response_payload_json, status (pending|sent|error|skipped), error_message, provider_message_id, created_at, sent_at`
 
-The bucket is private and storage RLS only allows authenticated roles to SELECT inspection photos. Public report viewers are anonymous. Direct anon `createSignedUrl` will be denied.
+Índices: `(inspection_id)`, `(event_name)`, `(status)`, `(created_at desc)`.
+
+**RLS**: solo admin gestiona reglas/templates; ejecutivos pueden leer deliveries de inspecciones asignadas; service role escribe deliveries desde la edge function.
 
 ---
 
-## Part 2 — Implementation
+## 2. Catálogo de eventos (código)
 
-### New edge function: `sign-public-photo`
+`src/lib/communications/events.ts`:
 
-Public (no JWT). Inputs: `{ property_id, token, photo_id }`.
+```ts
+export const COMMUNICATION_EVENTS = {
+  INSPECTION_ASSIGNED_INSPECTOR: 'inspection.assigned.inspector',
+  INSPECTION_PUBLISHED_OWNER:    'inspection.published.owner',
+  INSPECTION_PUBLISHED_TENANT:   'inspection.published.tenant',
+} as const;
+```
 
-Logic (uses `SUPABASE_SERVICE_ROLE_KEY`):
-
-1. Look up `inspection_report_versions` row by `public_token` where `status = 'published'` AND `is_latest = true`.
-2. Join `inspections` and verify `property_id` matches.
-3. Verify the requested `photo_id` belongs to that `inspection_id` via `inspection_photos`.
-4. Read `storage_path` and call `storage.from('inspection-photos').createSignedUrl(path, 3600)` with the service-role client.
-5. Return `{ url }` (or 404). Cache headers: `Cache-Control: private, max-age=3000`.
-
-Add `[functions.sign-public-photo] verify_jwt = false` in `supabase/config.toml`.
-
-### Renderer changes (`OwnerReport.tsx`)
-
-- New helper `usePublicSignedPhotoUrls(photos, propertyId, token)`:
-  - Mirrors the shape of `useSignedPhotoUrls` but calls the edge function per id, batched in parallel via `Promise.all`.
-  - Caches in component state; refreshes when `photos` change.
-- Replace `<img src={photo.url ?? ''} />` with `<img src={urlOf(photo.id)} />`.
-- Graceful fallback: if a URL resolves to empty, render a neutral placeholder block (`bg-muted` square with a small "Foto no disponible" caption) instead of a broken-image icon. Use `onError` on the `img` to swap to the placeholder if the signed URL itself 404s.
-
-### RPC cleanup
-
-- Strip the broken `storage.sign(...)` block from `get_published_report` so the RPC no longer wastes work pretending to sign URLs. Keep the photo entry shape `{ id, url: null, caption }` so the renderer's contract is unchanged: it always signs via the edge function.
-
-### Why not just fix the RPC
-
-`storage.create_signed_url` is not exposed as a SQL-callable function in Supabase. The supported path for signing from a privileged context is the storage HTTP API, which the edge function calls cleanly. Doing it in an edge function also gives us the auth check (token + property_id + photo ownership) in one place.
+Cada evento documenta: payload esperado, recipient_types soportados, variables disponibles para template.
 
 ---
 
-## Files affected
+## 3. Emisión
 
-**Part 1**
-- `src/pages/executive/ExecutiveReviewDetail.tsx` — extract `SectionRepairsDrawer`, replace bottom repairs card with compact summary strip + drawer trigger.
+Helper cliente `src/lib/communications/emit.ts`:
 
-**Part 2**
-- `supabase/migrations/<new>.sql` — replace `get_published_report` body to drop the broken `storage.sign` block.
-- `supabase/functions/sign-public-photo/index.ts` — new public edge function.
-- `supabase/config.toml` — add `[functions.sign-public-photo] verify_jwt = false`.
-- `src/pages/public/OwnerReport.tsx` — new `usePublicSignedPhotoUrls` hook, swap img sources, add image fallback.
+```ts
+emitCommunicationEvent({ eventName, inspectionId, payload })
+  → supabase.functions.invoke('process-communication-event', { body })
+```
+
+Llamadas a insertar:
+
+- `AdminInspections.tsx` línea 216 (asignar inspector) → emite `inspection.assigned.inspector`.
+- `AdminInspectionDetail.tsx` línea 438 (insert versions) → emite `inspection.published.owner` y `inspection.published.tenant`.
+- `ExecutiveReviewDetail.tsx` línea 396 (insert versions) → idem.
+
+Emisión es **fire-and-forget** (no bloquea flujo). Errores van a console + delivery con status `error`.
 
 ---
 
-## Out of scope
+## 4. Edge function `process-communication-event`
 
-- No change to the inspection / repair / publish data model.
-- No change to RLS on `storage.objects`.
-- No change to the audience filtering contract.
-- No change to admin-side publishing flow (it already produces the same payload shape, so it inherits the image fix automatically).
+`supabase/functions/process-communication-event/index.ts` (verify_jwt = false, autenticada por service role internamente).
+
+Flujo:
+
+1. Valida payload con Zod (`event_name`, `inspection_id`, `payload`).
+2. Carga inspección + snapshot + tenant/owner data.
+3. Busca `communication_rules` activas para `event_name` (filtrado por `market` si aplica).
+4. Para cada regla:
+   - Resuelve destinatario según `recipient_type`:
+     - `inspector` → `profiles` vía `inspector_id` (phone/email).
+     - `owner` → `property_snapshot_json.recipient_email` u owner data.
+     - `tenant` → `tenant_whatsapp` / `tenant_email` del snapshot.
+   - Carga `communication_templates` por `template_key`.
+   - Renderiza variables (substitución simple `{{var}}`).
+   - Llama provider adapter.
+   - Inserta `communication_deliveries` con status final.
+5. Si no hay reglas o falta destinatario → registra `skipped` con `error_message` explicativo.
+
+---
+
+## 5. Provider adapters
+
+`supabase/functions/_shared/communication-providers/`:
+
+- `index.ts` — interface `Provider { send(payload): Promise<{ id?, raw }> }` + registry por `provider_key`.
+- `mock.ts` — provider de pruebas que solo loguea y devuelve id ficticio.
+- `whatsapp-darwin.ts` — stub que devuelve "not_configured" hasta tener credenciales.
+- `email-resend.ts` — stub idem.
+
+MVP usa `mock` por defecto. Agregar providers reales después sin tocar el core.
+
+---
+
+## 6. UI Admin
+
+Nueva sección en sidebar admin: **Comunicaciones**.
+
+### `/admin/comunicaciones/reglas`
+- Lista de reglas con toggle activa/inactiva.
+- Crear/editar regla: nombre, evento (select del catálogo), canal, proveedor, template (select de templates compatibles), recipient_type, market.
+- `conditions_json` queda como textarea JSON crudo (preparado para builder futuro).
+
+### `/admin/comunicaciones/templates`
+- Lista + crear/editar: template_key, nombre, canal, proveedor, external_template_name, variables (lista chips), preview_text, idioma, mercado.
+
+### `/admin/comunicaciones/historial`
+- Tabla de `communication_deliveries` con filtros: evento, status, canal, fechas, búsqueda por inspection_id.
+- Drawer de detalle con request/response JSON.
+
+Rutas registradas en `App.tsx` y enlace en `AdminLayout.tsx`.
+
+---
+
+## 7. Files a crear/modificar
+
+**Nuevos**
+- `supabase/migrations/<ts>_communications_module.sql`
+- `supabase/functions/process-communication-event/index.ts`
+- `supabase/functions/_shared/communication-providers/{index,mock,whatsapp-darwin,email-resend}.ts`
+- `src/lib/communications/{events,emit,types}.ts`
+- `src/pages/admin/AdminCommunicationRules.tsx`
+- `src/pages/admin/AdminCommunicationTemplates.tsx`
+- `src/pages/admin/AdminCommunicationHistory.tsx`
+- `supabase/config.toml` → `[functions.process-communication-event] verify_jwt = false`
+
+**Modificados**
+- `src/pages/admin/AdminInspections.tsx` (emitir al asignar)
+- `src/pages/admin/AdminInspectionDetail.tsx` (emitir al publicar)
+- `src/pages/executive/ExecutiveReviewDetail.tsx` (emitir al publicar)
+- `src/App.tsx` (rutas)
+- `src/components/AdminLayout.tsx` (nav)
+
+---
+
+## 8. Fuera de alcance MVP
+
+- Cola/retry sofisticado (deliveries falladas se reintentan manualmente desde UI en V2).
+- Builder visual de condiciones.
+- Templates aprobados Meta (se referencian por nombre, no se crean).
+- Eventos creables desde UI.
+- Webhooks de status del proveedor (delivered/read).
+
+---
+
+## Resumen final tras implementar
+
+- Modelo de 3 tablas + catálogo de eventos en código.
+- Helper `emitCommunicationEvent` invocado en 3 puntos del flujo.
+- Edge function evalúa reglas, resuelve destinatario, llama adapter, registra delivery.
+- 3 pantallas admin: reglas, templates, historial.
+- Provider adapters intercambiables; MVP usa mock hasta enchufar Darwin/Resend.
