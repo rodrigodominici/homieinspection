@@ -224,11 +224,13 @@ export default function AdminUsers() {
     if (error) {
       const ctx = (error as { context?: { error?: string; detail?: string } }).context;
       const code = ctx?.error;
+      const isTransport = !code && /failed to send a request|fetcherror|networkerror/i.test(error.message ?? '');
       const msg =
         code === 'email_exists' ? 'Ya existe un usuario con ese email.' :
         code === 'weak_password' ? 'Contraseña muy débil (mín. 8 caracteres).' :
         code === 'forbidden' ? 'No tienes permisos para crear usuarios.' :
         code === 'validation' ? `Datos inválidos (${ctx?.detail ?? 'campo'}).` :
+        isTransport ? 'El servicio de creación de usuarios no respondió. Intenta nuevamente o revisa los logs del backend.' :
         error.message;
       toast({ title: 'No se pudo crear el usuario', description: msg, variant: 'destructive' });
       return;

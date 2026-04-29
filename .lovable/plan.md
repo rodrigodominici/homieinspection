@@ -1,172 +1,80 @@
+## Diagnosis
 
-# MVP Comunicaciones Transaccionales
+The `admin-create-user` edge function exists and is reachable (a direct `POST` returns HTTP 500 — not 404), so the function is deployed. The crash happens before it can return a structured response, which is why the browser shows the generic Supabase JS message **"Failed to send a request to the Edge Function"**.
 
-Módulo desacoplado para disparar comunicaciones (WhatsApp / email) ante eventos del sistema, configurable desde UI sin tocar código.
+### Root cause
 
----
-
-## Arquitectura — 4 capas
-
-```text
-[Acción de negocio]
-   │ emite
-   ▼
-[Evento del sistema] ──► [Reglas activas] ──► [Template] ──► [Provider Adapter] ──► [Delivery log]
-```
-
-- **Eventos**: catálogo fijo en código (no editable en UI en MVP).
-- **Reglas**: configurables (activa, canal, proveedor, template, destinatario, mercado).
-- **Templates**: mapeo interno → template real del proveedor.
-- **Deliveries**: trazabilidad completa (1 fila por intento).
-
-El core de inspecciones nunca llama a un SDK de proveedor. Solo emite eventos.
-
----
-
-## 1. Modelo de datos
-
-Migración nueva con 3 tablas:
-
-### `communication_rules`
-`id, name, event_name, is_active, channel, provider_key, template_key, recipient_type, market, conditions_json, created_at, updated_at`
-
-### `communication_templates`
-`id, template_key (unique), name, channel, provider_key, market, language, external_template_name, variables_json, preview_text, is_active, created_at, updated_at`
-
-### `communication_deliveries`
-`id, event_name, inspection_id (FK set null), rule_id (FK set null), channel, provider_key, recipient_type, recipient_value, template_key, request_payload_json, response_payload_json, status (pending|sent|error|skipped), error_message, provider_message_id, created_at, sent_at`
-
-Índices: `(inspection_id)`, `(event_name)`, `(status)`, `(created_at desc)`.
-
-**RLS**: solo admin gestiona reglas/templates; ejecutivos pueden leer deliveries de inspecciones asignadas; service role escribe deliveries desde la edge function.
-
----
-
-## 2. Catálogo de eventos (código)
-
-`src/lib/communications/events.ts`:
+The function pins an old client:
 
 ```ts
-export const COMMUNICATION_EVENTS = {
-  INSPECTION_ASSIGNED_INSPECTOR: 'inspection.assigned.inspector',
-  INSPECTION_PUBLISHED_OWNER:    'inspection.published.owner',
-  INSPECTION_PUBLISHED_TENANT:   'inspection.published.tenant',
-} as const;
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+...
+const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
 ```
 
-Cada evento documenta: payload esperado, recipient_types soportados, variables disponibles para template.
+`auth.getClaims()` was introduced in **supabase-js 2.50+**. On 2.45.0 the call throws `TypeError: userClient.auth.getClaims is not a function` during request handling, the function returns 500 with no body, and the JS client surfaces it as a network-level failure.
 
----
+A direct curl against `/admin-create-user` confirms: status 500, body "Internal Server Error" — function is found and invoked, just crashing inside.
 
-## 3. Emisión
+### Ruling out the other suspects
 
-Helper cliente `src/lib/communications/emit.ts`:
+1. Function **exists and is deployed** (curl reaches it, 500 not 404).
+2. Frontend **call name and body shape are correct** (`admin-create-user`, fields match `CreateUserBody`).
+3. **Auth/JWT model is fine**: function does in-code validation via service role + `getClaims`; no `verify_jwt = false` override needed once the API call works.
+4. **Secrets are present**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are all configured.
+5. The failure mode is **runtime crash inside the function** (item 5 in the brief).
+
+## Fix
+
+### 1. Bump the Supabase client in `admin-create-user`
 
 ```ts
-emitCommunicationEvent({ eventName, inspectionId, payload })
-  → supabase.functions.invoke('process-communication-event', { body })
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 ```
 
-Llamadas a insertar:
+This makes `getClaims(token)` available and matches the version used by the other working functions (`process-communication-event`).
 
-- `AdminInspections.tsx` línea 216 (asignar inspector) → emite `inspection.assigned.inspector`.
-- `AdminInspectionDetail.tsx` línea 438 (insert versions) → emite `inspection.published.owner` y `inspection.published.tenant`.
-- `ExecutiveReviewDetail.tsx` línea 396 (insert versions) → idem.
+### 2. Apply the same bump to other functions that use `getClaims`
 
-Emisión es **fire-and-forget** (no bloquea flujo). Errores van a console + delivery con status `error`.
+`recover-stalled-events/index.ts` also calls `getClaims` against 2.45.0 and would crash the moment it's invoked authenticated. Bump it to 2.50.0 as well so we don't trade one bug for another.
 
----
+(`hubspot-*` and `retry-source-event` on 2.45.0 don't use `getClaims`, so they keep working — leaving them alone to minimize blast radius.)
 
-## 4. Edge function `process-communication-event`
+### 3. Make the frontend error message useful when the function crashes
 
-`supabase/functions/process-communication-event/index.ts` (verify_jwt = false, autenticada por service role internamente).
+When the function returns a non-2xx with no JSON body, `supabase.functions.invoke` produces an error with no `context.error`, and the user sees the unhelpful "Failed to send a request to the Edge Function". Add a fallback:
 
-Flujo:
+```ts
+const msg =
+  code === 'email_exists' ? '...' :
+  ...
+  error.message?.includes('Failed to send a request')
+    ? 'El servicio de creación de usuarios no respondió. Intenta nuevamente o revisa los logs.'
+    : error.message;
+```
 
-1. Valida payload con Zod (`event_name`, `inspection_id`, `payload`).
-2. Carga inspección + snapshot + tenant/owner data.
-3. Busca `communication_rules` activas para `event_name` (filtrado por `market` si aplica).
-4. Para cada regla:
-   - Resuelve destinatario según `recipient_type`:
-     - `inspector` → `profiles` vía `inspector_id` (phone/email).
-     - `owner` → `property_snapshot_json.recipient_email` u owner data.
-     - `tenant` → `tenant_whatsapp` / `tenant_email` del snapshot.
-   - Carga `communication_templates` por `template_key`.
-   - Renderiza variables (substitución simple `{{var}}`).
-   - Llama provider adapter.
-   - Inserta `communication_deliveries` con status final.
-5. Si no hay reglas o falta destinatario → registra `skipped` con `error_message` explicativo.
+This is cosmetic but prevents the same diagnosis loop next time something crashes server-side.
 
----
+### 4. Verify end-to-end
 
-## 5. Provider adapters
+After the edits:
+- Re-deploy `admin-create-user` and `recover-stalled-events`.
+- `curl POST /admin-create-user` with an empty body should now return **401 `unauthorized`** (the in-code JWT check), not 500.
+- From the Admin > Usuarios screen, creating a user with a fresh email/password/role/market/phone should succeed and the new profile should appear in the list.
 
-`supabase/functions/_shared/communication-providers/`:
+## Technical notes
 
-- `index.ts` — interface `Provider { send(payload): Promise<{ id?, raw }> }` + registry por `provider_key`.
-- `mock.ts` — provider de pruebas que solo loguea y devuelve id ficticio.
-- `whatsapp-darwin.ts` — stub que devuelve "not_configured" hasta tener credenciales.
-- `email-resend.ts` — stub idem.
+- No `supabase/config.toml` changes needed. `admin-create-user` should keep default JWT verification off via in-code validation; we don't add a `[functions.admin-create-user]` block.
+- No new secrets needed.
+- No DB migrations.
+- Files touched:
+  - `supabase/functions/admin-create-user/index.ts` (version bump only)
+  - `supabase/functions/recover-stalled-events/index.ts` (preventive version bump)
+  - `src/pages/admin/AdminUsers.tsx` (friendlier error message)
 
-MVP usa `mock` por defecto. Agregar providers reales después sin tocar el core.
+## Final summary the user will get after implementation
 
----
-
-## 6. UI Admin
-
-Nueva sección en sidebar admin: **Comunicaciones**.
-
-### `/admin/comunicaciones/reglas`
-- Lista de reglas con toggle activa/inactiva.
-- Crear/editar regla: nombre, evento (select del catálogo), canal, proveedor, template (select de templates compatibles), recipient_type, market.
-- `conditions_json` queda como textarea JSON crudo (preparado para builder futuro).
-
-### `/admin/comunicaciones/templates`
-- Lista + crear/editar: template_key, nombre, canal, proveedor, external_template_name, variables (lista chips), preview_text, idioma, mercado.
-
-### `/admin/comunicaciones/historial`
-- Tabla de `communication_deliveries` con filtros: evento, status, canal, fechas, búsqueda por inspection_id.
-- Drawer de detalle con request/response JSON.
-
-Rutas registradas en `App.tsx` y enlace en `AdminLayout.tsx`.
-
----
-
-## 7. Files a crear/modificar
-
-**Nuevos**
-- `supabase/migrations/<ts>_communications_module.sql`
-- `supabase/functions/process-communication-event/index.ts`
-- `supabase/functions/_shared/communication-providers/{index,mock,whatsapp-darwin,email-resend}.ts`
-- `src/lib/communications/{events,emit,types}.ts`
-- `src/pages/admin/AdminCommunicationRules.tsx`
-- `src/pages/admin/AdminCommunicationTemplates.tsx`
-- `src/pages/admin/AdminCommunicationHistory.tsx`
-- `supabase/config.toml` → `[functions.process-communication-event] verify_jwt = false`
-
-**Modificados**
-- `src/pages/admin/AdminInspections.tsx` (emitir al asignar)
-- `src/pages/admin/AdminInspectionDetail.tsx` (emitir al publicar)
-- `src/pages/executive/ExecutiveReviewDetail.tsx` (emitir al publicar)
-- `src/App.tsx` (rutas)
-- `src/components/AdminLayout.tsx` (nav)
-
----
-
-## 8. Fuera de alcance MVP
-
-- Cola/retry sofisticado (deliveries falladas se reintentan manualmente desde UI en V2).
-- Builder visual de condiciones.
-- Templates aprobados Meta (se referencian por nombre, no se crean).
-- Eventos creables desde UI.
-- Webhooks de status del proveedor (delivered/read).
-
----
-
-## Resumen final tras implementar
-
-- Modelo de 3 tablas + catálogo de eventos en código.
-- Helper `emitCommunicationEvent` invocado en 3 puntos del flujo.
-- Edge function evalúa reglas, resuelve destinatario, llama adapter, registra delivery.
-- 3 pantallas admin: reglas, templates, historial.
-- Provider adapters intercambiables; MVP usa mock hasta enchufar Darwin/Resend.
+- **Root cause**: `admin-create-user` was pinned to `supabase-js 2.45.0`, which doesn't have `auth.getClaims()`. The call threw at runtime, the function returned a bare 500, and the client surfaced it as "Failed to send a request to the Edge Function".
+- **What changed**: bumped the client to 2.50.0 in `admin-create-user` (and preventively in `recover-stalled-events`), and improved the frontend error message for opaque function failures.
+- **Reachability**: the function was already deployed and reachable — it just crashed inside. After the bump it returns proper 401/400/200 responses.
+- **Outcome**: Admin can create users end-to-end again from Admin > Usuarios.

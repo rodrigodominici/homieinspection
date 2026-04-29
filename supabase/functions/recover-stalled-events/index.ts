@@ -1,6 +1,6 @@
 // Recover events stuck in 'received' or 'processing' for more than 5 minutes.
 // Admin-only. Re-invokes the RPC for each, capped per run.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
