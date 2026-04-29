@@ -35,6 +35,8 @@ import {
   LayoutGrid, Table2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { emitCommunicationEvent } from '@/lib/communications/emit';
+import { COMMUNICATION_EVENTS } from '@/lib/communications/events';
 
 const payloadOptions = [
   { key: 'studio', label: 'Estudio — 0D 1B, terraza + logia' },
