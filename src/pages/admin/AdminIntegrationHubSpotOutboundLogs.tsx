@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, RefreshCw, ExternalLink, RotateCcw, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { retryHubspotSync } from '@/lib/hubspot-sync';
