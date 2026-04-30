@@ -4,7 +4,7 @@
 // the single source of truth — every retry produces a fresh log row.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // Shared classifier — same vocabulary the UI uses, no drift.
-import { classifyOutboundFailure } from '../../../src/lib/hubspot-retry-classifier.ts';
+import { classifyOutboundFailure } from '../_shared/hubspot-retry-classifier.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
