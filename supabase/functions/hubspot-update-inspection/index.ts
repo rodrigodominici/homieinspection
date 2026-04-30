@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
   const triggeredBy = userData.user.id;
 
   // ── Parse body ──
-  let body: { inspection_id?: string; action?: Action; event_time?: string };
+  let body: { inspection_id?: string; action?: Action; event_time?: string; triggered_retry_from?: string };
   try {
     body = await req.json();
   } catch {
@@ -139,6 +139,7 @@ Deno.serve(async (req: Request) => {
   }
   const inspectionId = body.inspection_id;
   const action = body.action;
+  const triggeredRetryFrom = typeof body.triggered_retry_from === 'string' ? body.triggered_retry_from : null;
   if (!inspectionId || typeof inspectionId !== 'string') {
     return logAndRespond(400, { ok: false, error: 'missing_inspection_id' }, {
       status: 'error',
