@@ -1,7 +1,7 @@
 // Admin-only edge function to create internal users (auth + profile in one call).
 // Caller must be an authenticated admin (validated against the `profiles` table).
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

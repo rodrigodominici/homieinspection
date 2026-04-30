@@ -38,8 +38,6 @@ import {
   ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { emitCommunicationEvent } from '@/lib/communications/emit';
-import { COMMUNICATION_EVENTS } from '@/lib/communications/events';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -459,18 +457,6 @@ export default function AdminInspectionDetail() {
     }).eq('id', inspection.id);
 
     await logAudit('publish', inspection.status, 'published', `v${nextVersion} (owner+tenant)`);
-    // Fire system events for the Communications module (fire-and-forget).
-    const origin = window.location.origin;
-    emitCommunicationEvent({
-      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_OWNER,
-      inspectionId: inspection.id,
-      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${ownerToken}` },
-    });
-    emitCommunicationEvent({
-      eventName: COMMUNICATION_EVENTS.INSPECTION_PUBLISHED_TENANT,
-      inspectionId: inspection.id,
-      payload: { version_number: nextVersion, public_url: `${origin}/reportes/${inspection.property_id}/${tenantToken}` },
-    });
     toast({ title: `Reporte v${nextVersion} publicado (Propietario + Inquilino)` });
     await fetchAll();
     setPublishing(false);
