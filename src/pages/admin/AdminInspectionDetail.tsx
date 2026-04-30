@@ -759,6 +759,14 @@ export default function AdminInspectionDetail() {
                           <Send className="h-3.5 w-3.5" />
                         </Button>
                       )}
+                      {/* Secondary CTA per retry plan §5.B — primary surface remains the logs page. */}
+                      <a
+                        href={`/admin/integrations/hubspot/outbound-logs?inspection=${inspection.id}`}
+                        className="text-[11px] text-muted-foreground hover:text-primary hover:underline whitespace-nowrap"
+                        title="Ver logs HubSpot de esta inspección"
+                      >
+                        Ver logs →
+                      </a>
                     </div>
                   </div>
                 );
