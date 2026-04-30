@@ -4,28 +4,36 @@
 // or telemetry later).
 import { supabase } from '@/integrations/supabase/client';
 
-type SyncResult = { ok: boolean; error?: unknown };
+type SyncResult = { ok: boolean; error?: unknown; [k: string]: unknown };
 
-async function invoke(body: Record<string, unknown>): Promise<SyncResult> {
+async function invoke(functionName: string, body: Record<string, unknown>): Promise<SyncResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('hubspot-update-inspection', { body });
+    const { data, error } = await supabase.functions.invoke(functionName, { body });
     if (error) {
-      console.warn('[hubspot-sync] invoke failed', body, error);
+      console.warn(`[hubspot-sync] ${functionName} failed`, body, error);
       return { ok: false, error };
     }
     return { ok: true, ...(typeof data === 'object' ? data : {}) };
   } catch (err) {
-    console.warn('[hubspot-sync] threw', body, err);
+    console.warn(`[hubspot-sync] ${functionName} threw`, body, err);
     return { ok: false, error: err };
   }
 }
 
 export function triggerKeyCollectionSync(inspectionId: string): Promise<SyncResult> {
-  return invoke({ inspection_id: inspectionId, action: 'key_collection_date' });
+  return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'key_collection_date' });
 }
 
 export function triggerCheckoutSync(inspectionId: string, eventTimeIso: string): Promise<SyncResult> {
-  return invoke({ inspection_id: inspectionId, action: 'checkout_received', event_time: eventTimeIso });
+  return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'checkout_received', event_time: eventTimeIso });
+}
+
+/**
+ * Manual retry of a previously failed outbound sync log row.
+ * Admin-only on the server side. Returns the new log id on success.
+ */
+export function retryHubspotSync(logId: string): Promise<SyncResult> {
+  return invoke('retry-hubspot-sync', { log_id: logId });
 }
 
 /**
