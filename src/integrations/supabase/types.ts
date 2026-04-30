@@ -261,6 +261,10 @@ export type Database = {
           request_payload: Json | null
           response_body: Json | null
           response_status: number | null
+          retried_from_log_id: string | null
+          retried_to_log_id: string | null
+          retry_attempts_json: Json
+          retry_count: number
           status: string
           triggered_by: string | null
         }
@@ -277,6 +281,10 @@ export type Database = {
           request_payload?: Json | null
           response_body?: Json | null
           response_status?: number | null
+          retried_from_log_id?: string | null
+          retried_to_log_id?: string | null
+          retry_attempts_json?: Json
+          retry_count?: number
           status: string
           triggered_by?: string | null
         }
@@ -293,6 +301,10 @@ export type Database = {
           request_payload?: Json | null
           response_body?: Json | null
           response_status?: number | null
+          retried_from_log_id?: string | null
+          retried_to_log_id?: string | null
+          retry_attempts_json?: Json
+          retry_count?: number
           status?: string
           triggered_by?: string | null
         }
