@@ -69,6 +69,7 @@ Deno.serve(async (req: Request) => {
       error_message?: string | null;
       triggered_by?: string | null;
       event_time?: string | null;
+      retried_from_log_id?: string | null;
     },
   ) {
     try {
@@ -87,6 +88,7 @@ Deno.serve(async (req: Request) => {
           error_message: logRow.error_message ?? null,
           triggered_by: logRow.triggered_by ?? null,
           event_time: logRow.event_time ?? null,
+          retried_from_log_id: logRow.retried_from_log_id ?? null,
         })
         .select('id')
         .maybeSingle();
