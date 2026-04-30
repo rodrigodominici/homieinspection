@@ -55,6 +55,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405);
+  try {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -65,15 +66,13 @@ Deno.serve(async (req) => {
   if (!authHeader?.startsWith('Bearer ')) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
   const token = authHeader.replace('Bearer ', '');
-  const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
-  if (claimsErr || !claims?.claims?.sub) {
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+  if (userErr || !userData?.user?.id) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
-  const callerId = claims.claims.sub as string;
+  const callerId = userData.user.id;
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: callerProfile, error: callerErr } = await admin
@@ -133,4 +132,8 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ id: newUserId }, 200);
+  } catch (err) {
+    console.error('admin-create-user unexpected error:', err);
+    return jsonResponse({ error: 'internal_error', detail: (err as Error)?.message ?? String(err) }, 500);
+  }
 });
