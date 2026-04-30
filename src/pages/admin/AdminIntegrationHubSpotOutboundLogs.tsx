@@ -75,11 +75,12 @@ function RetryClassBadge({ klass }: { klass: RetryClass }) {
 
 export default function AdminIntegrationHubSpotOutboundLogs() {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [retryFilter, setRetryFilter] = useState<'all' | 'retryable' | 'non_retryable'>('all');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('inspection') ?? '');
   const [selected, setSelected] = useState<LogRow | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
