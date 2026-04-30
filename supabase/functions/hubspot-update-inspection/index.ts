@@ -69,6 +69,7 @@ Deno.serve(async (req: Request) => {
       error_message?: string | null;
       triggered_by?: string | null;
       event_time?: string | null;
+      retried_from_log_id?: string | null;
     },
   ) {
     try {
@@ -87,6 +88,7 @@ Deno.serve(async (req: Request) => {
           error_message: logRow.error_message ?? null,
           triggered_by: logRow.triggered_by ?? null,
           event_time: logRow.event_time ?? null,
+          retried_from_log_id: logRow.retried_from_log_id ?? null,
         })
         .select('id')
         .maybeSingle();
@@ -125,7 +127,7 @@ Deno.serve(async (req: Request) => {
   const triggeredBy = userData.user.id;
 
   // ── Parse body ──
-  let body: { inspection_id?: string; action?: Action; event_time?: string };
+  let body: { inspection_id?: string; action?: Action; event_time?: string; triggered_retry_from?: string };
   try {
     body = await req.json();
   } catch {
@@ -137,12 +139,14 @@ Deno.serve(async (req: Request) => {
   }
   const inspectionId = body.inspection_id;
   const action = body.action;
+  const triggeredRetryFrom = typeof body.triggered_retry_from === 'string' ? body.triggered_retry_from : null;
   if (!inspectionId || typeof inspectionId !== 'string') {
     return logAndRespond(400, { ok: false, error: 'missing_inspection_id' }, {
       status: 'error',
       error_message: 'missing_inspection_id',
       action: action ?? null,
       triggered_by: triggeredBy,
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
   if (action !== 'key_collection_date' && action !== 'checkout_received') {
@@ -151,6 +155,7 @@ Deno.serve(async (req: Request) => {
       error_message: `invalid_action:${String(action)}`,
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
 
@@ -162,6 +167,7 @@ Deno.serve(async (req: Request) => {
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
       error_message: 'hubspot_private_app_token_missing',
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
 
@@ -178,6 +184,7 @@ Deno.serve(async (req: Request) => {
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
       error_message: `inspection_not_found: ${inspErr?.message ?? ''}`,
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
 
@@ -201,6 +208,7 @@ Deno.serve(async (req: Request) => {
         inspection_id: inspectionId,
         triggered_by: triggeredBy,
         error_message: 'missing_key_date',
+        retried_from_log_id: triggeredRetryFrom,
       });
     }
   } else {
@@ -214,6 +222,7 @@ Deno.serve(async (req: Request) => {
         inspection_id: inspectionId,
         triggered_by: triggeredBy,
         error_message: 'invalid_event_time',
+        retried_from_log_id: triggeredRetryFrom,
       });
     }
   }
@@ -236,6 +245,7 @@ Deno.serve(async (req: Request) => {
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
       error_message: `reference_lookup_failed: ${refErr.message}`,
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
   if (!ref) {
@@ -246,6 +256,7 @@ Deno.serve(async (req: Request) => {
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
       error_message: 'no_active_external_reference',
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
 
@@ -263,6 +274,7 @@ Deno.serve(async (req: Request) => {
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
       error_message: `invalid_external_object_id: ${ref.external_object_id}`,
+      retried_from_log_id: triggeredRetryFrom,
     });
   }
 
@@ -323,6 +335,7 @@ Deno.serve(async (req: Request) => {
       error_message: errorMessage,
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
+      retried_from_log_id: triggeredRetryFrom,
     },
   );
 });

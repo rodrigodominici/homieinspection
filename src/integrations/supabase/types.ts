@@ -14,6 +14,171 @@ export type Database = {
   }
   public: {
     Tables: {
+      communication_deliveries: {
+        Row: {
+          channel: string
+          created_at: string
+          error_message: string | null
+          event_name: string
+          id: string
+          inspection_id: string | null
+          provider_key: string
+          provider_message_id: string | null
+          recipient_type: string
+          recipient_value: string | null
+          request_payload_json: Json | null
+          response_payload_json: Json | null
+          rule_id: string | null
+          sent_at: string | null
+          status: string
+          template_key: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          error_message?: string | null
+          event_name: string
+          id?: string
+          inspection_id?: string | null
+          provider_key: string
+          provider_message_id?: string | null
+          recipient_type: string
+          recipient_value?: string | null
+          request_payload_json?: Json | null
+          response_payload_json?: Json | null
+          rule_id?: string | null
+          sent_at?: string | null
+          status: string
+          template_key?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          event_name?: string
+          id?: string
+          inspection_id?: string | null
+          provider_key?: string
+          provider_message_id?: string | null
+          recipient_type?: string
+          recipient_value?: string | null
+          request_payload_json?: Json | null
+          response_payload_json?: Json | null
+          rule_id?: string | null
+          sent_at?: string | null
+          status?: string
+          template_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_deliveries_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_deliveries_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "communication_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_rules: {
+        Row: {
+          channel: string
+          conditions_json: Json | null
+          created_at: string
+          event_name: string
+          id: string
+          is_active: boolean
+          market: string | null
+          name: string
+          provider_key: string
+          recipient_type: string
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          conditions_json?: Json | null
+          created_at?: string
+          event_name: string
+          id?: string
+          is_active?: boolean
+          market?: string | null
+          name: string
+          provider_key: string
+          recipient_type: string
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          conditions_json?: Json | null
+          created_at?: string
+          event_name?: string
+          id?: string
+          is_active?: boolean
+          market?: string | null
+          name?: string
+          provider_key?: string
+          recipient_type?: string
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      communication_templates: {
+        Row: {
+          channel: string
+          created_at: string
+          external_template_name: string | null
+          id: string
+          is_active: boolean
+          language: string | null
+          market: string | null
+          name: string
+          preview_text: string | null
+          provider_key: string
+          template_key: string
+          updated_at: string
+          variables_json: Json | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          external_template_name?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          market?: string | null
+          name: string
+          preview_text?: string | null
+          provider_key: string
+          template_key: string
+          updated_at?: string
+          variables_json?: Json | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          external_template_name?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          market?: string | null
+          name?: string
+          preview_text?: string | null
+          provider_key?: string
+          template_key?: string
+          updated_at?: string
+          variables_json?: Json | null
+        }
+        Relationships: []
+      }
       contractors: {
         Row: {
           country: string
@@ -96,6 +261,10 @@ export type Database = {
           request_payload: Json | null
           response_body: Json | null
           response_status: number | null
+          retried_from_log_id: string | null
+          retried_to_log_id: string | null
+          retry_attempts_json: Json
+          retry_count: number
           status: string
           triggered_by: string | null
         }
@@ -112,6 +281,10 @@ export type Database = {
           request_payload?: Json | null
           response_body?: Json | null
           response_status?: number | null
+          retried_from_log_id?: string | null
+          retried_to_log_id?: string | null
+          retry_attempts_json?: Json
+          retry_count?: number
           status: string
           triggered_by?: string | null
         }
@@ -128,6 +301,10 @@ export type Database = {
           request_payload?: Json | null
           response_body?: Json | null
           response_status?: number | null
+          retried_from_log_id?: string | null
+          retried_to_log_id?: string | null
+          retry_attempts_json?: Json
+          retry_count?: number
           status?: string
           triggered_by?: string | null
         }
