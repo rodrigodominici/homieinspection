@@ -55,6 +55,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405);
+  try {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -131,4 +132,8 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ id: newUserId }, 200);
+  } catch (err) {
+    console.error('admin-create-user unexpected error:', err);
+    return jsonResponse({ error: 'internal_error', detail: (err as Error)?.message ?? String(err) }, 500);
+  }
 });
