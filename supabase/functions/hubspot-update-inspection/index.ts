@@ -335,6 +335,7 @@ Deno.serve(async (req: Request) => {
       error_message: errorMessage,
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
+      retried_from_log_id: triggeredRetryFrom,
     },
   );
 });
