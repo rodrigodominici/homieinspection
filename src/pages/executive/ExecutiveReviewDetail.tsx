@@ -271,7 +271,11 @@ export default function ExecutiveReviewDetail() {
   const openCatalog = async (sectionId: string) => {
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
-    const { data } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
+    const { data, error } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
+    if (error) {
+      toast({ title: 'No se pudo cargar el catálogo', description: error.message, variant: 'destructive' });
+      return;
+    }
     setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
     setCatalogOpen(true);
   };
@@ -296,7 +300,7 @@ export default function ExecutiveReviewDetail() {
       }
     }
 
-    await supabase.from('inspection_repair_items').insert({
+    const { error: insertError } = await supabase.from('inspection_repair_items').insert({
       inspection_id: id!, inspection_section_id: catalogSectionId,
       repair_catalog_item_id: catalogItem.id, title_snapshot: catalogItem.name,
       owner_friendly_name_snapshot: catalogItem.owner_friendly_name,
@@ -308,6 +312,14 @@ export default function ExecutiveReviewDetail() {
       payer_role: 'owner', payment_nature: 'required',
       created_by: profile?.id, updated_by: profile?.id,
     });
+    if (insertError) {
+      toast({
+        title: 'No se pudo agregar la reparación',
+        description: insertError.message,
+        variant: 'destructive',
+      });
+      return;
+    }
     setCatalogOpen(false);
     const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
     setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
@@ -320,17 +332,26 @@ export default function ExecutiveReviewDetail() {
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
+    const { error } = await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
+    if (error) {
+      toast({ title: 'No se pudo actualizar la reparación', description: error.message, variant: 'destructive' });
+      return;
+    }
     const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
     setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
   };
 
   const deleteRepairItem = async (repairId: string) => {
-    await supabase.from('inspection_repair_items').delete().eq('id', repairId);
+    const { error } = await supabase.from('inspection_repair_items').delete().eq('id', repairId);
+    if (error) {
+      toast({ title: 'No se pudo eliminar la reparación', description: error.message, variant: 'destructive' });
+      return;
+    }
     const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
     setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
     toast({ title: 'Reparación eliminada' });
   };
+
 
   const handleContractorChange = async (contractorId: string) => {
     setSelectedContractorId(contractorId === 'none' ? null : contractorId);
