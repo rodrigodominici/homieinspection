@@ -1149,26 +1149,38 @@ function SectionWorkspace({
         <SectionStatusBadge status={section.status} />
       </div>
 
-      {/* Compact repairs strip — replaces the old bottom-of-section card.
-          Click to open the right-side repairs drawer. */}
+      {/* Reparaciones — CTA card always visible (with or without items). */}
       <button
         type="button"
         onClick={onOpenRepairsDrawer}
-        className="w-full flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2 hover:bg-muted/40 hover:border-border transition-colors text-left group"
-      >
-        <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-sm font-medium">Reparaciones</span>
-          <span className="text-xs text-muted-foreground">· {repairs.length}</span>
-        </div>
-        <div className="flex-1" />
-        {sectionSubtotalClient > 0 && (
-          <span className="text-xs font-mono text-muted-foreground">
-            Subtotal {fmtCurrency(sectionSubtotalClient)}
-          </span>
+        className={cn(
+          'w-full flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors group',
+          repairs.length > 0
+            ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
+            : 'border-dashed border-border/70 bg-background hover:bg-muted/40'
         )}
-        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 group-hover:underline">
-          Editar <ChevronRight className="h-3.5 w-3.5" />
+      >
+        <div className={cn(
+          'flex items-center justify-center h-8 w-8 rounded-md shrink-0',
+          repairs.length > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+        )}>
+          <Wrench className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">
+            Reparaciones de esta sección
+            {repairs.length > 0 && (
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">· {repairs.length}</span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {repairs.length === 0
+              ? 'Sin reparaciones. Puedes agregar desde el catálogo.'
+              : `Subtotal cliente ${fmtCurrency(sectionSubtotalClient)}`}
+          </p>
+        </div>
+        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 shrink-0 group-hover:underline">
+          {repairs.length === 0 ? 'Agregar' : 'Editar'} <ChevronRight className="h-3.5 w-3.5" />
         </span>
       </button>
 
