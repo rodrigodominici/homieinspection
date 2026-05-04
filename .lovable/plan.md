@@ -1,45 +1,109 @@
-Sí: con la lectura del código ya puedo descartar que sea un problema de permisos como primera causa. La sección sí existe, pero en desktop quedó escondida como una franja/botón dentro de cada sección, y además por el ancho actual del preview se está usando la versión móvil/tablet donde el layout cambia. Eso hace que no sea evidente dónde está “Reparaciones”.
+# Executive repair workflow — UI/UX consistency pass (refined)
 
-Hallazgos concretos:
+## Diagnosis
 
-- La inspección Radal 0102 D 1612 sí tiene datos de reparaciones: hay 1 reparación cargada en la sección “Cocina / Electrodomésticos”.
-- En desktop, la edición de reparaciones ya no está como panel visible permanente: ahora aparece como un botón/franja “Reparaciones · N Editar” dentro del contenido de la sección activa.
-- El panel real de edición es un drawer lateral (`SectionRepairsDrawer`) que solo se abre al hacer clic en esa franja.
-- En mobile/tablet (`lg:hidden`), sí hay botón “Agregar reparación” dentro de cada tarjeta de sección, pero en la vista actual de 750px es posible que el usuario tenga que bajar bastante por todas las secciones para encontrarlo.
-- En desktop (`lg:grid`) el breakpoint es `lg` (1024px+). Con el viewport actual de 750px nunca se ve la UI desktop de 3 columnas.
-- Además, en el menú lateral desktop solo se muestra “· 1” al lado de la sección con reparación; no hay una entrada global clara de “Reparaciones”.
+1. **Global vs section repairs collide semantically.** Top bar shows `Reparaciones · N` and each section has `Reparaciones de esta sección`. Same word at two hierarchy levels — executive can't tell if the top button is a summary, alternate view, or duplicate. The top button currently just opens the section drawer of the first section with repairs.
+2. **Contractor selector is unlabeled.** Renders only the contractor name (e.g. `Remodeling ▾`) as a ghost button. No label, same Wrench icon as the global Reparaciones button, no helper text explaining it sets the active contractor whose prices drive cost/utility.
+3. **Section-level repairs block reads as informational.** A single full-width button with soft tint and a tiny "Editar →" — looks navigational, not operational. Count and subtotal are buried.
+4. **Mobile per-section "Agregar reparación" CTA is detached.** Sits at the bottom of each section card, separated from any "Reparaciones" group.
+5. **Mixed vocabulary at the top bar.** `Cotización`, `Reparaciones`, contractor name all coexist with no semantic distinction.
 
-Plan de corrección mínima:
+---
 
-1. Hacer la sección de reparaciones visible y evidente en la UI ejecutiva
-   - En `ExecutiveReviewDetail.tsx`, reforzar la franja de “Reparaciones” dentro de `SectionWorkspace` para que se vea como una tarjeta/CTA clara, no como una línea secundaria.
-   - Mantener el texto siempre visible aunque haya 0 reparaciones: “Reparaciones de esta sección”.
-   - Mostrar “Agregar / editar” como acción clara.
+## Plan
 
-2. Agregar acceso directo global en el resumen superior
-   - En la barra superior de presupuesto, agregar un botón visible “Reparaciones” o “Ver reparaciones”.
-   - Si hay reparaciones existentes, mostrar el total: por ejemplo “Reparaciones · 1”.
-   - Al hacer clic, abrir el drawer de la primera sección activa o de la primera sección que ya tenga reparaciones.
-   - Para este caso abriría directamente “Cocina / Electrodomésticos”, porque ahí está la reparación existente.
+All edits in `src/pages/executive/ExecutiveReviewDetail.tsx`. No data, RLS, or schema changes.
 
-3. Mejorar la versión móvil/tablet
-   - En la vista `lg:hidden`, agregar un bloque compacto arriba tipo “Reparaciones / Presupuesto” con el total de reparaciones y total cliente.
-   - Ese bloque debe ayudar a encontrar rápidamente dónde agregar o revisar reparaciones sin tener que bajar por todas las secciones.
-   - Mantener el botón “Agregar reparación” en cada sección.
+### 1. Top bar — relabel global button (lines ~673–696)
 
-4. Añadir microcopy para evitar confusión
-   - Donde no haya reparaciones, mostrar “Sin reparaciones en esta sección. Puedes agregar desde el catálogo.”
-   - Donde sí haya, mostrar claramente el nombre y subtotal.
+- Rename `Reparaciones` → **`Presupuesto`**.
+- **Keep label concise.** `Total general` is already shown in the bar, so the button only carries an item count when present:
+  - With items: `Presupuesto · N`
+  - Empty: `Presupuesto`
+- Do not add money to the button label.
+- Behavior unchanged: opens the section drawer of the active section (or first section with repairs). This is a **temporary UX compromise** until a true global budget view exists — added as an inline code comment so future iterations can revisit.
 
-5. No tocar base de datos ni RLS
-   - No haré migraciones.
-   - No cambiaré políticas de permisos.
-   - No reasignaré la inspección.
-   - El problema a corregir ahora es de descubribilidad/render UI.
+### 2. Make the contractor selector explicit (lines ~698–740)
 
-Resultado esperado:
+Replace the bare `Remodeling ▾` ghost trigger with an inline labeled control:
 
-- El ejecutivo podrá ver inmediatamente que existe un módulo de reparaciones.
-- Para Radal 0102 D 1612, se verá claramente que hay 1 reparación asociada a Cocina / Electrodomésticos.
-- Desde la parte superior podrá abrir el panel de reparaciones sin tener que adivinar en qué sección está.
-- Si intenta agregar una reparación y hay un error real de backend/RLS, el toast agregado en el cambio anterior mostrará el motivo exacto.
+```text
+Contratista activo:  [ Remodeling ▾ ]
+```
+
+- Inline `Label` ("Contratista activo") before the trigger.
+- Trigger uses `outline` style (not ghost) so it reads as a control.
+- Popover header helper copy: `Define los costos base del presupuesto`.
+- Existing popover content (selector + cost/utility breakdown) kept as-is.
+- When unset, trigger shows `Asignar contratista` with a subtle warning dot.
+
+### 3. Strengthen section-level repairs block (lines ~1187–1220, in `SectionWorkspace`)
+
+Convert the single-button strip into a real card:
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ 🔧 Reparaciones de esta sección                          │
+│    N reparaciones · Subtotal $XXX     [+ Agregar reparación] │
+├──────────────────────────────────────────────────────────┤
+│ • Repair title 1                       $YYY  ›          │
+│ • Repair title 2                       $YYY  ›          │
+└──────────────────────────────────────────────────────────┘
+```
+
+- Real card (border + bg), not a giant `<button>`.
+- Header: title (semibold) + `N reparaciones · Subtotal $X` muted.
+- Primary CTA `+ Agregar reparación` lives in the header (right side), `default size="sm"`, clearly belongs to the block.
+- Body: **extremely compact** repair rows — `title · amount · chevron` only. No badges, descriptions, or extra metadata.
+- Clicking a row opens the existing drawer focused on that repair (`setExpandedRepairId` + `setRepairsDrawerSectionId`).
+- Empty state: muted line `Sin reparaciones. Agrega desde el catálogo.` plus the same `+ Agregar reparación` button.
+
+### 4. Reorder section content for clear narrative (lines ~1180–1297)
+
+Reflow `SectionWorkspace` top-to-bottom:
+
+1. Section title + status badge
+2. Status fields + other inspector data
+3. Observación del Inspector (read-only)
+4. Observación Final / Pública (editable)
+5. Comentario Interno
+6. **Reparaciones de esta sección** (now last — operational outcome of the review)
+
+Currently the repairs block is rendered first; moving it to the end makes it read as the consequence.
+
+### 5. Mobile / tablet alignment (lines ~896–1010)
+
+- Mobile global summary card: rename header `Reparaciones` → `Presupuesto · N` to match the top bar.
+- Section cards (mobile): wrap the repair list + `Agregar reparación` button in a clearly bordered subgroup with the same header pattern.
+- **Header may stack across multiple lines on narrow widths** to avoid crowding:
+  - line 1: `Reparaciones de esta sección`
+  - line 2: `N reparaciones · Subtotal $X`
+  - line 3: `[+ Agregar reparación]` (full-width on mobile)
+- Use `flex-col sm:flex-row sm:items-center sm:justify-between` so it collapses gracefully.
+
+### 6. Vocabulary unification
+
+| Level | Term |
+|---|---|
+| Top-bar export | `Cotización` |
+| Top-bar global repair entry | `Presupuesto · N` (temporary entry to first section drawer) |
+| Active contractor control | `Contratista activo: <name>` |
+| Section sub-block | `Reparaciones de esta sección` |
+| Drawer title | `Reparaciones — <section name>` |
+
+The bare word "Reparaciones" no longer appears at the top-bar level.
+
+---
+
+## Files touched
+
+- `src/pages/executive/ExecutiveReviewDetail.tsx` — top bar (~655–740), `SectionWorkspace` (~1170–1298), mobile section cards (~896–1010).
+
+No new dependencies, no extracted components, no DB / RLS changes.
+
+## Resulting UX summary
+
+- **Top bar:** `Total general` · `Cotización ▾` · `Presupuesto · N` · `Contratista activo: Remodeling ▾`. No duplicate "Reparaciones" word at two levels; `Presupuesto` label kept lean (count only).
+- **Contractor selector:** explicitly labeled `Contratista activo`, framed as an `outline` control with helper copy.
+- **Section repairs block:** real card with header (title + count + subtotal) + integrated `+ Agregar reparación` CTA + ultra-compact repair rows; placed last as the operational outcome. Header stacks vertically on narrow widths to avoid crowding.
+- **Workflow clarity:** three distinct concepts — `Presupuesto` (global entry, temporary), `Contratista activo` (cost context), `Reparaciones de esta sección` (per-section editor).
