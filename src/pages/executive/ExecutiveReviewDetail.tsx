@@ -670,8 +670,10 @@ export default function ExecutiveReviewDetail() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Global Reparaciones access — opens drawer for active section
-                  (or first section that already has repairs). */}
+              {/* Presupuesto — global entry to the repair workflow.
+                  TEMPORARY UX COMPROMISE: opens the per-section drawer for the
+                  active (or first) section with repairs. Replace with a true
+                  global budget view when one exists. */}
               <Button
                 variant={allRepairs.length > 0 ? 'default' : 'outline'}
                 size="sm"
@@ -689,55 +691,71 @@ export default function ExecutiveReviewDetail() {
                 }}
               >
                 <Wrench className="mr-1 h-3.5 w-3.5" />
-                Reparaciones
+                Presupuesto
                 {allRepairs.length > 0 && (
                   <span className="ml-1 opacity-80">· {allRepairs.length}</span>
                 )}
               </Button>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground max-w-[200px]">
-                    <Wrench className="mr-1 h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {selectedContractorId
-                        ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
-                        : 'Asignar contratista'}
-                    </span>
-                    <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 p-3 space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Contratista</Label>
-                    <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin seleccionar</SelectItem>
-                        {contractors.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedContractorId && contractorTotal > 0 && (
-                    <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Costo contratista</span>
-                        <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Utilidad</span>
-                        <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                          {fmtCurrency(utility)}
-                        </span>
-                      </div>
+              {/* Divider between global review controls and contractor context */}
+              <div className="h-5 w-px bg-border mx-1" aria-hidden />
+
+              {/* Contratista activo — labeled control that sets cost context */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                  Contratista activo:
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs max-w-[200px]">
+                      {!selectedContractorId && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-regular))] mr-1.5 shrink-0" aria-hidden />
+                      )}
+                      <span className="truncate">
+                        {selectedContractorId
+                          ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
+                          : 'Asignar contratista'}
+                      </span>
+                      <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Contratista activo
+                      </Label>
+                      <p className="text-tiny text-muted-foreground">
+                        Define los costos base del presupuesto.
+                      </p>
+                      <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin seleccionar</SelectItem>
+                          {contractors.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                    {selectedContractorId && contractorTotal > 0 && (
+                      <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Costo contratista</span>
+                          <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Utilidad</span>
+                          <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                            {fmtCurrency(utility)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
 
@@ -904,7 +922,7 @@ export default function ExecutiveReviewDetail() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-caption font-medium">
-                  Reparaciones
+                  Presupuesto
                   {allRepairs.length > 0 && (
                     <span className="ml-1.5 text-tiny font-normal text-muted-foreground">· {allRepairs.length}</span>
                   )}
@@ -990,20 +1008,43 @@ export default function ExecutiveReviewDetail() {
                       ))}
                     </div>
                   )}
-                  {/* Repairs */}
-                  {sRepairs.length > 0 && (
-                    <div className="space-y-1">
-                      {sRepairs.map(r => (
-                        <div key={r.id} className="text-caption flex justify-between">
-                          <span>{r.title_snapshot}</span>
-                          <span className="font-mono">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                  {/* Reparaciones de esta sección — bordered subgroup, stackable header */}
+                  {(() => {
+                    const sSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0);
+                    return (
+                      <div className="rounded-lg border border-border bg-card overflow-hidden">
+                        <div className="flex flex-col gap-2 px-3 py-2 border-b border-border/60 bg-muted/30">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <p className="text-caption font-semibold leading-tight">Reparaciones de esta sección</p>
+                          </div>
+                          <p className="text-tiny text-muted-foreground leading-tight">
+                            {sRepairs.length} {sRepairs.length === 1 ? 'reparación' : 'reparaciones'}
+                            {sRepairs.length > 0 && (
+                              <> · Subtotal <span className="font-mono">{fmtCurrency(sSubtotal)}</span></>
+                            )}
+                          </p>
+                          <Button size="sm" onClick={() => openCatalog(section.id)} className="w-full h-8 text-tiny">
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => openCatalog(section.id)} className="w-full">
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
-                  </Button>
+                        {sRepairs.length === 0 ? (
+                          <p className="text-tiny text-muted-foreground italic px-3 py-2">
+                            Sin reparaciones. Agrega desde el catálogo.
+                          </p>
+                        ) : (
+                          <ul className="divide-y divide-border/60">
+                            {sRepairs.map(r => (
+                              <li key={r.id} className="flex items-center gap-2 px-3 py-1.5 text-caption">
+                                <span className="flex-1 min-w-0 truncate">{r.title_snapshot}</span>
+                                <span className="font-mono shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
@@ -1184,40 +1225,7 @@ function SectionWorkspace({
         <SectionStatusBadge status={section.status} />
       </div>
 
-      {/* Reparaciones — CTA card always visible (with or without items). */}
-      <button
-        type="button"
-        onClick={onOpenRepairsDrawer}
-        className={cn(
-          'w-full flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors group',
-          repairs.length > 0
-            ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-            : 'border-dashed border-border/70 bg-background hover:bg-muted/40'
-        )}
-      >
-        <div className={cn(
-          'flex items-center justify-center h-8 w-8 rounded-md shrink-0',
-          repairs.length > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-        )}>
-          <Wrench className="h-4 w-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">
-            Reparaciones de esta sección
-            {repairs.length > 0 && (
-              <span className="ml-1.5 text-xs font-normal text-muted-foreground">· {repairs.length}</span>
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">
-            {repairs.length === 0
-              ? 'Sin reparaciones. Puedes agregar desde el catálogo.'
-              : `Subtotal cliente ${fmtCurrency(sectionSubtotalClient)}`}
-          </p>
-        </div>
-        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 shrink-0 group-hover:underline">
-          {repairs.length === 0 ? 'Agregar' : 'Editar'} <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-      </button>
+      {/* Reparaciones de esta sección — moved below as the operational outcome of the review. */}
 
       {/* Status fields */}
       {statusFields.length > 0 && (
@@ -1278,8 +1286,52 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repairs are edited in the right-side `SectionRepairsDrawer`,
-          opened from the compact strip near the section title above. */}
+      {/* Reparaciones de esta sección — operational outcome of the review.
+          Header (title + count + subtotal + CTA) stacks vertically on narrow widths. */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-border/60 bg-muted/30">
+          <div className="flex items-center gap-2 min-w-0">
+            <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-tight">Reparaciones de esta sección</p>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                {repairs.length} {repairs.length === 1 ? 'reparación' : 'reparaciones'}
+                {repairs.length > 0 && (
+                  <> · Subtotal <span className="font-mono">{fmtCurrency(sectionSubtotalClient)}</span></>
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={onOpenRepairsDrawer}
+            className="h-8 text-xs w-full sm:w-auto shrink-0"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+          </Button>
+        </div>
+        {repairs.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic px-4 py-3">
+            Sin reparaciones. Agrega desde el catálogo.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {repairs.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={onOpenRepairsDrawer}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="flex-1 min-w-0 text-caption truncate">{r.title_snapshot}</span>
+                  <span className="font-mono text-caption shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Return mode */}
       {returnMode && (
