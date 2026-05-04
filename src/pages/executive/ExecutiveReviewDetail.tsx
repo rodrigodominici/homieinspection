@@ -670,8 +670,10 @@ export default function ExecutiveReviewDetail() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Global Reparaciones access — opens drawer for active section
-                  (or first section that already has repairs). */}
+              {/* Presupuesto — global entry to the repair workflow.
+                  TEMPORARY UX COMPROMISE: opens the per-section drawer for the
+                  active (or first) section with repairs. Replace with a true
+                  global budget view when one exists. */}
               <Button
                 variant={allRepairs.length > 0 ? 'default' : 'outline'}
                 size="sm"
@@ -689,55 +691,71 @@ export default function ExecutiveReviewDetail() {
                 }}
               >
                 <Wrench className="mr-1 h-3.5 w-3.5" />
-                Reparaciones
+                Presupuesto
                 {allRepairs.length > 0 && (
                   <span className="ml-1 opacity-80">· {allRepairs.length}</span>
                 )}
               </Button>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground max-w-[200px]">
-                    <Wrench className="mr-1 h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {selectedContractorId
-                        ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
-                        : 'Asignar contratista'}
-                    </span>
-                    <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 p-3 space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Contratista</Label>
-                    <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin seleccionar</SelectItem>
-                        {contractors.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedContractorId && contractorTotal > 0 && (
-                    <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Costo contratista</span>
-                        <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Utilidad</span>
-                        <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                          {fmtCurrency(utility)}
-                        </span>
-                      </div>
+              {/* Divider between global review controls and contractor context */}
+              <div className="h-5 w-px bg-border mx-1" aria-hidden />
+
+              {/* Contratista activo — labeled control that sets cost context */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                  Contratista activo:
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs max-w-[200px]">
+                      {!selectedContractorId && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-regular))] mr-1.5 shrink-0" aria-hidden />
+                      )}
+                      <span className="truncate">
+                        {selectedContractorId
+                          ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
+                          : 'Asignar contratista'}
+                      </span>
+                      <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Contratista activo
+                      </Label>
+                      <p className="text-tiny text-muted-foreground">
+                        Define los costos base del presupuesto.
+                      </p>
+                      <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin seleccionar</SelectItem>
+                          {contractors.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                    {selectedContractorId && contractorTotal > 0 && (
+                      <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Costo contratista</span>
+                          <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Utilidad</span>
+                          <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                            {fmtCurrency(utility)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
 
