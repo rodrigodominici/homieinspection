@@ -352,18 +352,6 @@ export default function ExecutiveReviewDetail() {
     toast({ title: 'Reparación eliminada' });
   };
 
-  const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-    setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-  };
-
-  const deleteRepairItem = async (repairId: string) => {
-    await supabase.from('inspection_repair_items').delete().eq('id', repairId);
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-    setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-    toast({ title: 'Reparación eliminada' });
-  };
 
   const handleContractorChange = async (contractorId: string) => {
     setSelectedContractorId(contractorId === 'none' ? null : contractorId);
