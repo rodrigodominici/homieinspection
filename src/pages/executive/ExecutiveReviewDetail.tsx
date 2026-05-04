@@ -1008,20 +1008,43 @@ export default function ExecutiveReviewDetail() {
                       ))}
                     </div>
                   )}
-                  {/* Repairs */}
-                  {sRepairs.length > 0 && (
-                    <div className="space-y-1">
-                      {sRepairs.map(r => (
-                        <div key={r.id} className="text-caption flex justify-between">
-                          <span>{r.title_snapshot}</span>
-                          <span className="font-mono">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                  {/* Reparaciones de esta sección — bordered subgroup, stackable header */}
+                  {(() => {
+                    const sSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0);
+                    return (
+                      <div className="rounded-lg border border-border bg-card overflow-hidden">
+                        <div className="flex flex-col gap-2 px-3 py-2 border-b border-border/60 bg-muted/30">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <p className="text-caption font-semibold leading-tight">Reparaciones de esta sección</p>
+                          </div>
+                          <p className="text-tiny text-muted-foreground leading-tight">
+                            {sRepairs.length} {sRepairs.length === 1 ? 'reparación' : 'reparaciones'}
+                            {sRepairs.length > 0 && (
+                              <> · Subtotal <span className="font-mono">{fmtCurrency(sSubtotal)}</span></>
+                            )}
+                          </p>
+                          <Button size="sm" onClick={() => openCatalog(section.id)} className="w-full h-8 text-tiny">
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => openCatalog(section.id)} className="w-full">
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
-                  </Button>
+                        {sRepairs.length === 0 ? (
+                          <p className="text-tiny text-muted-foreground italic px-3 py-2">
+                            Sin reparaciones. Agrega desde el catálogo.
+                          </p>
+                        ) : (
+                          <ul className="divide-y divide-border/60">
+                            {sRepairs.map(r => (
+                              <li key={r.id} className="flex items-center gap-2 px-3 py-1.5 text-caption">
+                                <span className="flex-1 min-w-0 truncate">{r.title_snapshot}</span>
+                                <span className="font-mono shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
