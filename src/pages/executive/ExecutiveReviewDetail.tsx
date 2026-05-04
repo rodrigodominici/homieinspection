@@ -271,7 +271,11 @@ export default function ExecutiveReviewDetail() {
   const openCatalog = async (sectionId: string) => {
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
-    const { data } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
+    const { data, error } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
+    if (error) {
+      toast({ title: 'No se pudo cargar el catálogo', description: error.message, variant: 'destructive' });
+      return;
+    }
     setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
     setCatalogOpen(true);
   };
