@@ -1202,40 +1202,7 @@ function SectionWorkspace({
         <SectionStatusBadge status={section.status} />
       </div>
 
-      {/* Reparaciones — CTA card always visible (with or without items). */}
-      <button
-        type="button"
-        onClick={onOpenRepairsDrawer}
-        className={cn(
-          'w-full flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors group',
-          repairs.length > 0
-            ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-            : 'border-dashed border-border/70 bg-background hover:bg-muted/40'
-        )}
-      >
-        <div className={cn(
-          'flex items-center justify-center h-8 w-8 rounded-md shrink-0',
-          repairs.length > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-        )}>
-          <Wrench className="h-4 w-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">
-            Reparaciones de esta sección
-            {repairs.length > 0 && (
-              <span className="ml-1.5 text-xs font-normal text-muted-foreground">· {repairs.length}</span>
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">
-            {repairs.length === 0
-              ? 'Sin reparaciones. Puedes agregar desde el catálogo.'
-              : `Subtotal cliente ${fmtCurrency(sectionSubtotalClient)}`}
-          </p>
-        </div>
-        <span className="text-xs text-primary font-medium inline-flex items-center gap-0.5 shrink-0 group-hover:underline">
-          {repairs.length === 0 ? 'Agregar' : 'Editar'} <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-      </button>
+      {/* Reparaciones de esta sección — moved below as the operational outcome of the review. */}
 
       {/* Status fields */}
       {statusFields.length > 0 && (
