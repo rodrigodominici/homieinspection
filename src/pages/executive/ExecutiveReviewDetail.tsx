@@ -893,6 +893,41 @@ export default function ExecutiveReviewDetail() {
             </CardContent>
           </Card>
 
+          {/* Reparaciones — quick global summary (mobile/tablet). */}
+          <Card className="border-0 ring-1 ring-border shadow-sm">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className={cn(
+                'flex items-center justify-center h-8 w-8 rounded-md shrink-0',
+                allRepairs.length > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              )}>
+                <Wrench className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-caption font-medium">
+                  Reparaciones
+                  {allRepairs.length > 0 && (
+                    <span className="ml-1.5 text-tiny font-normal text-muted-foreground">· {allRepairs.length}</span>
+                  )}
+                </p>
+                <p className="text-tiny text-muted-foreground truncate">
+                  {allRepairs.length === 0
+                    ? 'Aún no se han agregado reparaciones.'
+                    : `Total cliente ${fmtCurrency(clientTotal)}`}
+                </p>
+              </div>
+              {allRepairs.length > 0 && (() => {
+                const firstWith = operationalSections.find(s => (repairsBySection[s.id] ?? []).length > 0);
+                if (!firstWith) return null;
+                return (
+                  <Button size="sm" variant="outline" className="shrink-0 h-8 text-tiny"
+                    onClick={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(firstWith.id); }}>
+                    Ver
+                  </Button>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Signature */}
           {signatureRecord && (
             <Card className="border-0 ring-1 ring-border shadow-sm">
