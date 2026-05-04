@@ -1263,8 +1263,52 @@ function SectionWorkspace({
         </Button>
       </div>
 
-      {/* Repairs are edited in the right-side `SectionRepairsDrawer`,
-          opened from the compact strip near the section title above. */}
+      {/* Reparaciones de esta sección — operational outcome of the review.
+          Header (title + count + subtotal + CTA) stacks vertically on narrow widths. */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-border/60 bg-muted/30">
+          <div className="flex items-center gap-2 min-w-0">
+            <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-tight">Reparaciones de esta sección</p>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                {repairs.length} {repairs.length === 1 ? 'reparación' : 'reparaciones'}
+                {repairs.length > 0 && (
+                  <> · Subtotal <span className="font-mono">{fmtCurrency(sectionSubtotalClient)}</span></>
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={onOpenRepairsDrawer}
+            className="h-8 text-xs w-full sm:w-auto shrink-0"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+          </Button>
+        </div>
+        {repairs.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic px-4 py-3">
+            Sin reparaciones. Agrega desde el catálogo.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {repairs.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={onOpenRepairsDrawer}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="flex-1 min-w-0 text-caption truncate">{r.title_snapshot}</span>
+                  <span className="font-mono text-caption shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Return mode */}
       {returnMode && (
