@@ -670,6 +670,31 @@ export default function ExecutiveReviewDetail() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Global Reparaciones access — opens drawer for active section
+                  (or first section that already has repairs). */}
+              <Button
+                variant={allRepairs.length > 0 ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  const target =
+                    activeSection ??
+                    operationalSections.find(s => (repairsBySection[s.id] ?? []).length > 0) ??
+                    operationalSections[0];
+                  if (target) {
+                    setActiveSectionId(target.id);
+                    setExpandedRepairId(null);
+                    setRepairsDrawerSectionId(target.id);
+                  }
+                }}
+              >
+                <Wrench className="mr-1 h-3.5 w-3.5" />
+                Reparaciones
+                {allRepairs.length > 0 && (
+                  <span className="ml-1 opacity-80">· {allRepairs.length}</span>
+                )}
+              </Button>
+
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground max-w-[200px]">
