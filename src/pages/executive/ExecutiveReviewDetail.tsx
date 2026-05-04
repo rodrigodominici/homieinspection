@@ -922,7 +922,7 @@ export default function ExecutiveReviewDetail() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-caption font-medium">
-                  Reparaciones
+                  Presupuesto
                   {allRepairs.length > 0 && (
                     <span className="ml-1.5 text-tiny font-normal text-muted-foreground">· {allRepairs.length}</span>
                   )}
