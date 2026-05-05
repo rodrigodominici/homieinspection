@@ -261,6 +261,16 @@ export default function OwnerReport() {
   const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
   const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
   const grandTotal  = ownerTotal + tenantTotal;
+  const tax = report.tax_config;
+  const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
+  const vatPct = Number(tax?.percentage ?? 0);
+  const vatLabel = tax?.label || 'IVA';
+  const calcVat = (n: number) => (vatEnabled ? Math.round((n * vatPct) / 100) : 0);
+  const ownerVat = calcVat(ownerTotal);
+  const tenantVat = calcVat(tenantTotal);
+  const ownerTotalWithVat = ownerTotal + ownerVat;
+  const tenantTotalWithVat = tenantTotal + tenantVat;
+  const grandTotalWithVat = ownerTotalWithVat + tenantTotalWithVat;
 
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
   const AudienceIcon = audience === 'owner' ? User : Users;
