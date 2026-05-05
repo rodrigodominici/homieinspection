@@ -52,6 +52,13 @@ interface PayloadSection {
   repairs: PayloadRepair[];
 }
 
+interface PayloadTaxConfig {
+  enabled: boolean;
+  percentage: number;
+  label: string;
+  currency?: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -64,6 +71,7 @@ interface ReportPayload {
   };
   sections: PayloadSection[];
   budget_total: number;
+  tax_config?: PayloadTaxConfig | null;
   published_at: string;
   /** Set by `get_published_report` based on which token resolved the row. */
   audience?: Audience;
