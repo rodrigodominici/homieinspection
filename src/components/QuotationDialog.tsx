@@ -19,10 +19,16 @@ interface QuotationDialogProps {
 
 export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs }: QuotationDialogProps) {
   const { toast } = useToast();
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig);
+  }, [open, inspection.market]);
 
   const title = payer === 'owner' ? 'Cotización Propietario' : 'Cotización Inquilino';
 
-  const { required, optional, requiredTotal, optionalTotal, total } = useMemo(() => {
+  const { required, optional, requiredTotal, optionalTotal, subtotal, vat } = useMemo(() => {
     const filtered = repairs.filter(r => r.payer_role === payer);
     const required = filtered.filter(r => r.payment_nature === 'required');
     const optional = filtered.filter(r => r.payment_nature === 'optional');
@@ -30,8 +36,10 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       arr.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
     const requiredTotal = sum(required);
     const optionalTotal = sum(optional);
-    return { required, optional, requiredTotal, optionalTotal, total: requiredTotal + optionalTotal };
-  }, [repairs, payer]);
+    const subtotal = requiredTotal + optionalTotal;
+    return { required, optional, requiredTotal, optionalTotal, subtotal, vat: applyVat(subtotal, taxConfig) };
+  }, [repairs, payer, taxConfig]);
+  const total = vat.total;
 
   const handlePrint = () => {
     const node = document.getElementById('quotation-print-area');
