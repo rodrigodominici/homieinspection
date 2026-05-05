@@ -16,7 +16,7 @@ import type { Inspection, InspectionSection, Profile } from '@/lib/types';
 import {
   FileSearch, Clock, Search,
   Eye, Send, ExternalLink, Play, CheckCircle2,
-  AlertTriangle, RefreshCw, ArrowUpDown, Key,
+  RefreshCw, ArrowUpDown, Key,
 } from 'lucide-react';
 import { formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -297,9 +297,9 @@ export default function ExecutiveReviewQueue() {
                 No se encontraron inspecciones
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {actionableTotal > 0 && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <GroupHeader tone="primary" label="Accionable ahora" total={actionableTotal} />
                     <BucketSection title="Para revisar" count={grouped.to_review.length} inspections={grouped.to_review}
                       bucket="to_review" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
@@ -308,7 +308,7 @@ export default function ExecutiveReviewQueue() {
                   </div>
                 )}
                 {contextTotal > 0 && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <GroupHeader tone="muted" label="Contexto y seguimiento" total={contextTotal} />
                     <BucketSection title="Publicadas recientemente" count={grouped.published.length} inspections={grouped.published}
                       bucket="published" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
@@ -389,7 +389,7 @@ function BucketSection({ title, count, inspections, bucket, sectionsByInspection
       <h3 className="text-caption font-medium text-muted-foreground mb-2 ml-5">
         {title} <span className="text-muted-foreground/60">· {count}</span>
       </h3>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {inspections.map(insp => (
           <InspectionRow key={insp.id} inspection={insp} bucket={bucket}
             sections={sectionsByInspection[insp.id] ?? []}
@@ -439,10 +439,6 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
         : `${progress.completed} de ${progress.total} secciones completadas`)
     : null;
 
-  // Show a "missing observations" warning only when it is actually executive work
-  const showMissingObsWarning = missingObs > 0 && !isPublished
-    && ['submitted', 'in_review', 'approved'].includes(insp.status);
-
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className={cn(
@@ -450,9 +446,9 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
         // Subtle left accent only for actionable cards — no full-card warning rings.
         isActionable && "border-l-2 border-l-primary/60",
       )}>
-        <CardContent className="py-3 px-4">
+        <CardContent className="py-2 px-3">
           <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1 flex-1 min-w-0">
+            <div className="space-y-0.5 flex-1 min-w-0">
               {/* Row 1: Name + ONE main badge */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
@@ -467,7 +463,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
 
               {/* Row 2: Address + meta */}
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
-              <div className="flex items-center gap-3 text-tiny text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
@@ -483,7 +479,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
 
               {/* Row 3: Progress (explicit wording; bar only when actionable / in field) */}
               {progressLabel && (
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex items-center gap-3">
                   {showProgressBar && (
                     <div className="flex items-center gap-2 flex-1 max-w-[180px]">
                       <Progress value={progress.percent} className="h-1.5" />
@@ -498,13 +494,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
                 </div>
               )}
 
-              {/* Row 4: Secondary warning text (only if actually actionable for the executive) */}
-              {showMissingObsWarning && (
-                <p className="text-tiny text-[hsl(var(--status-regular))] flex items-center gap-1 mt-0.5">
-                  <AlertTriangle className="h-3 w-3" />
-                  {missingObs} observaciones finales pendientes
-                </p>
-              )}
+
             </div>
             <Button variant={cta.variant} size="sm" className="shrink-0">
               {cta.icon} {cta.label}
