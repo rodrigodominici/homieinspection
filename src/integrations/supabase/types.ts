@@ -1282,6 +1282,36 @@ export type Database = {
           },
         ]
       }
+      market_tax_settings: {
+        Row: {
+          currency: string
+          market: string
+          updated_at: string
+          updated_by: string | null
+          vat_enabled: boolean
+          vat_label: string
+          vat_percentage: number
+        }
+        Insert: {
+          currency?: string
+          market: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_enabled?: boolean
+          vat_label?: string
+          vat_percentage?: number
+        }
+        Update: {
+          currency?: string
+          market?: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_enabled?: boolean
+          vat_label?: string
+          vat_percentage?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           approval_status: string
