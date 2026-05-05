@@ -169,6 +169,18 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
                     <span className="font-mono">{fmtCurrency(optionalTotal)}</span>
                   </div>
                 )}
+                {(required.length > 0 || optional.length > 0) && (
+                  <div className="row flex justify-between border-t pt-2 mt-1">
+                    <span className="font-medium">Subtotal</span>
+                    <span className="font-mono font-medium">{fmtCurrency(subtotal)}</span>
+                  </div>
+                )}
+                {vat.enabled && (
+                  <div className="row flex justify-between">
+                    <span className="text-muted-foreground">{vat.label} {vat.percentage}%</span>
+                    <span className="font-mono">{fmtCurrency(vat.vatAmount)}</span>
+                  </div>
+                )}
                 <div className="grand flex justify-between border-t pt-2 mt-2 text-body font-semibold">
                   <span>Total</span>
                   <span className="font-mono">{fmtCurrency(total)}</span>
