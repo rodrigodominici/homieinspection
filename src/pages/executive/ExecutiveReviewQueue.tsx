@@ -494,10 +494,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
                 </div>
               )}
 
-                  <AlertTriangle className="h-3 w-3" />
-                  {missingObs} observaciones finales pendientes
-                </p>
-              )}
+
             </div>
             <Button variant={cta.variant} size="sm" className="shrink-0">
               {cta.icon} {cta.label}
