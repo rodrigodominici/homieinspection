@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, InspectionRepairItem } from '@/lib/types';
+import { fetchTaxConfig, applyVat, type MarketTaxSettings } from '@/lib/tax';
 
 const fmt = (n: number) => n.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtCurrency = (n: number) => `$${fmt(n)}`;
