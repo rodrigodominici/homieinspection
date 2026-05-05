@@ -84,6 +84,7 @@ export default function AdminSettings() {
           </AlertDescription>
         </Alert>
 
+        <TaxSettingsCard />
         {/* Section Order */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-3">
