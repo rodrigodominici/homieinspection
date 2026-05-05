@@ -14,11 +14,11 @@ import { requiresFinalObservation } from '@/lib/section-completion';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection, Profile } from '@/lib/types';
 import {
-  FileSearch, Clock, Search, List, CalendarDays,
+  FileSearch, Clock, Search,
   Eye, Send, ExternalLink, Play, CheckCircle2,
   AlertTriangle, RefreshCw, ArrowUpDown, Key,
 } from 'lucide-react';
-import { formatDistanceToNow, isToday, isTomorrow, isAfter, isBefore, subDays } from 'date-fns';
+import { formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +30,6 @@ interface SectionMeta {
   final_observation: string | null;
 }
 
-type ViewMode = 'list' | 'calendar';
 type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -38,6 +37,38 @@ const SORT_LABELS: Record<SortKey, string> = {
   'keys-asc': 'Recolección: próxima primero',
   'keys-desc': 'Recolección: más lejana primero',
 };
+
+/**
+ * Role-based bucketing for the EXECUTIVE view.
+ *
+ * Executive cares about review/approval/publication. States that belong to
+ * admin (coordination) or inspector (execution) are still surfaced but as
+ * CONTEXT, not as urgent tasks. Do NOT reintroduce admin-style urgency
+ * (amber rings, warning pills) to states the executive cannot act on.
+ */
+type ExecutiveBucket =
+  | 'to_review'
+  | 'to_publish'
+  | 'published'
+  | 'in_field'
+  | 'uncoordinated'
+  | 'other';
+
+function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
+  if (['submitted', 'in_review'].includes(insp.status)) return 'to_review';
+  if (insp.status === 'approved' && !insp.published_at) return 'to_publish';
+  if (!!insp.published_at && isBefore(subDays(new Date(), 30), new Date(insp.published_at))) return 'published';
+  if (['assigned', 'in_progress'].includes(insp.status) && insp.started_at) return 'in_field';
+
+  const snap = getEffectiveSnapshot(insp);
+  const hasKey = !!snap?.fecha_recoleccion_llaves;
+  const hasContractEnd = !!snap?.fecha_de_termino_real_de_contrato;
+  if (!hasKey && hasContractEnd) return 'uncoordinated';
+
+  return 'other';
+}
+
+const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['to_review', 'to_publish'];
 
 // ─── Helpers ───────────────────────────────────────────
 function getContextualCTA(
@@ -58,20 +89,16 @@ function getContextualCTA(
   if (insp.status === 'approved' && !isPublished) {
     return { label: 'Publicar', icon: <Send className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
   }
-  if (['submitted', 'in_review'].includes(insp.status)) {
+  if (insp.status === 'in_review') {
+    return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
+  }
+  if (insp.status === 'submitted') {
     return { label: 'Revisar', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
   }
   if (insp.started_at) {
     return { label: 'Ver progreso', icon: <Play className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
   }
   return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
-}
-
-function getBucket(insp: Inspection): 'review' | 'active' | 'published' | 'other' {
-  if (['submitted', 'in_review'].includes(insp.status)) return 'review';
-  if (!!insp.published_at && isBefore(subDays(new Date(), 30), new Date(insp.published_at))) return 'published';
-  if (['assigned', 'in_progress'].includes(insp.status) && insp.started_at) return 'active';
-  return 'other';
 }
 
 // ─── Main Component ────────────────────────────────────
@@ -87,14 +114,10 @@ export default function ExecutiveReviewQueue() {
   const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<ViewMode>(() =>
-    (localStorage.getItem('executive-queue-view') as ViewMode) || 'list'
-  );
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     (localStorage.getItem('executive-queue-sort') as SortKey) || 'updated'
   );
 
-  const persistViewMode = (v: ViewMode) => { setViewMode(v); localStorage.setItem('executive-queue-view', v); };
   const persistSortKey = (s: SortKey) => { setSortKey(s); localStorage.setItem('executive-queue-sort', s); };
 
   useEffect(() => {
@@ -104,7 +127,6 @@ export default function ExecutiveReviewQueue() {
       const insps = (inspData ?? []) as unknown as Inspection[];
       setInspections(insps);
 
-      // Batch-fetch sections with final_observation
       if (insps.length > 0) {
         const ids = insps.map(i => i.id);
         const { data: secData } = await supabase
@@ -119,7 +141,6 @@ export default function ExecutiveReviewQueue() {
         }
         setSectionsByInspection(grouped);
 
-        // Batch-fetch inspector profiles
         const inspectorIds = [...new Set(insps.map(i => i.inspector_id).filter(Boolean))] as string[];
         if (inspectorIds.length > 0) {
           const { data: profiles } = await supabase
@@ -137,14 +158,12 @@ export default function ExecutiveReviewQueue() {
     load();
   }, []);
 
-  // Derived filter options
   const markets = useMemo(() => [...new Set(inspections.map(i => i.market).filter(Boolean))], [inspections]);
   const inspectors = useMemo(() => {
     const ids = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))] as string[];
     return ids.map(id => ({ id, name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Inspector sin nombre' }));
   }, [inspections, inspectorProfiles]);
 
-  // Filtered inspections
   const filtered = useMemo(() => {
     return inspections.filter(i => {
       if (search) {
@@ -162,7 +181,6 @@ export default function ExecutiveReviewQueue() {
     });
   }, [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
 
-  // KPIs
   const kpis = useMemo(() => {
     const pending = inspections.filter(i => !i.started_at && ['assigned', 'pending', 'pending_assignment'].includes(i.status)).length;
     const inProgress = inspections.filter(i => !!i.started_at && !['submitted', 'in_review', 'approved', 'published', 'sent'].includes(i.status)).length;
@@ -171,7 +189,6 @@ export default function ExecutiveReviewQueue() {
     return { pending, inProgress, forReview, published };
   }, [inspections]);
 
-  // Sort filtered
   const sortedFiltered = useMemo(() => {
     const arr = [...filtered];
     if (sortKey === 'updated') {
@@ -188,39 +205,16 @@ export default function ExecutiveReviewQueue() {
     return arr;
   }, [filtered, sortKey]);
 
-  // Grouped by bucket
   const grouped = useMemo(() => {
-    const buckets: Record<string, Inspection[]> = { review: [], active: [], published: [], other: [] };
-    sortedFiltered.forEach(i => { buckets[getBucket(i)].push(i); });
+    const buckets: Record<ExecutiveBucket, Inspection[]> = {
+      to_review: [], to_publish: [], published: [], in_field: [], uncoordinated: [], other: [],
+    };
+    sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
     return buckets;
   }, [sortedFiltered]);
 
-  // Calendar grouping
-  const calendarGroups = useMemo(() => {
-    const groups: Record<string, Inspection[]> = {};
-    const sorted = [...sortedFiltered].sort((a, b) => {
-      const snapA = getEffectiveSnapshot(a);
-      const snapB = getEffectiveSnapshot(b);
-      const da = snapA?.fecha_recoleccion_llaves ? new Date(snapA.fecha_recoleccion_llaves as string).getTime() : Infinity;
-      const db = snapB?.fecha_recoleccion_llaves ? new Date(snapB.fecha_recoleccion_llaves as string).getTime() : Infinity;
-      return da - db;
-    });
-    for (const insp of sorted) {
-      const snap = getEffectiveSnapshot(insp);
-      const fechaLlaves = snap?.fecha_recoleccion_llaves as string | undefined;
-      let key = 'Sin coordinar';
-      if (fechaLlaves) {
-        const d = new Date(fechaLlaves);
-        if (isToday(d)) key = 'Hoy';
-        else if (isTomorrow(d)) key = 'Mañana';
-        else if (isAfter(d, new Date())) key = d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' });
-        else key = d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' }) + ' (pasado)';
-      }
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(insp);
-    }
-    return groups;
-  }, [sortedFiltered]);
+  const actionableTotal = grouped.to_review.length + grouped.to_publish.length;
+  const contextTotal = grouped.published.length + grouped.in_field.length + grouped.uncoordinated.length + grouped.other.length;
 
   return (
     <ExecutiveLayout>
@@ -295,16 +289,6 @@ export default function ExecutiveReviewQueue() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="ml-auto flex items-center border rounded-lg overflow-hidden">
-                <button onClick={() => persistViewMode('list')}
-                  className={cn('p-2 transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
-                  <List className="h-4 w-4" />
-                </button>
-                <button onClick={() => persistViewMode('calendar')}
-                  className={cn('p-2 transition-colors', viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
-                  <CalendarDays className="h-4 w-4" />
-                </button>
-              </div>
             </div>
 
             {/* Content */}
@@ -312,29 +296,56 @@ export default function ExecutiveReviewQueue() {
               <div className="py-12 text-center text-muted-foreground">
                 No se encontraron inspecciones
               </div>
-            ) : viewMode === 'list' ? (
-              <div className="space-y-6">
-                <BucketSection title="Requieren revisión" count={grouped.review.length} inspections={grouped.review}
-                  sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                <BucketSection title="En curso" count={grouped.active.length} inspections={grouped.active}
-                  sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                <BucketSection title="Publicadas recientemente" count={grouped.published.length} inspections={grouped.published}
-                  sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                <BucketSection title="Otras inspecciones" count={grouped.other.length} inspections={grouped.other}
-                  sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-              </div>
             ) : (
-              <div className="space-y-6">
-                {Object.entries(calendarGroups).map(([label, insps]) => (
-                  <BucketSection key={label} title={label} count={insps.length} inspections={insps}
-                    sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                ))}
+              <div className="space-y-8">
+                {actionableTotal > 0 && (
+                  <div className="space-y-5">
+                    <GroupHeader tone="primary" label="Accionable ahora" total={actionableTotal} />
+                    <BucketSection title="Para revisar" count={grouped.to_review.length} inspections={grouped.to_review}
+                      bucket="to_review" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                    <BucketSection title="Listas para publicar" count={grouped.to_publish.length} inspections={grouped.to_publish}
+                      bucket="to_publish" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </div>
+                )}
+                {contextTotal > 0 && (
+                  <div className="space-y-5">
+                    <GroupHeader tone="muted" label="Contexto y seguimiento" total={contextTotal} />
+                    <BucketSection title="Publicadas recientemente" count={grouped.published.length} inspections={grouped.published}
+                      bucket="published" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                    <BucketSection title="En curso del inspector" count={grouped.in_field.length} inspections={grouped.in_field}
+                      bucket="in_field" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                    <BucketSection title="Sin coordinar" count={grouped.uncoordinated.length} inspections={grouped.uncoordinated}
+                      bucket="uncoordinated" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                    <BucketSection title="Otras" count={grouped.other.length} inspections={grouped.other}
+                      bucket="other" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </div>
+                )}
               </div>
             )}
           </>
         )}
       </div>
     </ExecutiveLayout>
+  );
+}
+
+// ─── Group Header (Accionable vs Contexto) ─────────────
+function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted'; label: string; total: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={cn(
+        "h-2 w-2 rounded-full",
+        tone === 'primary' ? 'bg-primary' : 'bg-muted-foreground/40'
+      )} />
+      <h2 className={cn(
+        "text-xs font-semibold uppercase tracking-wider",
+        tone === 'primary' ? 'text-primary' : 'text-muted-foreground'
+      )}>
+        {label}
+      </h2>
+      <span className="text-xs text-muted-foreground">· {total}</span>
+      <div className="flex-1 border-t border-border/60" />
+    </div>
   );
 }
 
@@ -365,21 +376,22 @@ function KPICard({ label, value, icon, color }: {
 }
 
 // ─── Bucket Section ────────────────────────────────────
-function BucketSection({ title, count, inspections, sectionsByInspection, inspectorProfiles }: {
+function BucketSection({ title, count, inspections, bucket, sectionsByInspection, inspectorProfiles }: {
   title: string; count: number;
   inspections: Inspection[];
+  bucket: ExecutiveBucket;
   sectionsByInspection: Record<string, SectionMeta[]>;
   inspectorProfiles: Record<string, Profile>;
 }) {
   if (count === 0) return null;
   return (
     <section>
-      <h2 className="text-caption font-medium text-muted-foreground uppercase tracking-wider mb-3">
-        {title} ({count})
-      </h2>
-      <div className="space-y-3">
+      <h3 className="text-caption font-medium text-muted-foreground mb-2 ml-5">
+        {title} <span className="text-muted-foreground/60">· {count}</span>
+      </h3>
+      <div className="space-y-2">
         {inspections.map(insp => (
-          <InspectionRow key={insp.id} inspection={insp}
+          <InspectionRow key={insp.id} inspection={insp} bucket={bucket}
             sections={sectionsByInspection[insp.id] ?? []}
             inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null} />
         ))}
@@ -389,14 +401,16 @@ function BucketSection({ title, count, inspections, sectionsByInspection, inspec
 }
 
 // ─── Inspection Row ────────────────────────────────────
-function InspectionRow({ inspection: insp, sections, inspectorName }: {
+function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
   inspection: Inspection;
+  bucket: ExecutiveBucket;
   sections: SectionMeta[];
   inspectorName: string | null;
 }) {
   const progress = useMemo(() => calculateProgress(sections as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]), [sections]);
   const cta = useMemo(() => getContextualCTA(insp, sections), [insp, sections]);
   const isPublished = !!insp.published_at;
+  const isActionable = ACTIONABLE_BUCKETS.includes(bucket);
 
   const lastActive = insp.last_active_at
     ? formatDistanceToNow(new Date(insp.last_active_at), { addSuffix: true, locale: es })
@@ -409,7 +423,6 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
   const snapshot = getEffectiveSnapshot(insp);
   const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const contractEnd = snapshot?.fecha_de_termino_real_de_contrato as string | undefined;
-  const isUncoordinated = !keyDate && !!contractEnd;
 
   const keyDateLabel = keyDate
     ? new Date(keyDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -418,44 +431,48 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
     ? new Date(contractEnd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
+  // Progress wording: explicit + bucket-aware; only show bar for actionable/in_field
+  const showProgressBar = isActionable || bucket === 'in_field';
+  const progressLabel = sections.length > 0
+    ? (bucket === 'to_review' || bucket === 'to_publish' || bucket === 'published'
+        ? `${progress.completed} de ${progress.total} secciones revisadas`
+        : `${progress.completed} de ${progress.total} secciones completadas`)
+    : null;
+
+  // Show a "missing observations" warning only when it is actually executive work
+  const showMissingObsWarning = missingObs > 0 && !isPublished
+    && ['submitted', 'in_review', 'approved'].includes(insp.status);
+
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className={cn(
-        "border-0 shadow-sm hover:shadow-md transition-shadow",
-        isUncoordinated
-          ? "ring-2 ring-amber-300 border-dashed bg-amber-50/30"
-          : "ring-1 ring-border"
+        "border-0 shadow-sm hover:shadow-md transition-shadow ring-1 ring-border",
+        // Subtle left accent only for actionable cards — no full-card warning rings.
+        isActionable && "border-l-2 border-l-primary/60",
       )}>
         <CardContent className="py-3 px-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1 flex-1 min-w-0">
-              {/* Row 1: Name + badges */}
+              {/* Row 1: Name + ONE main badge */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                {isUncoordinated ? (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-tiny">
+                {bucket === 'uncoordinated' ? (
+                  <Badge variant="secondary" className="text-tiny font-normal text-muted-foreground">
                     Por coordinar
                   </Badge>
                 ) : (
                   <InspectionStatusBadge status={insp.status} />
                 )}
-                {missingObs > 0 && !isPublished && ['submitted', 'in_review', 'approved'].includes(insp.status) && (
-                  <Badge variant="outline" className="text-tiny border-[hsl(var(--status-regular))]/30 text-[hsl(var(--status-regular))]">
-                    <AlertTriangle className="mr-1 h-3 w-3" />{missingObs} obs. pendientes
-                  </Badge>
-                )}
               </div>
+
               {/* Row 2: Address + meta */}
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
               <div className="flex items-center gap-3 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
-                {isUncoordinated ? (
-                  <span className="flex items-center gap-1 text-amber-700 font-medium">
-                    <Key className="h-3 w-3" />
-                    Término de contrato: {contractEndLabel}
-                  </span>
+                {bucket === 'uncoordinated' ? (
+                  <span>Término de contrato: {contractEndLabel ?? '—'}</span>
                 ) : (
                   <span className="flex items-center gap-1">
                     <Key className="h-3 w-3" />
@@ -463,19 +480,30 @@ function InspectionRow({ inspection: insp, sections, inspectorName }: {
                   </span>
                 )}
               </div>
-              {/* Row 3: Progress */}
-              {sections.length > 0 && (
+
+              {/* Row 3: Progress (explicit wording; bar only when actionable / in field) */}
+              {progressLabel && (
                 <div className="flex items-center gap-3 mt-0.5">
-                  <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                    <Progress value={progress.percent} className="h-1.5" />
-                    <span className="text-tiny text-muted-foreground shrink-0">{progress.completed}/{progress.total}</span>
-                  </div>
+                  {showProgressBar && (
+                    <div className="flex items-center gap-2 flex-1 max-w-[180px]">
+                      <Progress value={progress.percent} className="h-1.5" />
+                    </div>
+                  )}
+                  <span className="text-tiny text-muted-foreground shrink-0">{progressLabel}</span>
                   {lastActive && (
                     <span className="text-tiny text-muted-foreground flex items-center gap-1">
                       <Clock className="h-3 w-3" /> {lastActive}
                     </span>
                   )}
                 </div>
+              )}
+
+              {/* Row 4: Secondary warning text (only if actually actionable for the executive) */}
+              {showMissingObsWarning && (
+                <p className="text-tiny text-[hsl(var(--status-regular))] flex items-center gap-1 mt-0.5">
+                  <AlertTriangle className="h-3 w-3" />
+                  {missingObs} observaciones finales pendientes
+                </p>
               )}
             </div>
             <Button variant={cta.variant} size="sm" className="shrink-0">
