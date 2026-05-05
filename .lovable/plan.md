@@ -1,36 +1,56 @@
-# Executive list cards — cleanup pass
+## Problema
 
-Single file: `src/pages/executive/ExecutiveReviewQueue.tsx`. No data, schema, or routing changes.
+Los 12 documentos de handoff se generaron en `/mnt/documents/handoff/` en una sesión anterior, pero al intentar abrirlos te pide login. Esto pasa porque:
 
-## 1. Remove pending-observations count from list cards
+1. En la sesión anterior los archivos se crearon, pero **no se emitieron tags `<lov-artifact>`** dentro del chat — por lo que no aparecen como tarjetas descargables/previsualizables en la conversación.
+2. Cualquier intento de abrirlos por una URL del proyecto (`id-preview…lovable.app/...`) cae en el guard de `ProtectedRoute` y te manda a `/auth`. Los `.md` no son rutas servidas por la app.
 
-In `InspectionRow` (lines ~501–507):
-- Delete the entire "Row 4" block that renders `{missingObs} observaciones finales pendientes` along with its `AlertTriangle` icon.
-- Remove the now-unused `showMissingObsWarning` constant (lines ~442–444) and the `AlertTriangle` import if no longer referenced elsewhere in the file.
-- Keep `missingObs` calculation only where it is still needed (CTA wording: `Republicar` vs `Abrir reporte` for published cards). If unused after that, drop it too.
+Es un problema de entrega, no de contenido. Los archivos siguen ahí.
 
-The detail/workspace screen (`ExecutiveReviewDetail`) keeps the full pending-observations context — only the queue card loses the count.
+## Plan
 
-## 2. Tighten card vertical spacing
+### 1. Re-emitir cada documento como artifact accesible
 
-In `InspectionRow`:
-- `CardContent`: `py-3 px-4` → `py-2 px-3`.
-- Inner column wrapper: `space-y-1` → `space-y-0.5`.
-- Progress row: drop the `mt-0.5` (no longer needed once parent gap is tight).
-- Meta row (`gap-3`) → `gap-x-2 gap-y-0.5` to keep wrap tight.
+Volver a publicar los 12 archivos existentes con tags `<lov-artifact>` en el chat, uno por documento:
 
-In `BucketSection` (line ~392):
-- Card list wrapper: `space-y-2` → `space-y-1.5`.
+- `README.md` (índice)
+- `00_Homie_Inspection_Technical_Overview.md`
+- `01_Frontend_Architecture_and_Flows.md`
+- `02_Database_Model_and_Backend.md`
+- `03_Auth_Roles_Security_RLS.md`
+- `04_Edge_Functions_and_Internal_APIs.md`
+- `05_Integrations_and_External_Contracts.md`
+- `06_Publishing_and_Public_Report_Model.md`
+- `07_Operations_Monitoring_Runbooks.md`
+- `08_Technical_Debt_Risks_Pending_Decisions.md`
+- `09_Environment_Secrets_Access_Checklist.md`
+- `Handoff_Readiness_Assessment.md`
 
-Section group spacing (lines ~300–311):
-- Outer groups: `space-y-8` → `space-y-6`.
-- Inner buckets: `space-y-5` → `space-y-4`.
+Mime: `text/markdown`. Cada uno se podrá previsualizar y descargar desde el chat sin pedir login.
 
-These are the minimal changes that visibly reduce card height and stack density without breaking the existing layout grid or responsive behavior.
+### 2. Empaquetar todo en un solo entregable
 
-## Resulting UX
+Generar dos artifacts adicionales para facilitar el handoff a un equipo externo:
 
-- **Removed**: the `N observaciones finales pendientes` line from every queue card.
-- **Tightened**: card vertical padding (`py-3` → `py-2`), internal row spacing (`space-y-1` → `space-y-0.5`), and gaps between stacked cards and bucket groups.
-- **Kept**: main status badge, explicit progress wording + bar (when actionable), and the state-aware CTA.
-- **Net effect**: each card is roughly one text line shorter and noticeably denser, so the list scans as a clean status + next-action stack instead of a multi-line warning feed. Pending-observation context still lives — and only lives — inside the review workspace.
+- `Homie_Handoff_Package.zip` — todos los `.md` agrupados, listo para enviar a un tech lead.
+- `Homie_Handoff_Package.pdf` — un único PDF consolidado (índice + todos los documentos concatenados con saltos de página) para lectura lineal sin necesidad de un visor de Markdown.
+
+Ambos quedan en `/mnt/documents/handoff/` y se entregan como `<lov-artifact>`.
+
+### 3. QA visual del PDF
+
+Convertir cada página del PDF consolidado a imagen y revisar layout, cortes de texto, encabezados y tabla de contenidos antes de entregarlo. Si hay problemas (texto cortado, code blocks rotos), ajustar el script de generación y regenerar.
+
+## Lo que NO se va a hacer
+
+- No se tocará el código de la app ni las rutas de auth — el bloqueo de login en `ProtectedRoute` es correcto y debe quedarse.
+- No se servirán los `.md` desde `public/` de la app (mezcla docs internos con la app pública).
+- No se reescribirá el contenido de los documentos. Si después de leerlos quieres ajustes, se hacen como pase aparte.
+
+## Resultado esperado
+
+Vas a ver en el chat:
+- 12 tarjetas individuales (una por documento) — clicables, sin login.
+- 1 tarjeta `.zip` con el paquete completo.
+- 1 tarjeta `.pdf` consolidado.
+- Un resumen corto de qué se entregó y cómo usarlo.
