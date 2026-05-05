@@ -39,6 +39,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
+import { fetchTaxConfig } from '@/lib/tax';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -374,6 +375,7 @@ export default function ExecutiveReviewDetail() {
     setSubmitting(true);
     const visibleRepairs = allRepairs.filter((r) => r.visible_to_owner);
     const visiblePhotos = Object.values(photosBySection).flat().filter((p: any) => p.visible_to_owner !== false);
+    const taxConfig = await fetchTaxConfig(inspection.market);
     const payload = {
       property: {
         property_id: inspection.property_id, property_name: inspection.property_name,
@@ -396,6 +398,12 @@ export default function ExecutiveReviewDetail() {
           })),
       })),
       budget_total: clientTotal,
+      tax_config: taxConfig ? {
+        enabled: taxConfig.vat_enabled,
+        percentage: Number(taxConfig.vat_percentage),
+        label: taxConfig.vat_label,
+        currency: taxConfig.currency,
+      } : null,
       published_at: new Date().toISOString(),
     };
     const { data: existing } = await supabase

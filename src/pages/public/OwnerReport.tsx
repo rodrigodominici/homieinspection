@@ -52,6 +52,13 @@ interface PayloadSection {
   repairs: PayloadRepair[];
 }
 
+interface PayloadTaxConfig {
+  enabled: boolean;
+  percentage: number;
+  label: string;
+  currency?: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -64,6 +71,7 @@ interface ReportPayload {
   };
   sections: PayloadSection[];
   budget_total: number;
+  tax_config?: PayloadTaxConfig | null;
   published_at: string;
   /** Set by `get_published_report` based on which token resolved the row. */
   audience?: Audience;
@@ -253,6 +261,16 @@ export default function OwnerReport() {
   const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
   const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
   const grandTotal  = ownerTotal + tenantTotal;
+  const tax = report.tax_config;
+  const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
+  const vatPct = Number(tax?.percentage ?? 0);
+  const vatLabel = tax?.label || 'IVA';
+  const calcVat = (n: number) => (vatEnabled ? Math.round((n * vatPct) / 100) : 0);
+  const ownerVat = calcVat(ownerTotal);
+  const tenantVat = calcVat(tenantTotal);
+  const ownerTotalWithVat = ownerTotal + ownerVat;
+  const tenantTotalWithVat = tenantTotal + tenantVat;
+  const grandTotalWithVat = ownerTotalWithVat + tenantTotalWithVat;
 
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
   const AudienceIcon = audience === 'owner' ? User : Users;
@@ -364,9 +382,23 @@ export default function OwnerReport() {
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
                     {ownerTotal > 0 && (
-                      <div className="flex items-center justify-between border-t pt-3">
-                        <span className="text-body font-semibold">Subtotal propietario</span>
-                        <span className="text-body font-mono tabular-nums font-semibold">{fmt(ownerTotal)}</span>
+                      <div className="space-y-1 border-t pt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-body font-semibold">Subtotal propietario</span>
+                          <span className="text-body font-mono tabular-nums font-semibold">{fmt(ownerTotal)}</span>
+                        </div>
+                        {vatEnabled && (
+                          <>
+                            <div className="flex items-center justify-between text-caption text-muted-foreground">
+                              <span>{vatLabel} {vatPct}%</span>
+                              <span className="font-mono tabular-nums">{fmt(ownerVat)}</span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-body font-semibold">Total propietario</span>
+                              <span className="text-body font-mono tabular-nums font-semibold">{fmt(ownerTotalWithVat)}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -386,9 +418,23 @@ export default function OwnerReport() {
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
                     {tenantTotal > 0 && (
-                      <div className="flex items-center justify-between border-t pt-3">
-                        <span className="text-body font-semibold">Subtotal inquilino</span>
-                        <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
+                      <div className="space-y-1 border-t pt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-body font-semibold">Subtotal inquilino</span>
+                          <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
+                        </div>
+                        {vatEnabled && (
+                          <>
+                            <div className="flex items-center justify-between text-caption text-muted-foreground">
+                              <span>{vatLabel} {vatPct}%</span>
+                              <span className="font-mono tabular-nums">{fmt(tenantVat)}</span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-body font-semibold">Total inquilino</span>
+                              <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotalWithVat)}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -398,16 +444,26 @@ export default function OwnerReport() {
                 <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
                   <CardContent className="py-4 sm:py-5 space-y-2">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-caption text-muted-foreground">Total propietario</span>
+                      <span className="text-caption text-muted-foreground">Subtotal propietario</span>
                       <span className="text-body font-mono tabular-nums">{fmt(ownerTotal)}</span>
                     </div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-caption text-muted-foreground">Total inquilino</span>
+                      <span className="text-caption text-muted-foreground">Subtotal inquilino</span>
                       <span className="text-body font-mono tabular-nums">{fmt(tenantTotal)}</span>
                     </div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
+                      <span className="text-caption font-medium">Subtotal</span>
+                      <span className="text-body font-mono tabular-nums font-medium">{fmt(grandTotal)}</span>
+                    </div>
+                    {vatEnabled && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
+                        <span className="text-body font-mono tabular-nums">{fmt(ownerVat + tenantVat)}</span>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
                       <span className="text-body-lg font-semibold">Total general</span>
-                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(grandTotal)}</span>
+                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(grandTotalWithVat)}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -428,10 +484,20 @@ export default function OwnerReport() {
                 </Card>
 
                 <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
-                  <CardContent className="py-4 sm:py-5">
+                  <CardContent className="py-4 sm:py-5 space-y-2">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-caption font-medium">Subtotal</span>
+                      <span className="text-body font-mono tabular-nums">{fmt(tenantTotal)}</span>
+                    </div>
+                    {vatEnabled && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
+                        <span className="text-body font-mono tabular-nums">{fmt(tenantVat)}</span>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
                       <span className="text-body-lg font-semibold">Total inquilino</span>
-                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(tenantTotal)}</span>
+                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(tenantTotalWithVat)}</span>
                     </div>
                   </CardContent>
                 </Card>

@@ -1,56 +1,102 @@
-## Problema
+# VAT/IVA configurable por mercado
 
-Los 12 documentos de handoff se generaron en `/mnt/documents/handoff/` en una sesión anterior, pero al intentar abrirlos te pide login. Esto pasa porque:
+## Step 1 — Diseño y mapping
 
-1. En la sesión anterior los archivos se crearon, pero **no se emitieron tags `<lov-artifact>`** dentro del chat — por lo que no aparecen como tarjetas descargables/previsualizables en la conversación.
-2. Cualquier intento de abrirlos por una URL del proyecto (`id-preview…lovable.app/...`) cae en el guard de `ProtectedRoute` y te manda a `/auth`. Los `.md` no son rutas servidas por la app.
+### 1. Dónde vive la configuración
+Nueva tabla `market_tax_settings` (1 fila por mercado), administrada desde **Configuración → Impuestos**:
 
-Es un problema de entrega, no de contenido. Los archivos siguen ahí.
+| Columna | Tipo | Notas |
+|---|---|---|
+| `market` | text PK | `CL`, `MX` |
+| `vat_enabled` | boolean | default `true` |
+| `vat_percentage` | numeric(5,2) | ej. `19.00` |
+| `vat_label` | text | default `IVA` (CL) / `IVA` (MX) |
+| `currency` | text | informativo (`CLP`/`MXN`) — display en quotation |
+| `updated_at`, `updated_by` | — | auditoría |
 
-## Plan
+Seed inicial: `('CL', true, 19, 'IVA', 'CLP')`, `('MX', true, 16, 'IVA', 'MXN')`.
 
-### 1. Re-emitir cada documento como artifact accesible
+**RLS:** `admin` ALL; `authenticated` SELECT (todos los roles necesitan leerla para renderizar quotations).
 
-Volver a publicar los 12 archivos existentes con tags `<lov-artifact>` en el chat, uno por documento:
+### 2. Vínculo con la inspección
+- `inspections.market` ya existe (`CL` / `MX`).
+- Resolución: `inspection.market` → `market_tax_settings[market]`. Si no existe fila o `vat_enabled = false` → IVA no se muestra (solo Total = Subtotal).
 
-- `README.md` (índice)
-- `00_Homie_Inspection_Technical_Overview.md`
-- `01_Frontend_Architecture_and_Flows.md`
-- `02_Database_Model_and_Backend.md`
-- `03_Auth_Roles_Security_RLS.md`
-- `04_Edge_Functions_and_Internal_APIs.md`
-- `05_Integrations_and_External_Contracts.md`
-- `06_Publishing_and_Public_Report_Model.md`
-- `07_Operations_Monitoring_Runbooks.md`
-- `08_Technical_Debt_Risks_Pending_Decisions.md`
-- `09_Environment_Secrets_Access_Checklist.md`
-- `Handoff_Readiness_Assessment.md`
+### 3. Cálculo
+Helper puro `applyVat(subtotal, taxConfig)`:
+```
+vatAmount = vat_enabled ? round(subtotal * vat_percentage / 100) : 0
+total     = subtotal + vatAmount
+```
+- Se calcula **sobre el subtotal visible**, no por línea.
+- No se persiste IVA en `inspection_repair_items` ni en líneas de payload.
+- Para evitar inconsistencias futuras, el `tax_config` (snapshot: `{percentage, label, enabled, currency}`) se incluye en `inspection_report_versions.normalized_payload` al publicar — así reportes publicados conservan la tasa vigente al momento de publicación.
 
-Mime: `text/markdown`. Cada uno se podrá previsualizar y descargar desde el chat sin pedir login.
+### 4. Dónde se muestra y dónde NO
 
-### 2. Empaquetar todo en un solo entregable
+**SÍ se muestra (footer Subtotal / IVA X% / Total):**
+- `QuotationDialog` (vista + impresión) — separado por payer (owner/tenant).
+- `OwnerReport.tsx` (público) — en bloques de Subtotal propietario, Subtotal inquilino y en Total general (cuando `audience = owner`); solo Subtotal inquilino + IVA + Total cuando `audience = tenant`.
 
-Generar dos artifacts adicionales para facilitar el handoff a un equipo externo:
+**NO se muestra:**
+- `ExecutiveReviewDetail` totales operativos internos (budgetBreakdown, contractor totals, utility, sección subtotals, repair cards). Permanecen netos.
+- `InspectorInspectionDetail`, dashboards, listados.
 
-- `Homie_Handoff_Package.zip` — todos los `.md` agrupados, listo para enviar a un tech lead.
-- `Homie_Handoff_Package.pdf` — un único PDF consolidado (índice + todos los documentos concatenados con saltos de página) para lectura lineal sin necesidad de un visor de Markdown.
+### 5. Owner / tenant
+- Owner quotation: IVA sobre `sum(repairs where payer_role='owner' && visible_to_owner)`.
+- Tenant quotation: IVA sobre `sum(repairs where payer_role='tenant' && visible_to_owner)`.
+- Public owner audience: dos bloques (subtotal owner + IVA + total parcial; subtotal tenant + IVA + total parcial) y un Total general = suma de ambos totales con IVA.
+- Public tenant audience: solo bloque tenant.
+- Misma fórmula `applyVat` en cada subtotal — evita drift de redondeo.
 
-Ambos quedan en `/mnt/documents/handoff/` y se entregan como `<lov-artifact>`.
+---
 
-### 3. QA visual del PDF
+## Step 2 — Implementación
 
-Convertir cada página del PDF consolidado a imagen y revisar layout, cortes de texto, encabezados y tabla de contenidos antes de entregarlo. Si hay problemas (texto cortado, code blocks rotos), ajustar el script de generación y regenerar.
+### A) Base de datos (migration)
+1. Crear `market_tax_settings` con columnas y RLS arriba.
+2. Insertar seeds CL/MX.
 
-## Lo que NO se va a hacer
+### B) Tipos y helper
+- `src/lib/types.ts`: añadir `MarketTaxSettings`.
+- Nuevo `src/lib/tax.ts`:
+  - `fetchTaxConfig(market): Promise<MarketTaxSettings | null>` (cache por sesión).
+  - `applyVat(subtotal, config): { subtotal, vatAmount, total, label, percentage, enabled }`.
+  - `formatVatLine(...)` para reutilizar en UIs.
 
-- No se tocará el código de la app ni las rutas de auth — el bloqueo de login en `ProtectedRoute` es correcto y debe quedarse.
-- No se servirán los `.md` desde `public/` de la app (mezcla docs internos con la app pública).
-- No se reescribirá el contenido de los documentos. Si después de leerlos quieres ajustes, se hacen como pase aparte.
+### C) Settings UI
+En `AdminSettings.tsx` añadir nueva Card **"Impuestos por mercado"**:
+- Tabla editable inline (CL, MX): `vat_enabled` (Switch), `vat_percentage` (Input number), `vat_label` (Input). Botón Guardar por fila → `update market_tax_settings`.
+- Solo visible para admin (página ya está bajo AdminLayout).
 
-## Resultado esperado
+### D) QuotationDialog
+- Recibir `inspection.market`, cargar `taxConfig` (efecto al abrir).
+- Reemplazar bloque `.totals`:
+  ```
+  Subtotal obligatorias  $X
+  Subtotal opcionales    $Y
+  Subtotal               $S
+  IVA 19%                $V    (si enabled)
+  Total                  $T
+  ```
+- Mismo render en HTML de impresión y en `handleCopy`.
 
-Vas a ver en el chat:
-- 12 tarjetas individuales (una por documento) — clicables, sin login.
-- 1 tarjeta `.zip` con el paquete completo.
-- 1 tarjeta `.pdf` consolidado.
-- Un resumen corto de qué se entregó y cómo usarlo.
+### E) OwnerReport (público)
+- `get_published_report` ya retorna `normalized_payload` completo. Leer `payload.tax_config` (snapshot al publicar). Si ausente (reportes legacy) → no mostrar IVA (compat).
+- Render bloque IVA bajo cada Subtotal y en Total general según `audience`.
+
+### F) Publish flow (`ExecutiveReviewDetail.handlePublish`)
+- Antes de insertar `inspection_report_versions`, fetch `taxConfig` por `inspection.market` y agregar `tax_config` al `payload`. No cambia totales internos.
+
+### G) Sin cambios
+- `inspection_repair_items` schema intacto.
+- Editor ejecutivo, dashboards, secciones internas: sin cambios visuales.
+
+---
+
+## Resumen de entregables
+
+- **Configurado en:** Admin → Configuración → "Impuestos por mercado" (tabla `market_tax_settings`).
+- **Aplicado:** `inspection.market` → resolver config → helper `applyVat(subtotal)`.
+- **Renderizado en:** `QuotationDialog` (owner y tenant) + `OwnerReport` público (owner y tenant audiences) + impresión.
+- **Owner vs tenant:** cada quotation calcula su propio IVA sobre su subtotal visible filtrado por `payer_role` (y `visible_to_owner` para públicas). Snapshot de `tax_config` se persiste en `normalized_payload` al publicar para inmutabilidad histórica.

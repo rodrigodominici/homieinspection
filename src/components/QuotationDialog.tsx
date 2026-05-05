@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, InspectionRepairItem } from '@/lib/types';
+import { fetchTaxConfig, applyVat, type MarketTaxSettings } from '@/lib/tax';
 
 const fmt = (n: number) => n.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtCurrency = (n: number) => `$${fmt(n)}`;
@@ -18,10 +19,16 @@ interface QuotationDialogProps {
 
 export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs }: QuotationDialogProps) {
   const { toast } = useToast();
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig);
+  }, [open, inspection.market]);
 
   const title = payer === 'owner' ? 'Cotización Propietario' : 'Cotización Inquilino';
 
-  const { required, optional, requiredTotal, optionalTotal, total } = useMemo(() => {
+  const { required, optional, requiredTotal, optionalTotal, subtotal, vat } = useMemo(() => {
     const filtered = repairs.filter(r => r.payer_role === payer);
     const required = filtered.filter(r => r.payment_nature === 'required');
     const optional = filtered.filter(r => r.payment_nature === 'optional');
@@ -29,8 +36,10 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       arr.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
     const requiredTotal = sum(required);
     const optionalTotal = sum(optional);
-    return { required, optional, requiredTotal, optionalTotal, total: requiredTotal + optionalTotal };
-  }, [repairs, payer]);
+    const subtotal = requiredTotal + optionalTotal;
+    return { required, optional, requiredTotal, optionalTotal, subtotal, vat: applyVat(subtotal, taxConfig) };
+  }, [repairs, payer, taxConfig]);
+  const total = vat.total;
 
   const handlePrint = () => {
     const node = document.getElementById('quotation-print-area');
@@ -80,6 +89,8 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
       lines.push('');
     }
+    lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
+    if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
     toast({ title: 'Resumen copiado al portapapeles' });
@@ -156,6 +167,18 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
                   <div className="row flex justify-between">
                     <span className="text-muted-foreground">Subtotal opcionales</span>
                     <span className="font-mono">{fmtCurrency(optionalTotal)}</span>
+                  </div>
+                )}
+                {(required.length > 0 || optional.length > 0) && (
+                  <div className="row flex justify-between border-t pt-2 mt-1">
+                    <span className="font-medium">Subtotal</span>
+                    <span className="font-mono font-medium">{fmtCurrency(subtotal)}</span>
+                  </div>
+                )}
+                {vat.enabled && (
+                  <div className="row flex justify-between">
+                    <span className="text-muted-foreground">{vat.label} {vat.percentage}%</span>
+                    <span className="font-mono">{fmtCurrency(vat.vatAmount)}</span>
                   </div>
                 )}
                 <div className="grand flex justify-between border-t pt-2 mt-2 text-body font-semibold">
