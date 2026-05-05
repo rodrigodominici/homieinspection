@@ -1,109 +1,151 @@
-# Executive repair workflow — UI/UX consistency pass (refined)
+# Executive inspections list — role-based UX consistency pass
 
-## Diagnosis
-
-1. **Global vs section repairs collide semantically.** Top bar shows `Reparaciones · N` and each section has `Reparaciones de esta sección`. Same word at two hierarchy levels — executive can't tell if the top button is a summary, alternate view, or duplicate. The top button currently just opens the section drawer of the first section with repairs.
-2. **Contractor selector is unlabeled.** Renders only the contractor name (e.g. `Remodeling ▾`) as a ghost button. No label, same Wrench icon as the global Reparaciones button, no helper text explaining it sets the active contractor whose prices drive cost/utility.
-3. **Section-level repairs block reads as informational.** A single full-width button with soft tint and a tiny "Editar →" — looks navigational, not operational. Count and subtotal are buried.
-4. **Mobile per-section "Agregar reparación" CTA is detached.** Sits at the bottom of each section card, separated from any "Reparaciones" group.
-5. **Mixed vocabulary at the top bar.** `Cotización`, `Reparaciones`, contractor name all coexist with no semantic distinction.
+All edits in `src/pages/executive/ExecutiveReviewQueue.tsx`. No data, RLS, schema, or routing changes.
 
 ---
 
-## Plan
+## Step 1 — Diagnosis
 
-All edits in `src/pages/executive/ExecutiveReviewDetail.tsx`. No data, RLS, or schema changes.
+### 1.1 Competing visual signals today
 
-### 1. Top bar — relabel global button (lines ~673–696)
+Each card emits ~5 signals at similar weight:
+- Main status badge (`En revisión`, `Asignada`…)
+- A second warning pill `⚠ N obs. pendientes` rendered with the same `Badge` weight as the main status
+- A full-card amber ring + dashed border + tinted background for `Por coordinar`
+- A second amber inline `Término de contrato: …` line
+- Progress bar + raw `13/13` fraction shown for every card with sections (even non-actionable ones)
 
-- Rename `Reparaciones` → **`Presupuesto`**.
-- **Keep label concise.** `Total general` is already shown in the bar, so the button only carries an item count when present:
-  - With items: `Presupuesto · N`
-  - Empty: `Presupuesto`
-- Do not add money to the button label.
-- Behavior unchanged: opens the section drawer of the active section (or first section with repairs). This is a **temporary UX compromise** until a true global budget view exists — added as an inline code comment so future iterations can revisit.
+The eye cannot tell which is the case state, which is the reviewer task, and which is just context.
 
-### 2. Make the contractor selector explicit (lines ~698–740)
+### 1.2 Why the hierarchy is still noisy
 
-Replace the bare `Remodeling ▾` ghost trigger with an inline labeled control:
+- Two pills compete on row 1 (`En revisión` + `9 obs. pendientes`)
+- `Por coordinar` cards visually shout louder than `En revisión` cards because of full-card ring+bg, even though the executive cannot act on them
+- Progress fraction `0/11` doesn't say "secciones" — reads as a generic ratio
+- Section grouping (`Requieren revisión`, `En curso`, `Publicadas recientemente`, `Otras inspecciones`) does not make the actionable / context split obvious; `En curso` and `Otras` both contain non-actionable items
+- `viewMode` toggle (list vs calendar) duplicates the date grouping and overlaps with `/executive/schedule`
+
+### 1.3 Why `Por coordinar` should be demoted for Executive
+
+`Por coordinar` means: no key-collection date is set yet. The owner of that task is **admin** (coordination) — the executive cannot review, approve, or publish anything until it advances. Strong amber emphasis miscommunicates urgency to the wrong role. It should remain visible as context (the executive may want to know "X is still uncoordinated") but read as backlog, not as a task.
+
+### 1.4 Calendar toggle redundancy
+
+- The list already groups by date when sorted by key collection
+- A dedicated `/executive/schedule` agenda exists in the sidebar (`ExecutiveLayout`)
+- The executive's primary work is review/approval/publication, not calendar planning
+
+→ Remove the toggle on this screen. Keep date context inside the list via grouping.
+
+---
+
+## Step 2 — Implementation
+
+### 2.1 One main badge + secondary warning text
+
+In `InspectionRow` (lines ~430–447):
+
+- Row 1 contains **only** the property name + the main status badge.
+  - For uncoordinated: main badge becomes a soft neutral `secondary` Badge `Por coordinar` (no amber). Not the strong amber pill.
+  - Otherwise: `<InspectionStatusBadge />` as today.
+- Drop the second `Badge` for `N obs. pendientes`.
+- Add a new dedicated **secondary warning line** under the meta row (only when relevant):
+
+  ```tsx
+  {missingObs > 0 && (
+    <p className="text-tiny text-[hsl(var(--status-regular))] flex items-center gap-1">
+      <AlertTriangle className="h-3 w-3" />
+      {missingObs} observaciones finales pendientes
+    </p>
+  )}
+  ```
+
+  Plain text, muted accent — clearly secondary to the badge.
+
+### 2.2 Explicit progress wording + conditional bar
+
+Replace `{progress.completed}/{progress.total}` with:
+
+- `13 de 13 secciones revisadas` (when `bucket === 'review'` or `published`)
+- `0 de 11 secciones completadas` (when `bucket === 'active'`)
+
+Show the **progress bar only for actionable buckets** (`review`, `active`). Hide bar for `other` (backlog/uncoordinated/not-started); show only the wording line if useful, otherwise omit entirely.
+
+### 2.3 Demote `Por coordinar` visually
+
+In the card wrapper:
+- Remove the `ring-2 ring-amber-300 border-dashed bg-amber-50/30` branch.
+- All cards use the same neutral container: `ring-1 ring-border`.
+- Inside the meta row, the contract-end inline pill becomes a plain muted line:
+  `Término de contrato: 12 nov 2026` (no amber color, no key icon emphasis).
+- "Por coordinar" badge style: `variant="secondary"` with `text-muted-foreground` — soft, not warning.
+
+### 2.4 Reorganize sections by executive actionability
+
+Replace the four current buckets with a clearer two-tier structure:
 
 ```text
-Contratista activo:  [ Remodeling ▾ ]
+ACCIONABLE AHORA
+  • Para revisar           (status in submitted | in_review)
+  • Listas para publicar   (status === 'approved' && !published_at)
+
+CONTEXTO Y SEGUIMIENTO
+  • Publicadas recientemente   (published in last 30 days)
+  • En curso del inspector     (started_at && status in assigned|in_progress)
+  • Sin coordinar              (no key date && contract end exists)
+  • Otras                      (everything else)
 ```
 
-- Inline `Label` ("Contratista activo") before the trigger.
-- Trigger uses `outline` style (not ghost) so it reads as a control.
-- Popover header helper copy: `Define los costos base del presupuesto`.
-- Existing popover content (selector + cost/utility breakdown) kept as-is.
-- When unset, trigger shows `Asignar contratista` with a subtle warning dot.
+Implementation:
+- Replace `getBucket` with `getExecutiveBucket` returning one of: `to_review | to_publish | published | in_field | uncoordinated | other`.
+- Render two visually distinct groups using a small `<GroupHeader tone="primary|muted">` heading:
+  - `ACCIONABLE AHORA` — primary-tinted uppercase label
+  - `CONTEXTO Y SEGUIMIENTO` — muted uppercase label
+- Each subsection keeps the existing `BucketSection` but with the new labels.
 
-### 3. Strengthen section-level repairs block (lines ~1187–1220, in `SectionWorkspace`)
+### 2.5 State-aware CTA wording
 
-Convert the single-button strip into a real card:
+Refine `getContextualCTA`:
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│ 🔧 Reparaciones de esta sección                          │
-│    N reparaciones · Subtotal $XXX     [+ Agregar reparación] │
-├──────────────────────────────────────────────────────────┤
-│ • Repair title 1                       $YYY  ›          │
-│ • Repair title 2                       $YYY  ›          │
-└──────────────────────────────────────────────────────────┘
-```
+| Condition | Label | Variant |
+|---|---|---|
+| published && missingObs === 0 | `Abrir reporte` | outline |
+| published && missingObs > 0 | `Republicar` | secondary |
+| status === 'approved' && !published | `Publicar` | default |
+| status === 'in_review' | `Continuar revisión` | default |
+| status === 'submitted' | `Revisar` | default |
+| started_at (in_field) | `Ver progreso` | outline |
+| uncoordinated / not started | `Ver detalle` | outline |
 
-- Real card (border + bg), not a giant `<button>`.
-- Header: title (semibold) + `N reparaciones · Subtotal $X` muted.
-- Primary CTA `+ Agregar reparación` lives in the header (right side), `default size="sm"`, clearly belongs to the block.
-- Body: **extremely compact** repair rows — `title · amount · chevron` only. No badges, descriptions, or extra metadata.
-- Clicking a row opens the existing drawer focused on that repair (`setExpandedRepairId` + `setRepairsDrawerSectionId`).
-- Empty state: muted line `Sin reparaciones. Agrega desde el catálogo.` plus the same `+ Agregar reparación` button.
+Only change vs today: split `submitted` vs `in_review` so the executive sees `Continuar revisión` once review is engaged.
 
-### 4. Reorder section content for clear narrative (lines ~1180–1297)
+### 2.6 Remove calendar toggle, keep date context
 
-Reflow `SectionWorkspace` top-to-bottom:
+- Remove `viewMode` state, `persistViewMode`, the `List`/`CalendarDays` toggle UI (lines ~298–307), and the `viewMode === 'calendar'` branch.
+- Drop the `localStorage` key `executive-queue-view`.
+- Keep `sortKey` (including the key-collection sort options) — that already gives the executive a temporal lens without a separate calendar mode.
+- When `sortKey` is one of `keys-asc | keys-desc`, render the list with **lightweight date dividers** (`Hoy`, `Mañana`, `Esta semana`, `Próximas`, `Sin coordinar`) inside the existing buckets — preserves date awareness without duplicating `/executive/schedule`.
+- Keep imports for `isToday`, `isTomorrow`, etc.; drop `List`, `CalendarDays`.
 
-1. Section title + status badge
-2. Status fields + other inspector data
-3. Observación del Inspector (read-only)
-4. Observación Final / Pública (editable)
-5. Comentario Interno
-6. **Reparaciones de esta sección** (now last — operational outcome of the review)
+### 2.7 Minor cleanup
 
-Currently the repairs block is rendered first; moving it to the end makes it read as the consequence.
-
-### 5. Mobile / tablet alignment (lines ~896–1010)
-
-- Mobile global summary card: rename header `Reparaciones` → `Presupuesto · N` to match the top bar.
-- Section cards (mobile): wrap the repair list + `Agregar reparación` button in a clearly bordered subgroup with the same header pattern.
-- **Header may stack across multiple lines on narrow widths** to avoid crowding:
-  - line 1: `Reparaciones de esta sección`
-  - line 2: `N reparaciones · Subtotal $X`
-  - line 3: `[+ Agregar reparación]` (full-width on mobile)
-- Use `flex-col sm:flex-row sm:items-center sm:justify-between` so it collapses gracefully.
-
-### 6. Vocabulary unification
-
-| Level | Term |
-|---|---|
-| Top-bar export | `Cotización` |
-| Top-bar global repair entry | `Presupuesto · N` (temporary entry to first section drawer) |
-| Active contractor control | `Contratista activo: <name>` |
-| Section sub-block | `Reparaciones de esta sección` |
-| Drawer title | `Reparaciones — <section name>` |
-
-The bare word "Reparaciones" no longer appears at the top-bar level.
+- `KPICard` and filter bar unchanged.
+- Inline code comment near `getExecutiveBucket` explaining the role-based grouping rationale (so future contributors don't reintroduce admin-style urgency).
 
 ---
 
 ## Files touched
 
-- `src/pages/executive/ExecutiveReviewDetail.tsx` — top bar (~655–740), `SectionWorkspace` (~1170–1298), mobile section cards (~896–1010).
+- `src/pages/executive/ExecutiveReviewQueue.tsx` — `getBucket` → `getExecutiveBucket`, `InspectionRow` rendering, bucket sections, removal of calendar toggle, CTA refinements.
 
-No new dependencies, no extracted components, no DB / RLS changes.
+No new components extracted; no new dependencies; no DB / RLS changes.
+
+---
 
 ## Resulting UX summary
 
-- **Top bar:** `Total general` · `Cotización ▾` · `Presupuesto · N` · `Contratista activo: Remodeling ▾`. No duplicate "Reparaciones" word at two levels; `Presupuesto` label kept lean (count only).
-- **Contractor selector:** explicitly labeled `Contratista activo`, framed as an `outline` control with helper copy.
-- **Section repairs block:** real card with header (title + count + subtotal) + integrated `+ Agregar reparación` CTA + ultra-compact repair rows; placed last as the operational outcome. Header stacks vertically on narrow widths to avoid crowding.
-- **Workflow clarity:** three distinct concepts — `Presupuesto` (global entry, temporary), `Contratista activo` (cost context), `Reparaciones de esta sección` (per-section editor).
+- **Card hierarchy:** Row 1 = name + single main badge. Row 2 = address + market/type. Row 3 = relevant date / explicit progress wording. Row 4 = secondary warning text (only if applicable). CTA = state-aware action.
+- **Still emphasized for executives:** `Para revisar`, `Continuar revisión`, `Listas para publicar`, pending final observations (as secondary warning text under an actionable card).
+- **Demoted to context:** `Por coordinar` (no amber ring, soft secondary badge), `En curso del inspector`, `Publicadas` (>30d), generic `Otras`.
+- **Calendar toggle removed** from this screen; the dedicated `/executive/schedule` page remains the calendar surface.
+- **Date context preserved** via key-collection sort + lightweight date dividers (`Hoy`, `Mañana`, `Esta semana`, `Próximas`, `Sin coordinar`) inside the actionable/context groups.
