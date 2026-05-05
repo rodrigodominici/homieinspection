@@ -39,6 +39,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
 } from 'lucide-react';
 import { QuotationDialog } from '@/components/QuotationDialog';
+import { fetchTaxConfig } from '@/lib/tax';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
