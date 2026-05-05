@@ -484,10 +484,20 @@ export default function OwnerReport() {
                 </Card>
 
                 <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
-                  <CardContent className="py-4 sm:py-5">
+                  <CardContent className="py-4 sm:py-5 space-y-2">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-caption font-medium">Subtotal</span>
+                      <span className="text-body font-mono tabular-nums">{fmt(tenantTotal)}</span>
+                    </div>
+                    {vatEnabled && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
+                        <span className="text-body font-mono tabular-nums">{fmt(tenantVat)}</span>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
                       <span className="text-body-lg font-semibold">Total inquilino</span>
-                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(tenantTotal)}</span>
+                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(tenantTotalWithVat)}</span>
                     </div>
                   </CardContent>
                 </Card>
