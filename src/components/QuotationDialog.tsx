@@ -89,6 +89,8 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
       lines.push('');
     }
+    lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
+    if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
     toast({ title: 'Resumen copiado al portapapeles' });
