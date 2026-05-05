@@ -297,9 +297,9 @@ export default function ExecutiveReviewQueue() {
                 No se encontraron inspecciones
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {actionableTotal > 0 && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <GroupHeader tone="primary" label="Accionable ahora" total={actionableTotal} />
                     <BucketSection title="Para revisar" count={grouped.to_review.length} inspections={grouped.to_review}
                       bucket="to_review" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
@@ -308,7 +308,7 @@ export default function ExecutiveReviewQueue() {
                   </div>
                 )}
                 {contextTotal > 0 && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <GroupHeader tone="muted" label="Contexto y seguimiento" total={contextTotal} />
                     <BucketSection title="Publicadas recientemente" count={grouped.published.length} inspections={grouped.published}
                       bucket="published" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
@@ -389,7 +389,7 @@ function BucketSection({ title, count, inspections, bucket, sectionsByInspection
       <h3 className="text-caption font-medium text-muted-foreground mb-2 ml-5">
         {title} <span className="text-muted-foreground/60">· {count}</span>
       </h3>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {inspections.map(insp => (
           <InspectionRow key={insp.id} inspection={insp} bucket={bucket}
             sections={sectionsByInspection[insp.id] ?? []}
