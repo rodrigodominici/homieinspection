@@ -16,7 +16,7 @@ import type { Inspection, InspectionSection, Profile } from '@/lib/types';
 import {
   FileSearch, Clock, Search,
   Eye, Send, ExternalLink, Play, CheckCircle2,
-  AlertTriangle, RefreshCw, ArrowUpDown, Key,
+  RefreshCw, ArrowUpDown, Key,
 } from 'lucide-react';
 import { formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
