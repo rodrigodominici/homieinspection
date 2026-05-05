@@ -463,7 +463,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
 
               {/* Row 2: Address + meta */}
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
-              <div className="flex items-center gap-3 text-tiny text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
@@ -479,7 +479,7 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
 
               {/* Row 3: Progress (explicit wording; bar only when actionable / in field) */}
               {progressLabel && (
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex items-center gap-3">
                   {showProgressBar && (
                     <div className="flex items-center gap-2 flex-1 max-w-[180px]">
                       <Progress value={progress.percent} className="h-1.5" />
@@ -494,9 +494,6 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
                 </div>
               )}
 
-              {/* Row 4: Secondary warning text (only if actually actionable for the executive) */}
-              {showMissingObsWarning && (
-                <p className="text-tiny text-[hsl(var(--status-regular))] flex items-center gap-1 mt-0.5">
                   <AlertTriangle className="h-3 w-3" />
                   {missingObs} observaciones finales pendientes
                 </p>
