@@ -418,9 +418,23 @@ export default function OwnerReport() {
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
                     {tenantTotal > 0 && (
-                      <div className="flex items-center justify-between border-t pt-3">
-                        <span className="text-body font-semibold">Subtotal inquilino</span>
-                        <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
+                      <div className="space-y-1 border-t pt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-body font-semibold">Subtotal inquilino</span>
+                          <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
+                        </div>
+                        {vatEnabled && (
+                          <>
+                            <div className="flex items-center justify-between text-caption text-muted-foreground">
+                              <span>{vatLabel} {vatPct}%</span>
+                              <span className="font-mono tabular-nums">{fmt(tenantVat)}</span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-body font-semibold">Total inquilino</span>
+                              <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotalWithVat)}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </CardContent>
