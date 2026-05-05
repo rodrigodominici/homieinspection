@@ -439,10 +439,6 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
         : `${progress.completed} de ${progress.total} secciones completadas`)
     : null;
 
-  // Show a "missing observations" warning only when it is actually executive work
-  const showMissingObsWarning = missingObs > 0 && !isPublished
-    && ['submitted', 'in_review', 'approved'].includes(insp.status);
-
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className={cn(
@@ -450,9 +446,9 @@ function InspectionRow({ inspection: insp, bucket, sections, inspectorName }: {
         // Subtle left accent only for actionable cards — no full-card warning rings.
         isActionable && "border-l-2 border-l-primary/60",
       )}>
-        <CardContent className="py-3 px-4">
+        <CardContent className="py-2 px-3">
           <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1 flex-1 min-w-0">
+            <div className="space-y-0.5 flex-1 min-w-0">
               {/* Row 1: Name + ONE main badge */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
