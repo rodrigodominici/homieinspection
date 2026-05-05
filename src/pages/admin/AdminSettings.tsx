@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import AdminLayout from '@/components/AdminLayout';
 import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, ListOrdered, Camera } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TaxSettingsCard } from '@/components/TaxSettingsCard';
 
 /**
  * Admin Settings — Generation Rules Documentation
