@@ -860,9 +860,8 @@ export default function ExecutiveReviewDetail() {
             internalNote={internalNotes[activeSection.id] ?? ''}
             onFinalObsChange={(v) => setFinalObservations(p => ({ ...p, [activeSection.id]: v }))}
             onInternalNoteChange={(v) => setInternalNotes(p => ({ ...p, [activeSection.id]: v }))}
-            onSaveFinalObs={() => saveFinalObservation(activeSection.id)}
-            onSaveNote={() => saveInternalNote(activeSection.id)}
-            savingField={savingField}
+            onSaveFinalObsSilent={saveFinalObservationSilent}
+            onSaveNoteSilent={saveInternalNoteSilent}
             onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
             returnMode={returnMode}
             returnSelected={selectedReturnSections.has(activeSection.id)}
