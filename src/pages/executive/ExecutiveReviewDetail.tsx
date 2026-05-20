@@ -876,7 +876,12 @@ export default function ExecutiveReviewDetail() {
           {activeSection && (
             <PhotoPanel
               photos={photosBySection[activeSection.id] ?? []}
+              inspectionId={id!}
+              sectionId={activeSection.id}
+              sectionKey={activeSection.section_key}
+              uploadedBy={profile?.id}
               onToggleVisibility={togglePhotoVisibility}
+              onPhotosChanged={(next) => setPhotosBySection((prev) => ({ ...prev, [activeSection.id]: next }))}
             />
           )}
 
