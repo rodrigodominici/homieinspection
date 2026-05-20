@@ -28,6 +28,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useDebouncedAutosave } from '@/shared/hooks/useDebouncedAutosave';
+import { AutosaveStatus } from '@/shared/ui/AutosaveStatus';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
@@ -241,26 +244,27 @@ export default function ExecutiveReviewDetail() {
   const isPublished = !!inspection?.published_at;
 
   // ─── Actions ───────────────────────────────────────────
-  const saveInternalNote = async (sectionId: string) => {
-    setSavingField(sectionId + '-note');
-    const note = internalNotes[sectionId]?.trim();
-    if (!note) { setSavingField(null); return; }
+  // Silent save helpers — used by debounced autosave (no toasts, no UI state).
+  const saveInternalNoteSilent = useCallback(async (sectionId: string, value: string) => {
+    const note = value.trim();
+    if (!note) return;
     await supabase.from('inspection_reviews').insert({
       inspection_id: id!, inspection_section_id: sectionId,
       comment_type: 'internal_note', comment: note, created_by: profile?.id,
     });
-    toast({ title: 'Nota guardada' });
-    setSavingField(null);
-  };
+  }, [id, profile?.id]);
 
-  const saveFinalObservation = async (sectionId: string) => {
-    setSavingField(sectionId + '-obs');
+  const saveFinalObservationSilent = useCallback(async (sectionId: string, value: string) => {
     await supabase.from('inspection_sections').update({
-      final_observation: finalObservations[sectionId]?.trim() || null,
+      final_observation: value.trim() || null,
     }).eq('id', sectionId);
-    toast({ title: 'Observación guardada' });
-    setSavingField(null);
-  };
+  }, []);
+
+  // Legacy explicit-save (kept for any remaining callers); now silent too.
+  const saveInternalNote = (sectionId: string) =>
+    saveInternalNoteSilent(sectionId, internalNotes[sectionId] ?? '');
+  const saveFinalObservation = (sectionId: string) =>
+    saveFinalObservationSilent(sectionId, finalObservations[sectionId] ?? '');
 
   const togglePhotoVisibility = async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
@@ -310,7 +314,7 @@ export default function ExecutiveReviewDetail() {
       unit: catalogItem.unit, pricing_type: catalogItem.pricing_type,
       quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: contractorPrice,
       notes: null, visible_to_owner: true, sort_order: existingRepairs.length,
-      payer_role: 'owner', payment_nature: 'required',
+      payer_role: 'tenant', payment_nature: 'required',
       created_by: profile?.id, updated_by: profile?.id,
     });
     if (insertError) {
@@ -856,9 +860,8 @@ export default function ExecutiveReviewDetail() {
             internalNote={internalNotes[activeSection.id] ?? ''}
             onFinalObsChange={(v) => setFinalObservations(p => ({ ...p, [activeSection.id]: v }))}
             onInternalNoteChange={(v) => setInternalNotes(p => ({ ...p, [activeSection.id]: v }))}
-            onSaveFinalObs={() => saveFinalObservation(activeSection.id)}
-            onSaveNote={() => saveInternalNote(activeSection.id)}
-            savingField={savingField}
+            onSaveFinalObsSilent={saveFinalObservationSilent}
+            onSaveNoteSilent={saveInternalNoteSilent}
             onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
             returnMode={returnMode}
             returnSelected={selectedReturnSections.has(activeSection.id)}
@@ -999,14 +1002,12 @@ export default function ExecutiveReviewDetail() {
                       <p className="text-caption">{inspectorObs}</p>
                     </div>
                   )}
-                  {/* Final obs */}
+                  {/* Final obs — autosaved */}
                   <div>
                     <p className="text-tiny font-medium text-muted-foreground mb-1">Observación final</p>
                     <Textarea value={finalObservations[section.id] ?? ''} rows={2} className="text-caption"
-                      onChange={(e) => setFinalObservations(p => ({ ...p, [section.id]: e.target.value }))} />
-                    <Button size="sm" variant="outline" className="mt-1" onClick={() => saveFinalObservation(section.id)}>
-                      Guardar
-                    </Button>
+                      onChange={(e) => setFinalObservations(p => ({ ...p, [section.id]: e.target.value }))}
+                      onBlur={(e) => saveFinalObservationSilent(section.id, e.target.value)} />
                   </div>
                   {/* Photos */}
                   {sPhotos.length > 0 && (
@@ -1205,9 +1206,8 @@ interface SectionWorkspaceProps {
   internalNote: string;
   onFinalObsChange: (v: string) => void;
   onInternalNoteChange: (v: string) => void;
-  onSaveFinalObs: () => void;
-  onSaveNote: () => void;
-  savingField: string | null;
+  onSaveFinalObsSilent: (sectionId: string, value: string) => Promise<void>;
+  onSaveNoteSilent: (sectionId: string, value: string) => Promise<void>;
   onOpenRepairsDrawer: () => void;
   returnMode: boolean;
   returnSelected: boolean;
@@ -1218,13 +1218,22 @@ interface SectionWorkspaceProps {
 
 function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
-  onFinalObsChange, onInternalNoteChange, onSaveFinalObs, onSaveNote,
-  savingField, onOpenRepairsDrawer,
+  onFinalObsChange, onInternalNoteChange, onSaveFinalObsSilent, onSaveNoteSilent,
+  onOpenRepairsDrawer,
   returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter(f => f.group_key === 'status');
   const otherFields = fields.filter(f => f.group_key !== 'status' && f.group_key !== 'photo' && f.group_key !== 'observation' && f.value_text);
   const sectionSubtotalClient = repairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0);
+
+  const finalObsAutosave = useDebouncedAutosave(
+    finalObservation,
+    (v) => onSaveFinalObsSilent(section.id, v),
+  );
+  const noteAutosave = useDebouncedAutosave(
+    internalNote,
+    (v) => onSaveNoteSilent(section.id, v),
+  );
 
   return (
     <div className="space-y-6">
@@ -1274,11 +1283,11 @@ function SectionWorkspace({
           </p>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
-            onChange={(e) => onFinalObsChange(e.target.value)} />
-          <Button size="sm" variant="outline" onClick={onSaveFinalObs}
-            disabled={savingField === section.id + '-obs'} className="h-7 text-tiny">
-            Guardar
-          </Button>
+            onChange={(e) => onFinalObsChange(e.target.value)}
+            onBlur={() => finalObsAutosave.flush()} />
+          <div className="flex justify-end">
+            <AutosaveStatus status={finalObsAutosave.status} />
+          </div>
         </div>
       </div>
 
@@ -1287,12 +1296,14 @@ function SectionWorkspace({
         <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
         <Textarea value={internalNote} rows={2} className="text-caption"
           placeholder="Nota interna (no visible al propietario)..."
-          onChange={(e) => onInternalNoteChange(e.target.value)} />
-        <Button size="sm" variant="outline" onClick={onSaveNote}
-          disabled={savingField === section.id + '-note'} className="h-7 text-tiny">
-          Guardar nota
-        </Button>
+          onChange={(e) => onInternalNoteChange(e.target.value)}
+          onBlur={() => noteAutosave.flush()} />
+        <div className="flex justify-end">
+          <AutosaveStatus status={noteAutosave.status} />
+        </div>
       </div>
+
+
 
       {/* Reparaciones de esta sección — operational outcome of the review.
           Header (title + count + subtotal + CTA) stacks vertically on narrow widths. */}
@@ -1634,34 +1645,51 @@ function SectionRepairsDrawer({
                     <Input placeholder="Notas..." defaultValue={repair.notes ?? ''} className="h-8 text-xs"
                       onBlur={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
 
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button"
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                            {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
-                            <ChevronDown className="h-3 w-3 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-36">
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <span className="text-muted-foreground/50 text-xs">·</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button"
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                            {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
-                            <ChevronDown className="h-3 w-3 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-36">
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/40">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Paga</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={repair.payer_role}
+                          onValueChange={(v) => v && onUpdateRepair(repair.id, 'payer_role', v)}
+                          className="gap-0 rounded-md border border-border bg-muted/30 p-0.5"
+                        >
+                          <ToggleGroupItem
+                            value="tenant"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                          >
+                            Inquilino
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="owner"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                          >
+                            Propietario
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={repair.payment_nature}
+                          onValueChange={(v) => v && onUpdateRepair(repair.id, 'payment_nature', v)}
+                          className="gap-0 rounded-md border border-border bg-muted/30 p-0.5"
+                        >
+                          <ToggleGroupItem
+                            value="required"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
+                          >
+                            Obligatoria
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="optional"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
+                          >
+                            Opcional
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </div>
                     </div>
                   </div>
                 )}
