@@ -28,6 +28,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useDebouncedAutosave } from '@/shared/hooks/useDebouncedAutosave';
+import { AutosaveStatus } from '@/shared/ui/AutosaveStatus';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
@@ -1634,34 +1637,51 @@ function SectionRepairsDrawer({
                     <Input placeholder="Notas..." defaultValue={repair.notes ?? ''} className="h-8 text-xs"
                       onBlur={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
 
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button"
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                            {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
-                            <ChevronDown className="h-3 w-3 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-36">
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'owner')}>Propietario</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payer_role', 'tenant')}>Inquilino</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <span className="text-muted-foreground/50 text-xs">·</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button"
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 cursor-pointer transition-colors">
-                            {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
-                            <ChevronDown className="h-3 w-3 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-36">
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'required')}>Obligatoria</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onUpdateRepair(repair.id, 'payment_nature', 'optional')}>Opcional</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/40">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Paga</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={repair.payer_role}
+                          onValueChange={(v) => v && onUpdateRepair(repair.id, 'payer_role', v)}
+                          className="gap-0 rounded-md border border-border bg-muted/30 p-0.5"
+                        >
+                          <ToggleGroupItem
+                            value="tenant"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                          >
+                            Inquilino
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="owner"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                          >
+                            Propietario
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={repair.payment_nature}
+                          onValueChange={(v) => v && onUpdateRepair(repair.id, 'payment_nature', v)}
+                          className="gap-0 rounded-md border border-border bg-muted/30 p-0.5"
+                        >
+                          <ToggleGroupItem
+                            value="required"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
+                          >
+                            Obligatoria
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="optional"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
+                          >
+                            Opcional
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </div>
                     </div>
                   </div>
                 )}
