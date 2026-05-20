@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,19 @@ export default function ExecutiveSchedule() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
-  const [filterInspector, setFilterInspector] = useState('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterInspector = searchParams.get('inspector') ?? 'all';
+  const filterExecutive = searchParams.get('exec') ?? 'all';
+  const setFilterInspector = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === 'all') next.delete('inspector'); else next.set('inspector', v);
+    setSearchParams(next, { replace: true });
+  };
+  const setFilterExecutive = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === 'all') next.delete('exec'); else next.set('exec', v);
+    setSearchParams(next, { replace: true });
+  };
   const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('all');
 
   useEffect(() => {
@@ -82,18 +95,26 @@ export default function ExecutiveSchedule() {
   }, []);
 
   const inspectorsList = profiles.filter(p => p.role === 'inspector');
+  const executivesList = profiles.filter(p => p.role === 'executive');
   const uniqueInspectors = useMemo(() => {
     const ids = new Set(inspections.map(i => i.inspector_id).filter(Boolean));
     return ids.size;
   }, [inspections]);
+  const uniqueExecutives = useMemo(() => {
+    const ids = new Set(inspections.map(i => (i as any).executive_id).filter(Boolean));
+    return ids.size;
+  }, [inspections]);
   const showInspectorFilter = uniqueInspectors > 1;
+  const showExecutiveFilter = uniqueExecutives > 1;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date().toDateString();
 
-  const filtered = filterInspector === 'all'
-    ? inspections
-    : inspections.filter(i => i.inspector_id === filterInspector);
+  const filtered = inspections.filter(i => {
+    if (filterInspector !== 'all' && i.inspector_id !== filterInspector) return false;
+    if (filterExecutive !== 'all' && (i as any).executive_id !== filterExecutive) return false;
+    return true;
+  });
 
   const programmed = filtered.filter(i => i.scheduleDatetime);
   const toCoordinate = filtered.filter(i => !i.scheduleDatetime && i.contractEndDate);
@@ -136,17 +157,30 @@ export default function ExecutiveSchedule() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-h2">Agenda de Inspecciones</h1>
-          {showInspectorFilter && (
-            <Select value={filterInspector} onValueChange={setFilterInspector}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar inspector" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los inspectores</SelectItem>
-                {inspectorsList.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {showExecutiveFilter && (
+              <Select value={filterExecutive} onValueChange={setFilterExecutive}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar ejecutivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                  {executivesList.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {showInspectorFilter && (
+              <Select value={filterInspector} onValueChange={setFilterInspector}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar inspector" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los inspectores</SelectItem>
+                  {inspectorsList.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Filter pills */}
