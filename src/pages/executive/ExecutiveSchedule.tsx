@@ -94,17 +94,21 @@ export default function ExecutiveSchedule() {
     load();
   }, []);
 
-  const inspectorsList = profiles.filter(p => p.role === 'inspector');
   const executivesList = profiles.filter(p => p.role === 'executive');
-  const uniqueInspectors = useMemo(() => {
-    const ids = new Set(inspections.map(i => i.inspector_id).filter(Boolean));
-    return ids.size;
+  const linkedInspectorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const i of inspections) if (i.inspector_id) ids.add(i.inspector_id);
+    return ids;
   }, [inspections]);
+  const inspectorsList = useMemo(
+    () => profiles.filter(p => p.role === 'inspector' && linkedInspectorIds.has(p.id)),
+    [profiles, linkedInspectorIds],
+  );
   const uniqueExecutives = useMemo(() => {
     const ids = new Set(inspections.map(i => (i as any).executive_id).filter(Boolean));
     return ids.size;
   }, [inspections]);
-  const showInspectorFilter = uniqueInspectors > 1;
+  const showInspectorFilter = inspectorsList.length > 0;
   const showExecutiveFilter = uniqueExecutives > 1;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
