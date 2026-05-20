@@ -157,17 +157,30 @@ export default function ExecutiveSchedule() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-h2">Agenda de Inspecciones</h1>
-          {showInspectorFilter && (
-            <Select value={filterInspector} onValueChange={setFilterInspector}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar inspector" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los inspectores</SelectItem>
-                {inspectorsList.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {showExecutiveFilter && (
+              <Select value={filterExecutive} onValueChange={setFilterExecutive}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar ejecutivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                  {executivesList.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {showInspectorFilter && (
+              <Select value={filterInspector} onValueChange={setFilterInspector}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar inspector" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los inspectores</SelectItem>
+                  {inspectorsList.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Filter pills */}
