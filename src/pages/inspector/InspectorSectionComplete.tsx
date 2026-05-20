@@ -769,8 +769,9 @@ export default function InspectorSectionComplete() {
           </div>
         )}
 
-        {/* Photos — contextual labels per section; multi-bucket for kitchen / access */}
-        {sectionType !== 'signature' && (() => {
+        {/* Photos — contextual labels per section; multi-bucket for kitchen / access.
+            Kitchen renders its buckets inline inside renderKitchenSection. */}
+        {sectionType !== 'signature' && sectionType !== 'space_kitchen' && (() => {
           // Define per-section photo buckets. Sections without scoped buckets render a
           // single card containing all photos (legacy + new) — backward compatible.
           type Bucket = { fieldKey: string; title: string; primary?: boolean };
