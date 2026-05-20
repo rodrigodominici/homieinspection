@@ -1002,14 +1002,12 @@ export default function ExecutiveReviewDetail() {
                       <p className="text-caption">{inspectorObs}</p>
                     </div>
                   )}
-                  {/* Final obs */}
+                  {/* Final obs — autosaved */}
                   <div>
                     <p className="text-tiny font-medium text-muted-foreground mb-1">Observación final</p>
                     <Textarea value={finalObservations[section.id] ?? ''} rows={2} className="text-caption"
-                      onChange={(e) => setFinalObservations(p => ({ ...p, [section.id]: e.target.value }))} />
-                    <Button size="sm" variant="outline" className="mt-1" onClick={() => saveFinalObservation(section.id)}>
-                      Guardar
-                    </Button>
+                      onChange={(e) => setFinalObservations(p => ({ ...p, [section.id]: e.target.value }))}
+                      onBlur={(e) => saveFinalObservationSilent(section.id, e.target.value)} />
                   </div>
                   {/* Photos */}
                   {sPhotos.length > 0 && (
