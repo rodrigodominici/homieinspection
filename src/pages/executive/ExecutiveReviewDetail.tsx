@@ -1209,9 +1209,8 @@ interface SectionWorkspaceProps {
   internalNote: string;
   onFinalObsChange: (v: string) => void;
   onInternalNoteChange: (v: string) => void;
-  onSaveFinalObs: () => void;
-  onSaveNote: () => void;
-  savingField: string | null;
+  onSaveFinalObsSilent: (sectionId: string, value: string) => Promise<void>;
+  onSaveNoteSilent: (sectionId: string, value: string) => Promise<void>;
   onOpenRepairsDrawer: () => void;
   returnMode: boolean;
   returnSelected: boolean;
@@ -1222,13 +1221,22 @@ interface SectionWorkspaceProps {
 
 function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
-  onFinalObsChange, onInternalNoteChange, onSaveFinalObs, onSaveNote,
-  savingField, onOpenRepairsDrawer,
+  onFinalObsChange, onInternalNoteChange, onSaveFinalObsSilent, onSaveNoteSilent,
+  onOpenRepairsDrawer,
   returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter(f => f.group_key === 'status');
   const otherFields = fields.filter(f => f.group_key !== 'status' && f.group_key !== 'photo' && f.group_key !== 'observation' && f.value_text);
   const sectionSubtotalClient = repairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0);
+
+  const finalObsAutosave = useDebouncedAutosave(
+    finalObservation,
+    (v) => onSaveFinalObsSilent(section.id, v),
+  );
+  const noteAutosave = useDebouncedAutosave(
+    internalNote,
+    (v) => onSaveNoteSilent(section.id, v),
+  );
 
   return (
     <div className="space-y-6">
@@ -1278,11 +1286,11 @@ function SectionWorkspace({
           </p>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
-            onChange={(e) => onFinalObsChange(e.target.value)} />
-          <Button size="sm" variant="outline" onClick={onSaveFinalObs}
-            disabled={savingField === section.id + '-obs'} className="h-7 text-tiny">
-            Guardar
-          </Button>
+            onChange={(e) => onFinalObsChange(e.target.value)}
+            onBlur={() => finalObsAutosave.flush()} />
+          <div className="flex justify-end">
+            <AutosaveStatus status={finalObsAutosave.status} />
+          </div>
         </div>
       </div>
 
@@ -1291,12 +1299,14 @@ function SectionWorkspace({
         <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
         <Textarea value={internalNote} rows={2} className="text-caption"
           placeholder="Nota interna (no visible al propietario)..."
-          onChange={(e) => onInternalNoteChange(e.target.value)} />
-        <Button size="sm" variant="outline" onClick={onSaveNote}
-          disabled={savingField === section.id + '-note'} className="h-7 text-tiny">
-          Guardar nota
-        </Button>
+          onChange={(e) => onInternalNoteChange(e.target.value)}
+          onBlur={() => noteAutosave.flush()} />
+        <div className="flex justify-end">
+          <AutosaveStatus status={noteAutosave.status} />
+        </div>
       </div>
+
+
 
       {/* Reparaciones de esta sección — operational outcome of the review.
           Header (title + count + subtotal + CTA) stacks vertically on narrow widths. */}
