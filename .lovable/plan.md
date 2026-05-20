@@ -1,65 +1,67 @@
-# Reordenar fotos en la sección Cocina / Logia
+# Causa del filtro "Inspector" roto
 
-## Problema
+El dropdown de inspectores solo muestra "Inspector sin nombre" y filtrar no surte efecto porque **el ejecutivo no puede leer la tabla `profiles`**.
 
-En la pantalla `space_kitchen` (Inspector → completar sección Cocina / Electrodomésticos), todas las fotos se renderizan al final de la pantalla en un bloque común, mostrando:
+## Diagnóstico
 
-1. Fotos Cocina y Electrodomésticos
-2. Fotos Logia
-
-…aunque visualmente la sección Logia (matriz Calefón/Thermo/… + observación) aparece más arriba. Resultado: el inspector termina de evaluar Logia, hace scroll y vuelve a "ver cocina" antes de las fotos de Logia.
-
-El usuario pide que **Fotos Logia aparezca justo después del bloque Logia**, y por consistencia **Fotos Cocina justo después del bloque Cocina (observación)**.
-
-El generador (`src/lib/inspection-generator.ts`) ya ordena los campos en ese orden lógico (kitchen matrix → appliances → technical → kitchen obs → kitchen photos → logia matrix → logia obs → logia photos). El desorden visual es puramente de render.
-
-## Cambio (solo UI, sin tocar datos)
-
-Archivo único: `src/pages/inspector/InspectorSectionComplete.tsx`
-
-### 1. `renderKitchenSection()` (≈ líneas 482-534)
-
-Inyectar las cards de fotos **inline**, no al final:
-
-```text
-[Cocina matrix card]
-[Electrodomésticos matrix card]
-[Técnico card]
-[Observaciones Cocina card]        ← observationFields del grupo 'kitchen'/'observation'
-[Fotos Cocina y Electrodomésticos] ← NUEVO inline
-[Logia matrix card]
-[Observaciones Logia card]         ← logiaFields (textarea)
-[Fotos Logia]                       ← NUEVO inline
-```
-
-Implementación:
-- Extraer la función `renderPhotoCard(title, photos, uploadFieldKey)` (hoy local al bloque tail-end de fotos, líneas ~735-770) a un helper accesible desde `renderKitchenSection`.
-- Filtrar `photos` por `field_key` correspondiente (`kitchen_photos`, `logia_photos`) usando el mismo criterio que el bloque tail-end.
-- Renderizar las cards en los puntos indicados.
-
-### 2. Bloque tail-end de fotos (≈ líneas 717-770)
-
-Cuando `sectionType === 'space_kitchen'`, **omitir** el bloque (ya se renderizó inline). Mantener el comportamiento actual para el resto de secciones (`access`, espacios estándar, etc.).
+`ExecutiveReviewQueue` arma la lista de inspectores así:
 
 ```ts
-if (sectionType === 'space_kitchen') return null;
+inspectors = ids.map(id => ({
+  id,
+  name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Inspector sin nombre',
+}));
 ```
 
-### 3. Sin cambios en
+`inspectorProfiles` viene de `useProfilesByIds(inspectorIds)` → `supabase.from('profiles').select('id, full_name, email, role').in('id', ids)`.
 
-- `inspection-generator.ts` (orden de campos ya correcto).
-- Lógica de upload/borrado/signed URLs.
-- Validación / gating de fotos obligatorias (mismo `field_key`, misma data).
-- Inspecciones existentes (no hay migración; solo cambia el render).
+Las políticas RLS actuales sobre `public.profiles` son:
 
-## Riesgos
+| Policy | Cmd | USING |
+|---|---|---|
+| Admins can view all profiles | SELECT | `has_role(uid,'admin')` |
+| Users can view their own profile | SELECT | `id = auth.uid()` |
 
-- **Bajo**. Cambio cosmético en una sola pantalla. La fuente de datos, los `field_key` de upload y la lógica de progreso permanecen iguales.
-- Verificar visualmente en modo read-only (inspección enviada) que las cards de fotos siguen mostrándose correctamente en su nueva posición.
+→ Un ejecutivo no es admin ni es dueño de esas filas, así que `select` devuelve **0 perfiles**. El hook entrega `inspectorProfiles = {}`, todos caen al fallback "Inspector sin nombre", y el `<Select>` colapsa todos los IDs bajo esa etiqueta (visualmente parece "no filtra").
 
-## QA
+El filtro sí está conectado (`inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter`) — el bug es 100% de visibilidad de datos, no de lógica de filtrado.
 
-1. Abrir una inspección en curso, ir a sección Cocina / Electrodomésticos.
-2. Confirmar orden: Cocina → Electrodomésticos → Técnico → Obs Cocina → **Fotos Cocina** → Logia matrix → Obs Logia → **Fotos Logia**.
-3. Subir/borrar fotos en ambos buckets y verificar que persisten en el `field_key` correcto.
-4. Repetir en una inspección ya enviada (read-only).
+Mismo problema afecta cualquier vista ejecutiva que muestre nombre de inspector (detalle, calendario, etc.).
+
+## Fix propuesto
+
+Permitir a roles operativos (`executive`, `admin`) leer los campos públicos de perfiles de staff. Mantener PII fuera del alcance del rol `inspector` y de usuarios `pending`.
+
+### Migración
+
+Añadir policy SELECT adicional sobre `public.profiles`:
+
+```sql
+CREATE POLICY "Executives can view staff profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (
+  public.has_role(auth.uid(), 'executive')
+  AND role IN ('inspector', 'executive', 'admin')
+);
+```
+
+- No expande lo que ve el inspector (sigue viendo solo el suyo).
+- No expone usuarios `pending` / rechazados.
+- Resuelve el dropdown + nombres en filas.
+
+### Alternativa más estricta (opcional, si se prefiere)
+
+Crear vista `public.staff_profiles_public` con `SELECT id, full_name, role` (sin email) y `security_invoker=on`, y consumirla desde `listProfilesByIds`. Más trabajo pero esconde el email del ejecutivo. Recomiendo **dejarlo para una fase posterior** y por ahora aplicar la policy directa: el email del staff ya es interno.
+
+## Verificación
+
+1. Loguearse como ejecutivo.
+2. `/executive/review` → abrir el filtro "Todos los inspectores" → debe listar los nombres reales.
+3. Seleccionar un inspector → la lista se reduce a sus inspecciones.
+4. En cada fila del bucket, ver `Inspector: <nombre>` en vez de "Inspector sin nombre".
+
+## Fuera de alcance
+
+No se toca lógica de UI ni el hook — solo RLS. La capa de servicio ya está lista.
