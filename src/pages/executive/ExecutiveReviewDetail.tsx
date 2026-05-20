@@ -244,26 +244,27 @@ export default function ExecutiveReviewDetail() {
   const isPublished = !!inspection?.published_at;
 
   // ─── Actions ───────────────────────────────────────────
-  const saveInternalNote = async (sectionId: string) => {
-    setSavingField(sectionId + '-note');
-    const note = internalNotes[sectionId]?.trim();
-    if (!note) { setSavingField(null); return; }
+  // Silent save helpers — used by debounced autosave (no toasts, no UI state).
+  const saveInternalNoteSilent = useCallback(async (sectionId: string, value: string) => {
+    const note = value.trim();
+    if (!note) return;
     await supabase.from('inspection_reviews').insert({
       inspection_id: id!, inspection_section_id: sectionId,
       comment_type: 'internal_note', comment: note, created_by: profile?.id,
     });
-    toast({ title: 'Nota guardada' });
-    setSavingField(null);
-  };
+  }, [id, profile?.id]);
 
-  const saveFinalObservation = async (sectionId: string) => {
-    setSavingField(sectionId + '-obs');
+  const saveFinalObservationSilent = useCallback(async (sectionId: string, value: string) => {
     await supabase.from('inspection_sections').update({
-      final_observation: finalObservations[sectionId]?.trim() || null,
+      final_observation: value.trim() || null,
     }).eq('id', sectionId);
-    toast({ title: 'Observación guardada' });
-    setSavingField(null);
-  };
+  }, []);
+
+  // Legacy explicit-save (kept for any remaining callers); now silent too.
+  const saveInternalNote = (sectionId: string) =>
+    saveInternalNoteSilent(sectionId, internalNotes[sectionId] ?? '');
+  const saveFinalObservation = (sectionId: string) =>
+    saveFinalObservationSilent(sectionId, finalObservations[sectionId] ?? '');
 
   const togglePhotoVisibility = async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
