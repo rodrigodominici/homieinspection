@@ -8,13 +8,14 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Reserved for future Cabinet Grotesk / Fraunces migration (AP target stack)
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -25,6 +26,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          soft: "hsl(var(--primary-soft))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -70,6 +72,19 @@ export default {
           na: "hsl(var(--status-na))",
           "na-bg": "hsl(var(--status-na-bg))",
         },
+        // Homie extended (AP canonical)
+        homie: {
+          green: "hsl(var(--homie-green))",
+          "green-hover": "hsl(var(--homie-green-hover))",
+          blue: "hsl(var(--homie-blue))",
+          orange: "hsl(var(--homie-orange))",
+          yellow: "hsl(var(--homie-yellow))",
+          pink: "hsl(var(--homie-pink))",
+          taupe: "hsl(var(--homie-taupe))",
+          "soft-green": "hsl(var(--homie-soft-green))",
+          "soft-blue": "hsl(var(--homie-soft-blue))",
+          "neutral-warm": "hsl(var(--homie-neutral-warm))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -77,14 +92,8 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
