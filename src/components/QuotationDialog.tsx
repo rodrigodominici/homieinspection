@@ -5,6 +5,8 @@ import { Printer, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, InspectionRepairItem } from '@/lib/types';
 import { fetchTaxConfig, applyVat, type MarketTaxSettings } from '@/lib/tax';
+import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
+import { TaxBreakdown } from '@/shared/ui/TaxBreakdown';
 
 const fmt = (n: number) => n.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtCurrency = (n: number) => `$${fmt(n)}`;
