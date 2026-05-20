@@ -41,7 +41,7 @@ function AdminSidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-sm font-semibold text-sidebar-foreground truncate">Homie Inspection</p>
-              <p className="text-tiny text-sidebar-foreground/60">Admin</p>
+              <p className="text-tiny text-sidebar-foreground/80">Admin</p>
             </div>
           )}
         </div>
@@ -56,7 +56,7 @@ function AdminSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === '/admin'}
-                      className="hover:bg-sidebar-accent/50"
+                      className="hover:bg-sidebar-accent/70"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
@@ -72,13 +72,13 @@ function AdminSidebar() {
         {/* Footer */}
         <div className="border-t border-sidebar-border p-4">
           {!collapsed && (
-            <p className="text-tiny text-sidebar-foreground/60 truncate mb-2">{profile?.full_name}</p>
+            <p className="text-tiny text-sidebar-foreground/80 truncate mb-2">{profile?.full_name}</p>
           )}
           <Button
             variant="ghost"
             size={collapsed ? 'icon' : 'sm'}
             onClick={signOut}
-            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/70"
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span className="ml-2">Cerrar Sesión</span>}

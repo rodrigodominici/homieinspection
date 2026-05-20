@@ -752,7 +752,7 @@ export default function ExecutiveReviewDetail() {
                       </Select>
                     </div>
                     {selectedContractorId && contractorTotal > 0 && (
-                      <div className="space-y-1 pt-2 border-t border-border/40 text-xs">
+                      <div className="space-y-1 pt-2 border-t border-border/70 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Costo contratista</span>
                           <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
@@ -887,7 +887,7 @@ export default function ExecutiveReviewDetail() {
 
           {/* Section-level subtotal — flat inline block */}
           {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-            <div className="pt-3 border-t border-border/40 space-y-0.5">
+            <div className="pt-3 border-t border-border/70 space-y-0.5">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal sección</p>
               <p className="text-sm font-mono font-semibold">
                 {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
@@ -1646,7 +1646,7 @@ function SectionRepairsDrawer({
 
                 {/* Expanded editor */}
                 {expanded && (
-                  <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/40">
+                  <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/70">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         {repair.category_snapshot && (
@@ -1717,7 +1717,7 @@ function SectionRepairsDrawer({
                     <Input placeholder="Notas..." defaultValue={repair.notes ?? ''} className="h-8 text-xs"
                       onBlur={(e) => onUpdateRepair(repair.id, 'notes', e.target.value || null)} />
 
-                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/40">
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/70">
                       <div className="space-y-1">
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Paga</Label>
                         <ToggleGroup
