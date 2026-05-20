@@ -479,6 +479,44 @@ export default function InspectorSectionComplete() {
     );
   };
 
+  const renderPhotoBucketCard = (
+    title: string,
+    cardPhotos: InspectionPhoto[],
+    uploadFieldKey: string | null,
+  ) => (
+    <Card key={title} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+      <CardContent className="p-4">
+        <p className="text-body font-medium mb-3">{title}</p>
+        {readOnly && cardPhotos.length === 0 ? (
+          <p className="text-caption text-muted-foreground">Sin fotos registradas.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5">
+            {!readOnly && (
+              <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
+            )}
+            {cardPhotos.map((photo) => (
+              <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
+                <img
+                  src={photoUrls[photo.id] ?? ''}
+                  alt={photo.caption ?? 'Foto'}
+                  className="w-full h-full object-cover"
+                />
+                {!readOnly && (
+                  <button
+                    onClick={() => handleDeletePhoto(photo)}
+                    className="absolute top-1 right-1 h-7 w-7 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const renderKitchenSection = () => {
     const statusFields = fieldsByGroup['status'] || [];
     const applianceFields = fieldsByGroup['appliance'] || [];
@@ -486,6 +524,18 @@ export default function InspectorSectionComplete() {
     const logiaMatrixFields = fieldsByGroup['logia_matrix'] || [];
     const logiaFields = fieldsByGroup['logia'] || [];
     const observationFields = fieldsByGroup['observation'] || [];
+
+    // Split fields/photos: kitchen-block vs logia-block. The generator places
+    // `logia_observation` inside group 'logia' (textarea), but observations from
+    // the 'observation' group belong to kitchen. Photos: kitchen_photos +
+    // any legacy/unknown-key photo → kitchen bucket; logia_photos → logia bucket.
+    const KITCHEN_KEY = 'kitchen_photos';
+    const LOGIA_KEY = 'logia_photos';
+    const knownKeys = new Set([KITCHEN_KEY, LOGIA_KEY]);
+    const kitchenPhotos = photos.filter(
+      (p) => p.field_key === KITCHEN_KEY || !p.field_key || !knownKeys.has(p.field_key),
+    );
+    const logiaPhotos = photos.filter((p) => p.field_key === LOGIA_KEY);
 
     return (
       <>
@@ -506,6 +556,16 @@ export default function InspectorSectionComplete() {
           </Card>
         )}
         {technicalFields.length > 0 && renderGroupCard(technicalFields, KITCHEN_GROUP_LABELS.technical, readOnly)}
+        {observationFields.length > 0 && observationFields.map(f => (
+          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
+            <CardContent className="p-4 space-y-2">
+              {renderField(f, readOnly)}
+            </CardContent>
+          </Card>
+        ))}
+        {/* Kitchen photos — inline, right after kitchen observation */}
+        {renderPhotoBucketCard('Fotos Cocina y Electrodomésticos', kitchenPhotos, KITCHEN_KEY)}
+
         {logiaMatrixFields.length > 0 && (
           <Card className="border-0 ring-1 ring-primary/20 shadow-sm rounded-2xl bg-primary/[0.02]">
             <CardContent className="p-4 space-y-4">
@@ -522,13 +582,8 @@ export default function InspectorSectionComplete() {
             </CardContent>
           </Card>
         )}
-        {observationFields.length > 0 && observationFields.map(f => (
-          <Card key={f.id} className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
-            <CardContent className="p-4 space-y-2">
-              {renderField(f, readOnly)}
-            </CardContent>
-          </Card>
-        ))}
+        {/* Logia photos — inline, right after logia block */}
+        {renderPhotoBucketCard('Fotos Logia', logiaPhotos, LOGIA_KEY)}
       </>
     );
   };
