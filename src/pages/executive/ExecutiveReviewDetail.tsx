@@ -310,7 +310,7 @@ export default function ExecutiveReviewDetail() {
       unit: catalogItem.unit, pricing_type: catalogItem.pricing_type,
       quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: contractorPrice,
       notes: null, visible_to_owner: true, sort_order: existingRepairs.length,
-      payer_role: 'owner', payment_nature: 'required',
+      payer_role: 'tenant', payment_nature: 'required',
       created_by: profile?.id, updated_by: profile?.id,
     });
     if (insertError) {
