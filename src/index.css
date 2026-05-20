@@ -4,99 +4,123 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Homie Design System — aligned to Homie Admin Portal (DS canónico).
+ * All colors HSL. Legacy --status-* tokens preserved for backwards compat
+ * while pages migrate to the new semantic tokens (--status-pending, etc).
+ */
+
 @layer base {
   :root {
-    /* Homie brand — #525EA2 = hsl(231, 32%, 48%) */
-    --background: 230 25% 97%;       /* #F6F7FB */
-    --foreground: 220 26% 14%;       /* #1F2937 */
+    /* ── Surfaces ───────────────────────────────────────── */
+    --background: 224 60% 97%;        /* #F4F7FE — AP canonical */
+    --foreground: 240 38% 12%;        /* #161628 */
 
-    --card: 0 0% 100%;               /* #FFFFFF */
-    --card-foreground: 220 26% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 38% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 26% 14%;
+    --popover-foreground: 240 38% 12%;
 
-    --primary: 231 32% 48%;           /* #525EA2 */
+    /* ── Brand ──────────────────────────────────────────── */
+    --primary: 231 32% 48%;           /* #525EA2 Homie Indigo */
     --primary-foreground: 0 0% 100%;
-    --primary-soft: 228 40% 95%;      /* #EEF1F8 */
+    --primary-soft: 231 26% 89%;      /* #DCDEEB */
 
-    --secondary: 210 40% 98%;         /* #F8FAFC */
-    --secondary-foreground: 231 32% 30%;
+    --secondary: 231 26% 89%;         /* #DCDEEB */
+    --secondary-foreground: 240 38% 12%;
 
-    --muted: 220 15% 93%;
-    --muted-foreground: 220 9% 46%;   /* #6B7280 */
+    --muted: 230 25% 95%;             /* #EFEFF4 */
+    --muted-foreground: 0 18% 42%;    /* #736464 taupe */
 
-    --accent: 231 25% 90%;
-    --accent-foreground: 231 32% 30%;
+    --accent: 168 60% 34%;            /* #238D7E Homie Green */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 24 85% 57%;        /* #ED8735 — danger */
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 72% 84%;         /* #F6B9B8 soft pink */
+    --destructive-foreground: 240 38% 12%;
 
-    --border: 220 13% 91%;            /* #E5E7EB — separators */
-    --input: 220 13% 84%;             /* darker than --border so form fields read clearly on white cards */
+    --border: 25 18% 86%;             /* #DBD1CA warm border (AP) */
+    --input: 25 18% 86%;
     --ring: 231 32% 48%;
 
-    --radius: 0.75rem;
+    --radius: 0.75rem;                /* 12px */
 
-    /* Status colors */
-    --status-good: 170 60% 34%;       /* #238D7E */
-    --status-good-bg: 170 40% 95%;
-    --status-regular: 37 91% 62%;      /* #F6B248 */
-    --status-regular-bg: 37 91% 96%;
-    --status-bad: 24 85% 57%;          /* #ED8735 */
-    --status-bad-bg: 24 85% 96%;
-    --status-na: 0 5% 42%;             /* #736464 */
-    --status-na-bg: 0 5% 95%;
+    /* ── Homie extended palette (AP tokens) ─────────────── */
+    --homie-green: 168 60% 34%;       /* #238D7E */
+    --homie-green-hover: 168 55% 29%; /* #22766A */
+    --homie-blue: 231 32% 48%;        /* #525EA2 */
+    --homie-orange: 24 82% 57%;       /* #ED8735 */
+    --homie-yellow: 34 89% 62%;       /* #F6B248 */
+    --homie-pink: 1 72% 84%;          /* #F6B9B8 */
+    --homie-taupe: 0 18% 42%;         /* #736464 */
+    --homie-soft-green: 162 24% 88%;  /* #D9E7E4 */
+    --homie-soft-blue: 231 26% 89%;   /* #DCDEEB */
+    --homie-neutral-warm: 30 20% 92%; /* #ECEBE8 */
 
-    /* Sidebar */
-    --sidebar-background: 231 30% 15%;
-    --sidebar-foreground: 231 10% 90%;
-    --sidebar-primary: 231 32% 60%;
+    /* ── Status semantics (NEW canonical layer) ─────────── */
+    --status-pending-bg: 231 26% 89%;        /* soft-blue */
+    --status-pending-fg: 231 32% 48%;        /* primary */
+    --status-in-progress-bg: 34 89% 92%;     /* yellow tint */
+    --status-in-progress-fg: 34 60% 35%;
+    --status-needs-changes-bg: 24 82% 92%;   /* orange tint */
+    --status-needs-changes-fg: 24 82% 45%;
+    --status-approved-bg: 162 24% 88%;       /* soft-green */
+    --status-approved-fg: 168 60% 30%;       /* accent */
+    --status-published-bg: 231 26% 89%;
+    --status-published-fg: 231 32% 35%;
+    --status-blocked-bg: 1 72% 88%;
+    --status-blocked-fg: 0 70% 40%;
+
+    /* ── Legacy status (preserve until full migration) ──── */
+    --status-good: 168 60% 34%;
+    --status-good-bg: 162 24% 88%;
+    --status-regular: 34 89% 45%;
+    --status-regular-bg: 34 89% 92%;
+    --status-bad: 24 82% 45%;
+    --status-bad-bg: 24 82% 92%;
+    --status-na: 0 18% 42%;
+    --status-na-bg: 30 20% 92%;
+
+    /* ── Sidebar (AP: light surface) ────────────────────── */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 38% 12%;
+    --sidebar-primary: 231 32% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 231 25% 22%;
-    --sidebar-accent-foreground: 231 10% 90%;
-    --sidebar-border: 231 20% 25%;
+    --sidebar-accent: 231 26% 89%;
+    --sidebar-accent-foreground: 240 38% 12%;
+    --sidebar-border: 25 18% 86%;
     --sidebar-ring: 231 32% 48%;
   }
 
   .dark {
     --background: 231 30% 8%;
     --foreground: 220 15% 93%;
-
     --card: 231 25% 12%;
     --card-foreground: 220 15% 93%;
-
     --popover: 231 25% 12%;
     --popover-foreground: 220 15% 93%;
-
     --primary: 231 45% 65%;
     --primary-foreground: 231 30% 8%;
     --primary-soft: 231 25% 18%;
-
     --secondary: 231 20% 18%;
     --secondary-foreground: 220 15% 85%;
-
     --muted: 231 15% 18%;
     --muted-foreground: 220 10% 55%;
-
-    --accent: 231 20% 20%;
-    --accent-foreground: 220 15% 85%;
-
-    --destructive: 24 62% 45%;
+    --accent: 168 45% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 231 15% 20%;
     --input: 231 15% 20%;
     --ring: 231 45% 65%;
 
-    --status-good: 170 50% 40%;
-    --status-good-bg: 170 30% 15%;
-    --status-regular: 37 80% 55%;
-    --status-regular-bg: 37 40% 15%;
-    --status-bad: 24 70% 50%;
-    --status-bad-bg: 24 40% 15%;
-    --status-na: 0 5% 50%;
-    --status-na-bg: 0 5% 18%;
+    --status-good: 170 50% 50%;
+    --status-good-bg: 170 30% 18%;
+    --status-regular: 37 80% 60%;
+    --status-regular-bg: 37 40% 18%;
+    --status-bad: 24 70% 55%;
+    --status-bad-bg: 24 40% 18%;
+    --status-na: 0 5% 60%;
+    --status-na-bg: 0 5% 20%;
 
     --sidebar-background: 231 30% 6%;
     --sidebar-foreground: 231 10% 85%;
@@ -110,10 +134,7 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
@@ -122,6 +143,7 @@
 
 /* Typography scale utilities */
 @layer utilities {
+  .text-display { @apply text-[24px] font-bold leading-tight tracking-tight; }
   .text-h1 { @apply text-[32px] font-bold leading-tight; }
   .text-h2 { @apply text-[24px] font-bold leading-tight; }
   .text-h3 { @apply text-[20px] font-semibold leading-snug; }
@@ -130,5 +152,6 @@
   .text-body { @apply text-[14px] font-normal leading-normal; }
   .text-caption { @apply text-[12px] font-normal leading-normal; }
   .text-tiny { @apply text-[11px] font-normal leading-normal; }
+  .text-micro { @apply text-[10px] font-medium uppercase tracking-wider; }
   .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
