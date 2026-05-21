@@ -113,6 +113,9 @@ export default function ExecutiveReviewQueue() {
     published:  inspections.filter(i => !!i.published_at).length,
   }), [inspections]);
 
+  // Per-bucket sorts. Action: oldest activity first (longest in state).
+  // En corrección: by contract end. Follow-up: most recently published.
+  // Pre-inspección: updated desc.
   const sortedFiltered = useMemo(() => {
     const arr = [...filtered];
     if (sortKey === 'updated') {
@@ -129,14 +132,23 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      to_review: [], to_publish: [], published: [], in_field: [], uncoordinated: [], other: [],
+      action: [], in_correction: [], follow_up: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
+    // Apply per-bucket secondary sort (override the global sortKey).
+    buckets.action.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
+    buckets.in_correction.sort((a, b) => {
+      const dA = getEffectiveSnapshot(a)?.fecha_de_termino_real_de_contrato as string | undefined;
+      const dB = getEffectiveSnapshot(b)?.fecha_de_termino_real_de_contrato as string | undefined;
+      return (dA ? new Date(dA).getTime() : Infinity) - (dB ? new Date(dB).getTime() : Infinity);
+    });
+    buckets.follow_up.sort((a, b) => {
+      const dA = a.published_at ? new Date(a.published_at).getTime() : 0;
+      const dB = b.published_at ? new Date(b.published_at).getTime() : 0;
+      return dB - dA;
+    });
     return buckets;
   }, [sortedFiltered]);
-
-  const actionableTotal = grouped.to_review.length + grouped.to_publish.length;
-  const contextTotal = grouped.published.length + grouped.in_field.length + grouped.uncoordinated.length + grouped.other.length;
 
   return (
     <ExecutiveLayout>
@@ -179,8 +191,10 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="in_progress">En progreso</SelectItem>
                   <SelectItem value="submitted">Lista para revisión</SelectItem>
                   <SelectItem value="in_review">En revisión</SelectItem>
+                  <SelectItem value="needs_changes">Requiere cambios</SelectItem>
                   <SelectItem value="approved">Aprobada</SelectItem>
                   <SelectItem value="published">Publicada</SelectItem>
+                  <SelectItem value="sent">Entregada</SelectItem>
                 </SelectContent>
               </Select>
               {markets.length > 1 && (
@@ -222,7 +236,7 @@ export default function ExecutiveReviewQueue() {
               </Select>
             </FiltersBar>
 
-            {/* Content */}
+            {/* Content — 4 groups job-to-be-done */}
             {sortedFiltered.length === 0 ? (
               <EmptyState
                 title="No hay inspecciones"
@@ -230,27 +244,40 @@ export default function ExecutiveReviewQueue() {
               />
             ) : (
               <div className="space-y-6">
-                {actionableTotal > 0 && (
-                  <div className="space-y-4">
-                    <GroupHeader tone="primary" label="Accionable ahora" total={actionableTotal} />
-                    <BucketSection title="Para revisar" inspections={grouped.to_review}
-                      bucket="to_review" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Listas para publicar" inspections={grouped.to_publish}
-                      bucket="to_publish" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                <div className="space-y-3">
+                  <GroupHeader tone="primary" label="Requieren tu acción" total={grouped.action.length} />
+                  {grouped.action.length === 0 ? (
+                    <p className="text-caption text-muted-foreground ml-5">No hay inspecciones esperando tu acción.</p>
+                  ) : (
+                    <BucketSection inspections={grouped.action} bucket="action"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  )}
+                </div>
+
+                {grouped.in_correction.length > 0 && (
+                  <div className="space-y-3">
+                    <GroupHeader tone="amber" label="En corrección" total={grouped.in_correction.length} />
+                    <p className="text-caption text-muted-foreground ml-5 -mt-1">
+                      Esperando que el inspector realice las correcciones solicitadas.
+                    </p>
+                    <BucketSection inspections={grouped.in_correction} bucket="in_correction"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   </div>
                 )}
-                {contextTotal > 0 && (
-                  <div className="space-y-4">
-                    <GroupHeader tone="muted" label="Contexto y seguimiento" total={contextTotal} />
-                    <BucketSection title="Publicadas recientemente" inspections={grouped.published}
-                      bucket="published" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="En curso del inspector" inspections={grouped.in_field}
-                      bucket="in_field" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Sin coordinar" inspections={grouped.uncoordinated}
-                      bucket="uncoordinated" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Otras" inspections={grouped.other}
-                      bucket="other" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                  </div>
+
+                {grouped.follow_up.length > 0 && (
+                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3}>
+                    <BucketSection inspections={grouped.follow_up} bucket="follow_up"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
+                )}
+
+                {grouped.pre_inspection.length > 0 && (
+                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false}
+                    description="Inspecciones en etapas previas a la revisión ejecutiva.">
+                    <BucketSection inspections={grouped.pre_inspection} bucket="pre_inspection"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
                 )}
               </div>
             )}
@@ -258,6 +285,7 @@ export default function ExecutiveReviewQueue() {
         )}
       </div>
     </ExecutiveLayout>
+
   );
 }
 
