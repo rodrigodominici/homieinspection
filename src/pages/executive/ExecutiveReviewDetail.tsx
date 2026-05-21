@@ -321,7 +321,7 @@ export default function ExecutiveReviewDetail() {
               sectionId={activeSection.id}
               sectionKey={activeSection.section_key}
               uploadedBy={profile?.id}
-              onToggleVisibility={togglePhotoVisibility}
+              onToggleVisibility={actions.togglePhotoVisibility}
               onPhotosChanged={() => refetch()}
             />
           )}
