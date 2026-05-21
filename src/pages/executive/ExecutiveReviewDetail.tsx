@@ -200,6 +200,7 @@ export default function ExecutiveReviewDetail() {
   // visible_to_owner only gates the published owner-facing payload (clientTotal below).
   const budgetBreakdown = useMemo(() => {
     const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    const bySection: Record<string, { owner: number; tenant: number; total: number }> = {};
     for (const r of allRepairs) {
       const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
       if (r.payer_role === 'tenant') {
@@ -209,14 +210,21 @@ export default function ExecutiveReviewDetail() {
         if (r.payment_nature === 'optional') acc.ownerOptional += amount;
         else acc.ownerRequired += amount;
       }
+      const sid = r.inspection_section_id;
+      if (!bySection[sid]) bySection[sid] = { owner: 0, tenant: 0, total: 0 };
+      if (r.payer_role === 'tenant') bySection[sid].tenant += amount;
+      else bySection[sid].owner += amount;
+      bySection[sid].total += amount;
     }
     return {
       ...acc,
+      bySection,
       ownerTotal: acc.ownerRequired + acc.ownerOptional,
       tenantTotal: acc.tenantRequired + acc.tenantOptional,
       grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
     };
   }, [allRepairs]);
+
 
   const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
   const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
