@@ -46,8 +46,12 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuotationDialog } from '@/components/QuotationDialog';
-import { fetchTaxConfig } from '@/lib/tax';
 import { cn } from '@/lib/utils';
+import {
+  useReviewDetail,
+  repairsService,
+  inspectionActions,
+} from '@/modules/review/api';
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
