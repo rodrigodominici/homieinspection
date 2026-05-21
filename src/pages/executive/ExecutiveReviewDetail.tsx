@@ -1115,11 +1115,11 @@ export default function ExecutiveReviewDetail() {
                 <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
               </Button>
               {isPublished ? (
-                <Button size="sm" variant="outline" className="flex-1" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
                 </Button>
               ) : (
-                <Button size="sm" className="flex-1" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1 h-3.5 w-3.5" /> Publicar
                 </Button>
               )}
