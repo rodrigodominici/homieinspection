@@ -942,18 +942,7 @@ export default function ExecutiveReviewDetail() {
             />
           )}
 
-          {/* Section-level subtotal — flat inline block */}
-          {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-            <div className="pt-3 border-t border-border/70 space-y-0.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal sección</p>
-              <p className="text-sm font-mono font-semibold">
-                {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {(repairsBySection[activeSection.id] ?? []).length} reparaciones
-              </p>
-            </div>
-          )}
+          {/* Section-level subtotal moved into the "Reparaciones de esta sección" block below the main content. */}
         </aside>
       </div>
 
