@@ -41,10 +41,13 @@ import {
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
   ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
+  Globe, Lock as LockIcon,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { fetchTaxConfig } from '@/lib/tax';
 import { cn } from '@/lib/utils';
+
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
