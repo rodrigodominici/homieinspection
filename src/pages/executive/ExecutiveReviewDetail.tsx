@@ -1,14 +1,12 @@
 import ExecutiveLayout from '@/components/ExecutiveLayout';
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,31 +16,16 @@ import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils'
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { useDebouncedAutosave } from '@/shared/hooks/useDebouncedAutosave';
-import { AutosaveStatus } from '@/shared/ui/AutosaveStatus';
-import { NumberInput } from '@/shared/ui/NumberInput';
 import type {
-  Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
-  InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
+  InspectionPhoto, RepairCatalogItem,
 } from '@/lib/types';
 import {
-  ArrowLeft, CheckCircle2, RotateCcw, MapPin, Building, Plus, Trash2,
-  Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
-  AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
-  ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
-  Globe, Lock as LockIcon,
+  ArrowLeft, RotateCcw, MapPin, Plus, Send, Copy, PenLine, XCircle,
+  AlertTriangle, ExternalLink, RefreshCw, Clock, Wrench,
+  ChevronDown, FileText,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuotationDialog } from '@/components/QuotationDialog';
@@ -59,51 +42,19 @@ import {
   ApproveInspectionDialog,
   type PublishedUrls,
 } from '@/modules/review/components';
+import {
+  SectionWorkspace,
+  PhotoPanel,
+  SectionRepairsDrawer,
+  SectionTotalsBreakdown,
+  fmtCurrency,
+  statusLabel,
+} from './review-detail';
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// ─── Helpers ───────────────────────────────────────────────
-const fmt = (n: number) => n.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const fmtCurrency = (n: number) => `$${fmt(n)}`;
 
-
-const statusLabel = (value: string | null) => {
-  if (!value) return null;
-  const labels: Record<string, { text: string; cls: string }> = {
-    bueno: { text: 'Bueno', cls: 'text-[hsl(var(--status-good))]' },
-    regular: { text: 'Regular', cls: 'text-[hsl(var(--status-regular))]' },
-    malo: { text: 'Malo', cls: 'text-[hsl(var(--status-bad))] font-semibold' },
-    no_aplica: { text: 'No Aplica', cls: 'text-[hsl(var(--status-na))]' },
-  };
-  return labels[value] ?? { text: value, cls: '' };
-};
-
-// Breakdown of repair totals per section, shown inside a tooltip.
-function SectionTotalsBreakdown({
-  sections, bySection, field, activeId,
-}: {
-  sections: InspectionSection[];
-  bySection: Record<string, { owner: number; tenant: number; total: number }>;
-  field: 'owner' | 'tenant' | 'total';
-  activeId: string | null;
-}) {
-  const rows = sections
-    .map(s => ({ id: s.id, title: s.section_title, value: bySection[s.id]?.[field] ?? 0 }))
-    .filter(r => r.value > 0);
-  if (rows.length === 0) return <p className="text-xs">Sin reparaciones</p>;
-  return (
-    <div className="space-y-1 min-w-[220px]">
-      <p className="text-[10px] uppercase tracking-wide opacity-70 mb-1">Por sección</p>
-      {rows.map(r => (
-        <div key={r.id} className={cn('flex items-center justify-between gap-3 text-xs', r.id === activeId && 'font-semibold underline')}>
-          <span className="truncate">{r.title}</span>
-          <span className="font-mono">{fmtCurrency(r.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 
 // ─── Main Component ────────────────────────────────────────
