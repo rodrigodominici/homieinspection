@@ -380,7 +380,7 @@ function InspectionRow({
     () => calculateProgress(sections as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]),
     [sections],
   );
-  const cta = useMemo(() => getContextualCTA(insp, sections), [insp, sections]);
+  const cta = useMemo(() => getContextualCTA(insp), [insp]);
   const isActionable = ACTIONABLE_BUCKETS.includes(bucket);
 
   const lastActive = insp.last_active_at
@@ -398,9 +398,10 @@ function InspectionRow({
     ? new Date(contractEnd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
-  const showProgressBar = isActionable || bucket === 'in_field';
+  const showProgressBar = ['action', 'in_correction', 'pre_inspection'].includes(bucket);
+  const reviewingLabel = bucket === 'action' || bucket === 'follow_up';
   const progressLabel = sections.length > 0
-    ? (bucket === 'to_review' || bucket === 'to_publish' || bucket === 'published'
+    ? (reviewingLabel
         ? `${progress.completed} de ${progress.total} secciones revisadas`
         : `${progress.completed} de ${progress.total} secciones completadas`)
     : null;
@@ -416,19 +417,15 @@ function InspectionRow({
             <div className="space-y-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                {bucket === 'uncoordinated' ? (
-                  <Badge variant="secondary" className="text-tiny font-normal text-muted-foreground">Por coordinar</Badge>
-                ) : (
-                  <StatusBadge status={insp.status} />
-                )}
+                <StatusBadge status={insp.status} />
               </div>
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
               <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
-                {bucket === 'uncoordinated' ? (
-                  <span>Término de contrato: {contractEndLabel ?? '—'}</span>
+                {bucket === 'in_correction' && contractEndLabel ? (
+                  <span>Término: {contractEndLabel}</span>
                 ) : (
                   <span className="flex items-center gap-1">
                     <Key className="h-3 w-3" />
@@ -436,6 +433,7 @@ function InspectionRow({
                   </span>
                 )}
               </div>
+
               {progressLabel && (
                 <div className="flex items-center gap-3">
                   {showProgressBar && (
