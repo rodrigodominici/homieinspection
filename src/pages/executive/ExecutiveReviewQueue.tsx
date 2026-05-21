@@ -106,10 +106,11 @@ export default function ExecutiveReviewQueue() {
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
 
   const kpis = useMemo(() => ({
-    pending:    inspections.filter(i => !i.started_at && ['assigned', 'pending', 'pending_assignment'].includes(i.status)).length,
-    inProgress: inspections.filter(i => !!i.started_at && !['submitted', 'in_review', 'approved', 'published', 'sent'].includes(i.status)).length,
-    forReview:  inspections.filter(i => ['submitted', 'in_review'].includes(i.status)).length,
-    published:  inspections.filter(i => !!i.published_at).length,
+    forReview:    inspections.filter(i => i.status === 'submitted').length,
+    inReview:     inspections.filter(i => i.status === 'in_review').length,
+    needsChanges: inspections.filter(i => i.status === 'needs_changes').length,
+    toPublish:    inspections.filter(i => i.status === 'approved').length,
+    published:    inspections.filter(i => ['published', 'sent'].includes(i.status)).length,
   }), [inspections]);
 
   // Per-bucket sorts. Action: oldest activity first (longest in state).
@@ -164,11 +165,12 @@ export default function ExecutiveReviewQueue() {
         ) : (
           <>
             {/* KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard label="Pendientes de inicio" value={kpis.pending} icon={<Clock className="h-5 w-5 text-muted-foreground" />} />
-              <KpiCard label="En progreso"         value={kpis.inProgress} icon={<Play className="h-5 w-5 text-homie-orange" />} accent="amber" />
-              <KpiCard label="Listas para revisión" value={kpis.forReview}  icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue" />
-              <KpiCard label="Publicadas"          value={kpis.published}  icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green" />
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <KpiCard label="Para revisar"     value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}            accent="blue"  onClick={() => setStatusFilter('submitted')} />
+              <KpiCard label="En revisión"      value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}                  accent="blue"  onClick={() => setStatusFilter('in_review')} />
+              <KpiCard label="En corrección"    value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-homie-orange" />}           accent="amber" onClick={() => setStatusFilter('needs_changes')} />
+              <KpiCard label="Para publicar"    value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}                 accent="blue"  onClick={() => setStatusFilter('approved')} />
+              <KpiCard label="Publicadas"       value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}          accent="green" onClick={() => setStatusFilter('published')} />
             </div>
 
             {/* Filters */}
@@ -418,7 +420,7 @@ function InspectionRow({
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                 <StatusBadge status={insp.status} />
               </div>
-              <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
+              <p className="text-caption text-muted-foreground">{insp.address}</p>
               <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}

@@ -13,6 +13,8 @@ interface KpiCardProps {
   icon?: React.ReactNode;
   hint?: string;
   trendSuffix?: string;
+  /** When provided, the card becomes clickable (e.g. to apply a filter). */
+  onClick?: () => void;
 }
 
 const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
@@ -23,7 +25,7 @@ const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
 };
 
 export function KpiCard({
-  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%",
+  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick,
 }: KpiCardProps) {
   const showTrend = typeof trend === "number";
   const goingUp = (trend ?? 0) > 0;
@@ -37,7 +39,17 @@ export function KpiCard({
         : "bg-destructive/15 text-destructive";
 
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-4", accent && ACCENT_CLASS[accent])}>
+    <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      className={cn(
+        "rounded-xl border border-border bg-card p-4",
+        accent && ACCENT_CLASS[accent],
+        onClick && "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+    >
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="mt-3 flex items-end justify-between gap-2">
         <p className="font-display text-3xl font-bold text-foreground flex items-center gap-2">
