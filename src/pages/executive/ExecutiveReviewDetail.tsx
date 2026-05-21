@@ -701,10 +701,17 @@ export default function ExecutiveReviewDetail() {
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantOptional)}</p>
             </div>
             {/* Inquilino Total S/IVA */}
-            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
+                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="tenant" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
             {/* Propietario */}
             <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
@@ -716,20 +723,35 @@ export default function ExecutiveReviewDetail() {
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerOptional)}</p>
             </div>
             {/* Propietario Total S/IVA */}
-            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
+                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="owner" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
             {/* Total general — single strong emphasis */}
-            <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
-              <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
-              <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
-              {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-                <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                  vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-                </p>
-              )}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
+                  <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
+                  {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
+                    <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                      vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
+                    </p>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="total" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
+
 
 
             <div className="flex-1" />
