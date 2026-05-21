@@ -1098,107 +1098,31 @@ export default function ExecutiveReviewDetail() {
       })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
-      <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader><SheetTitle>Catálogo de Reparaciones</SheetTitle></SheetHeader>
-          <div className="mt-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar reparación..." value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)} className="pl-9" />
-            </div>
-            <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {filteredCatalog.map((item) => (
-                <button key={item.id} onClick={() => addRepairFromCatalog(item)}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors space-y-1">
-                  <p className="text-caption font-medium">{item.name}</p>
-                  {item.owner_friendly_name && <p className="text-tiny text-muted-foreground">{item.owner_friendly_name}</p>}
-                  <div className="flex items-center gap-2 text-tiny text-muted-foreground">
-                    <Badge variant="secondary" className="text-tiny">{item.category?.name}</Badge>
-                    <span className="font-mono">${Number(item.base_price).toFixed(2)} / {item.unit}</span>
-                  </div>
-                </button>
-              ))}
-              {filteredCatalog.length === 0 && <p className="text-center text-muted-foreground text-caption py-8">No se encontraron</p>}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <RepairCatalogSheet
+        open={catalogOpen}
+        onOpenChange={setCatalogOpen}
+        search={catalogSearch}
+        onSearchChange={setCatalogSearch}
+        items={catalogItems}
+        onSelect={addRepairFromCatalog}
+      />
 
       {/* ── Published URL dialog (dual: owner + tenant) ──── */}
-      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-[hsl(var(--status-good))]" /> Reporte publicado
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-caption text-muted-foreground">
-              Se generaron dos enlaces. Comparte cada uno con la audiencia correspondiente.
-            </p>
-
-            {/* Owner link */}
-            <div className="space-y-1.5">
-              <label className="text-tiny font-semibold uppercase tracking-wide text-muted-foreground">Cotización Propietario</label>
-              <div className="flex gap-2">
-                <Input readOnly value={publishedUrls?.owner ?? ''} className="flex-1 text-caption font-mono" />
-                <Button variant="outline" size="icon" onClick={() => publishedUrls && copyToClipboard(publishedUrls.owner)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => publishedUrls && window.open(publishedUrls.owner, '_blank')}>
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Tenant link */}
-            <div className="space-y-1.5">
-              <label className="text-tiny font-semibold uppercase tracking-wide text-muted-foreground">Cotización Inquilino</label>
-              <div className="flex gap-2">
-                <Input readOnly value={publishedUrls?.tenant ?? ''} className="flex-1 text-caption font-mono" />
-                <Button variant="outline" size="icon" onClick={() => publishedUrls && copyToClipboard(publishedUrls.tenant)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => publishedUrls && window.open(publishedUrls.tenant, '_blank')}>
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setPublishDialogOpen(false)}>Cerrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PublishedUrlsDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        urls={publishedUrls}
+        onCopy={copyToClipboard}
+      />
 
       {/* ── Missing final observations confirm ────────── */}
-      <AlertDialog open={missingObsDialogOpen} onOpenChange={setMissingObsDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-[hsl(var(--status-regular))]" />
-              Hay {missingSections.length} {missingSections.length === 1 ? 'sección' : 'secciones'} sin observación final
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Puedes publicar de todas formas. Las fotos de esas secciones se incluirán normalmente en el reporte.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {missingSections.length > 0 && (
-            <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 text-caption space-y-0.5">
-              {missingSections.map((s) => (
-                <p key={s.id} className="text-muted-foreground">· {s.section_title}</p>
-              ))}
-            </div>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setMissingObsDialogOpen(false); void handlePublish(true); }}>
-              Publicar de todas formas
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <MissingObservationsDialog
+        open={missingObsDialogOpen}
+        onOpenChange={setMissingObsDialogOpen}
+        missingSections={missingSections}
+        onConfirm={() => void handlePublish(true)}
+      />
+
 
       {/* ── Quotation dialog ──────────────────────────── */}
       <QuotationDialog
