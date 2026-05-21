@@ -1889,7 +1889,8 @@ function SectionRepairsDrawer({
                           </ToggleGroupItem>
                           <ToggleGroupItem
                             value="owner"
-                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-[hsl(var(--status-good))] data-[state=on]:text-white data-[state=on]:shadow-sm"
+
                           >
                             Propietario
                           </ToggleGroupItem>
