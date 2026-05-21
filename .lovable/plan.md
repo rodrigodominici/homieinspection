@@ -1,98 +1,142 @@
-# Plan — Ajustes vista de revisión ejecutiva
 
-## 1. Reestructurar resumen financiero (sticky top bar)
+# Implementación — Homie Inspection UI Plan
 
-En `ExecutiveReviewDetail.tsx` (líneas 630–663), reemplazar los 4 bloques actuales por 7 bloques en este orden:
+Cubre las 18 mejoras del documento subido, organizadas en 3 fases ejecutables. Cada fase es un PR independiente y verificable.
 
-```
-Depósito · Inquilino · Inquilino Opcional · Inquilino Total S/IVA · Propietario · Propietario Opcional · Propietario Total S/IVA
-```
+## Cambio transversal previo
 
-- Usar los valores ya calculados en `budgetBreakdown` (`tenantRequired`, `tenantOptional`, `tenantTotal`, `ownerRequired`, `ownerOptional`, `ownerTotal`).
-- "S/IVA" = sin IVA (los totales actuales ya son netos; el IVA se aplica en cotización/reporte público).
-- El `Total general` y la línea "vs depósito" se mantienen al final como bloque destacado (`bg-primary/10`).
-- Reemplazar `fmtCurrency` por `<MoneyDisplay value={...} market={inspection.market} />` para consistencia.
-- Mantener `overflow-x-auto` — con 7 bloques + total será necesario scroll horizontal en pantallas chicas.
+**Status labels canónicos** (`src/shared/ui/status-registry.ts`)
+- `submitted` → "Lista para revisión" (hoy: "Enviada")
+- `sent` → "Entregada" (hoy: "Enviada")
+- `assigned` → "Asignada" (donde aún diga "Por coordinar")
 
-## 2. Mover "Subtotal sección" debajo de "Reparaciones de esta sección"
+Único cambio en el registry; se propaga automáticamente a todos los `StatusBadge`. Auditar `rg "Enviada|Por coordinar"` para limpiar strings hardcodeados (filtro del Select en `ExecutiveReviewQueue.tsx` línea 178).
 
-Hoy el bloque `Subtotal sección` vive en el panel derecho de fotos (líneas 888–899). Moverlo:
+---
 
-- Eliminar el bloque del `<aside>` derecho.
-- Insertarlo dentro de la tarjeta "Reparaciones de esta sección" (líneas 1313+), como fila inferior del header o pie de la lista, mostrando: subtotal visible al propietario + cantidad de reparaciones.
-- El panel derecho queda solo con fotos.
+## Fase 1 — Prioridad 1 (data integrity & flujos rotos)
 
-## 3. Publicar sin observaciones finales obligatorias
+### F1.1 · Bandeja: agrupación por job-to-be-done (B3)
+Reemplazar `getExecutiveBucket` / `grouped` / `BucketSection` en `ExecutiveReviewQueue.tsx` por 4 grupos:
+1. **Requieren tu acción** — `submitted`, `in_review`, `approved` · siempre visible · sort: más antiguos primero (tiempo en estado actual).
+2. **En corrección** — `needs_changes` · sort por `fecha_de_termino_real_de_contrato` asc · subtítulo "Esperando que el inspector realice las correcciones solicitadas."
+3. **Seguimiento** — `published`, `sent` · colapsado si >3 · sort por `published_at` desc.
+4. **Pre-inspección** (colapsado) — `pending_assignment`, `assigned`, `in_progress`.
 
-Hoy `handlePublish` (líneas 369–378) bloquea con toast destructivo si hay secciones sin `final_observation`.
+### F1.2 · Bandeja: CTAs por estado (B5)
+Reescribir `getContextualCTA` con tabla por status (Iniciar revisión / Continuar revisión / Ver correcciones / Publicar / Abrir reporte / Asignarme / Ver detalle). "Asignarme" como acción inline cuando `pending_assignment`.
 
-Cambios:
-- Quitar el bloqueo duro.
-- Si `missingSections.length > 0`, abrir un `AlertDialog` con:
-  - Título: "Hay {n} secciones sin observación final"
-  - Lista de las secciones afectadas
-  - Acciones: `Cancelar` / `Publicar de todas formas` (variante primaria).
-- Si confirma, ejecutar el publish actual sin tocar el payload de fotos.
-- Verificar (ya es así hoy) que el payload `sections[].photos` incluye TODAS las fotos visibles de cada sección independientemente de si tiene `final_observation`. La línea 393 ya filtra solo por `visible_to_owner !== false` — no requiere cambios.
-- Las secciones sin observación final se publicarán con `final_observation: null`; el `OwnerReport` ya maneja ese caso.
+### F1.3 · Detail: gate de publicar correcto (D6)
+En `ExecutiveReviewDetail.tsx`:
+- Mostrar CTA "Publicar informe" SOLO si `inspection.status === 'approved'`.
+- Mostrar "Republicar" SOLO si `status === 'published'`.
+- Modal checklist pre-publicación: secciones revisadas, presupuesto generado, observaciones públicas faltantes. Reutilizar el `AlertDialog` introducido en la sesión anterior, enriqueciéndolo con los 3 checks. CTA primario: "Publicar de todas formas".
 
-## 4. Reemplazar inputs numéricos con flechas (spinner)
+### F1.4 · Detail: autosave de observaciones (D7)
+- Eliminar botones "Guardar" / "Guardar nota" del bloque de observación final y comentario interno.
+- Hookear con `useDebouncedAutosave` (300ms, ya existe en `src/shared/hooks`).
+- Indicador inline bottom-right por campo: `idle | saving | saved | error` usando `<AutosaveStatus />` ya existente.
 
-Los `<Input type="number">` muestran flechas nativas del navegador en desktop que disparan eventos `onChange` molestos y permiten clicks erróneos. Afecta:
-- Cantidad, Cliente, Contratista en el editor expandido de reparación (líneas 1683–1700).
-- Eventuales otros (MatrixCell en catálogo no aplica porque es admin).
+### F1.5 · Detail: diferenciación pública vs interna (D8)
+- Observación final (`final_observation`): borde izquierdo 3px primary, ícono Globe, label "Observación Final · Visible para propietario/inquilino", tooltip.
+- Comentario interno: `bg-muted/40`, ícono Lock, label "Comentario Interno · Solo visible para el equipo", tooltip.
 
-Solución: crear `src/shared/ui/NumberInput.tsx` como wrapper de `<Input>` con:
-- `type="text"` + `inputMode="decimal"` + `pattern="[0-9]*[.,]?[0-9]*"`.
-- Parseo controlado (acepta coma o punto, normaliza a número).
-- Soporte `value` / `onChange(number)`.
-- Misma API visual que `Input` (acepta `className`, `step` ignorado).
+---
 
-Reemplazar las 3 ocurrencias en `RepairItemCard`. Esto elimina las flechas y el scroll-wheel.
+## Fase 2 — Prioridad 2 (alto impacto operativo)
 
-## 5. Vista de catálogo para ejecutivos (solo lectura)
+### F2.1 · Bandeja: KPIs por estado real (B1)
+Reemplazar los 4 KpiCard por 5: Para revisar (`submitted`), En revisión (`in_review`), En corrección (`needs_changes`), Para publicar (`approved`), Publicadas (`published` + `sent`). Cada card es clickeable y aplica filtro `statusFilter` correspondiente.
 
-- Nueva ruta `/executive/catalog` en `App.tsx` envuelta en `ProtectedRoute allowedRoles={['executive']}`.
-- Nueva página `src/pages/executive/ExecutiveRepairCatalog.tsx`:
-  - Reutiliza la lógica de fetch y la matriz de precios de `AdminRepairCatalog`, pero **sin** botones de edición, sin `MatrixCell` editable (reemplazar por `<span>` con `MoneyDisplay`), sin dialogs de crear/editar/borrar, sin tab de gestión de contratistas/categorías (solo lectura del listado).
-  - Para evitar duplicar 900 líneas: extraer el render del listado y de la matriz a `src/modules/catalog/CatalogReadOnlyView.tsx` y consumirlo desde ambas páginas con `readOnly` flag, **o** crear página standalone más simple que solo muestre los items + matriz.
-  - Recomendación: página standalone simple (matriz + filtros básicos por categoría/búsqueda). Menos acoplamiento.
-- Agregar item de navegación "Catálogo" en `ExecutiveLayout.tsx` con ícono `Wrench` o `BookOpen`.
-- RLS: validar que la tabla `repair_catalog_items` y `repair_catalog_item_contractor_prices` permitan `SELECT` al rol `executive`. Si no, agregar policy:
-  ```sql
-  create policy "executives can view catalog"
-  on public.repair_catalog_items for select to authenticated
-  using (public.has_role(auth.uid(), 'executive'));
-  ```
-  (y análogo para contractor_prices, contractors, repair_catalog_categories).
+### F2.2 · Bandeja: estructura estándar de fila (B4)
+- Address sin truncar (quitar truncate del span de dirección).
+- Prefijar nombres con rol ("Inspector: ...", "Propietario: ...").
+- Fecha contextual + tiempo-en-estado según tabla (helpers en nuevo `src/lib/executive-row-meta.ts`).
+- Coloración amber/red según umbrales (>3d, >5d, etc.) usando `text-status-*`.
+- Barra de progreso para `in_progress | submitted | in_review | needs_changes | approved`.
 
-## 6. Re-cotizar contratista al cambiar contratista activo
+### F2.3 · Detail: badge dinámico de header (D1)
+Sustituir badge hardcodeado por `<StatusBadge status={inspection.status} />` (ya cubierto por el registry).
 
-Hoy `handleContractorChange` (líneas 361–367) solo actualiza `inspections.contractor_id`. Los `contractor_unit_price` de cada repair item quedan congelados en su valor anterior (o en 0 si nunca se asignaron) hasta editar manualmente.
+### F2.4 · Detail: sidebar completa con 5 estados (D3)
+- Reemplazar badges del sidebar de secciones por `<StatusBadge kind="section" status={s.status} />`, asegurando que cubre `needs_changes` con ícono ⚠.
+- Counter arriba del listado: "X de Y secciones revisadas" + `<Progress>` (reviewed+completed / total visible).
+- Quitar truncate de nombres; permitir wrap a 2 líneas.
 
-Cambios en `handleContractorChange`:
-1. Update `inspections.contractor_id` (igual que hoy).
-2. Si el nuevo `contractorId` es `null` → setear `contractor_unit_price = 0` en todos los `inspection_repair_items` de esta inspección (ya hay UPDATE bulk simple).
-3. Si hay nuevo contratista:
-   - Recolectar `repair_catalog_item_id` de todos los `allRepairs` que lo tengan.
-   - Query `repair_catalog_item_contractor_prices` `in (repair_catalog_item_id, ...)` `eq contractor_id`.
-   - Para cada repair item:
-     - Si hay precio para `(catalog_item_id, contractor_id)` → update su `contractor_unit_price`.
-     - Si no hay precio → update a 0 (o dejar igual; decisión: 0, así queda explícito que falta cargar).
-   - Items sin `repair_catalog_item_id` (manuales) → no se tocan.
-4. Refetch repairs (`fetchAll()` o solo `inspection_repair_items`) para refrescar UI y `contractorTotal`.
-5. Toast: "Contratista actualizado · N precios recargados".
+### F2.5 · Detail: flujo "Aprobar inspección" (D5)
+- Nueva CTA en header, visible solo cuando `status === 'in_review'`.
+- AlertDialog: estado verde si todas reviewed; estado warning si faltan, listando nombres, con opciones "Revisar pendientes" / "Aprobar igual".
+- Al aprobar: update `status='approved'`, `approved_at=now()`, `approved_by=auth.user.id`. Reusa los servicios existentes en `inspection-service.ts`; agregar `approveInspection(id)` si falta.
 
-Manejar el caso "0 items con catalog_item_id" silenciosamente.
+### F2.6 · Detail: repair side sheet (D9)
+- Reemplazar el `Dialog` actual de agregar reparación por `<Sheet side="right">` con `w-[40vw] min-w-[420px]`.
+- Sin overlay oscuro (`<SheetOverlay className="bg-transparent" />`).
+- Conservar lógica (search catálogo, payer, cantidad, precio).
+- Confirm dialog de descarte si hay cambios sin agregar.
 
-## Detalles técnicos
+### F2.7 · Detail: payer selector visual (D11)
+- Segmented control grande (`h-10`) con 2 botones Inquilino/Propietario.
+- Inquilino seleccionado = bg navy `bg-primary text-primary-foreground`; Propietario = bg green `bg-status-good text-status-good-fg` (o equivalente del DS).
+- Default Inquilino con badge "(por defecto)" en primera apertura del item.
+- Header totales reactivos: ya derivan de `budgetBreakdown`, sólo verificar que recalcula al cambiar `payer_role`.
 
-- **Archivos a editar**: `ExecutiveReviewDetail.tsx`, `App.tsx`, `ExecutiveLayout.tsx`.
-- **Archivos a crear**: `src/shared/ui/NumberInput.tsx`, `src/pages/executive/ExecutiveRepairCatalog.tsx`.
-- **Migración RLS**: solo si `repair_catalog_items` no es legible por ejecutivos hoy (verificar con `read_query` antes).
-- **No tocar**: `OwnerReport.tsx`, `QuotationDialog.tsx`, `AdminRepairCatalog.tsx`.
-- **Riesgo bajo**: cambios 1–4 son UI/UX puros. #5 es página nueva. #6 toca lógica de pricing pero está aislada en un handler.
+---
+
+## Fase 3 — Prioridad 3 (eficiencia)
+
+### F3.1 · Bandeja: label del filtro suelto (B6)
+El tercer filtro corresponde a Inspector — sólo agregar placeholder visible "Inspector ▼" (ya tiene `SelectValue placeholder`, validar que se muestre cuando `inspectorFilter === 'all'`). Para `marketFilter`, asegurar label "Mercado".
+
+### F3.2 · Detail: banner submitted → in_review (D2)
+- Banner top sticky cuando `status === 'submitted'`.
+- Botones "Solo visualizar" (no muta) / "Comenzar revisión" (update `status='in_review'`, `review_started_at=now()`).
+- Desaparece al transicionar.
+
+### F3.3 · Detail: flujo "Solicitar cambios" (D4)
+- Nueva CTA en header cuando `status === 'in_review'`.
+- Sidebar enters selection mode: checkbox por sección `completed`.
+- Textarea inline por sección seleccionada (placeholder definido).
+- Footer sticky con conteo + confirm.
+- On confirm: update `inspection.status='needs_changes'`, `inspection_sections.status='needs_changes'` para las seleccionadas, insert comentarios en `inspection_reviews` (`comment_type='revision_request'`).
+- Banner read-only post-confirmación.
+
+### F3.4 · Detail: lightbox de fotos (D10)
+- Thumbs 120×120 grid 2-col.
+- Lightbox full-screen con navegación ←/→, contador, eliminar con confirmación, cerrar Esc/✕.
+- CTA "+ Agregar foto" visible en header del panel.
+- Badge "Fotos · N" en header del panel.
+
+### F3.5 · Detail: tooltip subtotales por sección (D12)
+- En headers totales (Propietario / Inquilino / Total General), `Tooltip` con breakdown por sección a partir de `budgetBreakdown.bySection`.
+- Resaltar sección activa (bold/underline).
+
+---
+
+## Migración de DB
+
+No se requieren migraciones nuevas. Todos los estados ya existen en el enum. Validar que `inspection_reviews` permita `INSERT` para executive (revisar RLS antes de F3.3).
+
+## Archivos principales
+
+- `src/shared/ui/status-registry.ts` — labels canónicos
+- `src/pages/executive/ExecutiveReviewQueue.tsx` — F1.1, F1.2, F2.1, F2.2, F3.1
+- `src/pages/executive/ExecutiveReviewDetail.tsx` — F1.3, F1.4, F1.5, F2.3-F2.7, F3.2-F3.5
+- `src/modules/review/api/useExecutiveQueue.ts` — exponer counts/groupers si conviene
+- `src/lib/executive-row-meta.ts` *(nuevo)* — helpers de fecha contextual + alert thresholds
+- `src/lib/inspection-service.ts` — agregar `approveInspection`, `requestChanges`, `startReview`
+
+## Riesgos
+
+- F2.6 (Sheet de reparación): hoy el dialog comparte estado con la lista; verificar no romper edición de items existentes.
+- F1.4 (autosave): asegurarse de no perder cambios entre debounce y unmount al navegar entre secciones.
+- F3.3: transición a `needs_changes` debe respetar `inspection-status-guard.ts`.
 
 ## Fuera de alcance
-- Refactor estructural de `ExecutiveReviewDetail.tsx` (1781 líneas) — sigue pendiente para sesión dedicada.
-- Cambios en el reporte público (`OwnerReport`).
+
+- Refactor estructural de `ExecutiveReviewDetail.tsx` (1856 líneas).
+- Cambios en `OwnerReport.tsx` o `QuotationDialog.tsx`.
+- Emails/notificaciones — sólo strings de UI.
+
+---
+
+¿Confirmás que arranque por **Fase 1** completa, o preferís reordenar prioridades (por ejemplo, llevar F2.6 side sheet antes que F1.4 autosave)?

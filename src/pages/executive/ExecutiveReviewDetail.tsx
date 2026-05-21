@@ -41,10 +41,13 @@ import {
   Eye, EyeOff, Send, Link2, Copy, DollarSign, Search, PenLine, XCircle,
   AlertTriangle, ExternalLink, RefreshCw, Clock, Camera, Wrench,
   ChevronLeft, ChevronRight, ChevronDown, ZoomIn, FileText,
+  Globe, Lock as LockIcon,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { fetchTaxConfig } from '@/lib/tax';
 import { cn } from '@/lib/utils';
+
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -645,15 +648,16 @@ export default function ExecutiveReviewDetail() {
                   </Button>
                 </>
               )}
-              {isPublished ? (
+              {inspection.status === 'published' || inspection.status === 'sent' ? (
                 <Button size="sm" variant="outline" onClick={() => handlePublish()} disabled={submitting}>
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
                 </Button>
-              ) : ['submitted', 'in_review', 'approved'].includes(inspection.status) ? (
+              ) : inspection.status === 'approved' ? (
                 <Button size="sm" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
                 </Button>
               ) : null}
+
             </div>
           </div>
 
@@ -1113,24 +1117,28 @@ export default function ExecutiveReviewDetail() {
         </div>
 
         {/* Mobile bottom actions */}
-        {['submitted', 'in_review', 'approved', 'published'].includes(inspection.status) && (
+        {['in_review', 'approved', 'published', 'sent'].includes(inspection.status) && (
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
-                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
-              </Button>
-              {isPublished ? (
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
-                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
+              {inspection.status === 'in_review' && (
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
                 </Button>
-              ) : (
+              )}
+              {inspection.status === 'approved' && (
                 <Button size="sm" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1 h-3.5 w-3.5" /> Publicar
+                </Button>
+              )}
+              {(inspection.status === 'published' || inspection.status === 'sent') && (
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
                 </Button>
               )}
             </div>
           </div>
         )}
+
       </div>
 
       {/* ── Repairs drawer (per-section, desktop-first) ─── */}
@@ -1351,16 +1359,22 @@ function SectionWorkspace({
         </div>
       )}
 
-      {/* Side-by-side observations — neutral containers */}
+      {/* Side-by-side observations — public (left border primary) vs internal (gray bg) */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-border/60 p-3 space-y-2">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observación del Inspector</p>
           <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
-        <div className="rounded-lg border border-border/60 p-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-            Observación Final <span className="text-[10px] text-muted-foreground normal-case tracking-normal">· Pública</span>
-          </p>
+        <div className="rounded-lg border border-border/60 border-l-[3px] border-l-primary p-3 space-y-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
+                <Globe className="h-3 w-3 text-primary" />
+                Observación Final · Visible para propietario/inquilino
+              </p>
+            </TooltipTrigger>
+            <TooltipContent>Este texto aparecerá en el reporte público</TooltipContent>
+          </Tooltip>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
             onChange={(e) => onFinalObsChange(e.target.value)}
@@ -1371,10 +1385,18 @@ function SectionWorkspace({
         </div>
       </div>
 
-      {/* Internal note */}
-      <div className="space-y-1.5">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
-        <Textarea value={internalNote} rows={2} className="text-caption"
+      {/* Internal note — gray background, lock icon */}
+      <div className="space-y-1.5 rounded-lg bg-muted/40 p-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
+              <LockIcon className="h-3 w-3" />
+              Comentario Interno · Solo visible para el equipo
+            </p>
+          </TooltipTrigger>
+          <TooltipContent>Este texto NO aparece en el reporte público</TooltipContent>
+        </Tooltip>
+        <Textarea value={internalNote} rows={2} className="text-caption bg-card"
           placeholder="Nota interna (no visible al propietario)..."
           onChange={(e) => onInternalNoteChange(e.target.value)}
           onBlur={() => noteAutosave.flush()} />
@@ -1382,6 +1404,7 @@ function SectionWorkspace({
           <AutosaveStatus status={noteAutosave.status} />
         </div>
       </div>
+
 
 
 

@@ -34,17 +34,18 @@ const TONE_CLASS: Record<StatusTone, string> = {
 };
 
 export const INSPECTION_STATUS: Record<InspectionStatus, StatusEntry> = {
-  pending:            { label: "Pendiente",        tone: "pending" },
-  pending_assignment: { label: "Sin asignar",      tone: "blocked" },
-  assigned:           { label: "Asignada",         tone: "pending" },
-  in_progress:        { label: "En progreso",      tone: "in-progress" },
-  submitted:          { label: "Enviada",          tone: "pending", actionable: true },
-  in_review:          { label: "En revisión",      tone: "in-progress", actionable: true },
-  needs_changes:      { label: "Requiere cambios", tone: "needs-changes", actionable: true },
-  approved:           { label: "Aprobada",         tone: "approved" },
-  published:          { label: "Publicada",        tone: "published" },
-  sent:               { label: "Enviada",          tone: "published" },
+  pending:            { label: "Pendiente",          tone: "pending" },
+  pending_assignment: { label: "Sin asignar",        tone: "blocked" },
+  assigned:           { label: "Asignada",           tone: "pending" },
+  in_progress:        { label: "En progreso",        tone: "in-progress" },
+  submitted:          { label: "Lista para revisión", tone: "pending", actionable: true },
+  in_review:          { label: "En revisión",        tone: "in-progress", actionable: true },
+  needs_changes:      { label: "Requiere cambios",   tone: "needs-changes", actionable: true },
+  approved:           { label: "Aprobada",           tone: "approved" },
+  published:          { label: "Publicada",          tone: "published" },
+  sent:               { label: "Entregada",          tone: "published" },
 };
+
 
 export const SECTION_STATUS: Record<SectionStatus, StatusEntry> = {
   not_started:    { label: "Pendiente",  tone: "neutral" },

@@ -2,20 +2,18 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { requiresFinalObservation } from '@/lib/section-completion';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
-  RefreshCw, ArrowUpDown, Key,
+  ArrowUpDown, Key,
 } from 'lucide-react';
-import { formatDistanceToNow, isBefore, subDays } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -30,21 +28,22 @@ import {
 } from '@/shared/ui';
 import { useExecutiveQueue } from '@/modules/review/api';
 
-// ─── Bucketing (executive-role POV) ────────────────────
+
+// ─── Bucketing (job-to-be-done) ────────────────────
 type ExecutiveBucket =
-  | 'to_review' | 'to_publish' | 'published' | 'in_field' | 'uncoordinated' | 'other';
+  | 'action'        // submitted, in_review, approved
+  | 'in_correction' // needs_changes
+  | 'follow_up'     // published, sent
+  | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
-  if (['submitted', 'in_review'].includes(insp.status)) return 'to_review';
-  if (insp.status === 'approved' && !insp.published_at) return 'to_publish';
-  if (!!insp.published_at && isBefore(subDays(new Date(), 30), new Date(insp.published_at))) return 'published';
-  if (['assigned', 'in_progress'].includes(insp.status) && insp.started_at) return 'in_field';
-  const snap = getEffectiveSnapshot(insp);
-  if (!snap?.fecha_recoleccion_llaves && !!snap?.fecha_de_termino_real_de_contrato) return 'uncoordinated';
-  return 'other';
+  if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
+  if (insp.status === 'needs_changes') return 'in_correction';
+  if (['published', 'sent'].includes(insp.status)) return 'follow_up';
+  return 'pre_inspection';
 }
 
-const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['to_review', 'to_publish'];
+const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['action'];
 
 type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
 const SORT_LABELS: Record<SortKey, string> = {
@@ -53,19 +52,21 @@ const SORT_LABELS: Record<SortKey, string> = {
   'keys-desc': 'Recolección: más lejana primero',
 };
 
-function getContextualCTA(insp: Inspection, sections: SectionMeta[]) {
-  const isPublished = !!insp.published_at;
-  const missingObs = sections.filter(
-    s => s.is_visible && requiresFinalObservation(s.section_type) && !s.final_observation?.trim()
-  ).length;
-  if (isPublished && missingObs === 0) return { label: 'Abrir reporte', icon: <ExternalLink className="mr-1 h-3.5 w-3.5" />, variant: 'outline' as const };
-  if (isPublished && missingObs > 0)  return { label: 'Republicar',    icon: <RefreshCw   className="mr-1 h-3.5 w-3.5" />, variant: 'secondary' as const };
-  if (insp.status === 'approved' && !isPublished) return { label: 'Publicar', icon: <Send className="mr-1 h-3.5 w-3.5" />, variant: 'default' as const };
-  if (insp.status === 'in_review') return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' as const };
-  if (insp.status === 'submitted') return { label: 'Revisar', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' as const };
-  if (insp.started_at) return { label: 'Ver progreso', icon: <Play className="mr-1 h-3.5 w-3.5" />, variant: 'outline' as const };
-  return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' as const };
+type CTAInfo = { label: string; icon: React.ReactNode; variant: 'default' | 'outline' | 'secondary' };
+
+function getContextualCTA(insp: Inspection): CTAInfo {
+  switch (insp.status) {
+    case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
+    case 'in_review':         return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
+    case 'needs_changes':     return { label: 'Ver correcciones',   icon: <Eye        className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+    case 'approved':          return { label: 'Publicar',           icon: <Send       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
+    case 'published':         return { label: 'Abrir reporte',      icon: <ExternalLink className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+    case 'sent':              return { label: 'Abrir reporte',      icon: <ExternalLink className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+    case 'pending_assignment':return { label: 'Asignarme',          icon: <Eye        className="mr-1 h-3.5 w-3.5" />, variant: 'secondary' };
+    default:                  return { label: 'Ver detalle',        icon: <Eye        className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+  }
 }
+
 
 export default function ExecutiveReviewQueue() {
   const { inspections, sectionsByInspection, inspectorProfiles, loading, error } = useExecutiveQueue();
@@ -111,6 +112,9 @@ export default function ExecutiveReviewQueue() {
     published:  inspections.filter(i => !!i.published_at).length,
   }), [inspections]);
 
+  // Per-bucket sorts. Action: oldest activity first (longest in state).
+  // En corrección: by contract end. Follow-up: most recently published.
+  // Pre-inspección: updated desc.
   const sortedFiltered = useMemo(() => {
     const arr = [...filtered];
     if (sortKey === 'updated') {
@@ -127,14 +131,23 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      to_review: [], to_publish: [], published: [], in_field: [], uncoordinated: [], other: [],
+      action: [], in_correction: [], follow_up: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
+    // Apply per-bucket secondary sort (override the global sortKey).
+    buckets.action.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
+    buckets.in_correction.sort((a, b) => {
+      const dA = getEffectiveSnapshot(a)?.fecha_de_termino_real_de_contrato as string | undefined;
+      const dB = getEffectiveSnapshot(b)?.fecha_de_termino_real_de_contrato as string | undefined;
+      return (dA ? new Date(dA).getTime() : Infinity) - (dB ? new Date(dB).getTime() : Infinity);
+    });
+    buckets.follow_up.sort((a, b) => {
+      const dA = a.published_at ? new Date(a.published_at).getTime() : 0;
+      const dB = b.published_at ? new Date(b.published_at).getTime() : 0;
+      return dB - dA;
+    });
     return buckets;
   }, [sortedFiltered]);
-
-  const actionableTotal = grouped.to_review.length + grouped.to_publish.length;
-  const contextTotal = grouped.published.length + grouped.in_field.length + grouped.uncoordinated.length + grouped.other.length;
 
   return (
     <ExecutiveLayout>
@@ -175,10 +188,12 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="assigned">Asignada</SelectItem>
                   <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="submitted">Enviada</SelectItem>
+                  <SelectItem value="submitted">Lista para revisión</SelectItem>
                   <SelectItem value="in_review">En revisión</SelectItem>
+                  <SelectItem value="needs_changes">Requiere cambios</SelectItem>
                   <SelectItem value="approved">Aprobada</SelectItem>
                   <SelectItem value="published">Publicada</SelectItem>
+                  <SelectItem value="sent">Entregada</SelectItem>
                 </SelectContent>
               </Select>
               {markets.length > 1 && (
@@ -220,7 +235,7 @@ export default function ExecutiveReviewQueue() {
               </Select>
             </FiltersBar>
 
-            {/* Content */}
+            {/* Content — 4 groups job-to-be-done */}
             {sortedFiltered.length === 0 ? (
               <EmptyState
                 title="No hay inspecciones"
@@ -228,27 +243,40 @@ export default function ExecutiveReviewQueue() {
               />
             ) : (
               <div className="space-y-6">
-                {actionableTotal > 0 && (
-                  <div className="space-y-4">
-                    <GroupHeader tone="primary" label="Accionable ahora" total={actionableTotal} />
-                    <BucketSection title="Para revisar" inspections={grouped.to_review}
-                      bucket="to_review" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Listas para publicar" inspections={grouped.to_publish}
-                      bucket="to_publish" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                <div className="space-y-3">
+                  <GroupHeader tone="primary" label="Requieren tu acción" total={grouped.action.length} />
+                  {grouped.action.length === 0 ? (
+                    <p className="text-caption text-muted-foreground ml-5">No hay inspecciones esperando tu acción.</p>
+                  ) : (
+                    <BucketSection inspections={grouped.action} bucket="action"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  )}
+                </div>
+
+                {grouped.in_correction.length > 0 && (
+                  <div className="space-y-3">
+                    <GroupHeader tone="amber" label="En corrección" total={grouped.in_correction.length} />
+                    <p className="text-caption text-muted-foreground ml-5 -mt-1">
+                      Esperando que el inspector realice las correcciones solicitadas.
+                    </p>
+                    <BucketSection inspections={grouped.in_correction} bucket="in_correction"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   </div>
                 )}
-                {contextTotal > 0 && (
-                  <div className="space-y-4">
-                    <GroupHeader tone="muted" label="Contexto y seguimiento" total={contextTotal} />
-                    <BucketSection title="Publicadas recientemente" inspections={grouped.published}
-                      bucket="published" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="En curso del inspector" inspections={grouped.in_field}
-                      bucket="in_field" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Sin coordinar" inspections={grouped.uncoordinated}
-                      bucket="uncoordinated" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                    <BucketSection title="Otras" inspections={grouped.other}
-                      bucket="other" sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                  </div>
+
+                {grouped.follow_up.length > 0 && (
+                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3}>
+                    <BucketSection inspections={grouped.follow_up} bucket="follow_up"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
+                )}
+
+                {grouped.pre_inspection.length > 0 && (
+                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false}
+                    description="Inspecciones en etapas previas a la revisión ejecutiva.">
+                    <BucketSection inspections={grouped.pre_inspection} bucket="pre_inspection"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
                 )}
               </div>
             )}
@@ -256,15 +284,18 @@ export default function ExecutiveReviewQueue() {
         )}
       </div>
     </ExecutiveLayout>
+
   );
 }
 
 // ─── Group Header ──────────────────────────────────────
-function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted'; label: string; total: number }) {
+function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted' | 'amber'; label: string; total: number }) {
+  const dotClass = tone === 'primary' ? 'bg-primary' : tone === 'amber' ? 'bg-homie-orange' : 'bg-muted-foreground/40';
+  const textClass = tone === 'primary' ? 'text-primary' : tone === 'amber' ? 'text-homie-orange' : 'text-muted-foreground';
   return (
     <div className="flex items-center gap-3">
-      <div className={cn('h-2 w-2 rounded-full', tone === 'primary' ? 'bg-primary' : 'bg-muted-foreground/40')} />
-      <h2 className={cn('text-xs font-semibold uppercase tracking-wider', tone === 'primary' ? 'text-primary' : 'text-muted-foreground')}>
+      <div className={cn('h-2 w-2 rounded-full', dotClass)} />
+      <h2 className={cn('text-xs font-semibold uppercase tracking-wider', textClass)}>
         {label}
       </h2>
       <span className="text-xs text-muted-foreground">· {total}</span>
@@ -273,11 +304,46 @@ function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted'; label:
   );
 }
 
+// ─── Collapsible group wrapper ─────────────────────────
+function CollapsibleGroup({
+  label, total, defaultOpen = true, description, children,
+}: {
+  label: string;
+  total: number;
+  defaultOpen?: boolean;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 text-left group"
+      >
+        <div className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
+          {label}
+        </h2>
+        <span className="text-xs text-muted-foreground">· {total}</span>
+        <div className="flex-1 border-t border-border/60" />
+        <span className="text-xs text-muted-foreground">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <>
+          {description && <p className="text-caption text-muted-foreground ml-5 -mt-1">{description}</p>}
+          {children}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Bucket Section ────────────────────────────────────
 function BucketSection({
-  title, inspections, bucket, sectionsByInspection, inspectorProfiles,
+  inspections, bucket, sectionsByInspection, inspectorProfiles,
 }: {
-  title: string;
   inspections: Inspection[];
   bucket: ExecutiveBucket;
   sectionsByInspection: Record<string, SectionMeta[]>;
@@ -285,24 +351,20 @@ function BucketSection({
 }) {
   if (inspections.length === 0) return null;
   return (
-    <section>
-      <h3 className="text-caption font-medium text-muted-foreground mb-2 ml-5">
-        {title} <span className="text-muted-foreground/60">· {inspections.length}</span>
-      </h3>
-      <div className="space-y-1.5">
-        {inspections.map(insp => (
-          <InspectionRow
-            key={insp.id}
-            inspection={insp}
-            bucket={bucket}
-            sections={sectionsByInspection[insp.id] ?? []}
-            inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="space-y-1.5">
+      {inspections.map(insp => (
+        <InspectionRow
+          key={insp.id}
+          inspection={insp}
+          bucket={bucket}
+          sections={sectionsByInspection[insp.id] ?? []}
+          inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
+        />
+      ))}
+    </div>
   );
 }
+
 
 // ─── Inspection Row ────────────────────────────────────
 function InspectionRow({
@@ -317,7 +379,7 @@ function InspectionRow({
     () => calculateProgress(sections as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]),
     [sections],
   );
-  const cta = useMemo(() => getContextualCTA(insp, sections), [insp, sections]);
+  const cta = useMemo(() => getContextualCTA(insp), [insp]);
   const isActionable = ACTIONABLE_BUCKETS.includes(bucket);
 
   const lastActive = insp.last_active_at
@@ -335,9 +397,10 @@ function InspectionRow({
     ? new Date(contractEnd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
-  const showProgressBar = isActionable || bucket === 'in_field';
+  const showProgressBar = ['action', 'in_correction', 'pre_inspection'].includes(bucket);
+  const reviewingLabel = bucket === 'action' || bucket === 'follow_up';
   const progressLabel = sections.length > 0
-    ? (bucket === 'to_review' || bucket === 'to_publish' || bucket === 'published'
+    ? (reviewingLabel
         ? `${progress.completed} de ${progress.total} secciones revisadas`
         : `${progress.completed} de ${progress.total} secciones completadas`)
     : null;
@@ -353,19 +416,15 @@ function InspectionRow({
             <div className="space-y-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                {bucket === 'uncoordinated' ? (
-                  <Badge variant="secondary" className="text-tiny font-normal text-muted-foreground">Por coordinar</Badge>
-                ) : (
-                  <StatusBadge status={insp.status} />
-                )}
+                <StatusBadge status={insp.status} />
               </div>
               <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
               <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
                 <span>{insp.inspection_type}</span>
-                {bucket === 'uncoordinated' ? (
-                  <span>Término de contrato: {contractEndLabel ?? '—'}</span>
+                {bucket === 'in_correction' && contractEndLabel ? (
+                  <span>Término: {contractEndLabel}</span>
                 ) : (
                   <span className="flex items-center gap-1">
                     <Key className="h-3 w-3" />
@@ -373,6 +432,7 @@ function InspectionRow({
                   </span>
                 )}
               </div>
+
               {progressLabel && (
                 <div className="flex items-center gap-3">
                   {showProgressBar && (
