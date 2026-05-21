@@ -144,7 +144,7 @@ export default function ExecutiveReviewDetail() {
   const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
 
   // Publish
-  const [publishedUrls, setPublishedUrls] = useState<{ owner: string; tenant: string } | null>(null);
+  const [publishedUrls, setPublishedUrls] = useState<PublishedUrls | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
