@@ -290,11 +290,13 @@ export default function ExecutiveReviewQueue() {
 }
 
 // ─── Group Header ──────────────────────────────────────
-function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted'; label: string; total: number }) {
+function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted' | 'amber'; label: string; total: number }) {
+  const dotClass = tone === 'primary' ? 'bg-primary' : tone === 'amber' ? 'bg-homie-orange' : 'bg-muted-foreground/40';
+  const textClass = tone === 'primary' ? 'text-primary' : tone === 'amber' ? 'text-homie-orange' : 'text-muted-foreground';
   return (
     <div className="flex items-center gap-3">
-      <div className={cn('h-2 w-2 rounded-full', tone === 'primary' ? 'bg-primary' : 'bg-muted-foreground/40')} />
-      <h2 className={cn('text-xs font-semibold uppercase tracking-wider', tone === 'primary' ? 'text-primary' : 'text-muted-foreground')}>
+      <div className={cn('h-2 w-2 rounded-full', dotClass)} />
+      <h2 className={cn('text-xs font-semibold uppercase tracking-wider', textClass)}>
         {label}
       </h2>
       <span className="text-xs text-muted-foreground">· {total}</span>
@@ -303,11 +305,46 @@ function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted'; label:
   );
 }
 
+// ─── Collapsible group wrapper ─────────────────────────
+function CollapsibleGroup({
+  label, total, defaultOpen = true, description, children,
+}: {
+  label: string;
+  total: number;
+  defaultOpen?: boolean;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 text-left group"
+      >
+        <div className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
+          {label}
+        </h2>
+        <span className="text-xs text-muted-foreground">· {total}</span>
+        <div className="flex-1 border-t border-border/60" />
+        <span className="text-xs text-muted-foreground">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <>
+          {description && <p className="text-caption text-muted-foreground ml-5 -mt-1">{description}</p>}
+          {children}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Bucket Section ────────────────────────────────────
 function BucketSection({
-  title, inspections, bucket, sectionsByInspection, inspectorProfiles,
+  inspections, bucket, sectionsByInspection, inspectorProfiles,
 }: {
-  title: string;
   inspections: Inspection[];
   bucket: ExecutiveBucket;
   sectionsByInspection: Record<string, SectionMeta[]>;
@@ -315,24 +352,20 @@ function BucketSection({
 }) {
   if (inspections.length === 0) return null;
   return (
-    <section>
-      <h3 className="text-caption font-medium text-muted-foreground mb-2 ml-5">
-        {title} <span className="text-muted-foreground/60">· {inspections.length}</span>
-      </h3>
-      <div className="space-y-1.5">
-        {inspections.map(insp => (
-          <InspectionRow
-            key={insp.id}
-            inspection={insp}
-            bucket={bucket}
-            sections={sectionsByInspection[insp.id] ?? []}
-            inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="space-y-1.5">
+      {inspections.map(insp => (
+        <InspectionRow
+          key={insp.id}
+          inspection={insp}
+          bucket={bucket}
+          sections={sectionsByInspection[insp.id] ?? []}
+          inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
+        />
+      ))}
+    </div>
   );
 }
+
 
 // ─── Inspection Row ────────────────────────────────────
 function InspectionRow({
