@@ -347,9 +347,9 @@ export default function ExecutiveReviewDetail() {
         submitting={submitting}
         returnMode={returnMode}
         setReturnMode={setReturnMode}
-        onOpenCatalog={openCatalog}
+        onOpenCatalog={actions.openCatalog}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
-        onPublish={() => handlePublish()}
+        onPublish={() => actions.handlePublish()}
       />
 
 
