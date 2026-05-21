@@ -983,7 +983,20 @@ export default function ExecutiveReviewDetail() {
       <div className="hidden lg:grid lg:grid-cols-[240px_1fr_300px] h-[calc(100vh-7rem)]">
         {/* LEFT SIDEBAR: Section nav */}
         <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
-          <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider px-2 mb-2">Secciones</p>
+          {(() => {
+            const total = operationalSections.length;
+            const done = operationalSections.filter(s => s.status === 'reviewed' || s.status === 'completed').length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return (
+              <div className="px-2 mb-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Secciones</p>
+                  <span className="text-tiny text-muted-foreground">{done} de {total} revisadas</span>
+                </div>
+                <Progress value={pct} className="h-1" />
+              </div>
+            );
+          })()}
           {/* Signature compliance block — neutral container */}
           {signatureRecord && (
             <div className="mb-3 rounded-md border border-border/60 bg-card p-2.5 space-y-1">
