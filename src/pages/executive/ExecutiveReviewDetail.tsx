@@ -547,6 +547,18 @@ export default function ExecutiveReviewDetail() {
     setSubmitting(false);
   };
 
+  const handleStartReview = async () => {
+    if (!inspection || inspection.status !== 'submitted') return;
+    setSubmitting(true);
+    const { error } = await supabase.from('inspections')
+      .update({ status: 'in_review' })
+      .eq('id', id!);
+    setSubmitting(false);
+    if (error) { toast({ title: 'No se pudo iniciar la revisión', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Revisión iniciada' });
+    fetchAll();
+
+
   const handleReturnForChanges = async () => {
     if (selectedReturnSections.size === 0) {
       toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
