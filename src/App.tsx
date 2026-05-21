@@ -29,6 +29,7 @@ import InspectorCalendar from "./pages/inspector/InspectorCalendar";
 import ExecutiveReviewQueue from "./pages/executive/ExecutiveReviewQueue";
 import ExecutiveReviewDetail from "./pages/executive/ExecutiveReviewDetail";
 import ExecutiveSchedule from "./pages/executive/ExecutiveSchedule";
+import ExecutiveRepairCatalog from "./pages/executive/ExecutiveRepairCatalog";
 import OwnerReport from "./pages/public/OwnerReport";
 
 const queryClient = new QueryClient();
