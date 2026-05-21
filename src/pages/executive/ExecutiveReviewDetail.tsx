@@ -557,6 +557,9 @@ export default function ExecutiveReviewDetail() {
     if (error) { toast({ title: 'No se pudo iniciar la revisión', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Revisión iniciada' });
     fetchAll();
+  };
+
+
 
 
   const handleReturnForChanges = async () => {
