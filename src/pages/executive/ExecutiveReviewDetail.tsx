@@ -672,7 +672,34 @@ export default function ExecutiveReviewDetail() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
-                        <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-3">
+                            {(() => {
+                              const pending = operationalSections.filter(s => s.status !== 'reviewed' && s.status !== 'completed');
+                              if (pending.length === 0) {
+                                return (
+                                  <div className="flex items-start gap-2 rounded-md border border-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good-bg))] p-3 text-[hsl(var(--status-good-fg))]">
+                                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>Todas las secciones están revisadas. Listo para aprobar.</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex items-start gap-2 rounded-md border border-[hsl(var(--status-pending-bg))] bg-[hsl(var(--status-pending-bg))] p-3 text-[hsl(var(--status-pending-fg))]">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{pending.length} {pending.length === 1 ? 'sección sigue pendiente' : 'secciones siguen pendientes'} de revisión.</span>
+                                  </div>
+                                  <ul className="text-xs list-disc pl-5 max-h-32 overflow-y-auto">
+                                    {pending.slice(0, 8).map(p => <li key={p.id}>{p.section_title}</li>)}
+                                    {pending.length > 8 && <li className="opacity-70">+{pending.length - 8} más</li>}
+                                  </ul>
+                                </div>
+                              );
+                            })()}
+                            <p className="text-xs text-muted-foreground">Al aprobar, todas las secciones quedarán marcadas como revisadas y la inspección lista para publicar.</p>
+                          </div>
+                        </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -680,6 +707,7 @@ export default function ExecutiveReviewDetail() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+
                 </>
               )}
               {isPublished && (
