@@ -114,22 +114,21 @@ export default function ExecutiveReviewDetail() {
   const { profile } = useAuth();
   const { toast } = useToast();
 
-  // Core state
-  const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [sections, setSections] = useState<InspectionSection[]>([]);
-  const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
-  const [photosBySection, setPhotosBySection] = useState<Record<string, InspectionPhoto[]>>({});
+  // ─── Data (loaded by useReviewDetail) ────────────────────
+  const {
+    inspection, sections, fieldsBySection, photosBySection,
+    reviewsBySection, repairsBySection, signatureRecord, contractors,
+    initialInternalNotes, loading, refetch,
+  } = useReviewDetail(id);
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
-  const [reviewsBySection, setReviewsBySection] = useState<Record<string, InspectionReview[]>>({});
-  const [repairsBySection, setRepairsBySection] = useState<Record<string, InspectionRepairItem[]>>({});
-  const [loading, setLoading] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
 
   // Active section for desktop
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
-  // Editing state
+  // Editing state (local textareas; autosaved silently)
   const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
   const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
   const [savingField, setSavingField] = useState<string | null>(null);
@@ -151,13 +150,7 @@ export default function ExecutiveReviewDetail() {
   const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
-  // Signature
-  const [signatureRecord, setSignatureRecord] = useState<{
-    signature_status: string; signer_name: string | null; skip_reason: string | null;
-  } | null>(null);
-
-  // Contractors
-  const [contractors, setContractors] = useState<Contractor[]>([]);
+  // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
   // Repairs side drawer (desktop). Holds the section id whose repairs are open.
@@ -165,65 +158,26 @@ export default function ExecutiveReviewDetail() {
   // Which repair row inside the drawer is expanded for editing (accordion).
   const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
 
-  // ─── Data fetching ─────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    const [{ data: insp }, { data: contractorData }] = await Promise.all([
-      supabase.from('inspections').select('*').eq('id', id!).single(),
-      supabase.from('contractors').select('*').eq('is_active', true).order('name'),
-    ]);
-    const inspData = insp as unknown as Inspection;
-    setInspection(inspData);
-    setContractors((contractorData ?? []) as unknown as Contractor[]);
-    setSelectedContractorId((inspData as any)?.contractor_id ?? null);
+  // ─── Hydrate local editing state from loaded data ──────
+  useEffect(() => {
+    const obs: Record<string, string> = {};
+    sections.forEach((s) => { obs[s.id] = s.final_observation ?? ''; });
+    setFinalObservations(obs);
+  }, [sections]);
 
-    const { data: secs } = await supabase
-      .from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order');
-    const secList = (secs ?? []) as unknown as InspectionSection[];
-    setSections(secList);
+  useEffect(() => { setInternalNotes(initialInternalNotes); }, [initialInternalNotes]);
 
-    const obsMap: Record<string, string> = {};
-    secList.forEach((s) => { obsMap[s.id] = s.final_observation ?? ''; });
-    setFinalObservations(obsMap);
+  useEffect(() => {
+    setSelectedContractorId((inspection as any)?.contractor_id ?? null);
+  }, [inspection]);
 
-    if (!activeSectionId && secList.length > 0) {
-      const firstOp = secList.find(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta');
-      setActiveSectionId(firstOp?.id ?? secList[0].id);
-    }
+  // Default active section after sections load.
+  useEffect(() => {
+    if (activeSectionId || sections.length === 0) return;
+    const firstOp = sections.find(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta');
+    setActiveSectionId(firstOp?.id ?? sections[0].id);
+  }, [sections, activeSectionId]);
 
-    const secIds = secList.map((s) => s.id);
-    if (secIds.length > 0) {
-      const [{ data: fields }, { data: photos }, { data: reviews }, { data: repairs }] = await Promise.all([
-        supabase.from('inspection_field_values').select('*').in('inspection_section_id', secIds).order('sort_order'),
-        supabase.from('inspection_photos').select('*').in('inspection_section_id', secIds).order('sort_order'),
-        supabase.from('inspection_reviews').select('*').in('inspection_section_id', secIds).order('created_at'),
-        supabase.from('inspection_repair_items').select('*').in('inspection_section_id', secIds).order('sort_order'),
-      ]);
-
-      setFieldsBySection(groupBy((fields ?? []) as unknown as InspectionFieldValue[]));
-      setPhotosBySection(groupBy((photos ?? []) as unknown as InspectionPhoto[]));
-      setReviewsBySection(groupBy((reviews ?? []) as unknown as InspectionReview[]));
-      setRepairsBySection(groupBy((repairs ?? []) as unknown as InspectionRepairItem[]));
-
-      const notesMap: Record<string, string> = {};
-      for (const r of (reviews ?? []) as unknown as InspectionReview[]) {
-        if (r.comment_type === 'internal_note') notesMap[r.inspection_section_id] = r.comment;
-      }
-      setInternalNotes(notesMap);
-    }
-
-    const { data: sigData } = await supabase
-      .from('inspection_signatures').select('signature_status, signer_name, skip_reason')
-      .eq('inspection_id', id!).limit(1);
-    if (sigData && sigData.length > 0) setSignatureRecord(sigData[0] as any);
-
-    // NOTE: previously auto-transitioned submitted → in_review here.
-    // F3.2: now an explicit user action via the sticky banner.
-
-
-    setLoading(false);
-  }, [id]);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ─── Computed values ───────────────────────────────────
   const allRepairs = useMemo(() => Object.values(repairsBySection).flat(), [repairsBySection]);
