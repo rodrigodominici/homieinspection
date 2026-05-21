@@ -176,165 +176,19 @@ export default function ExecutiveReviewDetail() {
     }).eq('id', sectionId);
   }, []);
 
+  // ─── Actions hook (mutations + catalog/publish state) ───
+  const actions = useReviewActions({
+    id, profileId: profile?.id, inspection, operationalSections, allRepairs,
+    repairsBySection, photosBySection, finalObservations, missingSections,
+    clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+  });
+  const { submitting, catalog, publish } = actions;
 
-  const togglePhotoVisibility = async (photo: InspectionPhoto) => {
-    const current = (photo as any).visible_to_owner ?? true;
-    try {
-      await inspectionActions.togglePhotoVisibility(photo.id, current);
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
-    }
-  };
+  const handleReturnForChanges = useCallback(
+    () => actions.handleReturnForChanges(Array.from(selectedReturnSections), returnComments),
+    [actions, selectedReturnSections, returnComments],
+  );
 
-  const openCatalog = async (sectionId: string) => {
-    setCatalogSectionId(sectionId);
-    setCatalogSearch('');
-    try {
-      const items = await repairsService.fetchActiveCatalog();
-      setCatalogItems(items);
-      setCatalogOpen(true);
-    } catch (e: any) {
-      toast({ title: 'No se pudo cargar el catálogo', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
-    if (!catalogSectionId || !id) return;
-    const existingCount = (repairsBySection[catalogSectionId] ?? []).length;
-    try {
-      const { contractorPrice, priceSource } = await repairsService.addRepairFromCatalog({
-        inspectionId: id,
-        inspectionSectionId: catalogSectionId,
-        catalogItem,
-        existingCount,
-        contractorId: selectedContractorId,
-        profileId: profile?.id,
-      });
-      setCatalogOpen(false);
-      await refetch();
-      toast({
-        title: 'Reparación agregada',
-        description: priceSource === 'catalog'
-          ? `Precio contratista autollenado: $${contractorPrice}`
-          : selectedContractorId ? 'Sin precio de contratista configurado' : undefined,
-      });
-    } catch (e: any) {
-      toast({ title: 'No se pudo agregar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    try {
-      await repairsService.updateRepairItem(repairId, field, value, profile?.id);
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const deleteRepairItem = async (repairId: string) => {
-    try {
-      await repairsService.deleteRepairItem(repairId);
-      await refetch();
-      toast({ title: 'Reparación eliminada' });
-    } catch (e: any) {
-      toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const handleContractorChange = async (contractorId: string) => {
-    if (!id) return;
-    const newContractorId = contractorId === 'none' ? null : contractorId;
-    setSelectedContractorId(newContractorId);
-    const updatedCount = await repairsService.rebindContractorPrices(id, newContractorId, allRepairs);
-    if (updatedCount > 0) await refetch();
-    toast({
-      title: 'Contratista actualizado',
-      description: newContractorId
-        ? `${updatedCount} ${updatedCount === 1 ? 'precio recargado' : 'precios recargados'} desde la matriz`
-        : 'Precios de contratista puestos en 0',
-    });
-  };
-
-  const handlePublish = async (force = false) => {
-    if (!inspection) return;
-    if (!force && missingSections.length > 0) {
-      setMissingObsDialogOpen(true);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const result = await inspectionActions.publishInspection({
-        inspection,
-        operationalSections,
-        allRepairs,
-        photosBySection,
-        finalObservations,
-        clientTotal,
-        profileId: profile?.id,
-      });
-      setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
-      setPublishDialogOpen(true);
-      toast({ title: `Reporte v${result.versionNumber} publicado` });
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!id) return;
-    setSubmitting(true);
-    try {
-      await inspectionActions.approveInspection(id, profile?.id);
-      toast({ title: 'Inspección aprobada' });
-      navigate('/executive');
-    } catch (e: any) {
-      toast({ title: 'No se pudo aprobar', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleStartReview = async () => {
-    if (!inspection || inspection.status !== 'submitted' || !id) return;
-    setSubmitting(true);
-    try {
-      await inspectionActions.startReview(id);
-      toast({ title: 'Revisión iniciada' });
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo iniciar la revisión', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReturnForChanges = async () => {
-    if (!id) return;
-    if (selectedReturnSections.size === 0) {
-      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await inspectionActions.requestChanges({
-        inspectionId: id,
-        profileId: profile?.id,
-        selectedSectionIds: Array.from(selectedReturnSections),
-        commentsBySection: returnComments,
-      });
-      toast({ title: 'Devuelta para cambios' });
-      navigate('/executive');
-    } catch (e: any) {
-      toast({ title: 'No se pudo devolver para cambios', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
 
   const toggleReturnSection = (secId: string) => {
