@@ -71,15 +71,6 @@ interface AuditLogEntry {
   created_at: string;
 }
 
-/* ─── groupBy helper ─── */
-function groupBy<T extends { inspection_section_id: string }>(arr: T[]): Record<string, T[]> {
-  const map: Record<string, T[]> = {};
-  for (const item of arr) {
-    if (!map[item.inspection_section_id]) map[item.inspection_section_id] = [];
-    map[item.inspection_section_id].push(item);
-  }
-  return map;
-}
 
 /* ─── Main component ─── */
 export default function AdminInspectionDetail() {
