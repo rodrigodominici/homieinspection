@@ -1390,7 +1390,7 @@ function SectionWorkspace({
         <Tooltip>
           <TooltipTrigger asChild>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
-              <Lock className="h-3 w-3" />
+              <LockIcon className="h-3 w-3" />
               Comentario Interno · Solo visible para el equipo
             </p>
           </TooltipTrigger>
