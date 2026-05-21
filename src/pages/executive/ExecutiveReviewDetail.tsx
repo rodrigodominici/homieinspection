@@ -366,37 +366,37 @@ export default function ExecutiveReviewDetail() {
             hasContractor={!!selectedContractorId}
             expandedRepairId={expandedRepairId}
             onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
-            onOpenCatalog={() => openCatalog(sec.id)}
-            onUpdateRepair={updateRepairItem}
-            onDeleteRepair={deleteRepairItem}
+            onOpenCatalog={() => actions.openCatalog(sec.id)}
+            onUpdateRepair={actions.updateRepairItem}
+            onDeleteRepair={actions.deleteRepairItem}
           />
         );
       })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <RepairCatalogSheet
-        open={catalogOpen}
-        onOpenChange={setCatalogOpen}
-        search={catalogSearch}
-        onSearchChange={setCatalogSearch}
-        items={catalogItems}
-        onSelect={addRepairFromCatalog}
+        open={catalog.open}
+        onOpenChange={catalog.setOpen}
+        search={catalog.search}
+        onSearchChange={catalog.setSearch}
+        items={catalog.items}
+        onSelect={actions.addRepairFromCatalog}
       />
 
       {/* ── Published URL dialog (dual: owner + tenant) ──── */}
       <PublishedUrlsDialog
-        open={publishDialogOpen}
-        onOpenChange={setPublishDialogOpen}
-        urls={publishedUrls}
+        open={publish.dialogOpen}
+        onOpenChange={publish.setDialogOpen}
+        urls={publish.urls}
         onCopy={copyToClipboard}
       />
 
       {/* ── Missing final observations confirm ────────── */}
       <MissingObservationsDialog
-        open={missingObsDialogOpen}
-        onOpenChange={setMissingObsDialogOpen}
+        open={publish.missingDialogOpen}
+        onOpenChange={publish.setMissingDialogOpen}
         missingSections={missingSections}
-        onConfirm={() => void handlePublish(true)}
+        onConfirm={() => void actions.handlePublish(true)}
       />
 
 
