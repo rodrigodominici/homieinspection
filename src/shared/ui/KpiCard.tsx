@@ -13,6 +13,8 @@ interface KpiCardProps {
   icon?: React.ReactNode;
   hint?: string;
   trendSuffix?: string;
+  /** When provided, the card becomes clickable (e.g. to apply a filter). */
+  onClick?: () => void;
 }
 
 const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
