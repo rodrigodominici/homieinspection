@@ -1036,7 +1036,7 @@ export default function ExecutiveReviewDetail() {
               sectionKey={activeSection.section_key}
               uploadedBy={profile?.id}
               onToggleVisibility={togglePhotoVisibility}
-              onPhotosChanged={(next) => setPhotosBySection((prev) => ({ ...prev, [activeSection.id]: next }))}
+              onPhotosChanged={() => refetch()}
             />
           )}
 
