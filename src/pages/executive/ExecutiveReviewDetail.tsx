@@ -1027,7 +1027,7 @@ export default function ExecutiveReviewDetail() {
                   isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
                 )}>
                 <div className="flex items-center gap-1.5">
-                  <span className="flex-1 truncate">{s.section_title}</span>
+                  <span className="flex-1 leading-tight break-words">{s.section_title}</span>
                   {repairCount > 0 && (
                     <span className="text-[10px] text-muted-foreground shrink-0">· {repairCount}</span>
                   )}
