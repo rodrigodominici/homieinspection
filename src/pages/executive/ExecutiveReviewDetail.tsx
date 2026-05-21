@@ -211,9 +211,9 @@ export default function ExecutiveReviewDetail() {
       .eq('inspection_id', id!).limit(1);
     if (sigData && sigData.length > 0) setSignatureRecord(sigData[0] as any);
 
-    if (insp && (insp as any).status === 'submitted') {
-      await supabase.from('inspections').update({ status: 'in_review' }).eq('id', id!);
-    }
+    // NOTE: previously auto-transitioned submitted → in_review here.
+    // F3.2: now an explicit user action via the sticky banner.
+
 
     setLoading(false);
   }, [id]);
@@ -547,6 +547,21 @@ export default function ExecutiveReviewDetail() {
     setSubmitting(false);
   };
 
+  const handleStartReview = async () => {
+    if (!inspection || inspection.status !== 'submitted') return;
+    setSubmitting(true);
+    const { error } = await supabase.from('inspections')
+      .update({ status: 'in_review' })
+      .eq('id', id!);
+    setSubmitting(false);
+    if (error) { toast({ title: 'No se pudo iniciar la revisión', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Revisión iniciada' });
+    fetchAll();
+  };
+
+
+
+
   const handleReturnForChanges = async () => {
     if (selectedReturnSections.size === 0) {
       toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
@@ -657,7 +672,34 @@ export default function ExecutiveReviewDetail() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>¿Aprobar inspección?</AlertDialogTitle>
-                        <AlertDialogDescription>Marcará la inspección como aprobada y todas las secciones como revisadas.</AlertDialogDescription>
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-3">
+                            {(() => {
+                              const pending = operationalSections.filter(s => s.status !== 'reviewed' && s.status !== 'completed');
+                              if (pending.length === 0) {
+                                return (
+                                  <div className="flex items-start gap-2 rounded-md border border-[hsl(var(--status-good))]/30 bg-[hsl(var(--status-good-bg))] p-3 text-[hsl(var(--status-good-fg))]">
+                                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>Todas las secciones están revisadas. Listo para aprobar.</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex items-start gap-2 rounded-md border border-[hsl(var(--status-pending-bg))] bg-[hsl(var(--status-pending-bg))] p-3 text-[hsl(var(--status-pending-fg))]">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{pending.length} {pending.length === 1 ? 'sección sigue pendiente' : 'secciones siguen pendientes'} de revisión.</span>
+                                  </div>
+                                  <ul className="text-xs list-disc pl-5 max-h-32 overflow-y-auto">
+                                    {pending.slice(0, 8).map(p => <li key={p.id}>{p.section_title}</li>)}
+                                    {pending.length > 8 && <li className="opacity-70">+{pending.length - 8} más</li>}
+                                  </ul>
+                                </div>
+                              );
+                            })()}
+                            <p className="text-xs text-muted-foreground">Al aprobar, todas las secciones quedarán marcadas como revisadas y la inspección lista para publicar.</p>
+                          </div>
+                        </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -665,6 +707,7 @@ export default function ExecutiveReviewDetail() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+
                 </>
               )}
               {isPublished && (
@@ -912,6 +955,27 @@ export default function ExecutiveReviewDetail() {
           })()}
         </div>
       </header>
+
+      {/* F3.2 · Sticky banner: submitted → in_review explicit transition */}
+      {inspection.status === 'submitted' && (
+        <div className="sticky top-[3.5rem] z-20 border-b bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]">
+          <div className="px-4 lg:px-6 py-2.5 flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Esta inspección está lista para tu revisión</p>
+              <p className="text-tiny opacity-80">Inicia la revisión para registrar el cambio de estado y comenzar a editar.</p>
+            </div>
+            <Button variant="ghost" size="sm" className="hover:bg-background/40" disabled={submitting}>
+              Solo visualizar
+            </Button>
+            <Button size="sm" onClick={handleStartReview} disabled={submitting}>
+              Comenzar revisión
+            </Button>
+          </div>
+        </div>
+      )}
+
+
 
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
