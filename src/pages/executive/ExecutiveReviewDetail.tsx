@@ -211,9 +211,9 @@ export default function ExecutiveReviewDetail() {
       .eq('inspection_id', id!).limit(1);
     if (sigData && sigData.length > 0) setSignatureRecord(sigData[0] as any);
 
-    if (insp && (insp as any).status === 'submitted') {
-      await supabase.from('inspections').update({ status: 'in_review' }).eq('id', id!);
-    }
+    // NOTE: previously auto-transitioned submitted → in_review here.
+    // F3.2: now an explicit user action via the sticky banner.
+
 
     setLoading(false);
   }, [id]);
