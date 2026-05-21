@@ -1754,21 +1754,21 @@ function SectionRepairsDrawer({
                     <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                       <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
-                        <Input type="number" step="0.01" value={repair.quantity}
-                          onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        <NumberInput value={repair.quantity}
+                          onChange={(v) => onUpdateRepair(repair.id, 'quantity', v)}
                           className="h-8 text-xs font-mono" />
                       </div>
                       <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
-                        <Input type="number" step="1" value={repair.unit_price}
-                          onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                        <NumberInput value={repair.unit_price}
+                          onChange={(v) => onUpdateRepair(repair.id, 'unit_price', v)}
                           className="h-8 text-xs font-mono" />
                       </div>
                       {hasContractor && (
                         <div>
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
-                          <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
-                            onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                          <NumberInput value={(repair as any).contractor_unit_price ?? 0}
+                            onChange={(v) => onUpdateRepair(repair.id, 'contractor_unit_price', v)}
                             className="h-8 text-xs font-mono" />
                         </div>
                       )}
