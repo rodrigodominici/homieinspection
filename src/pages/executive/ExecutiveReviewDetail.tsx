@@ -75,6 +75,33 @@ const statusLabel = (value: string | null) => {
   return labels[value] ?? { text: value, cls: '' };
 };
 
+// Breakdown of repair totals per section, shown inside a tooltip.
+function SectionTotalsBreakdown({
+  sections, bySection, field, activeId,
+}: {
+  sections: InspectionSection[];
+  bySection: Record<string, { owner: number; tenant: number; total: number }>;
+  field: 'owner' | 'tenant' | 'total';
+  activeId: string | null;
+}) {
+  const rows = sections
+    .map(s => ({ id: s.id, title: s.section_title, value: bySection[s.id]?.[field] ?? 0 }))
+    .filter(r => r.value > 0);
+  if (rows.length === 0) return <p className="text-xs">Sin reparaciones</p>;
+  return (
+    <div className="space-y-1 min-w-[220px]">
+      <p className="text-[10px] uppercase tracking-wide opacity-70 mb-1">Por sección</p>
+      {rows.map(r => (
+        <div key={r.id} className={cn('flex items-center justify-between gap-3 text-xs', r.id === activeId && 'font-semibold underline')}>
+          <span className="truncate">{r.title}</span>
+          <span className="font-mono">{fmtCurrency(r.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 // ─── Main Component ────────────────────────────────────────
 export default function ExecutiveReviewDetail() {
   const { id } = useParams<{ id: string }>();
@@ -200,6 +227,7 @@ export default function ExecutiveReviewDetail() {
   // visible_to_owner only gates the published owner-facing payload (clientTotal below).
   const budgetBreakdown = useMemo(() => {
     const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    const bySection: Record<string, { owner: number; tenant: number; total: number }> = {};
     for (const r of allRepairs) {
       const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
       if (r.payer_role === 'tenant') {
@@ -209,14 +237,21 @@ export default function ExecutiveReviewDetail() {
         if (r.payment_nature === 'optional') acc.ownerOptional += amount;
         else acc.ownerRequired += amount;
       }
+      const sid = r.inspection_section_id;
+      if (!bySection[sid]) bySection[sid] = { owner: 0, tenant: 0, total: 0 };
+      if (r.payer_role === 'tenant') bySection[sid].tenant += amount;
+      else bySection[sid].owner += amount;
+      bySection[sid].total += amount;
     }
     return {
       ...acc,
+      bySection,
       ownerTotal: acc.ownerRequired + acc.ownerOptional,
       tenantTotal: acc.tenantRequired + acc.tenantOptional,
       grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
     };
   }, [allRepairs]);
+
 
   const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
   const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
@@ -693,10 +728,17 @@ export default function ExecutiveReviewDetail() {
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantOptional)}</p>
             </div>
             {/* Inquilino Total S/IVA */}
-            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
+                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="tenant" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
             {/* Propietario */}
             <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
@@ -708,20 +750,35 @@ export default function ExecutiveReviewDetail() {
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerOptional)}</p>
             </div>
             {/* Propietario Total S/IVA */}
-            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
+                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="owner" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
             {/* Total general — single strong emphasis */}
-            <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
-              <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
-              <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
-              {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-                <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                  vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-                </p>
-              )}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px] cursor-help">
+                  <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
+                  <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
+                  {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
+                    <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                      vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
+                    </p>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="total" activeId={activeSectionId} />
+              </TooltipContent>
+            </Tooltip>
+
 
 
             <div className="flex-1" />
@@ -1832,7 +1889,8 @@ function SectionRepairsDrawer({
                           </ToggleGroupItem>
                           <ToggleGroupItem
                             value="owner"
-                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
+                            className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-[hsl(var(--status-good))] data-[state=on]:text-white data-[state=on]:shadow-sm"
+
                           >
                             Propietario
                           </ToggleGroupItem>
