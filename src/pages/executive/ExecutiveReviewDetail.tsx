@@ -3,33 +3,13 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type {
-  InspectionPhoto, RepairCatalogItem,
-} from '@/lib/types';
-import {
-  ArrowLeft, RotateCcw, MapPin, Plus, Send, Copy, PenLine, XCircle,
-  AlertTriangle, ExternalLink, RefreshCw, Clock, Wrench,
-  ChevronDown, FileText,
-} from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import type { InspectionPhoto, RepairCatalogItem } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
-import { cn } from '@/lib/utils';
 import {
   useReviewDetail,
   repairsService,
@@ -39,20 +19,22 @@ import {
   PublishedUrlsDialog,
   MissingObservationsDialog,
   RepairCatalogSheet,
-  ApproveInspectionDialog,
   type PublishedUrls,
 } from '@/modules/review/components';
 import {
   SectionWorkspace,
   PhotoPanel,
   SectionRepairsDrawer,
-  SectionTotalsBreakdown,
-  fmtCurrency,
-  statusLabel,
+  ReviewHeaderBar,
+  SectionSidebar,
+  SubmittedBanner,
+  MobileReviewView,
 } from './review-detail';
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+
 
 
 
