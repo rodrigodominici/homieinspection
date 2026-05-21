@@ -645,11 +645,11 @@ export default function ExecutiveReviewDetail() {
                 </>
               )}
               {isPublished ? (
-                <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" variant="outline" onClick={() => handlePublish()} disabled={submitting}>
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
                 </Button>
               ) : ['submitted', 'in_review', 'approved'].includes(inspection.status) ? (
-                <Button size="sm" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
                 </Button>
               ) : null}
