@@ -250,7 +250,7 @@ export default function ExecutiveReviewDetail() {
         utility={utility}
         contractors={contractors}
         selectedContractorId={selectedContractorId}
-        onContractorChange={handleContractorChange}
+        onContractorChange={actions.handleContractorChange}
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         lastActiveRelative={lastActiveRelative}
