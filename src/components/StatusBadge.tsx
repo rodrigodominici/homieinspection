@@ -5,13 +5,14 @@ const inspectionStatusConfig: Record<string, { label: string; className: string 
   pending_assignment: { label: 'Sin Asignar', className: 'bg-status-bad-bg text-status-bad' },
   assigned: { label: 'Asignada', className: 'bg-status-regular-bg text-status-regular' },
   in_progress: { label: 'En Progreso', className: 'bg-status-regular-bg text-status-regular' },
-  submitted: { label: 'Enviada', className: 'bg-primary/10 text-primary' },
-  in_review: { label: 'En Revisión', className: 'bg-primary/10 text-primary' },
+  submitted: { label: 'Lista para revisión', className: 'bg-primary/10 text-primary' },
+  in_review: { label: 'En revisión', className: 'bg-primary/10 text-primary' },
   needs_changes: { label: 'Requiere Cambios', className: 'bg-status-bad-bg text-status-bad' },
   approved: { label: 'Aprobada', className: 'bg-status-good-bg text-status-good' },
   published: { label: 'Publicada', className: 'bg-status-good-bg text-status-good' },
-  sent: { label: 'Enviada', className: 'bg-status-good-bg text-status-good' },
+  sent: { label: 'Entregada', className: 'bg-status-good-bg text-status-good' },
 };
+
 
 export function InspectionStatusBadge({ status }: { status: string }) {
   const config = inspectionStatusConfig[status] ?? { label: status, className: 'bg-muted text-muted-foreground' };
