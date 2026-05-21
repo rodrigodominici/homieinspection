@@ -8,18 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
-import type { InspectionPhoto, RepairCatalogItem } from '@/lib/types';
+import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
-import {
-  useReviewDetail,
-  repairsService,
-  inspectionActions,
-} from '@/modules/review/api';
+import { useReviewDetail, useReviewActions } from '@/modules/review/api';
 import {
   PublishedUrlsDialog,
   MissingObservationsDialog,
   RepairCatalogSheet,
-  type PublishedUrls,
 } from '@/modules/review/components';
 import {
   SectionWorkspace,
@@ -33,6 +28,7 @@ import {
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+
 
 
 
