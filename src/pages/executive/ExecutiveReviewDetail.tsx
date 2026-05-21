@@ -677,21 +677,35 @@ export default function ExecutiveReviewDetail() {
                 {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}
               </p>
             </div>
-            {/* Propietario */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
-              {budgetBreakdown.ownerOptional > 0 && (
-                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.ownerOptional)}</p>
-              )}
-            </div>
             {/* Inquilino */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inquilino</p>
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantRequired)}</p>
-              {budgetBreakdown.tenantOptional > 0 && (
-                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.tenantOptional)}</p>
-              )}
+            </div>
+            {/* Inquilino Opcional */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Opcional</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantOptional)}</p>
+            </div>
+            {/* Inquilino Total S/IVA */}
+            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
+            </div>
+            {/* Propietario */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
+            </div>
+            {/* Propietario Opcional */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Opcional</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerOptional)}</p>
+            </div>
+            {/* Propietario Total S/IVA */}
+            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
             </div>
             {/* Total general — single strong emphasis */}
             <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
@@ -703,6 +717,7 @@ export default function ExecutiveReviewDetail() {
                 </p>
               )}
             </div>
+
 
             <div className="flex-1" />
 
