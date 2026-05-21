@@ -437,9 +437,6 @@ export default function ExecutiveReviewDetail() {
     toast({ title: 'Copiado al portapapeles' });
   };
 
-  const filteredCatalog = catalogItems.filter((i) =>
-    !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
-  );
 
   // ─── Loading / Not found ───────────────────────────────
   if (loading) {
