@@ -276,7 +276,7 @@ export default function ExecutiveReviewDetail() {
       />
 
       {inspection.status === 'submitted' && (
-        <SubmittedBanner submitting={submitting} onStartReview={handleStartReview} />
+        <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />
       )}
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
