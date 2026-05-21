@@ -37,7 +37,7 @@ import {
   AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
   ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, groupBy } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
