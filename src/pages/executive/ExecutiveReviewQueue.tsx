@@ -175,7 +175,7 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="assigned">Asignada</SelectItem>
                   <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="submitted">Enviada</SelectItem>
+                  <SelectItem value="submitted">Lista para revisión</SelectItem>
                   <SelectItem value="in_review">En revisión</SelectItem>
                   <SelectItem value="approved">Aprobada</SelectItem>
                   <SelectItem value="published">Publicada</SelectItem>
