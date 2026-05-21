@@ -262,8 +262,8 @@ export default function ExecutiveReviewDetail() {
         showObservationWarnings={showObservationWarnings}
         missingSections={missingSections}
         onBack={() => navigate('/executive')}
-        onApprove={handleApprove}
-        onPublish={handlePublish}
+        onApprove={actions.handleApprove}
+        onPublish={actions.handlePublish}
         onReturnForChanges={handleReturnForChanges}
         onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
