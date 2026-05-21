@@ -72,6 +72,7 @@ const App = () => (
             <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
             <Route path="/executive/schedule" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveSchedule /></ProtectedRoute>} />
             <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
+            <Route path="/executive/catalog" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveRepairCatalog /></ProtectedRoute>} />
             
             {/* Public routes */}
             <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />
