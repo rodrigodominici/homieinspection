@@ -359,11 +359,56 @@ export default function ExecutiveReviewDetail() {
 
 
   const handleContractorChange = async (contractorId: string) => {
-    setSelectedContractorId(contractorId === 'none' ? null : contractorId);
-    await supabase.from('inspections').update({
-      contractor_id: contractorId === 'none' ? null : contractorId,
-    }).eq('id', id!);
-    toast({ title: 'Contratista actualizado' });
+    const newContractorId = contractorId === 'none' ? null : contractorId;
+    setSelectedContractorId(newContractorId);
+    await supabase.from('inspections').update({ contractor_id: newContractorId }).eq('id', id!);
+
+    // Re-apply contractor pricing to ALL existing repair items linked to a catalog item.
+    const repairs = allRepairs;
+    const catalogIds = Array.from(new Set(
+      repairs.map((r) => (r as any).repair_catalog_item_id).filter(Boolean) as string[],
+    ));
+
+    let priceMap = new Map<string, number>();
+    if (newContractorId && catalogIds.length > 0) {
+      const { data: prices } = await supabase
+        .from('repair_catalog_item_contractor_prices')
+        .select('repair_catalog_item_id, price')
+        .eq('contractor_id', newContractorId)
+        .in('repair_catalog_item_id', catalogIds);
+      for (const p of (prices ?? []) as any[]) {
+        priceMap.set(p.repair_catalog_item_id, Number(p.price) || 0);
+      }
+    }
+
+    let updatedCount = 0;
+    await Promise.all(
+      repairs
+        .filter((r) => (r as any).repair_catalog_item_id)
+        .map(async (r) => {
+          const catalogId = (r as any).repair_catalog_item_id as string;
+          const newPrice = newContractorId ? (priceMap.get(catalogId) ?? 0) : 0;
+          if (Number((r as any).contractor_unit_price) === newPrice) return;
+          const { error } = await supabase
+            .from('inspection_repair_items')
+            .update({ contractor_unit_price: newPrice })
+            .eq('id', r.id);
+          if (!error) updatedCount++;
+        }),
+    );
+
+    if (updatedCount > 0) {
+      const { data } = await supabase
+        .from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
+      setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
+    }
+
+    toast({
+      title: 'Contratista actualizado',
+      description: newContractorId
+        ? `${updatedCount} ${updatedCount === 1 ? 'precio recargado' : 'precios recargados'} desde la matriz`
+        : 'Precios de contratista puestos en 0',
+    });
   };
 
   const handlePublish = async () => {
