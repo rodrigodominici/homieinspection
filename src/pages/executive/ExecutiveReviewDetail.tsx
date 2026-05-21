@@ -52,6 +52,13 @@ import {
   repairsService,
   inspectionActions,
 } from '@/modules/review/api';
+import {
+  PublishedUrlsDialog,
+  MissingObservationsDialog,
+  RepairCatalogSheet,
+  ApproveInspectionDialog,
+  type PublishedUrls,
+} from '@/modules/review/components';
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
