@@ -112,6 +112,7 @@ export default function ExecutiveReviewDetail() {
   // Publish
   const [publishedUrls, setPublishedUrls] = useState<{ owner: string; tenant: string } | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Signature
