@@ -1356,16 +1356,22 @@ function SectionWorkspace({
         </div>
       )}
 
-      {/* Side-by-side observations — neutral containers */}
+      {/* Side-by-side observations — public (left border primary) vs internal (gray bg) */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-border/60 p-3 space-y-2">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observación del Inspector</p>
           <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
-        <div className="rounded-lg border border-border/60 p-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-            Observación Final <span className="text-[10px] text-muted-foreground normal-case tracking-normal">· Pública</span>
-          </p>
+        <div className="rounded-lg border border-border/60 border-l-[3px] border-l-primary p-3 space-y-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
+                <Globe className="h-3 w-3 text-primary" />
+                Observación Final · Visible para propietario/inquilino
+              </p>
+            </TooltipTrigger>
+            <TooltipContent>Este texto aparecerá en el reporte público</TooltipContent>
+          </Tooltip>
           <Textarea value={finalObservation} rows={3} className="text-caption bg-transparent border-0 p-0 focus-visible:ring-0 resize-none"
             placeholder="Observación visible para el propietario..."
             onChange={(e) => onFinalObsChange(e.target.value)}
@@ -1376,10 +1382,18 @@ function SectionWorkspace({
         </div>
       </div>
 
-      {/* Internal note */}
-      <div className="space-y-1.5">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario Interno</p>
-        <Textarea value={internalNote} rows={2} className="text-caption"
+      {/* Internal note — gray background, lock icon */}
+      <div className="space-y-1.5 rounded-lg bg-muted/40 p-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
+              <Lock className="h-3 w-3" />
+              Comentario Interno · Solo visible para el equipo
+            </p>
+          </TooltipTrigger>
+          <TooltipContent>Este texto NO aparece en el reporte público</TooltipContent>
+        </Tooltip>
+        <Textarea value={internalNote} rows={2} className="text-caption bg-card"
           placeholder="Nota interna (no visible al propietario)..."
           onChange={(e) => onInternalNoteChange(e.target.value)}
           onBlur={() => noteAutosave.flush()} />
@@ -1387,6 +1401,7 @@ function SectionWorkspace({
           <AutosaveStatus status={noteAutosave.status} />
         </div>
       </div>
+
 
 
 
