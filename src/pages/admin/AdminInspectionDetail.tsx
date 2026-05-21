@@ -37,7 +37,7 @@ import {
   AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
   ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, groupBy } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -71,15 +71,6 @@ interface AuditLogEntry {
   created_at: string;
 }
 
-/* ─── groupBy helper ─── */
-function groupBy<T extends { inspection_section_id: string }>(arr: T[]): Record<string, T[]> {
-  const map: Record<string, T[]> = {};
-  for (const item of arr) {
-    if (!map[item.inspection_section_id]) map[item.inspection_section_id] = [];
-    map[item.inspection_section_id].push(item);
-  }
-  return map;
-}
 
 /* ─── Main component ─── */
 export default function AdminInspectionDetail() {
