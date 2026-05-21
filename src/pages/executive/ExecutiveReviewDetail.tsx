@@ -396,378 +396,62 @@ export default function ExecutiveReviewDetail() {
   return (
     <ExecutiveLayout>
     <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30">
-      {/* ── STICKY TOP SUMMARY BAR ─────────────────────── */}
-      <header className="sticky top-0 z-30 border-b bg-card">
-        <div className="px-4 lg:px-6">
-          {/* Row 1: Identity + primary actions */}
-          <div className="flex items-center gap-3 h-14">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/executive')} className="shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
-                <InspectionStatusBadge status={inspection.status} />
-              </div>
-              <div className="flex items-center gap-2 text-tiny text-muted-foreground truncate">
-                <span className="truncate">{inspection.address}</span>
-                <span className="text-border">·</span>
-                <Clock className="h-3 w-3 shrink-0" />
-                <span className="shrink-0">{inspectorProgressLabel} {progress.completed}/{progress.total}</span>
-                {lastActiveRelative && <span className="shrink-0 truncate">· {lastActiveRelative}</span>}
-              </div>
-            </div>
-            {/* Global publication actions — single source */}
-            <div className="hidden lg:flex items-center gap-2">
-              {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
-                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
-                  </Button>
-                  <ApproveInspectionDialog
-                    operationalSections={operationalSections}
-                    disabled={submitting}
-                    onApprove={handleApprove}
-                  />
+      <ReviewHeaderBar
+        inspection={inspection}
+        sections={sections}
+        operationalSections={operationalSections}
+        activeSectionId={activeSectionId}
+        setActiveSectionId={setActiveSectionId}
+        repairsBySection={repairsBySection}
+        allRepairs={allRepairs}
+        budgetBreakdown={budgetBreakdown}
+        warrantyDeposit={warrantyDeposit}
+        depositDiff={depositDiff}
+        contractorTotal={contractorTotal}
+        utility={utility}
+        contractors={contractors}
+        selectedContractorId={selectedContractorId}
+        onContractorChange={handleContractorChange}
+        inspectorProgressLabel={inspectorProgressLabel}
+        progress={progress}
+        lastActiveRelative={lastActiveRelative}
+        isPublished={isPublished}
+        returnMode={returnMode}
+        setReturnMode={setReturnMode}
+        selectedReturnSections={selectedReturnSections}
+        submitting={submitting}
+        showObservationWarnings={showObservationWarnings}
+        missingSections={missingSections}
+        onBack={() => navigate('/executive')}
+        onApprove={handleApprove}
+        onPublish={handlePublish}
+        onReturnForChanges={handleReturnForChanges}
+        onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
+        onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
+        onCopyLink={() => {
+          const url = `${window.location.origin}/reportes/${inspection.property_id}`;
+          navigator.clipboard.writeText(url);
+          toast({ title: 'Link copiado' });
+        }}
+        onOpenPublished={() => window.open(`/reportes/${inspection.property_id}`, '_blank')}
+      />
 
-
-                </>
-              )}
-              {isPublished && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    window.open(`/reportes/${inspection.property_id}`, '_blank');
-                  }}>
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    const url = `${window.location.origin}/reportes/${inspection.property_id}`;
-                    navigator.clipboard.writeText(url);
-                    toast({ title: 'Link copiado' });
-                  }}>
-                    <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar link
-                  </Button>
-                </>
-              )}
-              {inspection.status === 'published' || inspection.status === 'sent' ? (
-                <Button size="sm" variant="outline" onClick={() => handlePublish()} disabled={submitting}>
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
-                </Button>
-              ) : inspection.status === 'approved' ? (
-                <Button size="sm" onClick={() => handlePublish()} disabled={submitting}>
-                  <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
-                </Button>
-              ) : null}
-
-            </div>
-          </div>
-
-          {/* Return mode top bar */}
-          {returnMode && (
-            <div className="hidden lg:flex items-center gap-3 h-10 border-t">
-              <span className="text-caption text-muted-foreground">Selecciona secciones a devolver</span>
-              <div className="flex-1" />
-              <Button variant="outline" size="sm" onClick={() => setReturnMode(false)}>Cancelar</Button>
-              <Button variant="destructive" size="sm" onClick={handleReturnForChanges} disabled={submitting}>
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver ({selectedReturnSections.size})
-              </Button>
-            </div>
-          )}
-
-          {/* Row 2: Financial summary blocks + secondary actions */}
-          <div className="flex items-stretch gap-2 pb-3 pt-2 border-t overflow-x-auto">
-            {/* Depósito */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Depósito</p>
-              <p className="text-sm font-mono font-semibold">
-                {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}
-              </p>
-            </div>
-            {/* Inquilino */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inquilino</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantRequired)}</p>
-            </div>
-            {/* Inquilino Opcional */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Opcional</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantOptional)}</p>
-            </div>
-            {/* Inquilino Total S/IVA */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
-                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="tenant" activeId={activeSectionId} />
-              </TooltipContent>
-            </Tooltip>
-            {/* Propietario */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
-            </div>
-            {/* Propietario Opcional */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Opcional</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerOptional)}</p>
-            </div>
-            {/* Propietario Total S/IVA */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
-                  <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="owner" activeId={activeSectionId} />
-              </TooltipContent>
-            </Tooltip>
-            {/* Total general — single strong emphasis */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px] cursor-help">
-                  <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
-                  <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
-                  {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-                    <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                      vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-                    </p>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="total" activeId={activeSectionId} />
-              </TooltipContent>
-            </Tooltip>
-
-
-
-            <div className="flex-1" />
-
-            {/* Secondary actions: Cotización + Contratista */}
-            <div className="flex items-center gap-1 shrink-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                    <FileText className="mr-1 h-3.5 w-3.5" /> Cotización <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'owner' })}>
-                    Propietario
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setQuotationDialog({ open: true, payer: 'tenant' })}>
-                    Inquilino
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Presupuesto — global entry to the repair workflow.
-                  TEMPORARY UX COMPROMISE: opens the per-section drawer for the
-                  active (or first) section with repairs. Replace with a true
-                  global budget view when one exists. */}
-              <Button
-                variant={allRepairs.length > 0 ? 'default' : 'outline'}
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => {
-                  const target =
-                    activeSection ??
-                    operationalSections.find(s => (repairsBySection[s.id] ?? []).length > 0) ??
-                    operationalSections[0];
-                  if (target) {
-                    setActiveSectionId(target.id);
-                    setExpandedRepairId(null);
-                    setRepairsDrawerSectionId(target.id);
-                  }
-                }}
-              >
-                <Wrench className="mr-1 h-3.5 w-3.5" />
-                Presupuesto
-                {allRepairs.length > 0 && (
-                  <span className="ml-1 opacity-80">· {allRepairs.length}</span>
-                )}
-              </Button>
-
-              {/* Divider between global review controls and contractor context */}
-              <div className="h-5 w-px bg-border mx-1" aria-hidden />
-
-              {/* Contratista activo — labeled control that sets cost context */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                  Contratista activo:
-                </span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 text-xs max-w-[200px]">
-                      {!selectedContractorId && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-regular))] mr-1.5 shrink-0" aria-hidden />
-                      )}
-                      <span className="truncate">
-                        {selectedContractorId
-                          ? contractors.find(c => c.id === selectedContractorId)?.name ?? 'Contratista'
-                          : 'Asignar contratista'}
-                      </span>
-                      <ChevronDown className="ml-0.5 h-3 w-3 opacity-60 shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-72 p-3 space-y-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Contratista activo
-                      </Label>
-                      <p className="text-tiny text-muted-foreground">
-                        Define los costos base del presupuesto.
-                      </p>
-                      <Select value={selectedContractorId ?? 'none'} onValueChange={handleContractorChange}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin seleccionar</SelectItem>
-                          {contractors.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.country})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedContractorId && contractorTotal > 0 && (
-                      <div className="space-y-1 pt-2 border-t border-border/70 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Costo contratista</span>
-                          <span className="font-mono font-medium">{fmtCurrency(contractorTotal)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Utilidad</span>
-                          <span className={cn('font-mono font-medium', utility >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                            {fmtCurrency(utility)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 3: Consolidated blocker strip — single muted line */}
-          {(() => {
-            const blockers: string[] = [];
-            if (showObservationWarnings && missingSections.length > 0) {
-              blockers.push(`${missingSections.length} observaciones finales pendientes`);
-            }
-            if (allRepairs.length > 0 && !selectedContractorId) {
-              blockers.push('sin contratista');
-            }
-            if (!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status)) {
-              blockers.push('sin publicar');
-            }
-            if (blockers.length === 0) return null;
-            return (
-              <div className="flex items-center gap-1.5 pb-2 text-tiny text-muted-foreground">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                <span className="truncate">{blockers.join(' · ')}</span>
-              </div>
-            );
-          })()}
-        </div>
-      </header>
-
-      {/* F3.2 · Sticky banner: submitted → in_review explicit transition */}
       {inspection.status === 'submitted' && (
-        <div className="sticky top-[3.5rem] z-20 border-b bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]">
-          <div className="px-4 lg:px-6 py-2.5 flex items-center gap-3">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">Esta inspección está lista para tu revisión</p>
-              <p className="text-tiny opacity-80">Inicia la revisión para registrar el cambio de estado y comenzar a editar.</p>
-            </div>
-            <Button variant="ghost" size="sm" className="hover:bg-background/40" disabled={submitting}>
-              Solo visualizar
-            </Button>
-            <Button size="sm" onClick={handleStartReview} disabled={submitting}>
-              Comenzar revisión
-            </Button>
-          </div>
-        </div>
+        <SubmittedBanner submitting={submitting} onStartReview={handleStartReview} />
       )}
-
-
-
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
       <div className="hidden lg:grid lg:grid-cols-[240px_1fr_300px] h-[calc(100vh-7rem)]">
-        {/* LEFT SIDEBAR: Section nav */}
-        <aside className="border-r bg-card overflow-y-auto p-3 space-y-1">
-          {(() => {
-            const total = operationalSections.length;
-            const done = operationalSections.filter(s => s.status === 'reviewed' || s.status === 'completed').length;
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-            return (
-              <div className="px-2 mb-3 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">Secciones</p>
-                  <span className="text-tiny text-muted-foreground">{done} de {total} revisadas</span>
-                </div>
-                <Progress value={pct} className="h-1" />
-              </div>
-            );
-          })()}
-          {/* Signature compliance block — neutral container */}
-          {signatureRecord && (
-            <div className="mb-3 rounded-md border border-border/60 bg-card p-2.5 space-y-1">
-              <div className="flex items-center gap-1.5 text-tiny font-medium">
-                {signatureRecord.signature_status === 'signed' ? <PenLine className="h-3.5 w-3.5 text-[hsl(var(--status-good))]" /> :
-                 signatureRecord.signature_status === 'refused' ? <XCircle className="h-3.5 w-3.5 text-[hsl(var(--status-bad))]" /> :
-                 <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--status-regular))]" />}
-                <span>Firma del inquilino</span>
-              </div>
-              <p className="text-tiny text-muted-foreground">
-                {signatureRecord.signature_status === 'signed'
-                  ? `Firmado${signatureRecord.signer_name ? ` por ${signatureRecord.signer_name}` : ''}`
-                  : signatureRecord.signature_status === 'refused' ? 'Rechazada por el inquilino'
-                  : 'Inquilino no disponible'}
-              </p>
-              {signatureRecord.skip_reason && (
-                <p className="text-tiny text-muted-foreground italic">{signatureRecord.skip_reason}</p>
-              )}
-            </div>
-          )}
-          {operationalSections.map((s) => {
-            const isActive = s.id === activeSectionId;
-            const repairCount = (repairsBySection[s.id] ?? []).length;
-            return (
-              <button key={s.id} onClick={() => setActiveSectionId(s.id)}
-                className={cn(
-                  'w-full text-left px-2 py-1.5 rounded-md text-caption transition-colors',
-                  isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50'
-                )}>
-                <div className="flex items-center gap-1.5">
-                  <span className="flex-1 leading-tight break-words">{s.section_title}</span>
-                  {repairCount > 0 && (
-                    <span className="text-[10px] text-muted-foreground shrink-0">· {repairCount}</span>
-                  )}
-                  <SectionStatusBadge status={s.status} />
-                </div>
-              </button>
-            );
-          })}
-          {/* Missing observations summary */}
-          {showObservationWarnings && missingSections.length > 0 && (
-            <div className="mt-3 px-2 py-2 rounded-lg bg-[hsl(var(--status-bad))]/5 text-tiny text-[hsl(var(--status-bad))]">
-              <AlertTriangle className="inline h-3 w-3 mr-1" />
-              Faltan observaciones en {missingSections.length} secciones
-            </div>
-          )}
-        </aside>
+        <SectionSidebar
+          operationalSections={operationalSections}
+          activeSectionId={activeSectionId}
+          onSelectSection={setActiveSectionId}
+          repairsBySection={repairsBySection}
+          signatureRecord={signatureRecord}
+          missingSections={missingSections}
+          showObservationWarnings={showObservationWarnings}
+        />
 
-        {/* CENTER: Review workspace */}
         <main className="overflow-y-auto p-6 space-y-6">
           {activeSection && <SectionWorkspace
             section={activeSection}
@@ -790,7 +474,6 @@ export default function ExecutiveReviewDetail() {
           />}
         </main>
 
-        {/* RIGHT PANEL: Photos + financial summary */}
         <aside className="border-l bg-card overflow-y-auto p-4 space-y-4">
           {activeSection && (
             <PhotoPanel
@@ -803,200 +486,33 @@ export default function ExecutiveReviewDetail() {
               onPhotosChanged={() => refetch()}
             />
           )}
-
-          {/* Section-level subtotal moved into the "Reparaciones de esta sección" block below the main content. */}
         </aside>
       </div>
 
-      {/* ── MOBILE: Stacked fallback ──────────────────── */}
-      <div className="lg:hidden pb-24">
-        <div className="px-4 py-4 space-y-4">
-          {/* Compact summary */}
-          <Card className="border-0 ring-1 ring-border shadow-sm">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2 text-caption">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{inspection.address}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-caption">
-                <div>
-                  <span className="text-muted-foreground">Depósito:</span>{' '}
-                  <span className="font-mono">{warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Presupuesto:</span>{' '}
-                  <span className="font-mono">{fmtCurrency(clientTotal)}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-tiny text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>{inspectorProgressLabel} · {progress.completed}/{progress.total}</span>
-              </div>
-            </CardContent>
-          </Card>
+      <MobileReviewView
+        inspection={inspection}
+        operationalSections={operationalSections}
+        fieldsBySection={fieldsBySection}
+        photosBySection={photosBySection}
+        repairsBySection={repairsBySection}
+        finalObservations={finalObservations}
+        setFinalObservations={setFinalObservations}
+        saveFinalObservationSilent={saveFinalObservationSilent}
+        urlOf={urlOf}
+        signatureRecord={signatureRecord}
+        allRepairs={allRepairs}
+        clientTotal={clientTotal}
+        warrantyDeposit={warrantyDeposit}
+        inspectorProgressLabel={inspectorProgressLabel}
+        progress={progress}
+        submitting={submitting}
+        returnMode={returnMode}
+        setReturnMode={setReturnMode}
+        onOpenCatalog={openCatalog}
+        onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
+        onPublish={() => handlePublish()}
+      />
 
-          {/* Reparaciones — quick global summary (mobile/tablet). */}
-          <Card className="border-0 ring-1 ring-border shadow-sm">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-md shrink-0',
-                allRepairs.length > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
-                <Wrench className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-caption font-medium">
-                  Presupuesto
-                  {allRepairs.length > 0 && (
-                    <span className="ml-1.5 text-tiny font-normal text-muted-foreground">· {allRepairs.length}</span>
-                  )}
-                </p>
-                <p className="text-tiny text-muted-foreground truncate">
-                  {allRepairs.length === 0
-                    ? 'Aún no se han agregado reparaciones.'
-                    : `Total cliente ${fmtCurrency(clientTotal)}`}
-                </p>
-              </div>
-              {allRepairs.length > 0 && (() => {
-                const firstWith = operationalSections.find(s => (repairsBySection[s.id] ?? []).length > 0);
-                if (!firstWith) return null;
-                return (
-                  <Button size="sm" variant="outline" className="shrink-0 h-8 text-tiny"
-                    onClick={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(firstWith.id); }}>
-                    Ver
-                  </Button>
-                );
-              })()}
-            </CardContent>
-          </Card>
-
-          {/* Signature */}
-          {signatureRecord && (
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardContent className="p-3 flex items-center gap-2 text-caption">
-                {signatureRecord.signature_status === 'signed' ? <PenLine className="h-4 w-4 text-[hsl(var(--status-good))]" /> :
-                 signatureRecord.signature_status === 'refused' ? <XCircle className="h-4 w-4 text-[hsl(var(--status-bad))]" /> :
-                 <AlertTriangle className="h-4 w-4 text-[hsl(var(--status-regular))]" />}
-                <span>Firma: {signatureRecord.signature_status === 'signed' ? `Firmado${signatureRecord.signer_name ? ` - ${signatureRecord.signer_name}` : ''}` :
-                  signatureRecord.signature_status === 'refused' ? 'Rechazada' : 'No disponible'}</span>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Section cards (stacked) */}
-          {operationalSections.map((section) => {
-            const sFields = fieldsBySection[section.id] ?? [];
-            const sPhotos = photosBySection[section.id] ?? [];
-            const sRepairs = repairsBySection[section.id] ?? [];
-            const inspectorObs = sFields.find(f => f.group_key === 'observation')?.value_text ?? '';
-            return (
-              <Card key={section.id} className="border-0 ring-1 ring-border shadow-sm">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-body-lg">{section.section_title}</CardTitle>
-                    <SectionStatusBadge status={section.status} />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Status fields */}
-                  {sFields.filter(f => f.group_key === 'status').map(f => {
-                    const label = statusLabel(f.value_text);
-                    return (
-                      <div key={f.id} className="flex justify-between text-caption">
-                        <span className="text-muted-foreground">{f.field_label}</span>
-                        {label && <span className={label.cls}>{label.text}</span>}
-                      </div>
-                    );
-                  })}
-                  {/* Inspector obs */}
-                  {inspectorObs && (
-                    <div className="bg-accent/30 rounded-lg p-3">
-                      <p className="text-tiny font-medium text-muted-foreground mb-1">Inspector</p>
-                      <p className="text-caption">{inspectorObs}</p>
-                    </div>
-                  )}
-                  {/* Final obs — autosaved */}
-                  <div>
-                    <p className="text-tiny font-medium text-muted-foreground mb-1">Observación final</p>
-                    <Textarea value={finalObservations[section.id] ?? ''} rows={2} className="text-caption"
-                      onChange={(e) => setFinalObservations(p => ({ ...p, [section.id]: e.target.value }))}
-                      onBlur={(e) => saveFinalObservationSilent(section.id, e.target.value)} />
-                  </div>
-                  {/* Photos */}
-                  {sPhotos.length > 0 && (
-                    <div className="grid grid-cols-4 gap-1">
-                      {sPhotos.map(p => (
-                        <img key={p.id} src={urlOf(p.id)} className="aspect-square rounded object-cover w-full" />
-                      ))}
-                    </div>
-                  )}
-                  {/* Reparaciones de esta sección — bordered subgroup, stackable header */}
-                  {(() => {
-                    const sSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0);
-                    return (
-                      <div className="rounded-lg border border-border bg-card overflow-hidden">
-                        <div className="flex flex-col gap-2 px-3 py-2 border-b border-border/60 bg-muted/30">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <p className="text-caption font-semibold leading-tight">Reparaciones de esta sección</p>
-                          </div>
-                          <p className="text-tiny text-muted-foreground leading-tight">
-                            {sRepairs.length} {sRepairs.length === 1 ? 'reparación' : 'reparaciones'}
-                            {sRepairs.length > 0 && (
-                              <> · Subtotal <span className="font-mono">{fmtCurrency(sSubtotal)}</span></>
-                            )}
-                          </p>
-                          <Button size="sm" onClick={() => openCatalog(section.id)} className="w-full h-8 text-tiny">
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
-                          </Button>
-                        </div>
-                        {sRepairs.length === 0 ? (
-                          <p className="text-tiny text-muted-foreground italic px-3 py-2">
-                            Sin reparaciones. Agrega desde el catálogo.
-                          </p>
-                        ) : (
-                          <ul className="divide-y divide-border/60">
-                            {sRepairs.map(r => (
-                              <li key={r.id} className="flex items-center gap-2 px-3 py-1.5 text-caption">
-                                <span className="flex-1 min-w-0 truncate">{r.title_snapshot}</span>
-                                <span className="font-mono shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Mobile bottom actions */}
-        {['in_review', 'approved', 'published', 'sent'].includes(inspection.status) && (
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
-            <div className="flex gap-2">
-              {inspection.status === 'in_review' && (
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
-                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
-                </Button>
-              )}
-              {inspection.status === 'approved' && (
-                <Button size="sm" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
-                  <Send className="mr-1 h-3.5 w-3.5" /> Publicar
-                </Button>
-              )}
-              {(inspection.status === 'published' || inspection.status === 'sent') && (
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
-                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
-      </div>
 
       {/* ── Repairs drawer (per-section, desktop-first) ─── */}
       {(() => {
