@@ -25,7 +25,7 @@ const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
 };
 
 export function KpiCard({
-  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%",
+  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick,
 }: KpiCardProps) {
   const showTrend = typeof trend === "number";
   const goingUp = (trend ?? 0) > 0;
