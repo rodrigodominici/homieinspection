@@ -2,20 +2,18 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { requiresFinalObservation } from '@/lib/section-completion';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
-  RefreshCw, ArrowUpDown, Key,
+  ArrowUpDown, Key,
 } from 'lucide-react';
-import { formatDistanceToNow, isBefore, subDays } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +27,7 @@ import {
   ErrorState,
 } from '@/shared/ui';
 import { useExecutiveQueue } from '@/modules/review/api';
+
 
 // ─── Bucketing (job-to-be-done) ────────────────────
 type ExecutiveBucket =
