@@ -420,7 +420,7 @@ function InspectionRow({
                 <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                 <StatusBadge status={insp.status} />
               </div>
-              <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
+              <p className="text-caption text-muted-foreground">{insp.address}</p>
               <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market}</span>
                 {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
