@@ -8,18 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
-import type { InspectionPhoto, RepairCatalogItem } from '@/lib/types';
+import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
-import {
-  useReviewDetail,
-  repairsService,
-  inspectionActions,
-} from '@/modules/review/api';
+import { useReviewDetail, useReviewActions } from '@/modules/review/api';
 import {
   PublishedUrlsDialog,
   MissingObservationsDialog,
   RepairCatalogSheet,
-  type PublishedUrls,
 } from '@/modules/review/components';
 import {
   SectionWorkspace,
@@ -33,6 +28,7 @@ import {
 
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+
 
 
 
@@ -55,31 +51,19 @@ export default function ExecutiveReviewDetail() {
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
 
-  const [submitting, setSubmitting] = useState(false);
-
   // Active section for desktop
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
   // Editing state (local textareas; autosaved silently)
   const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
   const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
-  const [savingField, setSavingField] = useState<string | null>(null);
 
   // Return mode
   const [returnMode, setReturnMode] = useState(false);
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
 
-  // Catalog
-  const [catalogOpen, setCatalogOpen] = useState(false);
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [catalogItems, setCatalogItems] = useState<RepairCatalogItem[]>([]);
-  const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
-
-  // Publish
-  const [publishedUrls, setPublishedUrls] = useState<PublishedUrls | null>(null);
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
+  // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Contractors (selection is local UI state; data comes from the hook)
@@ -89,6 +73,7 @@ export default function ExecutiveReviewDetail() {
   const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
   // Which repair row inside the drawer is expanded for editing (accordion).
   const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
+
 
   // ─── Hydrate local editing state from loaded data ──────
   useEffect(() => {
@@ -191,165 +176,19 @@ export default function ExecutiveReviewDetail() {
     }).eq('id', sectionId);
   }, []);
 
+  // ─── Actions hook (mutations + catalog/publish state) ───
+  const actions = useReviewActions({
+    id, profileId: profile?.id, inspection, operationalSections, allRepairs,
+    repairsBySection, photosBySection, finalObservations, missingSections,
+    clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+  });
+  const { submitting, catalog, publish } = actions;
 
-  const togglePhotoVisibility = async (photo: InspectionPhoto) => {
-    const current = (photo as any).visible_to_owner ?? true;
-    try {
-      await inspectionActions.togglePhotoVisibility(photo.id, current);
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
-    }
-  };
+  const handleReturnForChanges = useCallback(
+    () => actions.handleReturnForChanges(Array.from(selectedReturnSections), returnComments),
+    [actions, selectedReturnSections, returnComments],
+  );
 
-  const openCatalog = async (sectionId: string) => {
-    setCatalogSectionId(sectionId);
-    setCatalogSearch('');
-    try {
-      const items = await repairsService.fetchActiveCatalog();
-      setCatalogItems(items);
-      setCatalogOpen(true);
-    } catch (e: any) {
-      toast({ title: 'No se pudo cargar el catálogo', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
-    if (!catalogSectionId || !id) return;
-    const existingCount = (repairsBySection[catalogSectionId] ?? []).length;
-    try {
-      const { contractorPrice, priceSource } = await repairsService.addRepairFromCatalog({
-        inspectionId: id,
-        inspectionSectionId: catalogSectionId,
-        catalogItem,
-        existingCount,
-        contractorId: selectedContractorId,
-        profileId: profile?.id,
-      });
-      setCatalogOpen(false);
-      await refetch();
-      toast({
-        title: 'Reparación agregada',
-        description: priceSource === 'catalog'
-          ? `Precio contratista autollenado: $${contractorPrice}`
-          : selectedContractorId ? 'Sin precio de contratista configurado' : undefined,
-      });
-    } catch (e: any) {
-      toast({ title: 'No se pudo agregar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    try {
-      await repairsService.updateRepairItem(repairId, field, value, profile?.id);
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const deleteRepairItem = async (repairId: string) => {
-    try {
-      await repairsService.deleteRepairItem(repairId);
-      await refetch();
-      toast({ title: 'Reparación eliminada' });
-    } catch (e: any) {
-      toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
-    }
-  };
-
-  const handleContractorChange = async (contractorId: string) => {
-    if (!id) return;
-    const newContractorId = contractorId === 'none' ? null : contractorId;
-    setSelectedContractorId(newContractorId);
-    const updatedCount = await repairsService.rebindContractorPrices(id, newContractorId, allRepairs);
-    if (updatedCount > 0) await refetch();
-    toast({
-      title: 'Contratista actualizado',
-      description: newContractorId
-        ? `${updatedCount} ${updatedCount === 1 ? 'precio recargado' : 'precios recargados'} desde la matriz`
-        : 'Precios de contratista puestos en 0',
-    });
-  };
-
-  const handlePublish = async (force = false) => {
-    if (!inspection) return;
-    if (!force && missingSections.length > 0) {
-      setMissingObsDialogOpen(true);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const result = await inspectionActions.publishInspection({
-        inspection,
-        operationalSections,
-        allRepairs,
-        photosBySection,
-        finalObservations,
-        clientTotal,
-        profileId: profile?.id,
-      });
-      setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
-      setPublishDialogOpen(true);
-      toast({ title: `Reporte v${result.versionNumber} publicado` });
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!id) return;
-    setSubmitting(true);
-    try {
-      await inspectionActions.approveInspection(id, profile?.id);
-      toast({ title: 'Inspección aprobada' });
-      navigate('/executive');
-    } catch (e: any) {
-      toast({ title: 'No se pudo aprobar', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleStartReview = async () => {
-    if (!inspection || inspection.status !== 'submitted' || !id) return;
-    setSubmitting(true);
-    try {
-      await inspectionActions.startReview(id);
-      toast({ title: 'Revisión iniciada' });
-      await refetch();
-    } catch (e: any) {
-      toast({ title: 'No se pudo iniciar la revisión', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReturnForChanges = async () => {
-    if (!id) return;
-    if (selectedReturnSections.size === 0) {
-      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await inspectionActions.requestChanges({
-        inspectionId: id,
-        profileId: profile?.id,
-        selectedSectionIds: Array.from(selectedReturnSections),
-        commentsBySection: returnComments,
-      });
-      toast({ title: 'Devuelta para cambios' });
-      navigate('/executive');
-    } catch (e: any) {
-      toast({ title: 'No se pudo devolver para cambios', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
 
   const toggleReturnSection = (secId: string) => {
@@ -411,7 +250,7 @@ export default function ExecutiveReviewDetail() {
         utility={utility}
         contractors={contractors}
         selectedContractorId={selectedContractorId}
-        onContractorChange={handleContractorChange}
+        onContractorChange={actions.handleContractorChange}
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         lastActiveRelative={lastActiveRelative}
@@ -423,8 +262,8 @@ export default function ExecutiveReviewDetail() {
         showObservationWarnings={showObservationWarnings}
         missingSections={missingSections}
         onBack={() => navigate('/executive')}
-        onApprove={handleApprove}
-        onPublish={handlePublish}
+        onApprove={actions.handleApprove}
+        onPublish={actions.handlePublish}
         onReturnForChanges={handleReturnForChanges}
         onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
@@ -437,7 +276,7 @@ export default function ExecutiveReviewDetail() {
       />
 
       {inspection.status === 'submitted' && (
-        <SubmittedBanner submitting={submitting} onStartReview={handleStartReview} />
+        <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />
       )}
 
       {/* ── DESKTOP: 3-column layout ──────────────────── */}
@@ -482,7 +321,7 @@ export default function ExecutiveReviewDetail() {
               sectionId={activeSection.id}
               sectionKey={activeSection.section_key}
               uploadedBy={profile?.id}
-              onToggleVisibility={togglePhotoVisibility}
+              onToggleVisibility={actions.togglePhotoVisibility}
               onPhotosChanged={() => refetch()}
             />
           )}
@@ -508,9 +347,9 @@ export default function ExecutiveReviewDetail() {
         submitting={submitting}
         returnMode={returnMode}
         setReturnMode={setReturnMode}
-        onOpenCatalog={openCatalog}
+        onOpenCatalog={actions.openCatalog}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
-        onPublish={() => handlePublish()}
+        onPublish={() => actions.handlePublish()}
       />
 
 
@@ -527,37 +366,37 @@ export default function ExecutiveReviewDetail() {
             hasContractor={!!selectedContractorId}
             expandedRepairId={expandedRepairId}
             onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
-            onOpenCatalog={() => openCatalog(sec.id)}
-            onUpdateRepair={updateRepairItem}
-            onDeleteRepair={deleteRepairItem}
+            onOpenCatalog={() => actions.openCatalog(sec.id)}
+            onUpdateRepair={actions.updateRepairItem}
+            onDeleteRepair={actions.deleteRepairItem}
           />
         );
       })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <RepairCatalogSheet
-        open={catalogOpen}
-        onOpenChange={setCatalogOpen}
-        search={catalogSearch}
-        onSearchChange={setCatalogSearch}
-        items={catalogItems}
-        onSelect={addRepairFromCatalog}
+        open={catalog.open}
+        onOpenChange={catalog.setOpen}
+        search={catalog.search}
+        onSearchChange={catalog.setSearch}
+        items={catalog.items}
+        onSelect={actions.addRepairFromCatalog}
       />
 
       {/* ── Published URL dialog (dual: owner + tenant) ──── */}
       <PublishedUrlsDialog
-        open={publishDialogOpen}
-        onOpenChange={setPublishDialogOpen}
-        urls={publishedUrls}
+        open={publish.dialogOpen}
+        onOpenChange={publish.setDialogOpen}
+        urls={publish.urls}
         onCopy={copyToClipboard}
       />
 
       {/* ── Missing final observations confirm ────────── */}
       <MissingObservationsDialog
-        open={missingObsDialogOpen}
-        onOpenChange={setMissingObsDialogOpen}
+        open={publish.missingDialogOpen}
+        onOpenChange={publish.setMissingDialogOpen}
         missingSections={missingSections}
-        onConfirm={() => void handlePublish(true)}
+        onConfirm={() => void actions.handlePublish(true)}
       />
 
 
