@@ -1114,24 +1114,28 @@ export default function ExecutiveReviewDetail() {
         </div>
 
         {/* Mobile bottom actions */}
-        {['submitted', 'in_review', 'approved', 'published'].includes(inspection.status) && (
+        {['in_review', 'approved', 'published', 'sent'].includes(inspection.status) && (
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
-                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
-              </Button>
-              {isPublished ? (
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
-                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
+              {inspection.status === 'in_review' && (
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
                 </Button>
-              ) : (
+              )}
+              {inspection.status === 'approved' && (
                 <Button size="sm" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1 h-3.5 w-3.5" /> Publicar
+                </Button>
+              )}
+              {(inspection.status === 'published' || inspection.status === 'sent') && (
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
                 </Button>
               )}
             </div>
           </div>
         )}
+
       </div>
 
       {/* ── Repairs drawer (per-section, desktop-first) ─── */}
