@@ -31,6 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDebouncedAutosave } from '@/shared/hooks/useDebouncedAutosave';
 import { AutosaveStatus } from '@/shared/ui/AutosaveStatus';
+import { NumberInput } from '@/shared/ui/NumberInput';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
