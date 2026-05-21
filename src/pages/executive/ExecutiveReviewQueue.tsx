@@ -106,10 +106,11 @@ export default function ExecutiveReviewQueue() {
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
 
   const kpis = useMemo(() => ({
-    pending:    inspections.filter(i => !i.started_at && ['assigned', 'pending', 'pending_assignment'].includes(i.status)).length,
-    inProgress: inspections.filter(i => !!i.started_at && !['submitted', 'in_review', 'approved', 'published', 'sent'].includes(i.status)).length,
-    forReview:  inspections.filter(i => ['submitted', 'in_review'].includes(i.status)).length,
-    published:  inspections.filter(i => !!i.published_at).length,
+    forReview:    inspections.filter(i => i.status === 'submitted').length,
+    inReview:     inspections.filter(i => i.status === 'in_review').length,
+    needsChanges: inspections.filter(i => i.status === 'needs_changes').length,
+    toPublish:    inspections.filter(i => i.status === 'approved').length,
+    published:    inspections.filter(i => ['published', 'sent'].includes(i.status)).length,
   }), [inspections]);
 
   // Per-bucket sorts. Action: oldest activity first (longest in state).
