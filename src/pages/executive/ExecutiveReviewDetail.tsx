@@ -412,14 +412,10 @@ export default function ExecutiveReviewDetail() {
     });
   };
 
-  const handlePublish = async () => {
+  const handlePublish = async (force = false) => {
     if (!inspection) return;
-    if (missingSections.length > 0) {
-      toast({
-        title: `Faltan observaciones finales en ${missingSections.length} secciones`,
-        description: missingSections.map(s => s.section_title).join(', '),
-        variant: 'destructive',
-      });
+    if (!force && missingSections.length > 0) {
+      setMissingObsDialogOpen(true);
       return;
     }
     setSubmitting(true);
