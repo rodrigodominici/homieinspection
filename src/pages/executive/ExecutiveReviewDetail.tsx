@@ -60,14 +60,6 @@ import { es } from 'date-fns/locale';
 const fmt = (n: number) => n.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtCurrency = (n: number) => `$${fmt(n)}`;
 
-const groupBy = <T extends { inspection_section_id: string }>(arr: T[]) => {
-  const map: Record<string, T[]> = {};
-  for (const item of arr) {
-    if (!map[item.inspection_section_id]) map[item.inspection_section_id] = [];
-    map[item.inspection_section_id].push(item);
-  }
-  return map;
-};
 
 const statusLabel = (value: string | null) => {
   if (!value) return null;
