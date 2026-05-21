@@ -267,141 +267,76 @@ export default function ExecutiveReviewDetail() {
 
   const togglePhotoVisibility = async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
-    await supabase.from('inspection_photos').update({ visible_to_owner: !current }).eq('id', photo.id);
-    const { data } = await supabase.from('inspection_photos').select('*').eq('inspection_section_id', photo.inspection_section_id).order('sort_order');
-    setPhotosBySection((prev) => ({ ...prev, [photo.inspection_section_id]: (data ?? []) as unknown as InspectionPhoto[] }));
+    try {
+      await inspectionActions.togglePhotoVisibility(photo.id, current);
+      await refetch();
+    } catch (e: any) {
+      toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
+    }
   };
 
   const openCatalog = async (sectionId: string) => {
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
-    const { data, error } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
-    if (error) {
-      toast({ title: 'No se pudo cargar el catálogo', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      const items = await repairsService.fetchActiveCatalog();
+      setCatalogItems(items);
+      setCatalogOpen(true);
+    } catch (e: any) {
+      toast({ title: 'No se pudo cargar el catálogo', description: e?.message, variant: 'destructive' });
     }
-    setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
-    setCatalogOpen(true);
   };
 
   const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
-    if (!catalogSectionId) return;
-    const existingRepairs = repairsBySection[catalogSectionId] ?? [];
-
-    // Look up contractor-specific price if a contractor is selected
-    let contractorPrice = 0;
-    let priceSource: 'catalog' | 'none' = 'none';
-    if (selectedContractorId) {
-      const { data: cpData } = await supabase
-        .from('repair_catalog_item_contractor_prices')
-        .select('price')
-        .eq('repair_catalog_item_id', catalogItem.id)
-        .eq('contractor_id', selectedContractorId)
-        .maybeSingle();
-      if (cpData) {
-        contractorPrice = Number(cpData.price);
-        priceSource = 'catalog';
-      }
-    }
-
-    const { error: insertError } = await supabase.from('inspection_repair_items').insert({
-      inspection_id: id!, inspection_section_id: catalogSectionId,
-      repair_catalog_item_id: catalogItem.id, title_snapshot: catalogItem.name,
-      owner_friendly_name_snapshot: catalogItem.owner_friendly_name,
-      description_snapshot: catalogItem.description,
-      category_snapshot: catalogItem.category?.name ?? null,
-      unit: catalogItem.unit, pricing_type: catalogItem.pricing_type,
-      quantity: 1, unit_price: catalogItem.base_price, contractor_unit_price: contractorPrice,
-      notes: null, visible_to_owner: true, sort_order: existingRepairs.length,
-      payer_role: 'tenant', payment_nature: 'required',
-      created_by: profile?.id, updated_by: profile?.id,
-    });
-    if (insertError) {
-      toast({
-        title: 'No se pudo agregar la reparación',
-        description: insertError.message,
-        variant: 'destructive',
+    if (!catalogSectionId || !id) return;
+    const existingCount = (repairsBySection[catalogSectionId] ?? []).length;
+    try {
+      const { contractorPrice, priceSource } = await repairsService.addRepairFromCatalog({
+        inspectionId: id,
+        inspectionSectionId: catalogSectionId,
+        catalogItem,
+        existingCount,
+        contractorId: selectedContractorId,
+        profileId: profile?.id,
       });
-      return;
+      setCatalogOpen(false);
+      await refetch();
+      toast({
+        title: 'Reparación agregada',
+        description: priceSource === 'catalog'
+          ? `Precio contratista autollenado: $${contractorPrice}`
+          : selectedContractorId ? 'Sin precio de contratista configurado' : undefined,
+      });
+    } catch (e: any) {
+      toast({ title: 'No se pudo agregar la reparación', description: e?.message, variant: 'destructive' });
     }
-    setCatalogOpen(false);
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-    setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-    toast({
-      title: 'Reparación agregada',
-      description: priceSource === 'catalog'
-        ? `Precio contratista autollenado: $${contractorPrice}`
-        : selectedContractorId ? 'Sin precio de contratista configurado' : undefined,
-    });
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    const { error } = await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
-    if (error) {
-      toast({ title: 'No se pudo actualizar la reparación', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await repairsService.updateRepairItem(repairId, field, value, profile?.id);
+      await refetch();
+    } catch (e: any) {
+      toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
     }
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-    setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
   };
 
   const deleteRepairItem = async (repairId: string) => {
-    const { error } = await supabase.from('inspection_repair_items').delete().eq('id', repairId);
-    if (error) {
-      toast({ title: 'No se pudo eliminar la reparación', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await repairsService.deleteRepairItem(repairId);
+      await refetch();
+      toast({ title: 'Reparación eliminada' });
+    } catch (e: any) {
+      toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
     }
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-    setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-    toast({ title: 'Reparación eliminada' });
   };
 
-
   const handleContractorChange = async (contractorId: string) => {
+    if (!id) return;
     const newContractorId = contractorId === 'none' ? null : contractorId;
     setSelectedContractorId(newContractorId);
-    await supabase.from('inspections').update({ contractor_id: newContractorId }).eq('id', id!);
-
-    // Re-apply contractor pricing to ALL existing repair items linked to a catalog item.
-    const repairs = allRepairs;
-    const catalogIds = Array.from(new Set(
-      repairs.map((r) => (r as any).repair_catalog_item_id).filter(Boolean) as string[],
-    ));
-
-    let priceMap = new Map<string, number>();
-    if (newContractorId && catalogIds.length > 0) {
-      const { data: prices } = await supabase
-        .from('repair_catalog_item_contractor_prices')
-        .select('repair_catalog_item_id, price')
-        .eq('contractor_id', newContractorId)
-        .in('repair_catalog_item_id', catalogIds);
-      for (const p of (prices ?? []) as any[]) {
-        priceMap.set(p.repair_catalog_item_id, Number(p.price) || 0);
-      }
-    }
-
-    let updatedCount = 0;
-    await Promise.all(
-      repairs
-        .filter((r) => (r as any).repair_catalog_item_id)
-        .map(async (r) => {
-          const catalogId = (r as any).repair_catalog_item_id as string;
-          const newPrice = newContractorId ? (priceMap.get(catalogId) ?? 0) : 0;
-          if (Number((r as any).contractor_unit_price) === newPrice) return;
-          const { error } = await supabase
-            .from('inspection_repair_items')
-            .update({ contractor_unit_price: newPrice })
-            .eq('id', r.id);
-          if (!error) updatedCount++;
-        }),
-    );
-
-    if (updatedCount > 0) {
-      const { data } = await supabase
-        .from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
-      setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
-    }
-
+    const updatedCount = await repairsService.rebindContractorPrices(id, newContractorId, allRepairs);
+    if (updatedCount > 0) await refetch();
     toast({
       title: 'Contratista actualizado',
       description: newContractorId
@@ -417,131 +352,78 @@ export default function ExecutiveReviewDetail() {
       return;
     }
     setSubmitting(true);
-    const visibleRepairs = allRepairs.filter((r) => r.visible_to_owner);
-    const visiblePhotos = Object.values(photosBySection).flat().filter((p: any) => p.visible_to_owner !== false);
-    const taxConfig = await fetchTaxConfig(inspection.market);
-    const payload = {
-      property: {
-        property_id: inspection.property_id, property_name: inspection.property_name,
-        address: inspection.address, market: inspection.market,
-        property_type: inspection.property_type,
-        inspection_type: inspection.inspection_type,
-      },
-      sections: operationalSections.map((s) => ({
-        id: s.id, title: s.section_title, type: s.section_type,
-        final_observation: finalObservations[s.id]?.trim() || null,
-        photos: visiblePhotos.filter((p) => p.inspection_section_id === s.id)
-          .map((p) => ({ id: p.id, url: null, caption: p.caption })),
-        repairs: visibleRepairs.filter((r) => r.inspection_section_id === s.id)
-          .map((r) => ({
-            name: r.owner_friendly_name_snapshot || r.title_snapshot,
-            description: r.description_snapshot, category: r.category_snapshot,
-            unit: r.unit, quantity: r.quantity, unit_price: r.unit_price,
-            subtotal: r.quantity * r.unit_price,
-            payer_role: r.payer_role, payment_nature: r.payment_nature,
-          })),
-      })),
-      budget_total: clientTotal,
-      tax_config: taxConfig ? {
-        enabled: taxConfig.vat_enabled,
-        percentage: Number(taxConfig.vat_percentage),
-        label: taxConfig.vat_label,
-        currency: taxConfig.currency,
-      } : null,
-      published_at: new Date().toISOString(),
-    };
-    const { data: existing } = await supabase
-      .from('inspection_report_versions').select('version_number')
-      .eq('inspection_id', id!).order('version_number', { ascending: false }).limit(1);
-    const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
-
-    // Atomic-in-practice publish:
-    // 1) unset previous latest rows (covers all prior audiences)
-    // 2) insert owner row + tenant row in a single .insert([...]) call
-    //    sharing version_number and payload — only public_token + audience differ.
-    // The shared payload already carries `payer_role` + `payment_nature` per repair,
-    // and is filtered by `visible_to_owner` (editorial gate, NOT a payer gate).
-    // The audience-aware public renderer applies payer filtering at render time.
-    await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
-
-    const ownerToken = crypto.randomUUID();
-    const tenantToken = crypto.randomUUID();
-    const { error } = await supabase.from('inspection_report_versions').insert([
-      { inspection_id: id!, version_number: nextVersion, status: 'published',
-        audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
-      { inspection_id: id!, version_number: nextVersion, status: 'published',
-        audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
-    ]);
-    if (error) {
-      toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
+    try {
+      const result = await inspectionActions.publishInspection({
+        inspection,
+        operationalSections,
+        allRepairs,
+        photosBySection,
+        finalObservations,
+        clientTotal,
+        profileId: profile?.id,
+      });
+      setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
+      setPublishDialogOpen(true);
+      toast({ title: `Reporte v${result.versionNumber} publicado` });
+      await refetch();
+    } catch (e: any) {
+      toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
+    } finally {
       setSubmitting(false);
-      return;
     }
-    await supabase.from('inspections').update({
-      status: 'published', published_at: new Date().toISOString(),
-      owner_url_generated_at: new Date().toISOString(),
-      approved_at: new Date().toISOString(), approved_by: profile?.id,
-    }).eq('id', id!);
-    const origin = window.location.origin;
-    setPublishedUrls({
-      owner: `${origin}/reportes/${inspection.property_id}/${ownerToken}`,
-      tenant: `${origin}/reportes/${inspection.property_id}/${tenantToken}`,
-    });
-    setPublishDialogOpen(true);
-    setSubmitting(false);
-    toast({ title: `Reporte v${nextVersion} publicado` });
-    fetchAll();
   };
 
   const handleApprove = async () => {
+    if (!id) return;
     setSubmitting(true);
-    await supabase.from('inspections')
-      .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: profile?.id })
-      .eq('id', id!);
-    await supabase.from('inspection_sections')
-      .update({ status: 'reviewed', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() })
-      .eq('inspection_id', id!);
-    toast({ title: 'Inspección aprobada' });
-    navigate('/executive');
-    setSubmitting(false);
+    try {
+      await inspectionActions.approveInspection(id, profile?.id);
+      toast({ title: 'Inspección aprobada' });
+      navigate('/executive');
+    } catch (e: any) {
+      toast({ title: 'No se pudo aprobar', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleStartReview = async () => {
-    if (!inspection || inspection.status !== 'submitted') return;
+    if (!inspection || inspection.status !== 'submitted' || !id) return;
     setSubmitting(true);
-    const { error } = await supabase.from('inspections')
-      .update({ status: 'in_review' })
-      .eq('id', id!);
-    setSubmitting(false);
-    if (error) { toast({ title: 'No se pudo iniciar la revisión', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Revisión iniciada' });
-    fetchAll();
+    try {
+      await inspectionActions.startReview(id);
+      toast({ title: 'Revisión iniciada' });
+      await refetch();
+    } catch (e: any) {
+      toast({ title: 'No se pudo iniciar la revisión', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-
-
-
   const handleReturnForChanges = async () => {
+    if (!id) return;
     if (selectedReturnSections.size === 0) {
       toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
-    for (const secId of selectedReturnSections) {
-      const comment = returnComments[secId];
-      if (comment?.trim()) {
-        await supabase.from('inspection_reviews').insert({
-          inspection_id: id!, inspection_section_id: secId,
-          comment_type: 'revision_request', comment: comment.trim(), created_by: profile?.id,
-        });
-      }
-      await supabase.from('inspection_sections').update({ status: 'needs_changes' }).eq('id', secId);
+    try {
+      await inspectionActions.requestChanges({
+        inspectionId: id,
+        profileId: profile?.id,
+        selectedSectionIds: Array.from(selectedReturnSections),
+        commentsBySection: returnComments,
+      });
+      toast({ title: 'Devuelta para cambios' });
+      navigate('/executive');
+    } catch (e: any) {
+      toast({ title: 'No se pudo devolver para cambios', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
-    await supabase.from('inspections').update({ status: 'needs_changes' }).eq('id', id!);
-    toast({ title: 'Devuelta para cambios' });
-    navigate('/executive');
-    setSubmitting(false);
   };
+
 
   const toggleReturnSection = (secId: string) => {
     setSelectedReturnSections((prev) => {
