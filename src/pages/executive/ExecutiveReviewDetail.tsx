@@ -51,31 +51,19 @@ export default function ExecutiveReviewDetail() {
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
 
-  const [submitting, setSubmitting] = useState(false);
-
   // Active section for desktop
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
   // Editing state (local textareas; autosaved silently)
   const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
   const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
-  const [savingField, setSavingField] = useState<string | null>(null);
 
   // Return mode
   const [returnMode, setReturnMode] = useState(false);
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
 
-  // Catalog
-  const [catalogOpen, setCatalogOpen] = useState(false);
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [catalogItems, setCatalogItems] = useState<RepairCatalogItem[]>([]);
-  const [catalogSectionId, setCatalogSectionId] = useState<string | null>(null);
-
-  // Publish
-  const [publishedUrls, setPublishedUrls] = useState<PublishedUrls | null>(null);
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
+  // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Contractors (selection is local UI state; data comes from the hook)
@@ -85,6 +73,7 @@ export default function ExecutiveReviewDetail() {
   const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
   // Which repair row inside the drawer is expanded for editing (accordion).
   const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
+
 
   // ─── Hydrate local editing state from loaded data ──────
   useEffect(() => {
