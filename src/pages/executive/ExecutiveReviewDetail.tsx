@@ -209,11 +209,6 @@ export default function ExecutiveReviewDetail() {
     }).eq('id', sectionId);
   }, []);
 
-  // Legacy explicit-save (kept for any remaining callers); now silent too.
-  const saveInternalNote = (sectionId: string) =>
-    saveInternalNoteSilent(sectionId, internalNotes[sectionId] ?? '');
-  const saveFinalObservation = (sectionId: string) =>
-    saveFinalObservationSilent(sectionId, finalObservations[sectionId] ?? '');
 
   const togglePhotoVisibility = async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
@@ -414,10 +409,6 @@ export default function ExecutiveReviewDetail() {
     ? formatDistanceToNow(new Date(inspection.last_active_at), { addSuffix: true, locale: es })
     : null;
 
-  // Published report URL
-  const existingReportUrl = isPublished && inspection.property_id
-    ? null // we'd need the token; show copy after publish
-    : null;
 
   // ─── RENDER ────────────────────────────────────────────
   return (
