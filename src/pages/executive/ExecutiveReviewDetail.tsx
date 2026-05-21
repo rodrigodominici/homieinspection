@@ -31,6 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDebouncedAutosave } from '@/shared/hooks/useDebouncedAutosave';
 import { AutosaveStatus } from '@/shared/ui/AutosaveStatus';
+import { NumberInput } from '@/shared/ui/NumberInput';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, RepairCatalogItem, InspectionReview, Contractor,
@@ -112,6 +113,7 @@ export default function ExecutiveReviewDetail() {
   // Publish
   const [publishedUrls, setPublishedUrls] = useState<{ owner: string; tenant: string } | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [missingObsDialogOpen, setMissingObsDialogOpen] = useState(false);
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
 
   // Signature
@@ -359,21 +361,62 @@ export default function ExecutiveReviewDetail() {
 
 
   const handleContractorChange = async (contractorId: string) => {
-    setSelectedContractorId(contractorId === 'none' ? null : contractorId);
-    await supabase.from('inspections').update({
-      contractor_id: contractorId === 'none' ? null : contractorId,
-    }).eq('id', id!);
-    toast({ title: 'Contratista actualizado' });
+    const newContractorId = contractorId === 'none' ? null : contractorId;
+    setSelectedContractorId(newContractorId);
+    await supabase.from('inspections').update({ contractor_id: newContractorId }).eq('id', id!);
+
+    // Re-apply contractor pricing to ALL existing repair items linked to a catalog item.
+    const repairs = allRepairs;
+    const catalogIds = Array.from(new Set(
+      repairs.map((r) => (r as any).repair_catalog_item_id).filter(Boolean) as string[],
+    ));
+
+    let priceMap = new Map<string, number>();
+    if (newContractorId && catalogIds.length > 0) {
+      const { data: prices } = await supabase
+        .from('repair_catalog_item_contractor_prices')
+        .select('repair_catalog_item_id, price')
+        .eq('contractor_id', newContractorId)
+        .in('repair_catalog_item_id', catalogIds);
+      for (const p of (prices ?? []) as any[]) {
+        priceMap.set(p.repair_catalog_item_id, Number(p.price) || 0);
+      }
+    }
+
+    let updatedCount = 0;
+    await Promise.all(
+      repairs
+        .filter((r) => (r as any).repair_catalog_item_id)
+        .map(async (r) => {
+          const catalogId = (r as any).repair_catalog_item_id as string;
+          const newPrice = newContractorId ? (priceMap.get(catalogId) ?? 0) : 0;
+          if (Number((r as any).contractor_unit_price) === newPrice) return;
+          const { error } = await supabase
+            .from('inspection_repair_items')
+            .update({ contractor_unit_price: newPrice })
+            .eq('id', r.id);
+          if (!error) updatedCount++;
+        }),
+    );
+
+    if (updatedCount > 0) {
+      const { data } = await supabase
+        .from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
+      setRepairsBySection(groupBy((data ?? []) as unknown as InspectionRepairItem[]));
+    }
+
+    toast({
+      title: 'Contratista actualizado',
+      description: newContractorId
+        ? `${updatedCount} ${updatedCount === 1 ? 'precio recargado' : 'precios recargados'} desde la matriz`
+        : 'Precios de contratista puestos en 0',
+    });
   };
 
-  const handlePublish = async () => {
+  const handlePublish = async (force = false) => {
     if (!inspection) return;
-    if (missingSections.length > 0) {
-      toast({
-        title: `Faltan observaciones finales en ${missingSections.length} secciones`,
-        description: missingSections.map(s => s.section_title).join(', '),
-        variant: 'destructive',
-      });
+    if (!force && missingSections.length > 0) {
+      setMissingObsDialogOpen(true);
       return;
     }
     setSubmitting(true);
@@ -603,11 +646,11 @@ export default function ExecutiveReviewDetail() {
                 </>
               )}
               {isPublished ? (
-                <Button size="sm" variant="outline" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" variant="outline" onClick={() => handlePublish()} disabled={submitting}>
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
                 </Button>
               ) : ['submitted', 'in_review', 'approved'].includes(inspection.status) ? (
-                <Button size="sm" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
                 </Button>
               ) : null}
@@ -635,21 +678,35 @@ export default function ExecutiveReviewDetail() {
                 {warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'}
               </p>
             </div>
-            {/* Propietario */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
-              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
-              {budgetBreakdown.ownerOptional > 0 && (
-                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.ownerOptional)}</p>
-              )}
-            </div>
             {/* Inquilino */}
-            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[120px]">
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inquilino</p>
               <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantRequired)}</p>
-              {budgetBreakdown.tenantOptional > 0 && (
-                <p className="text-[10px] text-muted-foreground font-mono">+Opc {fmtCurrency(budgetBreakdown.tenantOptional)}</p>
-              )}
+            </div>
+            {/* Inquilino Opcional */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Opcional</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantOptional)}</p>
+            </div>
+            {/* Inquilino Total S/IVA */}
+            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
+            </div>
+            {/* Propietario */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Propietario</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerRequired)}</p>
+            </div>
+            {/* Propietario Opcional */}
+            <div className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Opcional</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerOptional)}</p>
+            </div>
+            {/* Propietario Total S/IVA */}
+            <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px]">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
+              <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
             </div>
             {/* Total general — single strong emphasis */}
             <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px]">
@@ -661,6 +718,7 @@ export default function ExecutiveReviewDetail() {
                 </p>
               )}
             </div>
+
 
             <div className="flex-1" />
 
@@ -885,18 +943,7 @@ export default function ExecutiveReviewDetail() {
             />
           )}
 
-          {/* Section-level subtotal — flat inline block */}
-          {activeSection && (repairsBySection[activeSection.id] ?? []).length > 0 && (
-            <div className="pt-3 border-t border-border/70 space-y-0.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal sección</p>
-              <p className="text-sm font-mono font-semibold">
-                {fmtCurrency((repairsBySection[activeSection.id] ?? []).filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0))}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {(repairsBySection[activeSection.id] ?? []).length} reparaciones
-              </p>
-            </div>
-          )}
+          {/* Section-level subtotal moved into the "Reparaciones de esta sección" block below the main content. */}
         </aside>
       </div>
 
@@ -1073,11 +1120,11 @@ export default function ExecutiveReviewDetail() {
                 <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
               </Button>
               {isPublished ? (
-                <Button size="sm" variant="outline" className="flex-1" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Republicar
                 </Button>
               ) : (
-                <Button size="sm" className="flex-1" onClick={handlePublish} disabled={submitting}>
+                <Button size="sm" className="flex-1" onClick={() => handlePublish()} disabled={submitting}>
                   <Send className="mr-1 h-3.5 w-3.5" /> Publicar
                 </Button>
               )}
@@ -1180,6 +1227,34 @@ export default function ExecutiveReviewDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Missing final observations confirm ────────── */}
+      <AlertDialog open={missingObsDialogOpen} onOpenChange={setMissingObsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-[hsl(var(--status-regular))]" />
+              Hay {missingSections.length} {missingSections.length === 1 ? 'sección' : 'secciones'} sin observación final
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Puedes publicar de todas formas. Las fotos de esas secciones se incluirán normalmente en el reporte.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {missingSections.length > 0 && (
+            <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 text-caption space-y-0.5">
+              {missingSections.map((s) => (
+                <p key={s.id} className="text-muted-foreground">· {s.section_title}</p>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setMissingObsDialogOpen(false); void handlePublish(true); }}>
+              Publicar de todas formas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Quotation dialog ──────────────────────────── */}
       <QuotationDialog
@@ -1680,21 +1755,21 @@ function SectionRepairsDrawer({
                     <div className={cn('grid gap-2', hasContractor ? 'grid-cols-5' : 'grid-cols-3')}>
                       <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cantidad</Label>
-                        <Input type="number" step="0.01" value={repair.quantity}
-                          onChange={(e) => onUpdateRepair(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        <NumberInput value={repair.quantity}
+                          onChange={(v) => onUpdateRepair(repair.id, 'quantity', v)}
                           className="h-8 text-xs font-mono" />
                       </div>
                       <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
-                        <Input type="number" step="1" value={repair.unit_price}
-                          onChange={(e) => onUpdateRepair(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                        <NumberInput value={repair.unit_price}
+                          onChange={(v) => onUpdateRepair(repair.id, 'unit_price', v)}
                           className="h-8 text-xs font-mono" />
                       </div>
                       {hasContractor && (
                         <div>
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
-                          <Input type="number" step="1" value={(repair as any).contractor_unit_price ?? 0}
-                            onChange={(e) => onUpdateRepair(repair.id, 'contractor_unit_price', parseFloat(e.target.value) || 0)}
+                          <NumberInput value={(repair as any).contractor_unit_price ?? 0}
+                            onChange={(v) => onUpdateRepair(repair.id, 'contractor_unit_price', v)}
                             className="h-8 text-xs font-mono" />
                         </div>
                       )}
