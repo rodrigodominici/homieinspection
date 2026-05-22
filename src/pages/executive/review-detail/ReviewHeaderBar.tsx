@@ -13,19 +13,19 @@ import { InspectorProgressCard } from './InspectorProgressCard';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 interface ReviewHeaderBarProps {
-  inspection: any;
+  inspection: Inspection;
   sections: InspectionSection[];
   operationalSections: InspectionSection[];
   activeSectionId: string | null;
   setActiveSectionId: (id: string) => void;
-  repairsBySection: Record<string, any[]>;
-  allRepairs: any[];
+  repairsBySection: Record<string, InspectionRepairItem[]>;
+  allRepairs: InspectionRepairItem[];
   budgetBreakdown: BudgetBreakdown;
   warrantyDeposit: number | null;
   depositDiff: number | null;
   contractorTotal: number;
   utility: number;
-  contractors: any[];
+  contractors: Array<{ id: string; name: string; country: string }>;
   selectedContractorId: string | null;
   onContractorChange: (id: string) => void;
   inspectorProgressLabel: string;
@@ -83,13 +83,12 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
               <InspectionStatusBadge status={inspection.status} />
             </div>
-            <div className="flex items-center gap-2 text-tiny text-muted-foreground truncate">
-              <span className="truncate">{inspection.address}</span>
-              <span className="text-border">·</span>
-              <Clock className="h-3 w-3 shrink-0" />
-              <span className="shrink-0">{inspectorProgressLabel} {progress.completed}/{progress.total}</span>
-              {lastActiveRelative && <span className="shrink-0 truncate">· {lastActiveRelative}</span>}
-            </div>
+            <InspectorProgressCard
+              inspectorProgressLabel={inspectorProgressLabel}
+              progress={progress}
+              lastActiveRelative={lastActiveRelative}
+              address={inspection.address}
+            />
           </div>
           <div className="hidden lg:flex items-center gap-2">
             {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
