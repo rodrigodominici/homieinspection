@@ -9,3 +9,4 @@ export { MobileReviewView } from './MobileReviewView';
 export { BudgetSummaryBar } from './BudgetSummaryBar';
 export { ContractorPicker } from './ContractorPicker';
 export { RequestChangesPanel } from './RequestChangesPanel';
+export { InspectorProgressCard } from './InspectorProgressCard';
