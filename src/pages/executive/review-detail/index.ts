@@ -6,3 +6,6 @@ export { ReviewHeaderBar } from './ReviewHeaderBar';
 export { SectionSidebar } from './SectionSidebar';
 export { SubmittedBanner } from './SubmittedBanner';
 export { MobileReviewView } from './MobileReviewView';
+export { BudgetSummaryBar } from './BudgetSummaryBar';
+export { ContractorPicker } from './ContractorPicker';
+export { RequestChangesPanel } from './RequestChangesPanel';
