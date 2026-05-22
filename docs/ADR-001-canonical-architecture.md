@@ -1,7 +1,7 @@
 # ADR-001: Canonical Operational Architecture
 
-Status: Accepted (QA phase)
-Date: 2026-04-17
+Status: Accepted — in production
+Date: 2026-04-17 (last reviewed 2026-05-22)
 
 ## Decisions
 

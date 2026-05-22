@@ -1,107 +1,162 @@
 # Homie Inspection — Product & Technical Logic
 
-> Internal documentation for the Homie Inspection MVP.  
-> Last updated: 2026-03-17
+> Internal documentation. Definitive source for entity models and
+> workflow rules. **Last updated: 2026-05-22**.
 
 ---
 
 ## 1. Product Model
 
-### What is an Inspection?
+An **inspection** is a structured operational record that captures the
+condition of a property at a specific point in time (check-in or
+check-out). The product is built around a strict, sequential 4-stage
+workflow:
 
-An **inspection** is a structured operational record that captures the condition of a property at a specific point in time (check-in or check-out). It is composed of:
+```
+inspection → review → budget → share
+```
 
-- A **parent record** (`inspections`) with property metadata, assignment, and workflow status.
-- **Dynamic sections** (`inspection_sections`) generated from property characteristics.
-- **Field values** (`inspection_field_values`) that hold the actual data captured per section.
-- **Photos** (`inspection_photos`) uploaded to Supabase Storage and linked in the database.
-- **Reviews** (`inspection_reviews`) with comments from the executive during review.
+Each inspection is composed of:
 
-### How is it Created?
+- A **parent record** (`inspections`) with property metadata, assignment,
+  scheduling, status and an immutable `property_snapshot_json`.
+- **Dynamic sections** (`inspection_sections`) generated from property
+  characteristics. Operational vs meta sections drive progress.
+- **Field values** (`inspection_field_values`) holding actual data per
+  section (status chips, text, numbers, dates, matrix items).
+- **Photos** (`inspection_photos`) in the private `inspection-photos`
+  Supabase Storage bucket, referenced by canonical `storage_path`.
+- **Repair items** (`inspection_repair_items`) priced during the budget
+  stage from a shared repair catalog with per-contractor pricing.
+- **Reviews** (`inspection_reviews`) — executive comments
+  (`revision_request`, `internal_note`, `final_observation`).
+- **Tenant signature** (`inspection_signatures`) captured at closing.
+- **Report versions** (`inspection_report_versions`) — published
+  audience-scoped snapshots accessed via public token.
 
-1. A **source payload** arrives (currently manual from Admin, future: HubSpot webhook).
-2. The payload is stored as-is in `inspection_source_events` for auditing.
-3. The system normalizes a **property snapshot** (immutable at creation time).
-4. **Dynamic sections** are generated based on property attributes (bedrooms, bathrooms, features).
-5. A **parent inspection** record is created with `inspector_id`, `executive_id`, and `property_snapshot_json`.
-6. Concrete section and field value rows are inserted.
+### Creation
 
-### How is it Assigned?
+1. A **source payload** arrives (manual from Admin, or HubSpot webhook).
+2. The raw payload is stored in `inspection_source_events` for auditing.
+3. The system normalizes a **property snapshot** (immutable at creation).
+4. **Dynamic sections** are generated via the canonical generator
+   (`supabase/functions/_shared/inspection-generator.ts`) mirrored in
+   `src/lib/inspection-generator.ts`. Both must produce identical output
+   for the same payload — enforced by `src/test/generator-parity.test.ts`.
+5. The parent `inspections` row is inserted with `inspector_id`,
+   `executive_id`, scheduling and `property_snapshot_json`.
+6. Concrete section + field-value rows are inserted.
 
-- **`inspector_id`**: The inspector who will complete the inspection.
-- **`executive_id`**: The executive who will review it after submission.
-- Both are set at **creation time** (or via admin manual assignment).
-- If assignment is incomplete, the inspection status is `pending_assignment`.
+### Assignment
 
-### How is it Completed?
+- `inspector_id`, `executive_id` are set at creation (or via Admin).
+- External users (HubSpot) are resolved through `external_user_mappings`
+  (email / external user id → internal `profiles.id`).
+- Without complete assignment, status is `pending_assignment`.
 
-1. The inspector opens the inspection in their mobile-first UI.
-2. They complete each section (status chips, observations, photos).
-3. Each section transitions: `not_started` → `in_progress` → `completed`.
-4. When all sections are completed, the inspector can submit.
-5. Submission sets status to `submitted` and `completed_at` timestamp.
+### Completion (Inspector)
 
-### How is it Reviewed?
+1. The inspector opens the inspection in the mobile-first UI.
+2. They complete each section (status chips, observations, photos, matrix
+   items). The status guard auto-promotes the inspection to
+   `in_progress` on first edit.
+3. Each section transitions: `not_started → in_progress → completed`.
+4. Some sections are matrix-style (e.g. **Logia**, 8 items) where every
+   item must be answered before the section can complete.
+5. Mandatory photo gate (`photo-validation-gate`) blocks submission when
+   evidence is missing.
+6. Tenant signature is captured as a mandatory closing step (or skipped
+   with a recorded reason).
+7. On submit, status becomes `submitted` and `completed_at` is stamped.
 
-1. After submission, the inspection appears in the assigned executive's queue.
-2. The executive reviews each section, viewing field values and photos.
-3. The executive can:
-   - **Approve** → status becomes `approved`, all sections marked `reviewed`.
-   - **Return for changes** → specific sections marked `needs_changes` with comments.
-4. If returned, the inspector sees revision requests and corrects the flagged sections.
+### Review (Executive)
+
+1. Submitted inspections appear in the assigned executive's queue
+   (`pages/executive/ExecutiveReviewQueue.tsx`).
+2. The executive workstation
+   (`pages/executive/ExecutiveReviewDetail.tsx` + `review-detail/`
+   sub-components) loads everything for one inspection via the React
+   Query hook `modules/review/api/useReviewDetail.ts`.
+3. The executive can edit field values, attach internal notes, write
+   **final observations** (executive-owned, distinct from inspector
+   observations) and decide per-photo visibility for the public report.
+4. Repairs are added from the **repair catalog** with per-contractor
+   pricing. Each item has a dual-price model:
+   - **Client-facing price** (`unit_price`) shown in the public report.
+   - **Internal contractor price** (`contractor_unit_price`) for margin.
+5. Changing the contractor re-binds catalog-linked repair prices via
+   `repairs.service.ts → rebindContractorPrices`.
+6. Outcomes (`modules/review/api/inspection-actions.service.ts`):
+   - **Approve** → `status = approved`, all sections set to `reviewed`.
+   - **Request changes** → status `needs_changes`; selected sections set
+     to `needs_changes` with a `revision_request` comment each.
+   - **Publish** → atomically inserts owner + tenant
+     `inspection_report_versions` rows sharing `version_number` and
+     `normalized_payload`, marks previous versions `is_latest = false`,
+     stamps `published_at`.
+
+### Public report
+
+- Accessed at `/reportes/:property_id/:public_token` (`pages/public/OwnerReport.tsx`).
+- Server-side gate: `get_published_report` RPC requires both
+  `public_token` and `property_id`.
+- Photo URLs in `normalized_payload` are stored as `null` and exchanged
+  for short-lived signed URLs (1h TTL) by the `sign-public-photo` edge
+  function.
+- Audience-scoped: owner and tenant reports share the same content but
+  have distinct tokens.
+- WhatsApp CTA pre-fills from `tenant_whatsapp` on the inspection.
 
 ---
 
 ## 2. Roles
 
 ### Admin
-
-- Creates inspections from source payloads.
-- Assigns inspectors and executives.
-- Views all inspections and their statuses.
-- Manages configuration (users, templates, external mappings).
-- Can manually test each workflow step.
+- Ingests payloads (manual + HubSpot intake).
+- Approves new signups (`auth/approval-workflow`).
+- Assigns roles, deactivates users, full operational intervention.
+- Manages repair catalog, contractors (with pricing matrix),
+  market tax settings, communication templates and rules.
+- Can edit inspector data and override status (audited in
+  `inspection_audit_log`).
 
 ### Inspector
-
-- Sees only inspections assigned to them (RLS: `inspector_id = auth.uid()`).
-- Completes sections in a mobile-first, task-oriented interface.
-- Uploads photos directly to Supabase Storage.
-- Submits completed inspections for executive review.
+- Sees only own inspections (RLS: `inspector_id = auth.uid()`).
+- Mobile-native UI: 4-tab bottom nav, sticky action bars, flex-col CTAs.
+- Inspector dashboard ranks inspections by operational urgency
+  (`inspector-dashboard-logic`).
 
 ### Executive
-
-- Sees only inspections assigned to them (RLS: `executive_id = auth.uid()`).
-- Reviews submitted inspections in a desktop-first, information-dense interface.
-- Approves or returns inspections with section-level comments.
+- Sees only own inspections (RLS: `executive_id = auth.uid()`).
+- Desktop-first workstation: sticky summary bar, side-by-side comparison,
+  list + calendar review queue with 3-way filtering.
 
 ---
 
 ## 3. Core Entities
 
-### `inspection_source_events`
-Raw source payload storage. Every inspection traces back to a source event for auditing.
-
-### `inspections`
-Parent record with property metadata, assignments, status, and immutable property snapshot.
-
-### `inspection_sections`
-Dynamic sections generated from property data. Each has a status tracking completion.
-
-### `inspection_field_values`
-Individual field values within sections (status chips, text, numbers, dates).
-
-### `inspection_photos`
-Photos uploaded to Supabase Storage, linked to sections. Always persisted server-side.
-
-### `inspection_reviews`
-Comments from executives during review (revision requests, internal notes, final observations).
-
-### `external_user_mappings`
-Maps HubSpot identities (emails/user IDs) to internal Homie Inspection profiles. Used for auto-assignment when payloads arrive from HubSpot.
-
-### `profiles`
-Internal user profiles with role, email, and name. Created via auth trigger on signup.
+| Table | Purpose |
+|---|---|
+| `inspection_source_events` | Raw payloads + failure taxonomy (see ADR-001) |
+| `inspections` | Parent record, metadata, assignment, status, snapshot, scheduling |
+| `inspection_sections` | Dynamic sections with per-section status |
+| `inspection_field_values` | Field values inside sections (chips, text, numbers, matrix) |
+| `inspection_photos` | Storage references (`storage_path` canonical) + visibility |
+| `inspection_repair_items` | Priced repairs (dual price: client vs contractor) |
+| `inspection_reviews` | `revision_request` / `internal_note` / `final_observation` |
+| `inspection_signatures` | Tenant signature or recorded skip reason |
+| `inspection_report_versions` | Published audience-scoped report snapshots |
+| `inspection_audit_log` | Manual status overrides + admin actions |
+| `inspection_external_references` | External system refs (HubSpot ids, etc.) |
+| `repair_catalog_items` + `repair_catalog_categories` | Shared repair catalog |
+| `repair_catalog_item_contractor_prices` | Per-contractor pricing matrix |
+| `contractors` | Active contractors |
+| `market_tax_settings` | VAT config per market |
+| `communication_templates` / `rules` / `deliveries` | Templated outbound comms |
+| `inspection_templates` / `_sections` / `_fields` | Future template-driven generation |
+| `external_user_mappings` | HubSpot identity → internal profile |
+| `profiles` | Internal users (role, email, name) |
+| `hubspot_sync_log` | HubSpot inbound/outbound sync trail |
 
 ---
 
@@ -109,114 +164,196 @@ Internal user profiles with role, email, and name. Created via auth trigger on s
 
 ```
 Source Payload → inspection_source_events
-       ↓
+        ↓
 Property Snapshot → inspections (parent record)
-       ↓
+        ↓
 Dynamic Sections → inspection_sections + inspection_field_values
-       ↓
+        ↓
 Inspector Completes → section status: not_started → in_progress → completed
-       ↓
+        ↓
 Inspector Submits → inspection status: submitted
-       ↓
-Executive Reviews → inspection status: in_review
-       ↓
-Approve → approved  |  Return → needs_changes (with section-level comments)
+        ↓
+Executive Reviews (auto in_review) → edits, internal notes, photo visibility
+        ↓
+Approve → approved      Request Changes → needs_changes (per-section)
+        ↓
+Budget → repair items priced (client + contractor)
+        ↓
+Publish → owner + tenant inspection_report_versions (is_latest = true)
+        ↓
+Share → public URLs /reportes/:property_id/:public_token
 ```
 
-### Inspector → Executive Handoff
+### Handoff
 
-When the inspector submits, the inspection status changes to `submitted`. Because `executive_id` was set at creation time, the executive's RLS policy (`executive_id = auth.uid()`) makes the inspection visible in their query results. The executive dashboard filters for `submitted` and `in_review` statuses.
+When the inspector submits, status becomes `submitted`. Because
+`executive_id` was set at creation, the executive's RLS policy
+(`executive_id = auth.uid()`) makes the inspection visible in their
+queue, filtered for `submitted` + `in_review`.
 
 ---
 
 ## 5. Progress Logic
 
-Progress is calculated by the shared utility `calculateProgress()` in `src/lib/inspection-utils.ts`.
+Progress is calculated by `calculateProgress()` in
+`src/lib/inspection-utils.ts`.
 
-**Formula:**
-- `total` = count of sections where `is_visible = true`
-- `completed` = count of visible sections where status is `completed` OR `reviewed`
-- `percent` = `Math.round((completed / total) * 100)`
+- `total` = count of **operational** visible sections
+  (meta sections — e.g. Property Data — are excluded).
+- `completed` = sections whose status is `completed` OR `reviewed`.
+- `percent` = `Math.round((completed / total) * 100)`.
 
-**Statuses that do NOT count as completed:**
-- `not_started`
-- `assigned`
-- `in_progress`
-- `needs_changes`
+Section completion criteria are pattern-based (see
+`src/lib/section-completion.ts`): mandatory fields, matrix items all
+answered, photo gate satisfied.
+
+Statuses that do NOT count as completed: `not_started`, `assigned`,
+`in_progress`, `needs_changes`.
 
 ---
 
 ## 6. Persistence Rules
 
 - **Supabase is the source of truth** for all operational data.
-- Inspections, sections, field values, photos, and reviews are always persisted server-side.
-- Field values are saved on change (debounced) and on blur.
-- The app must never depend on `localStorage` for critical operational data.
-- Photos are uploaded immediately to Supabase Storage and linked in the database.
+- Field values save on change (debounced) and on blur via
+  `useDebouncedAutosave`.
+- Photos are uploaded immediately to private storage; the app never
+  depends on `localStorage` for operational data.
+- Offline retry handles transient photo upload failures.
 
 ---
 
 ## 7. Storage Rules
 
-- All photos are stored in the `inspection-photos` Supabase Storage bucket.
-- Storage path convention: `inspections/{inspection_id}/{section_key}/{uuid}.{ext}`
-- Photos are linked in `inspection_photos` with `storage_path` and `public_url`.
-- **No local-only photo handling.** Every photo must be persisted server-side immediately.
+- Bucket `inspection-photos` is **private** (ADR-001).
+- Canonical reference: `storage_path`
+  (`inspections/{inspection_id}/{section_key}/{uuid}.{ext}`).
+- `inspection_photos.public_url` is deprecated (column to be dropped
+  after signed-URL flow is validated).
+- Authenticated app reads use `createSignedUrl(path, 3600)`.
+- Public report photos resolved by `sign-public-photo` edge function
+  after the `get_published_report` RPC gate.
+- Images compressed to JPEG client-side before upload.
 
 ---
 
 ## 8. Dynamic Section Generation
 
-The generation logic lives in `src/lib/inspection-generator.ts`.
+Lives in `src/lib/inspection-generator.ts` (client mirror) and
+`supabase/functions/_shared/inspection-generator.ts` (canonical, used by
+intake). Both must produce identical structures — enforced by
+`src/test/generator-parity.test.ts`.
 
-### Rules
+Driven exclusively by `property_type` (canonical values: `estudio`,
+`departamento`, `casa`) per ADR-001. `typology` is removed from the
+relational schema and must not be consumed by new code.
 
 | Property Attribute | Section Generated |
 |---|---|
-| Always | Property Data, Handover Person, Access, Kitchen, Appliances, Cleaning, Keys, Pest Control, Meters, Additional Info |
-| `typology = Estudio` | Living/Dormitorio (instead of Living/Comedor) |
-| `bedrooms_count = N` | Dormitorio 1..N (repeatable) |
-| `bathrooms_count = N` | Baño 1..N (repeatable) |
+| Always | Datos de la propiedad, Persona en entrega, Acceso, Cocina, Electrodomésticos, Limpieza, Llaves, Plagas, Medidores, Otros Generales |
+| `property_type = estudio` | Living/Dormitorio (instead of Living/Comedor) |
+| `bedrooms_count = N` | Dormitorio 1..N |
+| `bathrooms_count = N` | Baño 1..N |
 | `has_terrace_living` | Terraza Living |
 | `has_terrace_bedroom` | Terraza Dormitorio |
 | `has_walking_closet` | Walking Closet |
-| `has_logia` | Logia (with technical fields) |
+| `has_logia` | Logia (8-item matrix) |
 | `has_storage \|\| has_parking` | Bodega y Estacionamiento |
 | `has_front_yard && property_type = casa` | Antejardín |
 
-### Future Architecture
+The form follows a 15-screen sequential V4 model on mobile.
 
-The `inspection_templates`, `inspection_template_sections`, and `inspection_template_fields` tables already exist in the database. In the future, the generation logic will read rules from these tables instead of hardcoded TypeScript, allowing admin configuration of templates, visibility rules, and repeatable sections.
+### Template tables (future)
 
----
-
-## 9. Current Testing Model (Manual Staged Workflow)
-
-For this MVP stage, the admin can manually test each workflow step:
-
-1. **Step 1 — Load Payload**: Admin pastes/selects a JSON payload and generates the inspection.
-2. **Step 2 — Assign Users**: Admin selects inspector and executive from registered users.
-3. **Step 3 — Inspector Completion**: Inspector uses their role-based UI to complete sections.
-4. **Step 4 — Executive Review**: After inspector submits, inspection appears in executive's queue.
+`inspection_templates`, `inspection_template_sections`,
+`inspection_template_fields` already exist. The current generator is
+hardcoded; future work moves rules into these tables for admin
+configuration.
 
 ---
 
-## 10. Future Model
+## 9. Scheduling & Key Collection
 
-- **HubSpot Integration**: Payloads will arrive automatically via webhook.
-- **Auto-Assignment**: The system will resolve inspector/executive emails from HubSpot payloads using `external_user_mappings`.
-- **Template Configuration**: Admins will manage templates and generation rules from the UI.
-- **Report Generation**: Approved inspections will generate PDF/HTML reports via `inspection_report_versions`.
+Dual-date operational model — three normalized date concepts (see
+`inspection-date-definitions`):
+
+- Scheduled inspection date.
+- Actual / completed date.
+- Key collection date.
+
+The closing section persists to overrides via the date-synchronization
+architecture (`tech/date-synchronization-architecture`).
 
 ---
 
-## 11. Current MVP Limitations
+## 10. Repair Catalog & Budgeting
+
+- Shared `repair_catalog_items` grouped by `repair_catalog_categories`.
+- `repair_catalog_item_contractor_prices` provides the spreadsheet-style
+  per-contractor pricing matrix managed by Admin.
+- On the inspection, `inspection_repair_items` snapshots the catalog
+  fields (`title_snapshot`, `owner_friendly_name_snapshot`,
+  `description_snapshot`, `category_snapshot`, `unit`, `pricing_type`)
+  so price changes don't retro-mutate published reports.
+- Dual price: `unit_price` (client) and `contractor_unit_price`
+  (internal). `payer_role`, `payment_nature`, `visible_to_owner` control
+  what surfaces in the public report.
+
+---
+
+## 11. Communications & Integrations
+
+- **HubSpot intake**: `supabase/functions/hubspot-inspection-intake` —
+  ingests payloads, resolves users via mappings, generates the
+  inspection. Failure taxonomy in `inspection_source_events.failure_reason`
+  (see ADR-001).
+- **HubSpot updates**: `hubspot-update-inspection` (outbound).
+- **Retry pipeline**: `recover-stalled-events`, `retry-source-event`,
+  `retry-hubspot-sync` (uses `hubspot-retry-classifier`).
+- **Templated comms**: `communication_templates` + `communication_rules`
+  drive `communication_deliveries` (e.g. WhatsApp CTA pre-filled from
+  `tenant_whatsapp`).
+
+---
+
+## 12. Auth & Roles
+
+- Email + password via Supabase Auth.
+- New signups require **Admin approval** before they can use the app.
+- Roles are stored in a separate table and checked via security-definer
+  function (never on `profiles`) to prevent privilege escalation.
+- Admin can: Approve, Assign Role, Reject, Deactivate
+  (`user-management-workflow`).
+
+---
+
+## 13. Public Reporting & Versioning
+
+- Versioned per inspection (`version_number`, `is_latest`).
+- Audience-scoped: separate owner + tenant rows sharing
+  `version_number` and `normalized_payload`, distinct `public_token`.
+- Draft vs Published states (`share-workflow-states`).
+- Access via `(property_id, public_token)` pair.
+
+---
+
+## 14. Visual Identity
+
+- Homie Indigo `#525EA2`, background `#F6F7FB`, primary surface `#EEF1F8`.
+- Inter typography.
+- Status tokens defined in `src/shared/ui/status-registry.ts`.
+- All colors in HSL via design tokens (`index.css` + `tailwind.config.ts`).
+- Inspector UI: 4-tab bottom nav, sticky action bars, flex-col CTAs.
+- Executive UI: sticky summary bar, side-by-side comparison, list +
+  calendar review queue.
+
+---
+
+## 15. Current Limitations
 
 | Area | Current State | Future State |
 |---|---|---|
-| Payload ingestion | Manual from Admin | Automated via HubSpot webhook |
-| User assignment | Manual selection by Admin | Auto-resolved from HubSpot emails |
-| Section generation | Hardcoded in TypeScript | Configurable via template tables |
-| Report generation | Not implemented | PDF/HTML from approved inspections |
-| External user mapping | Table exists, no UI for CRUD | Full admin CRUD + auto-matching |
-| Template management | Read-only documentation view | Full admin template builder |
+| Section generation | Hardcoded in TS (canonical + mirror) | Template-table driven |
+| Template management | Read-only | Full admin builder |
+| Optimistic mutations | Refetch-after-write | Optimistic + selective invalidation |
+| `inspection_photos.public_url` | Still on table (deprecated) | Drop after signed-URL flow validated |
