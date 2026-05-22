@@ -3,13 +3,14 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft, RotateCcw, Copy, AlertTriangle, ExternalLink, RefreshCw,
-  Clock, Wrench, ChevronDown, FileText, Send,
+  Wrench, ChevronDown, FileText, Send,
 } from 'lucide-react';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
 import { ContractorPicker } from './ContractorPicker';
 import { RequestChangesPanel } from './RequestChangesPanel';
-import type { InspectionSection } from '@/lib/types';
+import { InspectorProgressCard } from './InspectorProgressCard';
+import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 interface ReviewHeaderBarProps {
   inspection: any;

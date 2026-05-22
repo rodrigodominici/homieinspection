@@ -4,15 +4,17 @@ import { useToast } from '@/hooks/use-toast';
 import * as repairsService from './repairs.service';
 import * as inspectionActions from './inspection-actions.service';
 import type { PublishedUrls } from '@/modules/review/components';
-import type { InspectionPhoto, RepairCatalogItem, InspectionSection } from '@/lib/types';
+import type {
+  Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection, RepairCatalogItem,
+} from '@/lib/types';
 
 interface UseReviewActionsArgs {
   id: string | undefined;
   profileId: string | undefined;
-  inspection: any;
+  inspection: Inspection | null;
   operationalSections: InspectionSection[];
-  allRepairs: any[];
-  repairsBySection: Record<string, any[]>;
+  allRepairs: InspectionRepairItem[];
+  repairsBySection: Record<string, InspectionRepairItem[]>;
   photosBySection: Record<string, InspectionPhoto[]>;
   finalObservations: Record<string, string>;
   missingSections: InspectionSection[];
