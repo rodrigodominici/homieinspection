@@ -3,11 +3,12 @@
  * inspection: header data, sections, field values, photos, reviews,
  * repairs, contractors and signature record.
  *
- * Encapsulates the legacy `fetchAll` from ExecutiveReviewDetail.tsx without
- * changing query shape or behavior. Returns a `refetch` callback callers
- * invoke after every mutation (same coarse refresh as before).
+ * Powered by React Query for caching + invalidation. The exposed shape
+ * stays identical to the previous useState/useEffect version so callers
+ * (ExecutiveReviewDetail, useReviewActions) work unchanged.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { groupBy } from '@/lib/utils';
 import type {
@@ -44,88 +45,96 @@ export interface UseReviewDetailResult extends ReviewDetailData {
   refetch: () => Promise<void>;
 }
 
-export function useReviewDetail(inspectionId: string | undefined): UseReviewDetailResult {
-  const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [sections, setSections] = useState<InspectionSection[]>([]);
-  const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
-  const [photosBySection, setPhotosBySection] = useState<Record<string, InspectionPhoto[]>>({});
-  const [reviewsBySection, setReviewsBySection] = useState<Record<string, InspectionReview[]>>({});
-  const [repairsBySection, setRepairsBySection] = useState<Record<string, InspectionRepairItem[]>>({});
-  const [signatureRecord, setSignatureRecord] = useState<ReviewDetailSignature | null>(null);
-  const [contractors, setContractors] = useState<Contractor[]>([]);
-  const [initialInternalNotes, setInitialInternalNotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+export const reviewDetailKey = (id: string | undefined) => ['review-detail', id] as const;
 
-  const refetch = useCallback(async () => {
-    if (!inspectionId) return;
+const EMPTY: ReviewDetailData = {
+  inspection: null,
+  sections: [],
+  fieldsBySection: {},
+  photosBySection: {},
+  reviewsBySection: {},
+  repairsBySection: {},
+  signatureRecord: null,
+  contractors: [],
+  initialInternalNotes: {},
+};
 
-    const [{ data: insp }, { data: contractorData }] = await Promise.all([
-      supabase.from('inspections').select('*').eq('id', inspectionId).single(),
-      supabase.from('contractors').select('*').eq('is_active', true).order('name'),
+async function fetchReviewDetail(inspectionId: string): Promise<ReviewDetailData> {
+  const [{ data: insp }, { data: contractorData }] = await Promise.all([
+    supabase.from('inspections').select('*').eq('id', inspectionId).single(),
+    supabase.from('contractors').select('*').eq('is_active', true).order('name'),
+  ]);
+
+  const { data: secs } = await supabase
+    .from('inspection_sections')
+    .select('*')
+    .eq('inspection_id', inspectionId)
+    .eq('is_visible', true)
+    .order('sort_order');
+  const secList = (secs ?? []) as unknown as InspectionSection[];
+
+  let fieldsBySection: Record<string, InspectionFieldValue[]> = {};
+  let photosBySection: Record<string, InspectionPhoto[]> = {};
+  let reviewsBySection: Record<string, InspectionReview[]> = {};
+  let repairsBySection: Record<string, InspectionRepairItem[]> = {};
+  let initialInternalNotes: Record<string, string> = {};
+
+  const secIds = secList.map((s) => s.id);
+  if (secIds.length > 0) {
+    const [{ data: fields }, { data: photos }, { data: reviews }, { data: repairs }] = await Promise.all([
+      supabase.from('inspection_field_values').select('*').in('inspection_section_id', secIds).order('sort_order'),
+      supabase.from('inspection_photos').select('*').in('inspection_section_id', secIds).order('sort_order'),
+      supabase.from('inspection_reviews').select('*').in('inspection_section_id', secIds).order('created_at'),
+      supabase.from('inspection_repair_items').select('*').in('inspection_section_id', secIds).order('sort_order'),
     ]);
-    const inspData = insp as unknown as Inspection;
-    setInspection(inspData);
-    setContractors((contractorData ?? []) as unknown as Contractor[]);
 
-    const { data: secs } = await supabase
-      .from('inspection_sections')
-      .select('*')
-      .eq('inspection_id', inspectionId)
-      .eq('is_visible', true)
-      .order('sort_order');
-    const secList = (secs ?? []) as unknown as InspectionSection[];
-    setSections(secList);
+    fieldsBySection = groupBy((fields ?? []) as unknown as InspectionFieldValue[]);
+    photosBySection = groupBy((photos ?? []) as unknown as InspectionPhoto[]);
+    reviewsBySection = groupBy((reviews ?? []) as unknown as InspectionReview[]);
+    repairsBySection = groupBy((repairs ?? []) as unknown as InspectionRepairItem[]);
 
-    const secIds = secList.map((s) => s.id);
-    if (secIds.length > 0) {
-      const [{ data: fields }, { data: photos }, { data: reviews }, { data: repairs }] = await Promise.all([
-        supabase.from('inspection_field_values').select('*').in('inspection_section_id', secIds).order('sort_order'),
-        supabase.from('inspection_photos').select('*').in('inspection_section_id', secIds).order('sort_order'),
-        supabase.from('inspection_reviews').select('*').in('inspection_section_id', secIds).order('created_at'),
-        supabase.from('inspection_repair_items').select('*').in('inspection_section_id', secIds).order('sort_order'),
-      ]);
-
-      setFieldsBySection(groupBy((fields ?? []) as unknown as InspectionFieldValue[]));
-      setPhotosBySection(groupBy((photos ?? []) as unknown as InspectionPhoto[]));
-      setReviewsBySection(groupBy((reviews ?? []) as unknown as InspectionReview[]));
-      setRepairsBySection(groupBy((repairs ?? []) as unknown as InspectionRepairItem[]));
-
-      const notesMap: Record<string, string> = {};
-      for (const r of (reviews ?? []) as unknown as InspectionReview[]) {
-        if (r.comment_type === 'internal_note') notesMap[r.inspection_section_id] = r.comment;
-      }
-      setInitialInternalNotes(notesMap);
-    } else {
-      setFieldsBySection({});
-      setPhotosBySection({});
-      setReviewsBySection({});
-      setRepairsBySection({});
-      setInitialInternalNotes({});
+    for (const r of (reviews ?? []) as unknown as InspectionReview[]) {
+      if (r.comment_type === 'internal_note') initialInternalNotes[r.inspection_section_id] = r.comment;
     }
+  }
 
-    const { data: sigData } = await supabase
-      .from('inspection_signatures')
-      .select('signature_status, signer_name, skip_reason')
-      .eq('inspection_id', inspectionId)
-      .limit(1);
-    setSignatureRecord(sigData && sigData.length > 0 ? (sigData[0] as ReviewDetailSignature) : null);
-
-    setLoading(false);
-  }, [inspectionId]);
-
-  useEffect(() => { refetch(); }, [refetch]);
+  const { data: sigData } = await supabase
+    .from('inspection_signatures')
+    .select('signature_status, signer_name, skip_reason')
+    .eq('inspection_id', inspectionId)
+    .limit(1);
 
   return {
-    inspection,
-    sections,
+    inspection: (insp ?? null) as unknown as Inspection | null,
+    sections: secList,
     fieldsBySection,
     photosBySection,
     reviewsBySection,
     repairsBySection,
-    signatureRecord,
-    contractors,
+    signatureRecord: sigData && sigData.length > 0 ? (sigData[0] as ReviewDetailSignature) : null,
+    contractors: (contractorData ?? []) as unknown as Contractor[],
     initialInternalNotes,
-    loading,
+  };
+}
+
+export function useReviewDetail(inspectionId: string | undefined): UseReviewDetailResult {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: reviewDetailKey(inspectionId),
+    queryFn: () => fetchReviewDetail(inspectionId!),
+    enabled: !!inspectionId,
+    staleTime: 30_000,
+  });
+
+  const data = query.data ?? EMPTY;
+
+  const refetch = useCallback(async () => {
+    await qc.invalidateQueries({ queryKey: reviewDetailKey(inspectionId) });
+  }, [qc, inspectionId]);
+
+  return {
+    ...data,
+    loading: query.isLoading,
     refetch,
   };
 }
