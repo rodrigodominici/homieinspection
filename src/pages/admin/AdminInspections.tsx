@@ -141,12 +141,29 @@ export default function AdminInspections() {
   const [inspectors, setInspectors] = useState<Profile[]>([]);
   const [executives, setExecutives] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [inspectorFilter, setInspectorFilter] = useState<string>('all');
-  const [executiveFilter, setExecutiveFilter] = useState<string>('all');
-  const [bucketFilter, setBucketFilter] = useState<Bucket>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all');
+  const [inspectorFilter, setInspectorFilter] = useState<string>(searchParams.get('inspector') ?? 'all');
+  const [executiveFilter, setExecutiveFilter] = useState<string>(searchParams.get('executive') ?? 'all');
+  const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('priority');
+
+  // Keep URL in sync with filter selections so the state is shareable.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    const setOrDelete = (key: string, value: string, defaultValue = 'all') => {
+      if (value && value !== defaultValue) next.set(key, value);
+      else next.delete(key);
+    };
+    setOrDelete('inspector', inspectorFilter);
+    setOrDelete('executive', executiveFilter);
+    setOrDelete('status', statusFilter);
+    setOrDelete('bucket', bucketFilter);
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspectorFilter, executiveFilter, statusFilter, bucketFilter]);
   const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
   const setViewMode = (v: 'cards' | 'table') => {
     const next = new URLSearchParams(searchParams);
