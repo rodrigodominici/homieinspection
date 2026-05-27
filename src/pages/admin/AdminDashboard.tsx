@@ -139,10 +139,14 @@ export default function AdminDashboard() {
                     [...pendingByExecutive.entries()]
                       .sort((a, b) => b[1] - a[1])
                       .map(([id, count]) => (
-                        <div key={id} className="flex items-center justify-between py-1">
+                        <Link
+                          key={id}
+                          to={`/admin/inspections?executive=${id}`}
+                          className="flex items-center justify-between py-1 px-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors"
+                        >
                           <span className="text-sm truncate">{profileMap.get(id)?.full_name ?? 'Desconocido'}</span>
                           <span className="text-sm font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{count}</span>
-                        </div>
+                        </Link>
                       ))
                   )}
                 </CardContent>
