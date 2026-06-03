@@ -7,7 +7,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Camera, ChevronLeft, ChevronRight, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import { cn } from '@/lib/utils';
 import type { InspectionPhoto } from '@/lib/types';
 
@@ -17,20 +16,22 @@ interface PhotoPanelProps {
   sectionId: string;
   sectionKey: string;
   uploadedBy?: string;
+  /** Signed URL resolver — lifted to parent so remounts (aside <-> workspace
+   *  slot when repairs panel toggles) don't re-fetch / lose URLs. */
+  urlOf: (photoId: string) => string;
   onToggleVisibility: (photo: InspectionPhoto) => void;
   onPhotosChanged: (next: InspectionPhoto[]) => void;
 }
 
 /** Right-side photo panel for the Executive review workstation. */
 export function PhotoPanel({
-  photos, inspectionId, sectionId, sectionKey, uploadedBy,
+  photos, inspectionId, sectionId, sectionKey, uploadedBy, urlOf,
   onToggleVisibility, onPhotosChanged,
 }: PhotoPanelProps) {
   const { toast } = useToast();
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const urlOf = useSignedPhotoUrls(photos);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (files: FileList | null) => {
