@@ -25,6 +25,7 @@ interface ReviewHeaderBarProps {
   depositDiff: number | null;
   contractorTotal: number;
   utility: number;
+  clientTotal: number;
   contractors: Array<{ id: string; name: string; country: string }>;
   selectedContractorId: string | null;
   onContractorChange: (id: string) => void;
@@ -52,7 +53,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
   const {
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
-    contractorTotal, utility, contractors, selectedContractorId, onContractorChange,
+    contractorTotal, utility, clientTotal, contractors, selectedContractorId, onContractorChange,
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
@@ -142,6 +143,9 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
             warrantyDeposit={warrantyDeposit}
             depositDiff={depositDiff}
             activeSectionId={activeSectionId}
+            itemCount={allRepairs.length}
+            clientTotal={clientTotal}
+            contractorTotal={contractorTotal}
           />
 
           <div className="flex-1" />

@@ -261,6 +261,7 @@ export default function ExecutiveReviewDetail() {
         depositDiff={depositDiff}
         contractorTotal={contractorTotal}
         utility={utility}
+        clientTotal={clientTotal}
         contractors={contractors}
         selectedContractorId={selectedContractorId}
         onContractorChange={actions.handleContractorChange}
