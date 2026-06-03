@@ -75,6 +75,18 @@ export default function ExecutiveReviewDetail() {
   // Which repair row inside the drawer is expanded for editing (accordion).
   const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
 
+  // Track desktop (>= lg / 1024) so the repairs panel renders inline on
+  // desktop and as a Sheet on mobile/tablet — not both at once.
+  const [isDesktop, setIsDesktop] = useState<boolean>(
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : true,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
 
   // ─── Hydrate local editing state from loaded data ──────
   useEffect(() => {
@@ -390,26 +402,24 @@ export default function ExecutiveReviewDetail() {
 
       {/* ── Repairs drawer — MOBILE/TABLET ONLY (< lg). Desktop renders the
             inline panel inside the grid above. ── */}
-      <div className="lg:hidden">
-        {(() => {
-          const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
-          if (!sec) return null;
-          return (
-            <SectionRepairsDrawer
-              open={!!repairsDrawerSectionId}
-              onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
-              section={sec}
-              repairs={repairsBySection[sec.id] ?? []}
-              hasContractor={!!selectedContractorId}
-              expandedRepairId={expandedRepairId}
-              onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
-              onOpenCatalog={() => actions.openCatalog(sec.id)}
-              onUpdateRepair={actions.updateRepairItem}
-              onDeleteRepair={actions.deleteRepairItem}
-            />
-          );
-        })()}
-      </div>
+      {!isDesktop && (() => {
+        const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
+        if (!sec) return null;
+        return (
+          <SectionRepairsDrawer
+            open={!!repairsDrawerSectionId}
+            onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
+            section={sec}
+            repairs={repairsBySection[sec.id] ?? []}
+            hasContractor={!!selectedContractorId}
+            expandedRepairId={expandedRepairId}
+            onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
+            onOpenCatalog={() => actions.openCatalog(sec.id)}
+            onUpdateRepair={actions.updateRepairItem}
+            onDeleteRepair={actions.deleteRepairItem}
+          />
+        );
+      })()}
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <RepairCatalogSheet
