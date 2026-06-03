@@ -203,7 +203,7 @@ export function priorityBucketLabel(b: PriorityBucket): { label: string; classNa
     case 0:
       return { label: 'Sin asignar', className: 'bg-status-bad-bg text-status-bad' };
     case 1:
-      return { label: 'Por coordinar', className: 'bg-amber-50 text-amber-700' };
+      return { label: 'Por coordinar', className: 'bg-status-regular-bg text-status-regular' };
     case 2:
       return { label: 'Programada', className: 'bg-status-regular-bg text-status-regular' };
     case 3:

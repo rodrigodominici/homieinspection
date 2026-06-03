@@ -45,15 +45,16 @@ const payloadOptions = [
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
-  { value: 'pending_assignment', label: 'Sin Asignar' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'pending_assignment', label: 'Sin asignar' },
   { value: 'assigned', label: 'Asignada' },
-  { value: 'in_progress', label: 'En Progreso' },
-  { value: 'submitted', label: 'Enviada' },
-  { value: 'in_review', label: 'En Revisión' },
-  { value: 'needs_changes', label: 'Necesita Cambios' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'submitted', label: 'Lista para revisión' },
+  { value: 'in_review', label: 'En revisión' },
+  { value: 'needs_changes', label: 'Requiere cambios' },
   { value: 'approved', label: 'Aprobada' },
   { value: 'published', label: 'Publicada' },
-  { value: 'sent', label: 'Enviada al cliente' },
+  { value: 'sent', label: 'Entregada' },
 ];
 
 const SORT_OPTIONS = [
