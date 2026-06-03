@@ -168,7 +168,7 @@ export default function ExecutiveReviewQueue() {
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <KpiCard label="Para revisar"     value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}            accent="blue"  onClick={() => setStatusFilter('submitted')} />
               <KpiCard label="En revisión"      value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}                  accent="blue"  onClick={() => setStatusFilter('in_review')} />
-              <KpiCard label="En corrección"    value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-homie-orange" />}           accent="amber" onClick={() => setStatusFilter('needs_changes')} />
+              <KpiCard label="En corrección"    value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-status-bad" />}           accent="amber" onClick={() => setStatusFilter('needs_changes')} />
               <KpiCard label="Para publicar"    value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}                 accent="blue"  onClick={() => setStatusFilter('approved')} />
               <KpiCard label="Publicadas"       value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}          accent="green" onClick={() => setStatusFilter('published')} />
             </div>
@@ -292,8 +292,8 @@ export default function ExecutiveReviewQueue() {
 
 // ─── Group Header ──────────────────────────────────────
 function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted' | 'amber'; label: string; total: number }) {
-  const dotClass = tone === 'primary' ? 'bg-primary' : tone === 'amber' ? 'bg-homie-orange' : 'bg-muted-foreground/40';
-  const textClass = tone === 'primary' ? 'text-primary' : tone === 'amber' ? 'text-homie-orange' : 'text-muted-foreground';
+  const dotClass = tone === 'primary' ? 'bg-primary' : tone === 'amber' ? 'bg-status-bad' : 'bg-muted-foreground/40';
+  const textClass = tone === 'primary' ? 'text-primary' : tone === 'amber' ? 'text-status-bad' : 'text-muted-foreground';
   return (
     <div className="flex items-center gap-3">
       <div className={cn('h-2 w-2 rounded-full', dotClass)} />
