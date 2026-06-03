@@ -388,25 +388,28 @@ export default function ExecutiveReviewDetail() {
       />
 
 
-      {/* ── Repairs drawer (per-section, desktop-first) ─── */}
-      {(() => {
-        const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
-        if (!sec) return null;
-        return (
-          <SectionRepairsDrawer
-            open={!!repairsDrawerSectionId}
-            onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
-            section={sec}
-            repairs={repairsBySection[sec.id] ?? []}
-            hasContractor={!!selectedContractorId}
-            expandedRepairId={expandedRepairId}
-            onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
-            onOpenCatalog={() => actions.openCatalog(sec.id)}
-            onUpdateRepair={actions.updateRepairItem}
-            onDeleteRepair={actions.deleteRepairItem}
-          />
-        );
-      })()}
+      {/* ── Repairs drawer — MOBILE/TABLET ONLY (< lg). Desktop renders the
+            inline panel inside the grid above. ── */}
+      <div className="lg:hidden">
+        {(() => {
+          const sec = operationalSections.find(s => s.id === repairsDrawerSectionId);
+          if (!sec) return null;
+          return (
+            <SectionRepairsDrawer
+              open={!!repairsDrawerSectionId}
+              onOpenChange={(o) => { if (!o) setRepairsDrawerSectionId(null); }}
+              section={sec}
+              repairs={repairsBySection[sec.id] ?? []}
+              hasContractor={!!selectedContractorId}
+              expandedRepairId={expandedRepairId}
+              onToggleExpand={(id) => setExpandedRepairId(prev => prev === id ? null : id)}
+              onOpenCatalog={() => actions.openCatalog(sec.id)}
+              onUpdateRepair={actions.updateRepairItem}
+              onDeleteRepair={actions.deleteRepairItem}
+            />
+          );
+        })()}
+      </div>
 
       {/* ── Catalog sheet ──────────────────────────────── */}
       <RepairCatalogSheet
