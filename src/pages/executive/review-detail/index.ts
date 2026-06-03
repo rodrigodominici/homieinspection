@@ -1,6 +1,7 @@
 export { SectionWorkspace } from './SectionWorkspace';
 export { PhotoPanel } from './PhotoPanel';
 export { SectionRepairsDrawer } from './SectionRepairsDrawer';
+export { SectionRepairsPanel } from './SectionRepairsPanel';
 export { SectionTotalsBreakdown, fmt, fmtCurrency, statusLabel } from './helpers';
 export { ReviewHeaderBar } from './ReviewHeaderBar';
 export { SectionSidebar } from './SectionSidebar';

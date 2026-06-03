@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { SectionTotalsBreakdown, fmtCurrency } from './helpers';
+import { fmtCurrency, SectionTotalsBreakdown } from './helpers';
 import type { InspectionSection } from '@/lib/types';
 
 export type BudgetBreakdown = {
@@ -16,69 +16,76 @@ interface BudgetSummaryBarProps {
   warrantyDeposit: number | null;
   depositDiff: number | null;
   activeSectionId: string | null;
+  itemCount: number;
+  clientTotal: number;
+  contractorTotal: number;
 }
 
-function StatBlock({ label, value, className }: { label: string; value: string; className?: string }) {
+function Stat({ label, value, muted, className }: { label: string; value: string; muted?: boolean; className?: string }) {
   return (
-    <div className={cn('shrink-0 rounded-md bg-muted/40 px-3 py-1.5 min-w-[110px]', className)}>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-mono font-semibold">{value}</p>
-    </div>
+    <span className={cn('inline-flex items-baseline gap-1.5', className)}>
+      <span className={cn('text-sm font-medium font-mono', muted && 'text-muted-foreground')}>{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </span>
   );
 }
 
+/**
+ * Compact 3-value financial header. Detailed payer breakdown lives in the
+ * tooltip so the strip no longer overflows on standard viewports.
+ */
 export function BudgetSummaryBar({
   sections, budgetBreakdown, warrantyDeposit, depositDiff, activeSectionId,
+  itemCount, clientTotal, contractorTotal,
 }: BudgetSummaryBarProps) {
   return (
-    <>
-      <StatBlock label="Depósito" value={warrantyDeposit !== null ? fmtCurrency(warrantyDeposit) : '—'} />
-      <StatBlock label="Inquilino" value={fmtCurrency(budgetBreakdown.tenantRequired)} />
-      <StatBlock label="Inq. Opcional" value={fmtCurrency(budgetBreakdown.tenantOptional)} />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inq. Total S/IVA</p>
-            <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.tenantTotal)}</p>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-4 px-2 py-1 rounded-md hover:bg-muted/40 cursor-help shrink-0">
+          <Stat label="ítems" value={String(itemCount)} />
+          <span className="h-3 w-px bg-border" aria-hidden />
+          <Stat label="precio cliente" value={fmtCurrency(clientTotal)} />
+          <span className="h-3 w-px bg-border" aria-hidden />
+          <Stat label="costo contratista" value={fmtCurrency(contractorTotal)} muted />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="max-w-sm space-y-3">
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wide opacity-70">Desglose por pagador</p>
+          <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-xs">
+            <span>Propietario · obligatorio</span><span className="font-mono">{fmtCurrency(budgetBreakdown.ownerRequired)}</span>
+            <span>Propietario · opcional</span><span className="font-mono">{fmtCurrency(budgetBreakdown.ownerOptional)}</span>
+            <span className="font-medium">Propietario total</span><span className="font-mono font-medium">{fmtCurrency(budgetBreakdown.ownerTotal)}</span>
+            <span>Inquilino · obligatorio</span><span className="font-mono">{fmtCurrency(budgetBreakdown.tenantRequired)}</span>
+            <span>Inquilino · opcional</span><span className="font-mono">{fmtCurrency(budgetBreakdown.tenantOptional)}</span>
+            <span className="font-medium">Inquilino total</span><span className="font-mono font-medium">{fmtCurrency(budgetBreakdown.tenantTotal)}</span>
+            <span className="font-semibold pt-1 border-t border-border/60">Total general</span>
+            <span className="font-mono font-semibold pt-1 border-t border-border/60">{fmtCurrency(budgetBreakdown.grandTotal)}</span>
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="tenant" activeId={activeSectionId} />
-        </TooltipContent>
-      </Tooltip>
-
-      <StatBlock label="Propietario" value={fmtCurrency(budgetBreakdown.ownerRequired)} />
-      <StatBlock label="Prop. Opcional" value={fmtCurrency(budgetBreakdown.ownerOptional)} />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="shrink-0 rounded-md bg-muted/60 px-3 py-1.5 min-w-[120px] cursor-help">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prop. Total S/IVA</p>
-            <p className="text-sm font-mono font-semibold">{fmtCurrency(budgetBreakdown.ownerTotal)}</p>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="owner" activeId={activeSectionId} />
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 min-w-[130px] cursor-help">
-            <p className="text-[10px] uppercase tracking-wide text-primary/70">Total general</p>
-            <p className="text-sm font-mono font-semibold text-primary">{fmtCurrency(budgetBreakdown.grandTotal)}</p>
-            {warrantyDeposit !== null && budgetBreakdown.ownerRequired > 0 && (
-              <p className={cn('text-[10px] font-mono', depositDiff! >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
-                vs depósito {depositDiff! >= 0 ? '+' : ''}{fmtCurrency(depositDiff!)}
-              </p>
+        </div>
+        {warrantyDeposit !== null && (
+          <div className="space-y-0.5 pt-2 border-t border-border/60">
+            <div className="flex justify-between text-xs">
+              <span>Depósito de garantía</span>
+              <span className="font-mono">{fmtCurrency(warrantyDeposit)}</span>
+            </div>
+            {depositDiff !== null && budgetBreakdown.ownerRequired > 0 && (
+              <div className="flex justify-between text-xs">
+                <span>vs propietario obligatorio</span>
+                <span className={cn('font-mono', depositDiff >= 0 ? 'text-[hsl(var(--status-good))]' : 'text-[hsl(var(--status-bad))]')}>
+                  {depositDiff >= 0 ? '+' : ''}{fmtCurrency(depositDiff)}
+                </span>
+              </div>
             )}
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          <SectionTotalsBreakdown sections={sections} bySection={budgetBreakdown.bySection} field="total" activeId={activeSectionId} />
-        </TooltipContent>
-      </Tooltip>
-    </>
+        )}
+        <SectionTotalsBreakdown
+          sections={sections}
+          bySection={budgetBreakdown.bySection}
+          field="total"
+          activeId={activeSectionId}
+        />
+      </TooltipContent>
+    </Tooltip>
   );
 }

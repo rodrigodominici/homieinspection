@@ -28,6 +28,9 @@ interface SectionWorkspaceProps {
   onToggleReturn: () => void;
   returnComment: string;
   onReturnCommentChange: (v: string) => void;
+  /** Optional photos slot — rendered at the top when the right aside is
+   *  replaced by the inline repairs panel. */
+  photosSlot?: React.ReactNode;
 }
 
 /**
@@ -42,6 +45,7 @@ export function SectionWorkspace({
   onFinalObsChange, onInternalNoteChange, onSaveFinalObsSilent, onSaveNoteSilent,
   onOpenRepairsDrawer,
   returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
+  photosSlot,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter((f) => f.group_key === 'status');
   const otherFields = fields.filter(
@@ -66,6 +70,8 @@ export function SectionWorkspace({
         <h2 className="text-h4 font-semibold">{section.section_title}</h2>
         <SectionStatusBadge status={section.status} />
       </div>
+
+      {photosSlot}
 
       {/* Status fields */}
       {statusFields.length > 0 && (
