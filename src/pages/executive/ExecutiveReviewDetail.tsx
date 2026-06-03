@@ -20,6 +20,7 @@ import {
   SectionWorkspace,
   PhotoPanel,
   SectionRepairsDrawer,
+  SectionRepairsPanel,
   ReviewHeaderBar,
   SectionSidebar,
   SubmittedBanner,
@@ -279,54 +280,88 @@ export default function ExecutiveReviewDetail() {
         <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />
       )}
 
-      {/* ── DESKTOP: 3-column layout ──────────────────── */}
-      <div className="hidden lg:grid lg:grid-cols-[240px_1fr_300px] h-[calc(100vh-7rem)]">
-        <SectionSidebar
-          operationalSections={operationalSections}
-          activeSectionId={activeSectionId}
-          onSelectSection={setActiveSectionId}
-          repairsBySection={repairsBySection}
-          signatureRecord={signatureRecord}
-          missingSections={missingSections}
-          showObservationWarnings={showObservationWarnings}
-        />
+      {/* ── DESKTOP: 3-column layout. When the inline repairs panel is open,
+            the right aside (PhotoPanel) is replaced by SectionRepairsPanel
+            and the PhotoPanel is moved into the workspace as `photosSlot`.
+            ── */}
+      {(() => {
+        const drawerSection = operationalSections.find(s => s.id === repairsDrawerSectionId) ?? null;
+        const inlineRepairsOpen = !!drawerSection;
+        const gridCols = inlineRepairsOpen
+          ? 'lg:grid-cols-[240px_minmax(0,1fr)_minmax(400px,42%)]'
+          : 'lg:grid-cols-[240px_1fr_300px]';
 
-        <main className="overflow-y-auto p-6 space-y-6">
-          {activeSection && <SectionWorkspace
-            section={activeSection}
-            fields={fieldsBySection[activeSection.id] ?? []}
-            repairs={repairsBySection[activeSection.id] ?? []}
-            reviews={reviewsBySection[activeSection.id] ?? []}
-            inspectorObs={(fieldsBySection[activeSection.id] ?? []).find(f => f.group_key === 'observation')?.value_text ?? ''}
-            finalObservation={finalObservations[activeSection.id] ?? ''}
-            internalNote={internalNotes[activeSection.id] ?? ''}
-            onFinalObsChange={(v) => setFinalObservations(p => ({ ...p, [activeSection.id]: v }))}
-            onInternalNoteChange={(v) => setInternalNotes(p => ({ ...p, [activeSection.id]: v }))}
-            onSaveFinalObsSilent={saveFinalObservationSilent}
-            onSaveNoteSilent={saveInternalNoteSilent}
-            onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
-            returnMode={returnMode}
-            returnSelected={selectedReturnSections.has(activeSection.id)}
-            onToggleReturn={() => toggleReturnSection(activeSection.id)}
-            returnComment={returnComments[activeSection.id] ?? ''}
-            onReturnCommentChange={(v) => setReturnComments(p => ({ ...p, [activeSection.id]: v }))}
-          />}
-        </main>
+        const photosNode = activeSection ? (
+          <PhotoPanel
+            photos={photosBySection[activeSection.id] ?? []}
+            inspectionId={id!}
+            sectionId={activeSection.id}
+            sectionKey={activeSection.section_key}
+            uploadedBy={profile?.id}
+            urlOf={urlOf}
+            onToggleVisibility={actions.togglePhotoVisibility}
+            onPhotosChanged={() => refetch()}
+          />
+        ) : null;
 
-        <aside className="border-l bg-card overflow-y-auto p-4 space-y-4">
-          {activeSection && (
-            <PhotoPanel
-              photos={photosBySection[activeSection.id] ?? []}
-              inspectionId={id!}
-              sectionId={activeSection.id}
-              sectionKey={activeSection.section_key}
-              uploadedBy={profile?.id}
-              onToggleVisibility={actions.togglePhotoVisibility}
-              onPhotosChanged={() => refetch()}
+        return (
+          <div className={`hidden lg:grid ${gridCols} h-[calc(100vh-7rem)]`}>
+            <SectionSidebar
+              operationalSections={operationalSections}
+              activeSectionId={activeSectionId}
+              onSelectSection={setActiveSectionId}
+              repairsBySection={repairsBySection}
+              signatureRecord={signatureRecord}
+              missingSections={missingSections}
+              showObservationWarnings={showObservationWarnings}
             />
-          )}
-        </aside>
-      </div>
+
+            <main className="overflow-y-auto p-6 space-y-6">
+              {activeSection && <SectionWorkspace
+                section={activeSection}
+                fields={fieldsBySection[activeSection.id] ?? []}
+                repairs={repairsBySection[activeSection.id] ?? []}
+                reviews={reviewsBySection[activeSection.id] ?? []}
+                inspectorObs={(fieldsBySection[activeSection.id] ?? []).find(f => f.group_key === 'observation')?.value_text ?? ''}
+                finalObservation={finalObservations[activeSection.id] ?? ''}
+                internalNote={internalNotes[activeSection.id] ?? ''}
+                onFinalObsChange={(v) => setFinalObservations(p => ({ ...p, [activeSection.id]: v }))}
+                onInternalNoteChange={(v) => setInternalNotes(p => ({ ...p, [activeSection.id]: v }))}
+                onSaveFinalObsSilent={saveFinalObservationSilent}
+                onSaveNoteSilent={saveInternalNoteSilent}
+                onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
+                returnMode={returnMode}
+                returnSelected={selectedReturnSections.has(activeSection.id)}
+                onToggleReturn={() => toggleReturnSection(activeSection.id)}
+                returnComment={returnComments[activeSection.id] ?? ''}
+                onReturnCommentChange={(v) => setReturnComments(p => ({ ...p, [activeSection.id]: v }))}
+                photosSlot={inlineRepairsOpen ? photosNode : undefined}
+              />}
+            </main>
+
+            {inlineRepairsOpen && drawerSection ? (
+              <aside className="overflow-hidden">
+                <SectionRepairsPanel
+                  section={drawerSection}
+                  repairs={repairsBySection[drawerSection.id] ?? []}
+                  hasContractor={!!selectedContractorId}
+                  expandedRepairId={expandedRepairId}
+                  onToggleExpand={(rid) => setExpandedRepairId(prev => prev === rid ? null : rid)}
+                  onOpenCatalog={() => actions.openCatalog(drawerSection.id)}
+                  onUpdateRepair={actions.updateRepairItem}
+                  onDeleteRepair={actions.deleteRepairItem}
+                  onClose={() => setRepairsDrawerSectionId(null)}
+                  variant="inline"
+                />
+              </aside>
+            ) : (
+              <aside className="border-l bg-card overflow-y-auto p-4 space-y-4">
+                {photosNode}
+              </aside>
+            )}
+          </div>
+        );
+      })()}
 
       <MobileReviewView
         inspection={inspection}
