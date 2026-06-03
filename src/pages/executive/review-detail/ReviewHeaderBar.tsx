@@ -117,7 +117,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               <Button size="sm" variant="outline" onClick={() => onPublish()} disabled={submitting}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
               </Button>
-            ) : inspection.status === 'approved' ? (
+            ) : (inspection.current_stage === 'share' && inspection.status === 'approved') ? (
               <Button size="sm" onClick={() => onPublish()} disabled={submitting}>
                 <Send className="mr-1.5 h-3.5 w-3.5" /> Publicar
               </Button>
