@@ -54,7 +54,11 @@ const SORT_LABELS: Record<SortKey, string> = {
 
 type CTAInfo = { label: string; icon: React.ReactNode; variant: 'default' | 'outline' | 'secondary' };
 
-function getContextualCTA(insp: Inspection): CTAInfo {
+function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
+  // Pre-inspección: informativo únicamente, el ejecutivo no asigna inspectores
+  if (bucket === 'pre_inspection') {
+    return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+  }
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
     case 'in_review':         return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
@@ -353,7 +357,7 @@ function BucketSection({
 }) {
   if (inspections.length === 0) return null;
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-3">
       {inspections.map(insp => (
         <InspectionRow
           key={insp.id}
@@ -381,7 +385,7 @@ function InspectionRow({
     () => calculateProgress(sections as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]),
     [sections],
   );
-  const cta = useMemo(() => getContextualCTA(insp), [insp]);
+  const cta = useMemo(() => getContextualCTA(insp, bucket), [insp, bucket]);
   const isActionable = ACTIONABLE_BUCKETS.includes(bucket);
 
   const lastActive = insp.last_active_at
