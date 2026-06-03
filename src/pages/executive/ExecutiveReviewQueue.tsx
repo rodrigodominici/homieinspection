@@ -357,7 +357,7 @@ function BucketSection({
 }) {
   if (inspections.length === 0) return null;
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {inspections.map(insp => (
         <InspectionRow
           key={insp.id}
