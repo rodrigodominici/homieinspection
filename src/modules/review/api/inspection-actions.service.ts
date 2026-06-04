@@ -152,10 +152,19 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
     .limit(1);
   const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
 
+  // Reuse prior public tokens so the owner/tenant link stays stable across re-publishes.
+  const { data: priorTokens } = await supabase
+    .from('inspection_report_versions')
+    .select('audience, public_token')
+    .eq('inspection_id', inspection.id)
+    .in('audience', ['owner', 'tenant']);
+  const priorOwner = priorTokens?.find((r: any) => r.audience === 'owner')?.public_token as string | undefined;
+  const priorTenant = priorTokens?.find((r: any) => r.audience === 'tenant')?.public_token as string | undefined;
+
   await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', inspection.id);
 
-  const ownerToken = crypto.randomUUID();
-  const tenantToken = crypto.randomUUID();
+  const ownerToken = priorOwner ?? crypto.randomUUID();
+  const tenantToken = priorTenant ?? crypto.randomUUID();
   const { error } = await supabase.from('inspection_report_versions').insert([
     { inspection_id: inspection.id, version_number: nextVersion, status: 'published',
       audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
