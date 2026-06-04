@@ -97,9 +97,7 @@ const PRINT_CSS = `
   .cat-table tfoot td { background: #eef0ff; font-weight: 700; border-top: 2px solid #111; }
   .pos { color: #15803d; }
   .neg { color: #b91c1c; }
-  .muted { color: #666; }
-  .sep-col { border-left: 1px solid #e5e7eb; }
-  @page { margin: 16mm 12mm; size: A4 landscape; }
+  @page { margin: 16mm 14mm; }
 `;
 
 // ─── HTML builder (pure string — no DOM capture) ────
@@ -120,10 +118,7 @@ function buildPrintBody(
 
   const repairTable = (repairs: InspectionRepairItem[]) => {
     if (repairs.length === 0) return '';
-    const rows = repairs.map(r => {
-      const totalVenta = r.quantity * r.unit_price;
-      const totalCosto = r.quantity * r.contractor_unit_price;
-      return `
+    const rows = repairs.map(r => `
       <tr>
         <td>
           <div class="repair-name">${esc(r.owner_friendly_name_snapshot || r.title_snapshot)}</div>
@@ -132,21 +127,16 @@ function buildPrintBody(
         </td>
         <td class="r">${r.quantity}</td>
         <td class="r">${fmtNum(r.unit_price)}</td>
-        <td class="r">${fmtNum(totalVenta)}</td>
-        <td class="r muted sep-col">${fmtNum(r.contractor_unit_price)}</td>
-        <td class="r muted">${fmtNum(totalCosto)}</td>
-      </tr>`;
-    }).join('');
+        <td class="r">${fmtNum(r.quantity * r.unit_price)}</td>
+      </tr>`).join('');
     return `
       <table>
         <thead>
           <tr>
             <th>Reparación</th>
-            <th class="r" style="width:36px">Cant.</th>
-            <th class="r" style="width:84px">P. Venta</th>
-            <th class="r" style="width:90px">Tot. Venta</th>
-            <th class="r sep-col" style="width:90px">P. Contratista</th>
-            <th class="r" style="width:90px">Tot. Costo</th>
+            <th class="r" style="width:40px">Cant.</th>
+            <th class="r" style="width:90px">Precio unit.</th>
+            <th class="r" style="width:100px">Total venta</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -162,8 +152,6 @@ function buildPrintBody(
     const required = repairs.filter(r => r.payment_nature === 'required');
     const optional = repairs.filter(r => r.payment_nature === 'optional');
     const isEmpty = repairs.length === 0;
-    const costoContratista = repairs.reduce((s, r) => s + r.quantity * r.contractor_unit_price, 0);
-    const utilidad = vatData.subtotal - costoContratista;
     return `
       <div class="payer-header ${cls}">${label}</div>
       ${isEmpty
@@ -173,25 +161,17 @@ function buildPrintBody(
           ${optional.length > 0 ? `<div class="nature-heading">Opcionales</div>${repairTable(optional)}` : ''}
           <div class="payer-totals">
             <div class="totals-row">
-              <span class="totals-label">Subtotal venta</span>
+              <span class="totals-label">Subtotal ${label.toLowerCase()}</span>
               <span class="totals-value">${fmtNum(vatData.subtotal)}</span>
             </div>
             ${vatData.enabled ? `
             <div class="totals-row">
               <span class="totals-label vat">${vatData.label} ${vatData.percentage}%</span>
               <span class="totals-value vat">${fmtNum(vatData.vatAmount)}</span>
-            </div>
-            <div class="totals-row">
-              <span class="totals-label">Total venta c/ ${vatData.label}</span>
-              <span class="totals-value">${fmtNum(vatData.total)}</span>
             </div>` : ''}
-            <div class="totals-row">
-              <span class="totals-label vat">Costo contratista</span>
-              <span class="totals-value vat">${fmtNum(costoContratista)}</span>
-            </div>
             <div class="totals-row grand-line">
-              <span class="totals-label grand">Utilidad ${label.toLowerCase()}</span>
-              <span class="totals-value grand ${utilidad >= 0 ? 'pos' : 'neg'}">${fmtNum(utilidad)}</span>
+              <span class="totals-label grand">Total ${label.toLowerCase()}</span>
+              <span class="totals-value grand">${fmtNum(vatData.total)}</span>
             </div>
           </div>`
       }`;
@@ -304,11 +284,9 @@ export function InternalReportDialog({
           <thead>
             <tr className="bg-muted/30">
               <th className="text-left px-2 py-1 font-semibold text-[10px]">Reparación</th>
-              <th className="text-right px-2 py-1 font-semibold text-[10px] w-8">Cant.</th>
-              <th className="text-right px-2 py-1 font-semibold text-[10px] w-20">P. Venta</th>
-              <th className="text-right px-2 py-1 font-semibold text-[10px] w-24">Tot. Venta</th>
-              <th className="text-right px-2 py-1 font-semibold text-[10px] w-24 border-l border-border/40 text-muted-foreground">P. Contratista</th>
-              <th className="text-right px-2 py-1 font-semibold text-[10px] w-24 text-muted-foreground">Tot. Costo</th>
+              <th className="text-right px-2 py-1 font-semibold text-[10px] w-10">Cant.</th>
+              <th className="text-right px-2 py-1 font-semibold text-[10px] w-24">Precio unit.</th>
+              <th className="text-right px-2 py-1 font-semibold text-[10px] w-28">Total venta</th>
             </tr>
           </thead>
           <tbody>
@@ -322,8 +300,6 @@ export function InternalReportDialog({
                 <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
                 <td className="text-right px-2 py-1.5 font-mono text-muted-foreground">{fmtNum(r.unit_price)}</td>
                 <td className="text-right px-2 py-1.5 font-mono font-semibold">{fmtNum(r.quantity * r.unit_price)}</td>
-                <td className="text-right px-2 py-1.5 font-mono text-muted-foreground border-l border-border/40">{fmtNum(r.contractor_unit_price)}</td>
-                <td className="text-right px-2 py-1.5 font-mono text-muted-foreground">{fmtNum(r.quantity * r.contractor_unit_price)}</td>
               </tr>
             ))}
           </tbody>
@@ -354,38 +330,22 @@ export function InternalReportDialog({
             <>
               {renderRepairGroup(required, 'Obligatorias')}
               {renderRepairGroup(optional, 'Opcionales')}
-              {(() => {
-                const costoContratista = repairs.reduce((s, r) => s + r.quantity * r.contractor_unit_price, 0);
-                const utilidad = vatData.subtotal - costoContratista;
-                return (
-                  <div className="mt-3 pt-2 border-t border-border/60 space-y-1 text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subtotal venta</span>
-                      <span className="font-mono font-semibold">{fmtNum(vatData.subtotal)}</span>
-                    </div>
-                    {vatData.enabled && (
-                      <>
-                        <div className="flex justify-between text-muted-foreground text-[10px]">
-                          <span>{vatData.label} {vatData.percentage}%</span>
-                          <span className="font-mono">{fmtNum(vatData.vatAmount)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total venta c/ {vatData.label}</span>
-                          <span className="font-mono font-semibold">{fmtNum(vatData.total)}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between text-muted-foreground text-[10px]">
-                      <span>Costo contratista</span>
-                      <span className="font-mono">{fmtNum(costoContratista)}</span>
-                    </div>
-                    <div className={`flex justify-between font-bold text-[12px] border-t pt-1.5 ${utilidad >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      <span>Utilidad {label.toLowerCase()}</span>
-                      <span className="font-mono">{fmtNum(utilidad)}</span>
-                    </div>
+              <div className="mt-3 pt-2 border-t border-border/60 space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal {label.toLowerCase()}</span>
+                  <span className="font-mono font-semibold">{fmtNum(vatData.subtotal)}</span>
+                </div>
+                {vatData.enabled && (
+                  <div className="flex justify-between text-muted-foreground text-[10px]">
+                    <span>{vatData.label} {vatData.percentage}%</span>
+                    <span className="font-mono">{fmtNum(vatData.vatAmount)}</span>
                   </div>
-                );
-              })()}
+                )}
+                <div className="flex justify-between font-bold text-[12px] border-t pt-1.5">
+                  <span>Total {label.toLowerCase()}</span>
+                  <span className="font-mono">{fmtNum(vatData.total)}</span>
+                </div>
+              </div>
             </>
           )}
       </div>
