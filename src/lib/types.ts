@@ -126,6 +126,8 @@ export interface Inspection {
   approved_by: string | null;
   created_at: string;
   updated_at: string;
+  owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted' | null;
+  owner_feedback_last_submitted_at?: string | null;
   // Joined fields
   inspector?: Profile;
   executive?: Profile;
