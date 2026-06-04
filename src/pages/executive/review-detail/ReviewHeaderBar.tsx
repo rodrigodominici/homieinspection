@@ -69,7 +69,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
   if (showObservationWarnings && missingSections.length > 0) {
     blockers.push(`${missingSections.length} observaciones finales pendientes`);
   }
-  if (allRepairs.length > 0 && !selectedContractorId) blockers.push('sin contratista');
+  // Note: contractor assignment is now handled inside the repairs panel
   if (!isPublished && ['submitted', 'in_review', 'approved'].includes(inspection.status)) {
     blockers.push('sin publicar');
   }
