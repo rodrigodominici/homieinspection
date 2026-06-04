@@ -137,6 +137,7 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
         }
       : null,
     published_at: new Date().toISOString(),
+    fecha_devolucion_llave: inspection.fecha_devolucion_llave ?? null,
   };
 
   const { data: existing } = await supabase

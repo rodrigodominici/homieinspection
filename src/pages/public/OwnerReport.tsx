@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff } from 'lucide-react';
+import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key } from 'lucide-react';
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
@@ -73,6 +73,7 @@ interface ReportPayload {
   budget_total: number;
   tax_config?: PayloadTaxConfig | null;
   published_at: string;
+  fecha_devolucion_llave?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
   audience?: Audience;
 }
@@ -161,9 +162,7 @@ function RepairRow({ r }: { r: PayloadRepair }) {
         {r.description && (
           <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
         )}
-        {r.category && (
-          <Badge variant="secondary" className="text-tiny mt-1">{r.category}</Badge>
-        )}
+
       </div>
       <div className="sm:text-right shrink-0">
         <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
@@ -257,7 +256,7 @@ export default function OwnerReport() {
     );
   }
 
-  const { property, published_at } = report;
+  const { property, published_at, fecha_devolucion_llave } = report;
   const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
   const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
   const grandTotal  = ownerTotal + tenantTotal;
@@ -306,6 +305,12 @@ export default function OwnerReport() {
               <Calendar className="h-3.5 w-3.5" />
               {new Date(published_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
+            {fecha_devolucion_llave && (
+              <span className="inline-flex items-center gap-1">
+                <Key className="h-3.5 w-3.5" />
+                Devolución de llaves: {new Date(fecha_devolucion_llave).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            )}
           </div>
         </div>
       </header>

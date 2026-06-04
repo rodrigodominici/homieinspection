@@ -90,11 +90,11 @@ export default function AdminDashboard() {
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <StatCard icon={ClipboardList} label="Total" value={stats.total} variant="primary" />
-              <StatCard icon={AlertCircle} label="Sin Asignar" value={stats.pendingAssignment} variant="danger" />
-              <StatCard icon={Clock} label="En Curso" value={stats.inProgress} variant="warning" />
-              <StatCard icon={FileSearch} label="En Revisión" value={stats.submitted} variant="primary" />
-              <StatCard icon={ClipboardList} label="Aprobadas" value={stats.approved} variant="success" />
+              <StatCard icon={ClipboardList} label="Total" value={stats.total} variant="primary" to="/admin/inspections" />
+              <StatCard icon={AlertCircle} label="Sin Asignar" value={stats.pendingAssignment} variant="danger" to="/admin/inspections?status=pending_assignment" />
+              <StatCard icon={Clock} label="En Curso" value={stats.inProgress} variant="warning" to="/admin/inspections?status=in_progress" />
+              <StatCard icon={FileSearch} label="En Revisión" value={stats.submitted} variant="primary" to="/admin/inspections?status=submitted" />
+              <StatCard icon={ClipboardList} label="Aprobadas" value={stats.approved} variant="success" to="/admin/inspections?status=approved" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -232,9 +232,10 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, variant }: {
+function StatCard({ icon: Icon, label, value, variant, to }: {
   icon: React.ElementType; label: string; value: number;
   variant: 'danger' | 'warning' | 'primary' | 'success';
+  to?: string;
 }) {
   const variantClasses = {
     danger: 'bg-status-bad-bg text-status-bad',
@@ -243,8 +244,8 @@ function StatCard({ icon: Icon, label, value, variant }: {
     success: 'bg-status-good-bg text-status-good',
   };
 
-  return (
-    <Card className="border-0 ring-1 ring-border shadow-sm">
+  const content = (
+    <Card className={`border-0 ring-1 ring-border shadow-sm transition-shadow${to ? ' hover:shadow-md hover:ring-primary/40 cursor-pointer' : ''}`}>
       <CardContent className="pt-6">
         <div className="flex items-center gap-3">
           <div className={`rounded-xl p-2.5 ${variantClasses[variant]}`}>
@@ -258,4 +259,7 @@ function StatCard({ icon: Icon, label, value, variant }: {
       </CardContent>
     </Card>
   );
+
+  if (to) return <Link to={to}>{content}</Link>;
+  return content;
 }

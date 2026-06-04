@@ -36,11 +36,14 @@ export function PhotoPanel({
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    // Convert to Array immediately — before any await — so the live FileList
+    // reference isn't emptied when the input is cleared (e.target.value = '').
+    const fileArray = Array.from(files);
     setUploading(true);
     try {
       const { uploadInspectionPhotos } = await import('@/shared/lib/inspection-photos');
       const inserted = await uploadInspectionPhotos({
-        inspectionId, sectionId, sectionKey, files, uploadedBy,
+        inspectionId, sectionId, sectionKey, files: fileArray, uploadedBy,
         startingSortOrder: photos.length,
       });
       onPhotosChanged([...photos, ...inserted]);

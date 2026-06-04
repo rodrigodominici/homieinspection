@@ -218,6 +218,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     },
     publish: {
       urls: publishedUrls,
+      setUrls: setPublishedUrls,
       dialogOpen: publishDialogOpen, setDialogOpen: setPublishDialogOpen,
       missingDialogOpen: missingObsDialogOpen, setMissingDialogOpen: setMissingObsDialogOpen,
     },
