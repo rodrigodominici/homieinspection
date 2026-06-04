@@ -12,6 +12,7 @@ export type InspectionStatus =
   | 'needs_changes'
   | 'approved'
   | 'published'
+  | 'accepted'
   | 'sent';
 
 export type SectionStatus =
