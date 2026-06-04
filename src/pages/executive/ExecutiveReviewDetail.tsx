@@ -489,6 +489,7 @@ export default function ExecutiveReviewDetail() {
             onCopyOwner={() => void handleCopyOwner()}
             onCopyTenant={() => void handleCopyTenant()}
             onGoToInspection={(sid) => { if (sid) setActiveSectionId(sid); setMode('inspection'); }}
+            onGoToRepairs={() => setMode('repairs')}
           />
         </div>
       )}
