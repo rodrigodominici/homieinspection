@@ -26,12 +26,6 @@ interface WorkflowStepperProps {
   repairsCount: number;
   grandTotal: number;
   isPublished: boolean;
-
-  // Contexto popover (metadata sections)
-  metaSections: InspectionSection[];
-  activeSectionId: string | null;
-  onOpenMetaSection: (id: string) => void;
-  signatureRecord: any | null;
 }
 
 export function WorkflowStepper({
