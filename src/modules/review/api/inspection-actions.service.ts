@@ -7,6 +7,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTaxConfig } from '@/lib/tax';
+import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 export async function startReview(inspectionId: string): Promise<void> {
@@ -137,7 +138,9 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
         }
       : null,
     published_at: new Date().toISOString(),
-    fecha_devolucion_llave: inspection.fecha_devolucion_llave ?? null,
+    // fecha_recoleccion_llaves lives in property_overrides_json / property_snapshot_json,
+    // not in the direct inspections column. Read it via getEffectiveSnapshot.
+    fecha_recoleccion_llaves: (getEffectiveSnapshot(inspection)?.fecha_recoleccion_llaves as string | undefined) ?? null,
   };
 
   const { data: existing } = await supabase

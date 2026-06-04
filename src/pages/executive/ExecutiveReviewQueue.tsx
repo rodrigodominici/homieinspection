@@ -396,11 +396,13 @@ function InspectionRow({
   const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const contractEnd = snapshot?.fecha_de_termino_real_de_contrato as string | undefined;
 
+  // Append T12:00:00 so date-only strings are parsed as local noon, not UTC
+  // midnight (which shifts the display by one day in UTC-3/UTC-6 timezones).
   const keyDateLabel = keyDate
-    ? new Date(keyDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(`${keyDate}T12:00:00`).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
   const contractEndLabel = contractEnd
-    ? new Date(contractEnd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(`${contractEnd}T12:00:00`).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
   const showProgressBar = ['action', 'in_correction', 'pre_inspection'].includes(bucket);

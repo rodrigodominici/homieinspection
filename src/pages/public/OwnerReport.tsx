@@ -73,7 +73,7 @@ interface ReportPayload {
   budget_total: number;
   tax_config?: PayloadTaxConfig | null;
   published_at: string;
-  fecha_devolucion_llave?: string | null;
+  fecha_recoleccion_llaves?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
   audience?: Audience;
 }
@@ -256,7 +256,7 @@ export default function OwnerReport() {
     );
   }
 
-  const { property, published_at, fecha_devolucion_llave } = report;
+  const { property, published_at, fecha_recoleccion_llaves } = report;
   const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
   const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
   const grandTotal  = ownerTotal + tenantTotal;
@@ -305,10 +305,11 @@ export default function OwnerReport() {
               <Calendar className="h-3.5 w-3.5" />
               {new Date(published_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
-            {fecha_devolucion_llave && (
+            {fecha_recoleccion_llaves && (
               <span className="inline-flex items-center gap-1">
                 <Key className="h-3.5 w-3.5" />
-                Devolución de llaves: {new Date(fecha_devolucion_llave).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {/* Parse date-only string as local noon to avoid UTC-offset day shift */}
+                Recolección de llaves: {new Date(`${fecha_recoleccion_llaves}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             )}
           </div>
