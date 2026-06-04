@@ -66,8 +66,7 @@ export function SectionWorkspace({
     (v) => onSaveNoteSilent(section.id, v),
   );
 
-  const isMetaSection =
-    section.section_type === 'property_meta' || section.section_type === 'handover_meta';
+  const isMetaSection = !isRepairableSection(section);
 
   return (
     <div className="space-y-6">
