@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type { InspectionPhoto } from '@/lib/types';
