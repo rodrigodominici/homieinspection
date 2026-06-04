@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type { InspectionPhoto } from '@/lib/types';
@@ -106,7 +106,7 @@ export default function ExecutiveReviewDetail() {
   // Default active section after sections load.
   useEffect(() => {
     if (activeSectionId || sections.length === 0) return;
-    const firstOp = sections.find(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta');
+    const firstOp = sections.find(isRepairableSection);
     setActiveSectionId(firstOp?.id ?? sections[0].id);
   }, [sections, activeSectionId]);
 
@@ -156,12 +156,12 @@ export default function ExecutiveReviewDetail() {
   const progress = useMemo(() => calculateProgress(sections), [sections]);
 
   const operationalSections = useMemo(
-    () => sections.filter(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta'),
+    () => sections.filter(isRepairableSection),
     [sections]
   );
 
   const metaSections = useMemo(
-    () => sections.filter(s => s.section_type === 'property_meta' || s.section_type === 'handover_meta'),
+    () => sections.filter(s => !isRepairableSection(s)),
     [sections]
   );
 

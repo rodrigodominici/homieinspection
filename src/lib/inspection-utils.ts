@@ -13,6 +13,19 @@ const COMPLETED_STATUSES = new Set(['completed', 'reviewed']);
 /** Section types that are contextual / non-operational and must NOT count toward progress. */
 const NON_OPERATIONAL_TYPES = new Set(['property_meta', 'reception_meta', 'introduction']);
 
+/**
+ * A section is "repairable" (can hold repair items, generate quotations and
+ * appear as a physical area of the property) only when its `section_type`
+ * starts with `space_`. Everything else — `introduction`, `property_meta`,
+ * `reception_meta`, `handover_meta`, `closing_operational`, `signature`, … —
+ * is administrative metadata and must never expose repair surfaces.
+ */
+export function isRepairableSection(
+  section: Pick<InspectionSection, 'section_type'> | null | undefined,
+): boolean {
+  return !!section?.section_type?.startsWith('space_');
+}
+
 export interface ProgressResult {
   total: number;
   completed: number;

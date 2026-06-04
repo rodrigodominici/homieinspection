@@ -9,6 +9,7 @@ import type {
   InspectionFieldValue, InspectionRepairItem, InspectionReview, InspectionSection,
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { isRepairableSection } from '@/lib/inspection-utils';
 import { fmtCurrency, statusLabel } from './helpers';
 
 interface SectionWorkspaceProps {
@@ -65,8 +66,7 @@ export function SectionWorkspace({
     (v) => onSaveNoteSilent(section.id, v),
   );
 
-  const isMetaSection =
-    section.section_type === 'property_meta' || section.section_type === 'handover_meta';
+  const isMetaSection = !isRepairableSection(section);
 
   return (
     <div className="space-y-6">
