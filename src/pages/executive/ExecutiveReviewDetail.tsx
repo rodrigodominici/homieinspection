@@ -22,10 +22,15 @@ import {
   PhotoPanel,
   SectionRepairsDrawer,
   SectionRepairsPanel,
-  ReviewHeaderBar,
   SectionSidebar,
   SubmittedBanner,
   MobileReviewView,
+  WorkflowStepper,
+  PendingDecisionsBanner,
+  RepairsTableView,
+  QuotationView,
+  PublishView,
+  type ReviewMode,
 } from './review-detail';
 
 import { formatDistanceToNow } from 'date-fns';
@@ -71,6 +76,9 @@ export default function ExecutiveReviewDetail() {
 
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+
+  // Workflow mode (top-rail stepper drives the rendered view).
+  const [mode, setMode] = useState<ReviewMode>('inspection');
 
   // Repairs side drawer (desktop). Holds the section id whose repairs are open.
   const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
@@ -307,53 +315,28 @@ export default function ExecutiveReviewDetail() {
   return (
     <ExecutiveLayout>
     <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30">
-      <ReviewHeaderBar
+      <WorkflowStepper
         inspection={inspection}
-        sections={sections}
-        operationalSections={operationalSections}
-        activeSectionId={activeSectionId}
-        setActiveSectionId={setActiveSectionId}
-        repairsBySection={repairsBySection}
-        allRepairs={allRepairs}
-        budgetBreakdown={budgetBreakdown}
-        warrantyDeposit={warrantyDeposit}
-        depositDiff={depositDiff}
-        contractorTotal={contractorTotal}
-        clientTotal={clientTotal}
-        selectedContractorId={selectedContractorId}
-        inspectorProgressLabel={inspectorProgressLabel}
-        progress={progress}
-        lastActiveRelative={lastActiveRelative}
-        isPublished={isPublished}
-        returnMode={returnMode}
-        setReturnMode={setReturnMode}
-        selectedReturnSections={selectedReturnSections}
-        submitting={submitting}
-        showObservationWarnings={showObservationWarnings}
-        missingSections={missingSections}
+        mode={mode}
+        onModeChange={setMode}
         onBack={() => navigate('/executive')}
-        onApprove={actions.handleApprove}
-        onPublish={actions.handlePublish}
-        onReturnForChanges={handleReturnForChanges}
-        onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
-        onOpenInternalReport={() => setInternalReportOpen(true)}
-        onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
-        onOpenOwner={() => void handleOpenOwner()}
-        onOpenTenant={() => void handleOpenTenant()}
-        onCopyOwner={() => void handleCopyOwner()}
-        onCopyTenant={() => void handleCopyTenant()}
+        pendingDecisionsCount={showObservationWarnings ? missingSections.length : 0}
+        repairsCount={allRepairs.length}
+        grandTotal={budgetBreakdown.grandTotal}
+        isPublished={isPublished}
+        metaSections={metaSections}
+        activeSectionId={activeSectionId}
+        onOpenMetaSection={(sid) => { setActiveSectionId(sid); setMode('inspection'); }}
+        signatureRecord={signatureRecord}
       />
 
       {inspection.status === 'submitted' && (
         <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />
       )}
 
-      {/* ── DESKTOP: 3-column layout. When the inline repairs panel is open,
-            the right aside (PhotoPanel) is replaced by SectionRepairsPanel
-            and the PhotoPanel is moved into the workspace as `photosSlot`.
-            ── */}
-      {(() => {
-        const drawerSection = operationalSections.find(s => s.id === repairsDrawerSectionId) ?? null;
+      {/* ── DESKTOP per-mode rendering ─────────────────── */}
+      {mode === 'inspection' && (() => {
+        const drawerSection = sections.find(s => s.id === repairsDrawerSectionId) ?? null;
         const inlineRepairsOpen = !!drawerSection;
         const gridCols = inlineRepairsOpen
           ? 'lg:grid-cols-[240px_minmax(0,1fr)_minmax(400px,42%)]'
@@ -376,16 +359,20 @@ export default function ExecutiveReviewDetail() {
           <div className={`hidden lg:grid ${gridCols} h-[calc(100vh-7rem)]`}>
             <SectionSidebar
               operationalSections={operationalSections}
-              metaSections={metaSections}
               activeSectionId={activeSectionId}
               onSelectSection={setActiveSectionId}
               repairsBySection={repairsBySection}
-              signatureRecord={signatureRecord}
               missingSections={missingSections}
               showObservationWarnings={showObservationWarnings}
             />
 
-            <main className="overflow-y-auto p-6 space-y-6">
+            <main className="overflow-y-auto p-6 space-y-4">
+              {showObservationWarnings && (
+                <PendingDecisionsBanner
+                  missingSections={missingSections}
+                  onJumpToSection={setActiveSectionId}
+                />
+              )}
               {activeSection && <SectionWorkspace
                 section={activeSection}
                 fields={fieldsBySection[activeSection.id] ?? []}
@@ -436,6 +423,73 @@ export default function ExecutiveReviewDetail() {
           </div>
         );
       })()}
+
+      {mode === 'repairs' && (
+        <div className="hidden lg:block h-[calc(100vh-7rem)]">
+          <RepairsTableView
+            sections={operationalSections}
+            allRepairs={allRepairs}
+            contractors={contractors}
+            selectedContractorId={selectedContractorId}
+            onContractorChange={actions.handleContractorChange}
+            contractorTotal={contractorTotal}
+            clientTotal={clientTotal}
+            utility={utility}
+            budgetBreakdown={budgetBreakdown}
+            warrantyDeposit={warrantyDeposit}
+            depositDiff={depositDiff}
+            onOpenCatalog={actions.openCatalog}
+            onUpdateRepair={actions.updateRepairItem}
+            onDeleteRepair={actions.deleteRepairItem}
+          />
+        </div>
+      )}
+
+      {mode === 'quotation' && (
+        <div className="hidden lg:block h-[calc(100vh-7rem)]">
+          <QuotationView
+            budgetBreakdown={budgetBreakdown}
+            clientTotal={clientTotal}
+            contractorTotal={contractorTotal}
+            utility={utility}
+            warrantyDeposit={warrantyDeposit}
+            depositDiff={depositDiff}
+            hasRepairs={allRepairs.length > 0}
+            onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
+            onOpenInternalReport={() => setInternalReportOpen(true)}
+            onGoToRepairs={() => setMode('repairs')}
+            onGoToPublish={() => setMode('publish')}
+          />
+        </div>
+      )}
+
+      {mode === 'publish' && (
+        <div className="hidden lg:block h-[calc(100vh-7rem)]">
+          <PublishView
+            inspection={inspection}
+            operationalSections={operationalSections}
+            missingSections={showObservationWarnings ? missingSections : []}
+            hasRepairs={allRepairs.length > 0}
+            hasContractor={!!selectedContractorId}
+            signatureRecord={signatureRecord}
+            isPublished={isPublished}
+            submitting={submitting}
+            returnMode={returnMode}
+            setReturnMode={setReturnMode}
+            selectedReturnSectionsCount={selectedReturnSections.size}
+            selectedReturnSections={selectedReturnSections}
+            onReturnForChanges={handleReturnForChanges}
+            onToggleReturnSection={toggleReturnSection}
+            onApprove={actions.handleApprove}
+            onPublish={actions.handlePublish}
+            onOpenOwner={() => void handleOpenOwner()}
+            onOpenTenant={() => void handleOpenTenant()}
+            onCopyOwner={() => void handleCopyOwner()}
+            onCopyTenant={() => void handleCopyTenant()}
+            onGoToInspection={(sid) => { if (sid) setActiveSectionId(sid); setMode('inspection'); }}
+          />
+        </div>
+      )}
 
       <MobileReviewView
         inspection={inspection}
