@@ -106,7 +106,7 @@ export default function ExecutiveReviewDetail() {
   // Default active section after sections load.
   useEffect(() => {
     if (activeSectionId || sections.length === 0) return;
-    const firstOp = sections.find(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta');
+    const firstOp = sections.find(isRepairableSection);
     setActiveSectionId(firstOp?.id ?? sections[0].id);
   }, [sections, activeSectionId]);
 
