@@ -44,6 +44,7 @@ interface ReviewHeaderBarProps {
   onPublish: (force?: boolean) => Promise<void>;
   onReturnForChanges: () => void;
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
+  onOpenInternalReport: () => void;
   onOpenRepairsDrawer: (sectionId: string) => void;
   onCopyLink: () => void;
   onOpenPublished: () => void;
@@ -57,7 +58,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
-    onOpenQuotation, onOpenRepairsDrawer, onCopyLink, onOpenPublished,
+    onOpenQuotation, onOpenInternalReport, onOpenRepairsDrawer, onCopyLink, onOpenPublished,
   } = props;
 
   const activeSection = operationalSections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null;
@@ -157,9 +158,10 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
                   <FileText className="mr-1 h-3.5 w-3.5" /> Cotización <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => onOpenQuotation('owner')}>Propietario</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenQuotation('tenant')}>Inquilino</DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenInternalReport}>Informe Interno</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

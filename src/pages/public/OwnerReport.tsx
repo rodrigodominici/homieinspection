@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key } from 'lucide-react';
+import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download } from 'lucide-react';
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
@@ -274,8 +274,23 @@ export default function OwnerReport() {
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
   const AudienceIcon = audience === 'owner' ? User : Users;
 
+  const handleDownloadPdf = () => {
+    window.print();
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Print-only CSS: show all tab panels, hide interactive chrome */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          [role="tablist"] { display: none !important; }
+          [role="tabpanel"] { display: block !important; }
+          header { position: static !important; }
+          footer { margin-top: 24px !important; }
+        }
+      `}</style>
+
       {/* ── Header (responsive: stacks on mobile) ─────────── */}
       <header className="border-b bg-card">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
@@ -286,9 +301,17 @@ export default function OwnerReport() {
               </div>
               <span className="text-body-lg font-semibold text-foreground">Homie Inspection</span>
             </div>
-            <Badge variant="secondary" className="self-start sm:self-auto gap-1.5 text-tiny">
-              <AudienceIcon className="h-3 w-3" /> {audienceLabel}
-            </Badge>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={handleDownloadPdf}
+                className="no-print inline-flex items-center gap-1.5 text-tiny text-muted-foreground hover:text-foreground border border-border/60 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-muted/50"
+              >
+                <Download className="h-3.5 w-3.5" /> Descargar PDF
+              </button>
+              <Badge variant="secondary" className="gap-1.5 text-tiny">
+                <AudienceIcon className="h-3 w-3" /> {audienceLabel}
+              </Badge>
+            </div>
           </div>
 
           <h1 className="text-h2 mb-2 leading-tight">{property.property_name ?? property.property_id}</h1>

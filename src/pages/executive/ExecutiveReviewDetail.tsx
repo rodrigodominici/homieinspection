@@ -10,6 +10,7 @@ import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
+import { InternalReportDialog } from '@/components/InternalReportDialog';
 import { useReviewDetail, useReviewActions } from '@/modules/review/api';
 import {
   PublishedUrlsDialog,
@@ -66,6 +67,7 @@ export default function ExecutiveReviewDetail() {
 
   // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
+  const [internalReportOpen, setInternalReportOpen] = useState(false);
 
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
@@ -310,6 +312,7 @@ export default function ExecutiveReviewDetail() {
         onPublish={actions.handlePublish}
         onReturnForChanges={handleReturnForChanges}
         onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
+        onOpenInternalReport={() => setInternalReportOpen(true)}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
         onCopyLink={() => void handleOpenPublishedLinks(false)}
         onOpenPublished={() => void handleOpenPublishedLinks(true)}
@@ -482,6 +485,15 @@ export default function ExecutiveReviewDetail() {
         payer={quotationDialog.payer}
         inspection={inspection}
         repairs={allRepairs}
+      />
+
+      {/* ── Internal full report (confidential) ──────── */}
+      <InternalReportDialog
+        open={internalReportOpen}
+        onOpenChange={setInternalReportOpen}
+        inspection={inspection}
+        operationalSections={operationalSections}
+        allRepairs={allRepairs}
       />
     </div>
     </ExecutiveLayout>
