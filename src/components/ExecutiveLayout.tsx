@@ -30,7 +30,7 @@ function ExecutiveSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent className="flex flex-col h-full">
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
+        <div className={`flex items-center gap-3 py-5 border-b border-sidebar-border ${collapsed ? 'px-2 justify-center' : 'px-4'}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
             <span className="text-sm font-bold text-sidebar-primary-foreground">H</span>
           </div>
