@@ -60,8 +60,8 @@ export function SectionSidebar({
             key={s.id}
             onClick={() => onSelectSection(s.id)}
             className={cn(
-              'w-full text-left px-2 py-1.5 rounded-md text-caption transition-colors',
-              isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/50',
+              'w-full text-left px-2 py-1.5 rounded-md text-caption transition-colors hover:bg-muted/50',
+              isActive && 'bg-muted/60',
               missingObs && !isActive && 'bg-[hsl(var(--status-bad))]/5',
             )}
           >
