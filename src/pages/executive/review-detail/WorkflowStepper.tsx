@@ -84,7 +84,11 @@ export function WorkflowStepper({
           <p className="font-semibold truncate text-sm">
             {inspection.property_name ?? inspection.property_id}
           </p>
-          <InspectionStatusBadge status={inspection.status} />
+          <HeaderStatusBadge
+            status={inspection.status}
+            ownerFeedbackStatus={ownerFeedbackStatus}
+            onClick={() => onModeChange('publish')}
+          />
         </div>
 
 
