@@ -26,6 +26,7 @@ import {
   SubmittedBanner,
   MobileReviewView,
   WorkflowStepper,
+  PropertyContextBar,
   PendingDecisionsBanner,
   RepairsTableView,
   QuotationView,
@@ -324,15 +325,16 @@ export default function ExecutiveReviewDetail() {
         repairsCount={allRepairs.length}
         grandTotal={budgetBreakdown.grandTotal}
         isPublished={isPublished}
-        metaSections={metaSections}
-        activeSectionId={activeSectionId}
-        onOpenMetaSection={(sid) => { setActiveSectionId(sid); setMode('inspection'); }}
-        signatureRecord={signatureRecord}
       />
+
+      {mode === 'inspection' && (
+        <PropertyContextBar inspection={inspection} signatureRecord={signatureRecord} />
+      )}
 
       {inspection.status === 'submitted' && (
         <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />
       )}
+
 
       {/* ── DESKTOP per-mode rendering ─────────────────── */}
       {mode === 'inspection' && (() => {

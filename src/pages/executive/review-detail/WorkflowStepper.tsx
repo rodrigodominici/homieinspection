@@ -4,8 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ArrowLeft, ClipboardList, Wrench, FileText, Send, Check, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
-import { ContextPopover } from './ContextPopover';
-import type { Inspection, InspectionSection } from '@/lib/types';
+import type { Inspection } from '@/lib/types';
 
 export type ReviewMode = 'inspection' | 'repairs' | 'quotation' | 'publish';
 
@@ -27,18 +26,11 @@ interface WorkflowStepperProps {
   repairsCount: number;
   grandTotal: number;
   isPublished: boolean;
-
-  // Contexto popover (metadata sections)
-  metaSections: InspectionSection[];
-  activeSectionId: string | null;
-  onOpenMetaSection: (id: string) => void;
-  signatureRecord: any | null;
 }
 
 export function WorkflowStepper({
   inspection, mode, onModeChange, onBack,
   pendingDecisionsCount, repairsCount, grandTotal, isPublished,
-  metaSections, activeSectionId, onOpenMetaSection, signatureRecord,
 }: WorkflowStepperProps) {
   const steps: StepDef[] = [
     { key: 'inspection', label: 'Inspección', icon: ClipboardList, badge: pendingDecisionsCount || null },
@@ -63,12 +55,6 @@ export function WorkflowStepper({
           <InspectionStatusBadge status={inspection.status} />
         </div>
 
-        <ContextPopover
-          metaSections={metaSections}
-          activeSectionId={activeSectionId}
-          onOpenMetaSection={onOpenMetaSection}
-          signatureRecord={signatureRecord}
-        />
 
         {/* Stepper */}
         <nav className="flex-1 flex items-center justify-center gap-1">

@@ -12,7 +12,7 @@ export { ContractorPicker } from './ContractorPicker';
 export { RequestChangesPanel } from './RequestChangesPanel';
 export { InspectorProgressCard } from './InspectorProgressCard';
 export { WorkflowStepper, type ReviewMode } from './WorkflowStepper';
-export { ContextPopover } from './ContextPopover';
+export { PropertyContextBar } from './PropertyContextBar';
 export { PendingDecisionsBanner } from './PendingDecisionsBanner';
 export { RepairsTableView } from './RepairsTableView';
 export { QuotationView } from './QuotationView';
