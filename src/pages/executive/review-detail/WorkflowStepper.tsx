@@ -4,8 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ArrowLeft, ClipboardList, Wrench, FileText, Send, Check, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
-import { ContextPopover } from './ContextPopover';
-import type { Inspection, InspectionSection } from '@/lib/types';
+import type { Inspection } from '@/lib/types';
 
 export type ReviewMode = 'inspection' | 'repairs' | 'quotation' | 'publish';
 
