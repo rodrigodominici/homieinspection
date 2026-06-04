@@ -9,6 +9,7 @@ import type {
   InspectionFieldValue, InspectionRepairItem, InspectionReview, InspectionSection,
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { isRepairableSection } from '@/lib/inspection-utils';
 import { fmtCurrency, statusLabel } from './helpers';
 
 interface SectionWorkspaceProps {
