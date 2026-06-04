@@ -7,6 +7,19 @@
  * `get_published_report` from the `public_token` and returned in the
  * response as `audience` ('owner' | 'tenant').
  *
+ * Owner feedback loop:
+ * - When `audience === 'owner'` and the version has not been locked yet
+ *   (`owner_feedback_locked === false`), each repair shows three controls:
+ *   accept / observe / reject. Observed/Rejected require a comment.
+ * - Submission goes through the `submit_owner_feedback` RPC, which is a
+ *   SECURITY DEFINER function callable by anon — clients never write to
+ *   the feedback tables directly.
+ * - After a successful submission the version is locked: opening the link
+ *   again shows the decisions in read-only mode and a status message.
+ *   When the executive re-publishes, a new version row replaces the
+ *   `is_latest` pointer (reusing the same public token), so the same link
+ *   shows the new version in a fresh editable state.
+ *
  * Filtering contract:
  * - `audience` is the ONLY public-rendering filter applied here.
  *   - owner   → renders both payer groups (propietario + inquilino) with totals.
@@ -19,19 +32,31 @@
  * Responsive: mobile-first; sticky tabs; vertical-on-mobile budget rows.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import {
+  MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download,
+  Check, MessageSquare, X, CheckCircle2, AlertCircle, Send,
+} from 'lucide-react';
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
 type PaymentNature = 'required' | 'optional';
+type Decision = 'accepted' | 'observed' | 'rejected';
 
 interface PayloadRepair {
+  id?: string;
   name: string;
   description: string | null;
   category: string | null;
@@ -59,6 +84,12 @@ interface PayloadTaxConfig {
   currency?: string | null;
 }
 
+interface OwnerDecision {
+  repair_item_id: string;
+  decision: Decision;
+  comment: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -76,6 +107,12 @@ interface ReportPayload {
   fecha_recoleccion_llaves?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
   audience?: Audience;
+  /** Feedback loop fields injected by `get_published_report`. */
+  version_id?: string;
+  owner_feedback_locked?: boolean;
+  owner_decisions?: OwnerDecision[];
+  inspection_status?: string;
+  owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted';
 }
 
 const fmt = (n: number) =>
@@ -152,21 +189,121 @@ function bucketRepairs(sections: PayloadSection[]) {
 const sumRepairs = (rs: PayloadRepair[]) =>
   rs.reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
 
+type DecisionState = Record<string, { decision: Decision | null; comment: string }>;
+
+/** Decision controls for a single repair (interactive mode). */
+function RepairDecisionControl({
+  state, onChange,
+}: { state: { decision: Decision | null; comment: string }; onChange: (next: { decision: Decision | null; comment: string }) => void }) {
+  const set = (d: Decision) => onChange({ ...state, decision: d });
+  const needsComment = state.decision === 'observed' || state.decision === 'rejected';
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="grid grid-cols-3 gap-1.5">
+        <button
+          type="button"
+          onClick={() => set('accepted')}
+          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+            state.decision === 'accepted'
+              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Check className="h-3.5 w-3.5" /> Aceptar
+        </button>
+        <button
+          type="button"
+          onClick={() => set('observed')}
+          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+            state.decision === 'observed'
+              ? 'border-amber-500 bg-amber-50 text-amber-700'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+          }`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" /> Observar
+        </button>
+        <button
+          type="button"
+          onClick={() => set('rejected')}
+          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+            state.decision === 'rejected'
+              ? 'border-red-500 bg-red-50 text-red-700'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+          }`}
+        >
+          <X className="h-3.5 w-3.5" /> Rechazar
+        </button>
+      </div>
+      {needsComment && (
+        <Textarea
+          value={state.comment}
+          onChange={(e) => onChange({ ...state, comment: e.target.value })}
+          placeholder={state.decision === 'observed' ? 'Tu observación (requerida)' : 'Motivo del rechazo (requerido)'}
+          className="min-h-[60px] text-caption"
+        />
+      )}
+    </div>
+  );
+}
+
+/** Read-only decision badge for the locked state. */
+function DecisionBadge({ decision }: { decision: Decision }) {
+  const map = {
+    accepted: { label: 'Aceptada', cls: 'border-emerald-500/40 bg-emerald-50 text-emerald-700', Icon: Check },
+    observed: { label: 'Observada', cls: 'border-amber-500/40 bg-amber-50 text-amber-700', Icon: MessageSquare },
+    rejected: { label: 'Rechazada', cls: 'border-red-500/40 bg-red-50 text-red-700', Icon: X },
+  } as const;
+  const { label, cls, Icon } = map[decision];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-tiny font-medium ${cls}`}>
+      <Icon className="h-3 w-3" /> {label}
+    </span>
+  );
+}
+
 /** Single repair row — vertical on mobile, two-column on sm+. */
-function RepairRow({ r }: { r: PayloadRepair }) {
+function RepairRow({
+  r,
+  interactive,
+  state,
+  onChange,
+  lockedDecision,
+}: {
+  r: PayloadRepair;
+  interactive: boolean;
+  state?: { decision: Decision | null; comment: string };
+  onChange?: (next: { decision: Decision | null; comment: string }) => void;
+  lockedDecision?: OwnerDecision;
+}) {
   const subtotal = Number(r.subtotal ?? r.quantity * r.unit_price);
   return (
-    <div className="py-3 first:pt-0 last:pb-0 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-body font-medium leading-snug">{r.name}</p>
-        {r.description && (
-          <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
-        )}
+    <div className="py-3 first:pt-0 last:pb-0">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-body font-medium leading-snug">{r.name}</p>
+          {r.description && (
+            <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
+          )}
+        </div>
+        <div className="sm:text-right shrink-0">
+          <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
+        </div>
+      </div>
 
-      </div>
-      <div className="sm:text-right shrink-0">
-        <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
-      </div>
+      {interactive && state && onChange && r.id && (
+        <RepairDecisionControl state={state} onChange={onChange} />
+      )}
+
+      {!interactive && lockedDecision && (
+        <div className="mt-2 space-y-1.5">
+          <DecisionBadge decision={lockedDecision.decision} />
+          {lockedDecision.comment && (
+            <p className="text-caption text-muted-foreground italic leading-snug border-l-2 border-border pl-2">
+              "{lockedDecision.comment}"
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -176,7 +313,19 @@ function RepairGroup({
   title,
   items,
   variant = 'default',
-}: { title: string; items: PayloadRepair[]; variant?: 'default' | 'subtle' }) {
+  interactive,
+  decisionState,
+  onDecisionChange,
+  lockedDecisions,
+}: {
+  title: string;
+  items: PayloadRepair[];
+  variant?: 'default' | 'subtle';
+  interactive?: boolean;
+  decisionState?: DecisionState;
+  onDecisionChange?: (id: string, next: { decision: Decision | null; comment: string }) => void;
+  lockedDecisions?: Map<string, OwnerDecision>;
+}) {
   if (items.length === 0) return null;
   const subtotal = sumRepairs(items);
   return (
@@ -190,7 +339,16 @@ function RepairGroup({
         <span className="text-caption font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</span>
       </div>
       <div className="divide-y divide-border/60 rounded-lg border border-border/60 bg-background/40 px-3 sm:px-4">
-        {items.map((r, i) => <RepairRow key={i} r={r} />)}
+        {items.map((r, i) => (
+          <RepairRow
+            key={r.id ?? i}
+            r={r}
+            interactive={!!interactive && !!r.id}
+            state={interactive && r.id ? decisionState?.[r.id] ?? { decision: null, comment: '' } : undefined}
+            onChange={interactive && r.id && onDecisionChange ? (next) => onDecisionChange(r.id!, next) : undefined}
+            lockedDecision={!interactive && r.id ? lockedDecisions?.get(r.id) : undefined}
+          />
+        ))}
       </div>
     </div>
   );
@@ -198,24 +356,71 @@ function RepairGroup({
 
 export default function OwnerReport() {
   const { propertyId, token } = useParams<{ propertyId: string; token: string }>();
+  const { toast } = useToast();
   const [report, setReport] = useState<ReportPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data, error: err } = await supabase.rpc('get_published_report', {
-        p_property_id: propertyId!,
-        p_token: token!,
-      });
-      if (err || !data) setError(true);
-      else setReport(data as unknown as ReportPayload);
-      setLoading(false);
-    };
-    fetch();
+  // Feedback form state
+  const [decisions, setDecisions] = useState<DecisionState>({});
+  const [submitterName, setSubmitterName] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    const { data, error: err } = await supabase.rpc('get_published_report', {
+      p_property_id: propertyId!,
+      p_token: token!,
+    });
+    if (err || !data) setError(true);
+    else setReport(data as unknown as ReportPayload);
+    setLoading(false);
   }, [propertyId, token]);
 
+  useEffect(() => { loadReport(); }, [loadReport]);
+
   const audience: Audience = (report?.audience === 'tenant' ? 'tenant' : 'owner');
+  const locked = !!report?.owner_feedback_locked;
+  const isOwnerAudience = audience === 'owner';
+
+  // Flat list of owner-decidable repairs (only owner audience).
+  const decidableRepairs = useMemo(() => {
+    if (!report || !isOwnerAudience) return [] as PayloadRepair[];
+    return report.sections.flatMap((s) => s.repairs).filter((r) => !!r.id);
+  }, [report, isOwnerAudience]);
+
+  const lockedMap = useMemo(() => {
+    const m = new Map<string, OwnerDecision>();
+    for (const d of report?.owner_decisions ?? []) m.set(d.repair_item_id, d);
+    return m;
+  }, [report]);
+
+  const decidedCount = useMemo(
+    () => decidableRepairs.filter((r) => !!decisions[r.id!]?.decision).length,
+    [decidableRepairs, decisions]
+  );
+
+  const allDecidedValid = useMemo(() => {
+    if (decidableRepairs.length === 0) return false;
+    return decidableRepairs.every((r) => {
+      const s = decisions[r.id!];
+      if (!s?.decision) return false;
+      if ((s.decision === 'observed' || s.decision === 'rejected') && !s.comment.trim()) return false;
+      return true;
+    });
+  }, [decidableRepairs, decisions]);
+
+  const counts = useMemo(() => {
+    let accepted = 0, observed = 0, rejected = 0;
+    for (const r of decidableRepairs) {
+      const d = decisions[r.id!]?.decision;
+      if (d === 'accepted') accepted++;
+      else if (d === 'observed') observed++;
+      else if (d === 'rejected') rejected++;
+    }
+    return { accepted, observed, rejected };
+  }, [decidableRepairs, decisions]);
 
   const sectionsWithObservations = useMemo(
     () => report?.sections.filter(s => s.final_observation || s.photos.length > 0) ?? [],
@@ -226,6 +431,45 @@ export default function OwnerReport() {
     () => report ? bucketRepairs(report.sections) : null,
     [report]
   );
+
+  const handleDecisionChange = useCallback(
+    (id: string, next: { decision: Decision | null; comment: string }) => {
+      setDecisions((prev) => ({ ...prev, [id]: next }));
+    },
+    []
+  );
+
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true);
+    const payload = decidableRepairs.map((r) => ({
+      repair_item_id: r.id!,
+      decision: decisions[r.id!]!.decision,
+      comment: decisions[r.id!]!.comment.trim() || null,
+    }));
+    const { data, error: err } = await supabase.rpc('submit_owner_feedback', {
+      p_property_id: propertyId!,
+      p_token: token!,
+      p_submitter_name: submitterName.trim() || null,
+      p_decisions: payload as any,
+    });
+    setSubmitting(false);
+    setConfirmOpen(false);
+    if (err) {
+      toast({
+        title: 'No pudimos enviar tu respuesta',
+        description: err.message ?? 'Intenta de nuevo en unos momentos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: (data as any)?.all_accepted ? '¡Reporte aceptado!' : 'Recibimos tu respuesta',
+      description: (data as any)?.all_accepted
+        ? 'El equipo recibió la confirmación de todas las reparaciones.'
+        : 'El equipo revisará tus comentarios y te enviará una versión actualizada.',
+    });
+    await loadReport();
+  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport]);
 
   if (loading) {
     return (
@@ -271,13 +515,15 @@ export default function OwnerReport() {
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
   const AudienceIcon = audience === 'owner' ? User : Users;
 
-  const handleDownloadPdf = () => {
-    window.print();
-  };
+  const handleDownloadPdf = () => window.print();
+
+  // Decide if the owner can interact with the form.
+  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
+  const showLockedBanner = isOwnerAudience && locked;
+  const acceptedFinal = report.owner_feedback_status === 'accepted';
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Print-only CSS: show all tab panels, hide interactive chrome */}
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -288,7 +534,7 @@ export default function OwnerReport() {
         }
       `}</style>
 
-      {/* ── Header (responsive: stacks on mobile) ─────────── */}
+      {/* ── Header ─────────────────────────────── */}
       <header className="border-b bg-card">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -328,18 +574,43 @@ export default function OwnerReport() {
             {fecha_recoleccion_llaves && (
               <span className="inline-flex items-center gap-1">
                 <Key className="h-3.5 w-3.5" />
-                {/* Parse date-only string as local noon to avoid UTC-offset day shift */}
                 Recolección de llaves: {new Date(`${fecha_recoleccion_llaves}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             )}
           </div>
+
+          {/* Locked / status banner (owner only) */}
+          {showLockedBanner && (
+            <div
+              className={`no-print mt-4 rounded-xl border px-3.5 py-3 flex items-start gap-2.5 ${
+                acceptedFinal
+                  ? 'border-emerald-500/40 bg-emerald-50 text-emerald-800'
+                  : 'border-amber-500/40 bg-amber-50 text-amber-800'
+              }`}
+            >
+              {acceptedFinal
+                ? <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" />
+                : <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />}
+              <div className="text-caption leading-snug">
+                <p className="font-semibold">
+                  {acceptedFinal
+                    ? 'Aceptaste todas las reparaciones de este reporte.'
+                    : 'Recibimos tu respuesta.'}
+                </p>
+                <p className="opacity-90">
+                  {acceptedFinal
+                    ? 'El equipo coordinará los siguientes pasos contigo.'
+                    : 'El equipo revisará tus observaciones y rechazos y te enviará una versión actualizada del reporte cuando esté lista.'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── Content ───────────────────────────────────────── */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+      {/* ── Content ──────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6 pb-32">
         <Tabs defaultValue="report" className="space-y-5">
-          {/* Sticky tabs so they stay reachable while scrolling on mobile */}
           <TabsList className="w-full grid grid-cols-2 sticky top-0 z-10">
             <TabsTrigger value="report" className="gap-1.5">
               <FileText className="h-4 w-4" /> Reporte
@@ -349,7 +620,7 @@ export default function OwnerReport() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ── Report Tab (identical for both audiences) ─── */}
+          {/* ── Report Tab ── */}
           <TabsContent value="report" className="space-y-4">
             {sectionsWithObservations.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">No hay observaciones disponibles.</p>
@@ -387,14 +658,26 @@ export default function OwnerReport() {
             )}
           </TabsContent>
 
-          {/* ── Budget Tab (audience-aware) ─────────────── */}
+          {/* ── Budget Tab ── */}
           <TabsContent value="budget" className="space-y-5">
+            {/* Interactive instructions */}
+            {interactive && (
+              <div className="rounded-xl border border-primary/30 bg-primary-soft px-3.5 py-3">
+                <p className="text-caption text-foreground font-medium">
+                  Revisa cada reparación
+                </p>
+                <p className="text-tiny text-muted-foreground mt-0.5">
+                  Por cada reparación marca <strong>Aceptar</strong>, <strong>Observar</strong> o <strong>Rechazar</strong>.
+                  Cuando termines, envía tu respuesta. Si aceptas todas, el reporte queda confirmado.
+                </p>
+              </div>
+            )}
+
             {!buckets || (audience === 'owner' && grandTotal === 0) ||
              (audience === 'tenant' && tenantTotal === 0) ? (
               <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>
             ) : audience === 'owner' ? (
               <>
-                {/* Owner block */}
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-body-lg flex items-center gap-2">
@@ -402,8 +685,10 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.owner.required} />
-                    <RepairGroup title="Opcionales"   items={buckets.owner.optional} variant="subtle" />
+                    <RepairGroup title="Obligatorias" items={buckets.owner.required}
+                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
+                    <RepairGroup title="Opcionales" items={buckets.owner.optional} variant="subtle"
+                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
                     {ownerTotal === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
@@ -430,7 +715,6 @@ export default function OwnerReport() {
                   </CardContent>
                 </Card>
 
-                {/* Tenant block */}
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-body-lg flex items-center gap-2">
@@ -438,8 +722,10 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.tenant.required} />
-                    <RepairGroup title="Opcionales"   items={buckets.tenant.optional} variant="subtle" />
+                    <RepairGroup title="Obligatorias" items={buckets.tenant.required}
+                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
+                    <RepairGroup title="Opcionales" items={buckets.tenant.optional} variant="subtle"
+                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
                     {tenantTotal === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
@@ -466,7 +752,6 @@ export default function OwnerReport() {
                   </CardContent>
                 </Card>
 
-                {/* Totals summary */}
                 <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
                   <CardContent className="py-4 sm:py-5 space-y-2">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -496,7 +781,6 @@ export default function OwnerReport() {
               </>
             ) : (
               <>
-                {/* Tenant audience: only tenant items */}
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-body-lg flex items-center gap-2">
@@ -532,6 +816,73 @@ export default function OwnerReport() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* ── Sticky submit bar (owner, interactive only) ── */}
+      {interactive && (
+        <div className="no-print fixed bottom-0 inset-x-0 z-20 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-caption">
+              <span className="font-semibold">{decidedCount}</span>
+              <span className="text-muted-foreground"> de {decidableRepairs.length} reparaciones decididas</span>
+            </div>
+            <Button
+              size="sm"
+              disabled={!allDecidedValid}
+              onClick={() => setConfirmOpen(true)}
+              className="gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" /> Enviar respuesta
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm dialog ── */}
+      <Dialog open={confirmOpen} onOpenChange={(o) => !submitting && setConfirmOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirma tu respuesta</DialogTitle>
+            <DialogDescription>
+              Revisa el resumen y, opcionalmente, ingresa tu nombre antes de enviar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/30 px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-h3 font-bold text-emerald-700">{counts.accepted}</div>
+                <div className="text-tiny text-muted-foreground">Aceptadas</div>
+              </div>
+              <div>
+                <div className="text-h3 font-bold text-amber-700">{counts.observed}</div>
+                <div className="text-tiny text-muted-foreground">Observadas</div>
+              </div>
+              <div>
+                <div className="text-h3 font-bold text-red-700">{counts.rejected}</div>
+                <div className="text-tiny text-muted-foreground">Rechazadas</div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-caption font-medium">Tu nombre (opcional)</label>
+              <Input
+                value={submitterName}
+                onChange={(e) => setSubmitterName(e.target.value)}
+                placeholder="Ej. María González"
+              />
+            </div>
+            {counts.accepted === decidableRepairs.length && (
+              <p className="text-caption text-emerald-700">
+                Aceptaste todas las reparaciones. Al enviar, el reporte queda confirmado.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+            <Button disabled={submitting} onClick={handleSubmit} className="gap-1.5">
+              <Send className="h-3.5 w-3.5" /> {submitting ? 'Enviando…' : 'Confirmar envío'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t mt-10 sm:mt-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6 text-center text-tiny text-muted-foreground">

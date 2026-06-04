@@ -3,6 +3,7 @@ import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy, RotateCcw
 import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { RequestChangesPanel } from './RequestChangesPanel';
+import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import type { Inspection, InspectionSection } from '@/lib/types';
 
 interface PublishViewProps {
@@ -30,6 +31,7 @@ interface PublishViewProps {
   onCopyTenant: () => void;
 
   onGoToInspection: (sectionId?: string) => void;
+  onGoToRepairs?: () => void;
 }
 
 type CheckLevel = 'ok' | 'warn' | 'block';
@@ -48,7 +50,7 @@ export function PublishView(props: PublishViewProps) {
     returnMode, setReturnMode, selectedReturnSectionsCount, onReturnForChanges,
     onToggleReturnSection, selectedReturnSections,
     onApprove, onPublish, onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
-    onGoToInspection,
+    onGoToInspection, onGoToRepairs,
   } = props;
 
   const checks: ChecklistRow[] = [
@@ -215,6 +217,16 @@ export function PublishView(props: PublishViewProps) {
             )}
           </div>
         </div>
+      )}
+
+      {/* Owner feedback panel */}
+      {isPublished && (
+        <OwnerFeedbackPanel
+          inspectionId={inspection.id}
+          ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
+          lastSubmittedAt={(inspection as any).owner_feedback_last_submitted_at}
+          onGoToCotizacion={onGoToRepairs}
+        />
       )}
 
       {/* Share surface */}

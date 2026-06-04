@@ -325,6 +325,7 @@ export default function ExecutiveReviewDetail() {
         repairsCount={allRepairs.length}
         grandTotal={budgetBreakdown.grandTotal}
         isPublished={isPublished}
+        ownerFeedbackStatus={(inspection as any).owner_feedback_status}
       />
 
       {mode === 'inspection' && (
@@ -489,6 +490,7 @@ export default function ExecutiveReviewDetail() {
             onCopyOwner={() => void handleCopyOwner()}
             onCopyTenant={() => void handleCopyTenant()}
             onGoToInspection={(sid) => { if (sid) setActiveSectionId(sid); setMode('inspection'); }}
+            onGoToRepairs={() => setMode('repairs')}
           />
         </div>
       )}

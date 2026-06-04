@@ -26,17 +26,20 @@ interface WorkflowStepperProps {
   repairsCount: number;
   grandTotal: number;
   isPublished: boolean;
+  ownerFeedbackStatus?: 'none' | 'pending_executive_review' | 'accepted' | null;
 }
 
 export function WorkflowStepper({
   inspection, mode, onModeChange, onBack,
-  pendingDecisionsCount, repairsCount, grandTotal, isPublished,
+  pendingDecisionsCount, repairsCount, grandTotal, isPublished, ownerFeedbackStatus,
 }: WorkflowStepperProps) {
+  const ownerPending = ownerFeedbackStatus === 'pending_executive_review';
+  const ownerAccepted = ownerFeedbackStatus === 'accepted';
   const steps: StepDef[] = [
     { key: 'inspection', label: 'Inspección', icon: ClipboardList, badge: pendingDecisionsCount || null },
     { key: 'repairs', label: 'Reparaciones', icon: Wrench, badge: repairsCount || null },
     { key: 'quotation', label: 'Cotización', icon: FileText, badge: null },
-    { key: 'publish', label: 'Publicación', icon: Send, badge: null },
+    { key: 'publish', label: 'Publicación', icon: Send, badge: ownerPending ? 1 : null },
   ];
 
   const currentIdx = steps.findIndex((s) => s.key === mode);
@@ -121,9 +124,23 @@ export function WorkflowStepper({
           <TooltipContent side="bottom">Ir a Reparaciones</TooltipContent>
         </Tooltip>
 
-        {isPublished && (
+        {isPublished && !ownerPending && !ownerAccepted && (
           <span className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-[hsl(var(--status-good))] px-2 py-1 rounded bg-[hsl(var(--status-good))]/10">
             <Info className="h-3 w-3" /> Publicado
+          </span>
+        )}
+        {ownerPending && (
+          <button
+            type="button"
+            onClick={() => onModeChange('publish')}
+            className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-700 px-2 py-1 rounded bg-amber-50 border border-amber-500/40 hover:bg-amber-100"
+          >
+            <Info className="h-3 w-3" /> Feedback pendiente
+          </button>
+        )}
+        {ownerAccepted && (
+          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-emerald-700 px-2 py-1 rounded bg-emerald-50 border border-emerald-500/30">
+            <Check className="h-3 w-3" /> Aceptado por propietario
           </span>
         )}
       </div>
