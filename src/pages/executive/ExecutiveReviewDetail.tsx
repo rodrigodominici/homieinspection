@@ -156,12 +156,12 @@ export default function ExecutiveReviewDetail() {
   const progress = useMemo(() => calculateProgress(sections), [sections]);
 
   const operationalSections = useMemo(
-    () => sections.filter(s => s.section_type !== 'property_meta' && s.section_type !== 'handover_meta'),
+    () => sections.filter(isRepairableSection),
     [sections]
   );
 
   const metaSections = useMemo(
-    () => sections.filter(s => s.section_type === 'property_meta' || s.section_type === 'handover_meta'),
+    () => sections.filter(s => !isRepairableSection(s)),
     [sections]
   );
 
