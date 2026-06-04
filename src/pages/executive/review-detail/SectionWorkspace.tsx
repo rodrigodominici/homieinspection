@@ -94,11 +94,11 @@ export function SectionWorkspace({
 
       {/* Other fields */}
       {otherFields.length > 0 && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {otherFields.map((f) => (
-            <div key={f.id} className="text-caption">
-              <span className="text-muted-foreground">{f.field_label}: </span>
-              <span>{f.value_text}</span>
+            <div key={f.id} className="flex items-baseline gap-2 text-caption">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">{f.field_label}</span>
+              <span className="text-foreground">{f.value_text}</span>
             </div>
           ))}
         </div>
@@ -106,17 +106,17 @@ export function SectionWorkspace({
 
       {/* Side-by-side observations — public (left border primary) vs internal (gray bg) */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+        <div className="rounded-lg border bg-card shadow-sm p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <p className="text-[11px] font-medium text-muted-foreground">Observación del Inspector</p>
+            <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Observación del Inspector</p>
           </div>
-          <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
+          <p className="text-caption text-foreground whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
-        <div className="rounded-lg border border-border/60 border-l-[3px] border-l-primary p-3 space-y-2">
+        <div className="rounded-lg border bg-card shadow-sm border-l-[3px] border-l-primary p-3 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center gap-2 cursor-help">
-                <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5 text-primary" />
                   Observación Final
                 </p>
@@ -158,9 +158,10 @@ export function SectionWorkspace({
         </div>
       </div>
 
-      {/* Reparaciones de esta sección — hidden when the inline repairs panel is
-          already open on the right (photosSlot defined = repairs panel is active). */}
-      {!photosSlot && <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Reparaciones — hidden for meta sections and when the inline repairs
+          panel is already open on the right. */}
+      {!isMetaSection && !photosSlot && <div className="rounded-lg border border-border bg-card overflow-hidden">
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-border/60 bg-muted/30">
           <div className="flex items-center gap-2 min-w-0">
             <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
