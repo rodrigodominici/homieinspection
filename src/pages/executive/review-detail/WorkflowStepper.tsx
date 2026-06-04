@@ -157,25 +157,6 @@ export function WorkflowStepper({
           <TooltipContent side="bottom">Ir a Reparaciones</TooltipContent>
         </Tooltip>
 
-        {isPublished && !ownerPending && !ownerAccepted && (
-          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-[hsl(var(--status-good))] px-2 py-1 rounded bg-[hsl(var(--status-good))]/10">
-            <Info className="h-3 w-3" /> Publicado
-          </span>
-        )}
-        {ownerPending && (
-          <button
-            type="button"
-            onClick={() => onModeChange('publish')}
-            className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-700 px-2 py-1 rounded bg-amber-50 border border-amber-500/40 hover:bg-amber-100"
-          >
-            <Info className="h-3 w-3" /> Feedback pendiente
-          </button>
-        )}
-        {ownerAccepted && (
-          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-emerald-700 px-2 py-1 rounded bg-emerald-50 border border-emerald-500/30">
-            <Check className="h-3 w-3" /> Aceptado por propietario
-          </span>
-        )}
       </div>
     </header>
   );
