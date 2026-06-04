@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft, RotateCcw, Copy, AlertTriangle, ExternalLink, RefreshCw,
-  Wrench, ChevronDown, FileText, Send,
+  Wrench, ChevronDown, FileText, Send, Eye,
 } from 'lucide-react';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
@@ -46,8 +46,14 @@ interface ReviewHeaderBarProps {
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
   onOpenInternalReport: () => void;
   onOpenRepairsDrawer: (sectionId: string) => void;
-  onCopyLink: () => void;
-  onOpenPublished: () => void;
+  /** Open published owner report in new tab */
+  onOpenOwner: () => void;
+  /** Open published tenant report in new tab */
+  onOpenTenant: () => void;
+  /** Copy published owner link to clipboard */
+  onCopyOwner: () => void;
+  /** Copy published tenant link to clipboard */
+  onCopyTenant: () => void;
 }
 
 export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
@@ -58,7 +64,8 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
-    onOpenQuotation, onOpenInternalReport, onOpenRepairsDrawer, onCopyLink, onOpenPublished,
+    onOpenQuotation, onOpenInternalReport, onOpenRepairsDrawer,
+    onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
   } = props;
 
   const activeSection = operationalSections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null;
@@ -105,16 +112,33 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
                 />
               </>
             )}
+
+            {/* Ver reporte — single dropdown replacing Abrir + Copiar link */}
             {isPublished && (
-              <>
-                <Button variant="ghost" size="sm" onClick={onOpenPublished}>
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onCopyLink}>
-                  <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar link
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> Ver reporte <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={onOpenOwner}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Abrir — Propietario
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onOpenTenant}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Abrir — Inquilino
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onCopyOwner}>
+                    <Copy className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Copiar link propietario
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onCopyTenant}>
+                    <Copy className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Copiar link inquilino
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
+
             {inspection.status === 'published' || inspection.status === 'sent' ? (
               <Button size="sm" variant="outline" onClick={() => onPublish()} disabled={submitting}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
@@ -152,19 +176,22 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-1 shrink-0">
+            {/* Documentos — generates printable PDFs */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                  <FileText className="mr-1 h-3.5 w-3.5" /> Cotización <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
+                  <FileText className="mr-1 h-3.5 w-3.5" /> Documentos <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => onOpenQuotation('owner')}>Propietario</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenQuotation('tenant')}>Inquilino</DropdownMenuItem>
-                <DropdownMenuItem onClick={onOpenInternalReport}>Informe Interno</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenQuotation('owner')}>Cotización propietario</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenQuotation('tenant')}>Cotización inquilino</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onOpenInternalReport}>Informe interno</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Reparaciones — opens the repair items editing panel */}
             <Button
               variant={allRepairs.length > 0 ? 'default' : 'outline'}
               size="sm"
@@ -181,7 +208,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               }}
             >
               <Wrench className="mr-1 h-3.5 w-3.5" />
-              Presupuesto
+              Reparaciones
               {allRepairs.length > 0 && <span className="ml-1 opacity-80">· {allRepairs.length}</span>}
             </Button>
 

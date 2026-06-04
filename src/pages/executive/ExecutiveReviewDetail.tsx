@@ -219,10 +219,9 @@ export default function ExecutiveReviewDetail() {
     toast({ title: 'Copiado al portapapeles' });
   };
 
-  /** Fetches the latest published tokens and opens the URL dialog so the
-   *  executive can copy/open the owner or tenant link. */
-  const handleOpenPublishedLinks = useCallback(async (openFirst = false) => {
-    if (!inspection) return;
+  /** Fetches latest published tokens from DB for the given audiences. */
+  const fetchPublishedUrls = useCallback(async () => {
+    if (!inspection) return null;
     try {
       const { data } = await supabase
         .from('inspection_report_versions')
@@ -231,23 +230,46 @@ export default function ExecutiveReviewDetail() {
         .eq('is_latest', true);
       if (!data || data.length === 0) {
         toast({ title: 'No se encontró el reporte publicado', variant: 'destructive' });
-        return;
+        return null;
       }
       const origin = window.location.origin;
       const ownerRow = data.find((r: any) => r.audience === 'owner');
       const tenantRow = data.find((r: any) => r.audience === 'tenant');
-      const ownerUrl = ownerRow ? `${origin}/reportes/${inspection.property_id}/${ownerRow.public_token}` : '';
-      const tenantUrl = tenantRow ? `${origin}/reportes/${inspection.property_id}/${tenantRow.public_token}` : '';
-      if (openFirst && ownerUrl) {
-        window.open(ownerUrl, '_blank');
-        return;
-      }
-      publish.setUrls({ owner: ownerUrl, tenant: tenantUrl });
-      publish.setDialogOpen(true);
+      return {
+        owner: ownerRow ? `${origin}/reportes/${inspection.property_id}/${ownerRow.public_token}` : '',
+        tenant: tenantRow ? `${origin}/reportes/${inspection.property_id}/${tenantRow.public_token}` : '',
+      };
     } catch {
       toast({ title: 'Error al obtener links', variant: 'destructive' });
+      return null;
     }
-  }, [inspection, publish, toast]);
+  }, [inspection, toast]);
+
+  const handleOpenOwner = useCallback(async () => {
+    const urls = await fetchPublishedUrls();
+    if (urls?.owner) window.open(urls.owner, '_blank');
+  }, [fetchPublishedUrls]);
+
+  const handleOpenTenant = useCallback(async () => {
+    const urls = await fetchPublishedUrls();
+    if (urls?.tenant) window.open(urls.tenant, '_blank');
+  }, [fetchPublishedUrls]);
+
+  const handleCopyOwner = useCallback(async () => {
+    const urls = await fetchPublishedUrls();
+    if (urls?.owner) {
+      navigator.clipboard.writeText(urls.owner);
+      toast({ title: 'Link propietario copiado' });
+    }
+  }, [fetchPublishedUrls, toast]);
+
+  const handleCopyTenant = useCallback(async () => {
+    const urls = await fetchPublishedUrls();
+    if (urls?.tenant) {
+      navigator.clipboard.writeText(urls.tenant);
+      toast({ title: 'Link inquilino copiado' });
+    }
+  }, [fetchPublishedUrls, toast]);
 
 
   // ─── Loading / Not found ───────────────────────────────
@@ -314,8 +336,10 @@ export default function ExecutiveReviewDetail() {
         onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
         onOpenInternalReport={() => setInternalReportOpen(true)}
         onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
-        onCopyLink={() => void handleOpenPublishedLinks(false)}
-        onOpenPublished={() => void handleOpenPublishedLinks(true)}
+        onOpenOwner={() => void handleOpenOwner()}
+        onOpenTenant={() => void handleOpenTenant()}
+        onCopyOwner={() => void handleCopyOwner()}
+        onCopyTenant={() => void handleCopyTenant()}
       />
 
       {inspection.status === 'submitted' && (

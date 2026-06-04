@@ -1,11 +1,14 @@
 /**
  * InternalReportDialog — confidential full quotation for the executive.
  *
- * Shows ALL repairs (regardless of visible_to_owner), grouped by section,
- * with both client price and contractor price columns, plus a summary table
- * by payer (owner / tenant) including margin/utility.
+ * Structure:
+ *  1. Header (property, date, CONFIDENTIAL)
+ *  2. PROPIETARIO section — obligatorias → opcionales → totals
+ *  3. INQUILINO section — same
+ *  4. RESUMEN POR CATEGORÍA — category | total venta | total costo | utilidad
  *
- * The print button opens a clean print window (same approach as QuotationDialog).
+ * Shows ALL repairs regardless of visible_to_owner.
+ * Print via window.open so it renders in a clean, print-ready page.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -25,30 +28,33 @@ interface InternalReportDialogProps {
 const fmt = (n: number) =>
   `$${Number(n).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-const PAYER_LABEL: Record<string, string> = { owner: 'Propietario', tenant: 'Inquilino' };
-const NATURE_LABEL: Record<string, string> = { required: 'Obligatoria', optional: 'Opcional' };
-
 const PRINT_CSS = `
-  *{box-sizing:border-box;}
-  body{font-family:Inter,system-ui,sans-serif;padding:28px 32px;color:#111;font-size:11px;line-height:1.4;}
-  h1{font-size:17px;margin:0 0 2px;font-weight:700;}
-  .subtitle{color:#666;margin:0 0 4px;font-size:11px;}
-  .confidential{color:#b91c1c;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
-  h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3b4bdb;
-     margin:16px 0 5px;padding-bottom:3px;border-bottom:1px solid #e5e7eb;}
-  table{width:100%;border-collapse:collapse;margin-bottom:2px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,sans-serif;padding:28px 32px;color:#111;font-size:11px;line-height:1.45;}
+  h1{font-size:17px;font-weight:700;margin-bottom:2px;}
+  .subtitle{color:#666;font-size:11px;}
+  .confidential{display:inline-block;margin-top:4px;color:#b91c1c;font-size:9px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;border:1px solid #fca5a5;
+    background:#fff1f2;padding:1px 6px;border-radius:3px;}
+  .section-header{margin-top:20px;margin-bottom:6px;padding:5px 8px;
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    border-left:3px solid #3b4bdb;background:#f0f1ff;color:#3b4bdb;}
+  .section-header.tenant{border-color:#7c3aed;background:#f5f3ff;color:#7c3aed;}
+  h3{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+     color:#666;margin:10px 0 4px;}
+  table{width:100%;border-collapse:collapse;}
   th,td{text-align:left;padding:4px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
   th{background:#f6f7fb;font-weight:600;font-size:10px;}
   td.r,th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
-  tfoot td{background:#f0f1f8;font-weight:700;}
-  .grand td{border-top:2px solid #111;font-weight:700;}
-  .badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;}
-  .owner{color:#1d4ed8;background:#eff6ff;}
-  .tenant{color:#7c3aed;background:#f5f3ff;}
-  .req{color:#166534;background:#f0fdf4;}
-  .opt{color:#854d0e;background:#fefce8;}
-  .hidden-badge{color:#9ca3af;font-style:italic;font-size:9px;}
+  .totals{margin-top:8px;padding-top:6px;border-top:1px solid #d1d5db;}
+  .totals .row{display:flex;justify-content:space-between;padding:2px 0;font-size:11px;}
+  .totals .row.grand{font-weight:700;font-size:12px;border-top:2px solid #111;margin-top:6px;padding-top:6px;}
+  .totals .row.vat{color:#666;font-size:10px;}
+  .category-table{margin-top:20px;}
+  .category-table thead th{background:#111;color:#fff;}
+  .category-table tfoot td{background:#f0f1f8;font-weight:700;border-top:2px solid #111;}
   .pos{color:#15803d;}.neg{color:#b91c1c;}
+  .hidden-note{font-style:italic;font-size:9px;color:#9ca3af;}
   @page{margin:18mm 14mm;}
 `;
 
@@ -62,47 +68,39 @@ export function InternalReportDialog({
     fetchTaxConfig(inspection.market).then(setTaxConfig);
   }, [open, inspection.market]);
 
-  const repairsBySection = useMemo(() => {
-    const map: Record<string, InspectionRepairItem[]> = {};
+  // Split repairs by payer
+  const { ownerRepairs, tenantRepairs } = useMemo(() => ({
+    ownerRepairs: allRepairs.filter(r => r.payer_role === 'owner'),
+    tenantRepairs: allRepairs.filter(r => r.payer_role === 'tenant'),
+  }), [allRepairs]);
+
+  // Category summary across all repairs
+  const categoryRows = useMemo(() => {
+    const map = new Map<string, { venta: number; costo: number }>();
     for (const r of allRepairs) {
-      if (!map[r.inspection_section_id]) map[r.inspection_section_id] = [];
-      map[r.inspection_section_id].push(r);
+      const cat = r.category_snapshot || 'Sin categoría';
+      const prev = map.get(cat) ?? { venta: 0, costo: 0 };
+      map.set(cat, {
+        venta: prev.venta + r.quantity * r.unit_price,
+        costo: prev.costo + r.quantity * r.contractor_unit_price,
+      });
     }
-    return map;
+    return [...map.entries()]
+      .map(([cat, vals]) => ({ cat, ...vals, util: vals.venta - vals.costo }))
+      .sort((a, b) => b.venta - a.venta);
   }, [allRepairs]);
 
-  const sectionsWithRepairs = useMemo(
-    () => operationalSections.filter(s => (repairsBySection[s.id] ?? []).length > 0),
-    [operationalSections, repairsBySection],
-  );
+  const grandVenta = categoryRows.reduce((s, r) => s + r.venta, 0);
+  const grandCosto = categoryRows.reduce((s, r) => s + r.costo, 0);
+  const grandUtil = grandVenta - grandCosto;
 
-  const totals = useMemo(() => {
-    const byPayer = (payer: 'owner' | 'tenant') => {
-      const items = allRepairs.filter(r => r.payer_role === payer);
-      return {
-        client: items.reduce((s, r) => s + r.quantity * r.unit_price, 0),
-        contractor: items.reduce((s, r) => s + r.quantity * r.contractor_unit_price, 0),
-      };
-    };
-    const owner = byPayer('owner');
-    const tenant = byPayer('tenant');
-    return {
-      owner, tenant,
-      grandClient: owner.client + tenant.client,
-      grandContractor: owner.contractor + tenant.contractor,
-    };
-  }, [allRepairs]);
-
-  const ownerVat = applyVat(totals.owner.client, taxConfig);
-  const tenantVat = applyVat(totals.tenant.client, taxConfig);
-  const vatEnabled = ownerVat.enabled;
-  const vatLabel = ownerVat.label;
-  const vatPct = ownerVat.percentage;
+  const ownerVat = applyVat(ownerRepairs.reduce((s, r) => s + r.quantity * r.unit_price, 0), taxConfig);
+  const tenantVat = applyVat(tenantRepairs.reduce((s, r) => s + r.quantity * r.unit_price, 0), taxConfig);
 
   const handlePrint = () => {
     const node = document.getElementById('internal-report-print-area');
     if (!node) return;
-    const win = window.open('', '_blank', 'width=1050,height=1200');
+    const win = window.open('', '_blank', 'width=1000,height=1200');
     if (!win) return;
     win.document.write(
       `<html><head><title>Informe Interno — ${inspection.property_name ?? inspection.property_id}</title>` +
@@ -116,26 +114,25 @@ export function InternalReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Informe Interno</DialogTitle>
         </DialogHeader>
 
-        <div id="internal-report-print-area" className="space-y-1 text-[13px]">
-          {/* Document header */}
-          <div className="mb-4">
+        <div id="internal-report-print-area" className="space-y-1 text-[12px]">
+
+          {/* ── Document header ──────────────────────── */}
+          <div className="mb-2">
             <h1 className="text-body-lg font-bold leading-tight">
               {inspection.property_name ?? inspection.property_id}
             </h1>
             {inspection.address && (
               <p className="text-caption text-muted-foreground">{inspection.address}</p>
             )}
-            <p className="text-tiny text-muted-foreground mt-0.5">
-              {today} ·{' '}
-              <span className="text-red-600 font-semibold uppercase tracking-wide text-[10px]">
-                Confidencial — uso interno
-              </span>
-            </p>
+            <p className="text-muted-foreground text-[11px] mt-0.5">{today}</p>
+            <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest text-red-600 border border-red-300 bg-red-50 px-2 py-0.5 rounded">
+              Confidencial — uso interno
+            </span>
           </div>
 
           {allRepairs.length === 0 ? (
@@ -144,173 +141,55 @@ export function InternalReportDialog({
             </p>
           ) : (
             <>
-              {/* ── Section-by-section breakdown ─────────── */}
-              {sectionsWithRepairs.map(section => {
-                const repairs = repairsBySection[section.id] ?? [];
-                const secClient = repairs.reduce((s, r) => s + r.quantity * r.unit_price, 0);
-                const secContractor = repairs.reduce((s, r) => s + r.quantity * r.contractor_unit_price, 0);
+              {/* ── PROPIETARIO ─────────────────────── */}
+              <PayerSection
+                label="Propietario"
+                accent="blue"
+                repairs={ownerRepairs}
+                vatData={ownerVat}
+              />
 
-                return (
-                  <div key={section.id} className="mt-4">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-primary bg-muted/50 px-2 py-1 border-l-2 border-primary">
-                      {section.section_title}
-                    </div>
-                    <table className="w-full mt-0.5">
-                      <thead>
-                        <tr className="bg-muted/30">
-                          <th className="text-left px-2 py-1.5 text-[10px] font-semibold">Reparación</th>
-                          <th className="text-left px-2 py-1.5 text-[10px] font-semibold w-24">Pagador</th>
-                          <th className="text-left px-2 py-1.5 text-[10px] font-semibold w-24">Nat.</th>
-                          <th className="r text-right px-2 py-1.5 text-[10px] font-semibold w-10">Cant.</th>
-                          <th className="r text-right px-2 py-1.5 text-[10px] font-semibold w-24">P. Cliente</th>
-                          <th className="r text-right px-2 py-1.5 text-[10px] font-semibold w-28">Tot. Cliente</th>
-                          <th className="r text-right px-2 py-1.5 text-[10px] font-semibold w-28 text-muted-foreground">P. Contratista</th>
-                          <th className="r text-right px-2 py-1.5 text-[10px] font-semibold w-32 text-muted-foreground">Tot. Contratista</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {repairs.map(r => (
-                          <tr key={r.id} className="border-b border-border/40">
-                            <td className="px-2 py-1.5">
-                              <div className="font-medium leading-snug">
-                                {r.owner_friendly_name_snapshot || r.title_snapshot}
-                              </div>
-                              {r.description_snapshot && (
-                                <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                                  {r.description_snapshot}
-                                </div>
-                              )}
-                              {!r.visible_to_owner && (
-                                <div className="text-[10px] text-muted-foreground italic mt-0.5">
-                                  Oculto al propietario
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                                r.payer_role === 'owner'
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : 'bg-violet-50 text-violet-700'
-                              }`}>
-                                {PAYER_LABEL[r.payer_role]}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                                r.payment_nature === 'required'
-                                  ? 'bg-green-50 text-green-700'
-                                  : 'bg-yellow-50 text-yellow-700'
-                              }`}>
-                                {NATURE_LABEL[r.payment_nature]}
-                              </span>
-                            </td>
-                            <td className="r text-right px-2 py-1.5 font-mono">{r.quantity}</td>
-                            <td className="r text-right px-2 py-1.5 font-mono">{fmt(r.unit_price)}</td>
-                            <td className="r text-right px-2 py-1.5 font-mono font-semibold">
-                              {fmt(r.quantity * r.unit_price)}
-                            </td>
-                            <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">
-                              {fmt(r.contractor_unit_price)}
-                            </td>
-                            <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">
-                              {fmt(r.quantity * r.contractor_unit_price)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-muted/20">
-                          <td colSpan={5} className="text-right px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                            Subtotal sección
-                          </td>
-                          <td className="r text-right px-2 py-1.5 font-mono font-bold">{fmt(secClient)}</td>
-                          <td />
-                          <td className="r text-right px-2 py-1.5 font-mono font-bold text-muted-foreground">
-                            {fmt(secContractor)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                );
-              })}
+              {/* ── INQUILINO ───────────────────────── */}
+              <PayerSection
+                label="Inquilino"
+                accent="violet"
+                repairs={tenantRepairs}
+                vatData={tenantVat}
+              />
 
-              {/* ── Summary by payer ─────────────────────── */}
+              {/* ── RESUMEN POR CATEGORÍA ───────────── */}
               <div className="mt-6 pt-4 border-t border-border">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Resumen por pagador
+                  Resumen por categoría
                 </p>
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-muted/30">
-                      <th className="text-left px-2 py-1.5 text-[10px] font-semibold">Pagador</th>
-                      <th className="r text-right px-2 py-1.5 text-[10px] font-semibold">Total Cliente</th>
-                      {vatEnabled && (
-                        <th className="r text-right px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                          {vatLabel} {vatPct}%
-                        </th>
-                      )}
-                      {vatEnabled && (
-                        <th className="r text-right px-2 py-1.5 text-[10px] font-semibold">
-                          Total c/ {vatLabel}
-                        </th>
-                      )}
-                      <th className="r text-right px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                        Total Contratista
-                      </th>
+                    <tr className="bg-foreground text-background">
+                      <th className="text-left px-2 py-1.5 text-[10px] font-semibold">Categoría</th>
+                      <th className="r text-right px-2 py-1.5 text-[10px] font-semibold">Total venta</th>
+                      <th className="r text-right px-2 py-1.5 text-[10px] font-semibold">Costo contratista</th>
                       <th className="r text-right px-2 py-1.5 text-[10px] font-semibold">Utilidad</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(['owner', 'tenant'] as const).map(payer => {
-                      const t = totals[payer];
-                      const vatData = applyVat(t.client, taxConfig);
-                      const utility = t.client - t.contractor;
-                      return (
-                        <tr key={payer} className="border-b border-border/50">
-                          <td className="px-2 py-1.5 font-semibold">{PAYER_LABEL[payer]}</td>
-                          <td className="r text-right px-2 py-1.5 font-mono">{fmt(t.client)}</td>
-                          {vatEnabled && (
-                            <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">
-                              {fmt(vatData.vatAmount)}
-                            </td>
-                          )}
-                          {vatEnabled && (
-                            <td className="r text-right px-2 py-1.5 font-mono font-semibold">
-                              {fmt(vatData.total)}
-                            </td>
-                          )}
-                          <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">
-                            {fmt(t.contractor)}
-                          </td>
-                          <td className={`r text-right px-2 py-1.5 font-mono font-bold ${utility >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {fmt(utility)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {categoryRows.map(row => (
+                      <tr key={row.cat} className="border-b border-border/40">
+                        <td className="px-2 py-1.5 font-medium">{row.cat}</td>
+                        <td className="r text-right px-2 py-1.5 font-mono">{fmt(row.venta)}</td>
+                        <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">{fmt(row.costo)}</td>
+                        <td className={`r text-right px-2 py-1.5 font-mono font-semibold ${row.util >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {fmt(row.util)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-muted/20">
+                    <tr className="bg-muted/30">
                       <td className="px-2 py-1.5 font-bold">Total general</td>
-                      <td className="r text-right px-2 py-1.5 font-mono font-bold">{fmt(totals.grandClient)}</td>
-                      {vatEnabled && (
-                        <td className="r text-right px-2 py-1.5 font-mono font-bold text-muted-foreground">
-                          {fmt(ownerVat.vatAmount + tenantVat.vatAmount)}
-                        </td>
-                      )}
-                      {vatEnabled && (
-                        <td className="r text-right px-2 py-1.5 font-mono font-bold">
-                          {fmt(ownerVat.total + tenantVat.total)}
-                        </td>
-                      )}
-                      <td className="r text-right px-2 py-1.5 font-mono font-bold text-muted-foreground">
-                        {fmt(totals.grandContractor)}
-                      </td>
-                      <td className={`r text-right px-2 py-1.5 font-mono font-bold ${
-                        totals.grandClient - totals.grandContractor >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {fmt(totals.grandClient - totals.grandContractor)}
+                      <td className="r text-right px-2 py-1.5 font-mono font-bold">{fmt(grandVenta)}</td>
+                      <td className="r text-right px-2 py-1.5 font-mono font-bold text-muted-foreground">{fmt(grandCosto)}</td>
+                      <td className={`r text-right px-2 py-1.5 font-mono font-bold ${grandUtil >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {fmt(grandUtil)}
                       </td>
                     </tr>
                   </tfoot>
@@ -327,5 +206,122 @@ export function InternalReportDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Payer section ──────────────────────────────────
+interface VatData {
+  subtotal: number;
+  vatAmount: number;
+  total: number;
+  enabled: boolean;
+  percentage: number;
+  label: string;
+}
+
+function PayerSection({
+  label, accent, repairs, vatData,
+}: {
+  label: string;
+  accent: 'blue' | 'violet';
+  repairs: InspectionRepairItem[];
+  vatData: VatData;
+}) {
+  const required = repairs.filter(r => r.payment_nature === 'required');
+  const optional = repairs.filter(r => r.payment_nature === 'optional');
+
+  const accentClasses = accent === 'blue'
+    ? 'border-l-blue-600 bg-blue-50 text-blue-700'
+    : 'border-l-violet-600 bg-violet-50 text-violet-700';
+
+  if (repairs.length === 0) {
+    return (
+      <div className="mt-4">
+        <div className={`border-l-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${accentClasses}`}>
+          {label}
+        </div>
+        <p className="text-[11px] text-muted-foreground px-1 mt-2">Sin reparaciones asignadas.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      <div className={`border-l-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${accentClasses}`}>
+        {label}
+      </div>
+
+      {required.length > 0 && <RepairGroup heading="Obligatorias" repairs={required} />}
+      {optional.length > 0 && <RepairGroup heading="Opcionales" repairs={optional} />}
+
+      {/* Totals */}
+      <div className="mt-3 space-y-1 border-t border-border/60 pt-2 text-[11px]">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Subtotal {label.toLowerCase()}</span>
+          <span className="font-mono font-semibold">
+            {`$${vatData.subtotal.toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+          </span>
+        </div>
+        {vatData.enabled && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>{vatData.label} {vatData.percentage}%</span>
+            <span className="font-mono">
+              {`$${vatData.vatAmount.toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between font-bold text-[12px] border-t border-border/60 pt-1.5 mt-1">
+          <span>Total {label.toLowerCase()}</span>
+          <span className="font-mono">
+            {`$${vatData.total.toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Repair group (obligatorias / opcionales) ────────
+function RepairGroup({ heading, repairs }: { heading: string; repairs: InspectionRepairItem[] }) {
+  return (
+    <div className="mt-2">
+      <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1 px-1">
+        {heading}
+      </p>
+      <table className="w-full">
+        <thead>
+          <tr className="bg-muted/30">
+            <th className="text-left px-2 py-1 text-[10px] font-semibold">Reparación</th>
+            <th className="r text-right px-2 py-1 text-[10px] font-semibold w-10">Cant.</th>
+            <th className="r text-right px-2 py-1 text-[10px] font-semibold w-24">Precio unit.</th>
+            <th className="r text-right px-2 py-1 text-[10px] font-semibold w-28">Total venta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {repairs.map(r => (
+            <tr key={r.id} className="border-b border-border/30">
+              <td className="px-2 py-1.5">
+                <div className="font-medium leading-snug">
+                  {r.owner_friendly_name_snapshot || r.title_snapshot}
+                </div>
+                {r.description_snapshot && (
+                  <div className="text-[10px] text-muted-foreground">{r.description_snapshot}</div>
+                )}
+                {!r.visible_to_owner && (
+                  <div className="text-[9px] text-muted-foreground italic">Oculto al propietario</div>
+                )}
+              </td>
+              <td className="r text-right px-2 py-1.5 font-mono">{r.quantity}</td>
+              <td className="r text-right px-2 py-1.5 font-mono text-muted-foreground">
+                {`$${r.unit_price.toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+              </td>
+              <td className="r text-right px-2 py-1.5 font-mono font-semibold">
+                {`$${(r.quantity * r.unit_price).toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

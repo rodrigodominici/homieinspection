@@ -166,9 +166,6 @@ function RepairRow({ r }: { r: PayloadRepair }) {
       </div>
       <div className="sm:text-right shrink-0">
         <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
-        <p className="text-tiny text-muted-foreground font-mono tabular-nums">
-          {r.quantity} × {fmt(r.unit_price)} / {r.unit}
-        </p>
       </div>
     </div>
   );
