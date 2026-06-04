@@ -26,17 +26,20 @@ interface WorkflowStepperProps {
   repairsCount: number;
   grandTotal: number;
   isPublished: boolean;
+  ownerFeedbackStatus?: 'none' | 'pending_executive_review' | 'accepted' | null;
 }
 
 export function WorkflowStepper({
   inspection, mode, onModeChange, onBack,
-  pendingDecisionsCount, repairsCount, grandTotal, isPublished,
+  pendingDecisionsCount, repairsCount, grandTotal, isPublished, ownerFeedbackStatus,
 }: WorkflowStepperProps) {
+  const ownerPending = ownerFeedbackStatus === 'pending_executive_review';
+  const ownerAccepted = ownerFeedbackStatus === 'accepted';
   const steps: StepDef[] = [
     { key: 'inspection', label: 'Inspección', icon: ClipboardList, badge: pendingDecisionsCount || null },
     { key: 'repairs', label: 'Reparaciones', icon: Wrench, badge: repairsCount || null },
     { key: 'quotation', label: 'Cotización', icon: FileText, badge: null },
-    { key: 'publish', label: 'Publicación', icon: Send, badge: null },
+    { key: 'publish', label: 'Publicación', icon: Send, badge: ownerPending ? 1 : null },
   ];
 
   const currentIdx = steps.findIndex((s) => s.key === mode);
