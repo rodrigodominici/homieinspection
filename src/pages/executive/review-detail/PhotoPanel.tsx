@@ -72,7 +72,9 @@ export function PhotoPanel({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-muted-foreground">Fotos · {photos.length}</p>
+        <p className="text-tiny font-medium text-muted-foreground uppercase tracking-wider">
+          Fotos {photos.length > 0 && <span className="ml-1 normal-case tracking-normal text-muted-foreground/80">· {photos.length}</span>}
+        </p>
         <input
           ref={fileRef} type="file" accept="image/*" multiple className="hidden"
           onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
@@ -98,7 +100,7 @@ export function PhotoPanel({
           <span className="text-xs">Agregar foto</span>
         </button>
       ) : (
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {photos.map((p, idx) => {
             const visible = (p as any).visible_to_owner !== false;
             return (
@@ -107,7 +109,7 @@ export function PhotoPanel({
                   type="button"
                   onClick={() => setLightboxIdx(idx)}
                   className={cn(
-                    'block w-full aspect-square rounded-lg overflow-hidden border border-border/60',
+                    'block w-full aspect-[4/3] rounded-lg overflow-hidden border border-border/60',
                     !visible && 'opacity-40',
                   )}
                 >
