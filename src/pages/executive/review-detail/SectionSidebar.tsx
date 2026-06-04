@@ -1,6 +1,6 @@
 import { Progress } from '@/components/ui/progress';
 import { SectionStatusBadge } from '@/components/StatusBadge';
-import { AlertTriangle, PenLine, XCircle } from 'lucide-react';
+import { AlertTriangle, PenLine, Wrench, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InspectionSection } from '@/lib/types';
 
@@ -82,9 +82,7 @@ export function SectionSidebar({
               )}
               <span className="flex-1 leading-tight break-words">{s.section_title}</span>
               {repairCount > 0 && (
-                <span className="inline-flex items-center justify-center text-[9px] font-semibold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 shrink-0 min-w-[18px]">
-                  {repairCount}
-                </span>
+                <Wrench className="h-3 w-3 shrink-0 text-muted-foreground/60" />
               )}
               <SectionStatusBadge status={s.status} />
             </div>

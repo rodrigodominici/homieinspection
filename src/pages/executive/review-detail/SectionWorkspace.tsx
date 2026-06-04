@@ -8,6 +8,7 @@ import { ChevronRight, Globe, Lock as LockIcon, Plus, Wrench } from 'lucide-reac
 import type {
   InspectionFieldValue, InspectionRepairItem, InspectionReview, InspectionSection,
 } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { fmtCurrency, statusLabel } from './helpers';
 
 interface SectionWorkspaceProps {
@@ -75,13 +76,13 @@ export function SectionWorkspace({
 
       {/* Status fields */}
       {statusFields.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {statusFields.map((f) => {
             const label = statusLabel(f.value_text);
             return (
-              <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-caption">
-                <span className="text-muted-foreground">{f.field_label}</span>
-                {label && <span className={label.cls}>{label.text}</span>}
+              <div key={f.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/60 border border-border/50 text-caption">
+                <span className="text-foreground/80 font-medium">{f.field_label}</span>
+                {label && <span className={cn(label.cls, 'font-semibold text-[12px]')}>{label.text}</span>}
               </div>
             );
           })}
@@ -154,8 +155,9 @@ export function SectionWorkspace({
         </div>
       </div>
 
-      {/* Reparaciones de esta sección — operational outcome of the review. */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Reparaciones de esta sección — hidden when the inline repairs panel is
+          already open on the right (photosSlot defined = repairs panel is active). */}
+      {!photosSlot && <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-border/60 bg-muted/30">
           <div className="flex items-center gap-2 min-w-0">
             <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -201,7 +203,7 @@ export function SectionWorkspace({
             ))}
           </ul>
         )}
-      </div>
+      </div>}
 
       {/* Return mode */}
       {returnMode && (
