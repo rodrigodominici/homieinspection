@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Eye, EyeOff, Trash2, Plus, Search, Wrench } from 'lucide-react';
+import { Trash2, Plus, Search, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
@@ -160,14 +160,13 @@ export function RepairsTableView({
 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="grid grid-cols-[1fr_120px_110px_110px_90px_70px_70px_40px] gap-2 px-3 py-2 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
+        <div className="grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
           <span>Reparación</span>
           <span>Sección</span>
           <span>Responsable</span>
           <span>Tipo</span>
           <span className="text-right">Cant × Precio</span>
           <span className="text-right">Subtotal</span>
-          <span className="text-center">Vis.</span>
           <span />
         </div>
         {filtered.length === 0 ? (
@@ -180,10 +179,7 @@ export function RepairsTableView({
             {filtered.map((r) => {
               const subtotal = r.quantity * r.unit_price;
               return (
-                <li key={r.id} className={cn(
-                  'grid grid-cols-[1fr_120px_110px_110px_90px_70px_70px_40px] gap-2 px-3 py-2 items-center text-sm',
-                  !r.visible_to_owner && 'opacity-60',
-                )}>
+                <li key={r.id} className="grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 items-center text-sm">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{r.title_snapshot}</p>
                     {r.category_snapshot && (
@@ -193,32 +189,28 @@ export function RepairsTableView({
                   <span className="text-xs text-muted-foreground truncate">
                     {sectionTitle(r.inspection_section_id)}
                   </span>
-                  <ToggleGroup type="single" value={r.payer_role}
-                    onValueChange={(v) => v && onUpdateRepair(r.id, 'payer_role', v)}
-                    className="h-7 rounded-md border bg-muted/30 p-0.5">
-                    <ToggleGroupItem value="owner" className="h-6 px-1.5 text-[10px]">Prop.</ToggleGroupItem>
-                    <ToggleGroupItem value="tenant" className="h-6 px-1.5 text-[10px]">Inq.</ToggleGroupItem>
-                  </ToggleGroup>
-                  <ToggleGroup type="single" value={r.payment_nature}
-                    onValueChange={(v) => v && onUpdateRepair(r.id, 'payment_nature', v)}
-                    className="h-7 rounded-md border bg-muted/30 p-0.5">
-                    <ToggleGroupItem value="required" className="h-6 px-1.5 text-[10px]">Obl.</ToggleGroupItem>
-                    <ToggleGroupItem value="optional" className="h-6 px-1.5 text-[10px]">Opc.</ToggleGroupItem>
-                  </ToggleGroup>
+                  <select
+                    value={r.payer_role}
+                    onChange={(e) => onUpdateRepair(r.id, 'payer_role', e.target.value)}
+                    className="h-7 rounded-md border bg-background px-2 text-xs hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="owner">Propietario</option>
+                    <option value="tenant">Inquilino</option>
+                  </select>
+                  <select
+                    value={r.payment_nature}
+                    onChange={(e) => onUpdateRepair(r.id, 'payment_nature', e.target.value)}
+                    className="h-7 rounded-md border bg-background px-2 text-xs hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="required">Obligatoria</option>
+                    <option value="optional">Opcional</option>
+                  </select>
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
                     {r.quantity} × {fmtCurrency(r.unit_price)}
                   </span>
                   <span className="text-right font-mono text-sm font-medium tabular-nums">
                     {fmtCurrency(subtotal)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateRepair(r.id, 'visible_to_owner', !r.visible_to_owner)}
-                    className="justify-self-center p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    title={r.visible_to_owner ? 'Visible al propietario' : 'Oculta al propietario'}
-                  >
-                    {r.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  </button>
                   <button
                     type="button"
                     onClick={() => onDeleteRepair(r.id)}
@@ -235,7 +227,7 @@ export function RepairsTableView({
         {filtered.length > 0 && (
           <div className="border-t px-3 py-2 flex items-center justify-between text-sm bg-muted/30">
             <span className="text-muted-foreground">
-              {filtered.length} {filtered.length === 1 ? 'reparación' : 'reparaciones'} · subtotal cliente
+              {filtered.length} {filtered.length === 1 ? 'reparación' : 'reparaciones'} · subtotal
             </span>
             <span className="font-mono font-semibold">{fmtCurrency(filteredTotal)}</span>
           </div>
@@ -243,8 +235,9 @@ export function RepairsTableView({
       </div>
 
       <p className="text-tiny text-muted-foreground">
-        Edita responsable, tipo y visibilidad directamente en la tabla. Para precios y notas detalladas, vuelve a la sección desde la columna "Sección".
+        Edita responsable y tipo directamente en la tabla. Para precios y notas detalladas, abre la sección desde la columna "Sección".
       </p>
+
     </div>
   );
 }
