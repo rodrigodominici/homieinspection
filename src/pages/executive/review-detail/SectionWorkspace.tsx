@@ -65,10 +65,13 @@ export function SectionWorkspace({
     (v) => onSaveNoteSilent(section.id, v),
   );
 
+  const isMetaSection =
+    section.section_type === 'property_meta' || section.section_type === 'handover_meta';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-h4 font-semibold">{section.section_title}</h2>
+        <h2 className="text-h3 font-semibold tracking-tight">{section.section_title}</h2>
         <SectionStatusBadge status={section.status} />
       </div>
 

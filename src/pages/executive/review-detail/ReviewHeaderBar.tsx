@@ -187,26 +187,12 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Reparaciones — opens the repair items editing panel */}
-            <Button
-              variant={allRepairs.length > 0 ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => {
-                const target =
-                  activeSection ??
-                  operationalSections.find(s => (repairsBySection[s.id] ?? []).length > 0) ??
-                  operationalSections[0];
-                if (target) {
-                  setActiveSectionId(target.id);
-                  onOpenRepairsDrawer(target.id);
-                }
-              }}
-            >
-              <Wrench className="mr-1 h-3.5 w-3.5" />
-              Reparaciones
-              {allRepairs.length > 0 && <span className="ml-1 opacity-80">· {allRepairs.length}</span>}
-            </Button>
+            {allRepairs.length > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums px-1">
+                <Wrench className="inline h-3 w-3 mr-1 opacity-70" />
+                {allRepairs.length} {allRepairs.length === 1 ? 'reparación' : 'reparaciones'}
+              </span>
+            )}
 
           </div>
         </div>
