@@ -490,6 +490,69 @@ export type Database = {
           },
         ]
       }
+      inspection_owner_feedback: {
+        Row: {
+          comment: string | null
+          decision: string
+          id: string
+          inspection_id: string
+          repair_item_id: string
+          report_version_id: string
+          submitted_at: string
+          submitter_name: string | null
+        }
+        Insert: {
+          comment?: string | null
+          decision: string
+          id?: string
+          inspection_id: string
+          repair_item_id: string
+          report_version_id: string
+          submitted_at?: string
+          submitter_name?: string | null
+        }
+        Update: {
+          comment?: string | null
+          decision?: string
+          id?: string
+          inspection_id?: string
+          repair_item_id?: string
+          report_version_id?: string
+          submitted_at?: string
+          submitter_name?: string | null
+        }
+        Relationships: []
+      }
+      inspection_owner_feedback_submissions: {
+        Row: {
+          all_accepted: boolean
+          id: string
+          inspection_id: string
+          report_version_id: string
+          submitted_at: string
+          submitter_name: string | null
+          summary_json: Json
+        }
+        Insert: {
+          all_accepted: boolean
+          id?: string
+          inspection_id: string
+          report_version_id: string
+          submitted_at?: string
+          submitter_name?: string | null
+          summary_json: Json
+        }
+        Update: {
+          all_accepted?: boolean
+          id?: string
+          inspection_id?: string
+          report_version_id?: string
+          submitted_at?: string
+          submitter_name?: string | null
+          summary_json?: Json
+        }
+        Relationships: []
+      }
       inspection_photos: {
         Row: {
           caption: string | null
@@ -682,6 +745,7 @@ export type Database = {
           inspection_id: string
           is_latest: boolean
           normalized_payload: Json
+          owner_decision_summary_json: Json | null
           public_token: string | null
           status: string
           version_number: number
@@ -693,6 +757,7 @@ export type Database = {
           inspection_id: string
           is_latest?: boolean
           normalized_payload: Json
+          owner_decision_summary_json?: Json | null
           public_token?: string | null
           status: string
           version_number: number
@@ -704,6 +769,7 @@ export type Database = {
           inspection_id?: string
           is_latest?: boolean
           normalized_payload?: Json
+          owner_decision_summary_json?: Json | null
           public_token?: string | null
           status?: string
           version_number?: number
@@ -1124,6 +1190,8 @@ export type Database = {
           last_active_at: string | null
           last_active_section_id: string | null
           market: string
+          owner_feedback_last_submitted_at: string | null
+          owner_feedback_status: string
           owner_url_generated_at: string | null
           property_id: string
           property_name: string | null
@@ -1162,6 +1230,8 @@ export type Database = {
           last_active_at?: string | null
           last_active_section_id?: string | null
           market: string
+          owner_feedback_last_submitted_at?: string | null
+          owner_feedback_status?: string
           owner_url_generated_at?: string | null
           property_id: string
           property_name?: string | null
@@ -1200,6 +1270,8 @@ export type Database = {
           last_active_at?: string | null
           last_active_section_id?: string | null
           market?: string
+          owner_feedback_last_submitted_at?: string | null
+          owner_feedback_status?: string
           owner_url_generated_at?: string | null
           property_id?: string
           property_name?: string | null
@@ -1521,6 +1593,15 @@ export type Database = {
       }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      submit_owner_feedback: {
+        Args: {
+          p_decisions: Json
+          p_property_id: string
+          p_submitter_name: string
+          p_token: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
