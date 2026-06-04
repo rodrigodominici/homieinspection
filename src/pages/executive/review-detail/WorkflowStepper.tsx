@@ -6,6 +6,34 @@ import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import type { Inspection } from '@/lib/types';
 
+interface HeaderStatusBadgeProps {
+  status: Inspection['status'];
+  ownerFeedbackStatus?: 'none' | 'pending_executive_review' | 'accepted' | null;
+  onClick?: () => void;
+}
+
+function HeaderStatusBadge({ status, ownerFeedbackStatus, onClick }: HeaderStatusBadgeProps) {
+  if (status === 'published' && ownerFeedbackStatus === 'pending_executive_review') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-700 px-2 py-1 rounded bg-amber-50 border border-amber-500/40 hover:bg-amber-100 transition-colors"
+      >
+        <Info className="h-3 w-3" /> Feedback pendiente
+      </button>
+    );
+  }
+  if (status === 'published' && ownerFeedbackStatus === 'accepted') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-emerald-700 px-2 py-1 rounded bg-emerald-50 border border-emerald-500/30">
+        <Check className="h-3 w-3" /> Aceptada por propietario
+      </span>
+    );
+  }
+  return <InspectionStatusBadge status={status} />;
+}
+
 export type ReviewMode = 'inspection' | 'repairs' | 'quotation' | 'publish';
 
 interface StepDef {
