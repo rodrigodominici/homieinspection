@@ -56,7 +56,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
   const {
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
-    contractorTotal, clientTotal,
+    contractorTotal, clientTotal, selectedContractorId,
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
