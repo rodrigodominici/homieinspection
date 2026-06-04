@@ -160,6 +160,11 @@ export default function ExecutiveReviewDetail() {
     [sections]
   );
 
+  const metaSections = useMemo(
+    () => sections.filter(s => s.section_type === 'property_meta' || s.section_type === 'handover_meta'),
+    [sections]
+  );
+
   const missingSections = useMemo(
     () => operationalSections.filter(s => requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim()),
     [operationalSections, finalObservations]
@@ -168,8 +173,8 @@ export default function ExecutiveReviewDetail() {
   const showObservationWarnings = !['approved', 'published'].includes(inspection?.status ?? '');
 
   const activeSection = useMemo(
-    () => operationalSections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null,
-    [operationalSections, activeSectionId]
+    () => sections.find(s => s.id === activeSectionId) ?? operationalSections[0] ?? null,
+    [sections, operationalSections, activeSectionId]
   );
 
   const isPublished = !!inspection?.published_at;
@@ -371,6 +376,7 @@ export default function ExecutiveReviewDetail() {
           <div className={`hidden lg:grid ${gridCols} h-[calc(100vh-7rem)]`}>
             <SectionSidebar
               operationalSections={operationalSections}
+              metaSections={metaSections}
               activeSectionId={activeSectionId}
               onSelectSection={setActiveSectionId}
               repairsBySection={repairsBySection}
