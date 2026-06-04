@@ -49,6 +49,7 @@ interface WorkflowStepperProps {
   onModeChange: (m: ReviewMode) => void;
   onBack: () => void;
 
+
   // For step badges + the budget chip
   pendingDecisionsCount: number;
   repairsCount: number;
