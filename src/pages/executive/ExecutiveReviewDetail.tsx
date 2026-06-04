@@ -315,6 +315,7 @@ export default function ExecutiveReviewDetail() {
         depositDiff={depositDiff}
         contractorTotal={contractorTotal}
         clientTotal={clientTotal}
+        selectedContractorId={selectedContractorId}
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         lastActiveRelative={lastActiveRelative}
