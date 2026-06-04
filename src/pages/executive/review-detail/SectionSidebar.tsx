@@ -1,5 +1,4 @@
 import { Progress } from '@/components/ui/progress';
-import { SectionStatusBadge } from '@/components/StatusBadge';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InspectionSection } from '@/lib/types';
