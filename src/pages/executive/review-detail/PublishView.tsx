@@ -219,6 +219,16 @@ export function PublishView(props: PublishViewProps) {
         </div>
       )}
 
+      {/* Owner feedback panel */}
+      {isPublished && (
+        <OwnerFeedbackPanel
+          inspectionId={inspection.id}
+          ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
+          lastSubmittedAt={(inspection as any).owner_feedback_last_submitted_at}
+          onGoToCotizacion={onGoToRepairs}
+        />
+      )}
+
       {/* Share surface */}
       {isPublished && (
         <div className="rounded-lg border bg-card p-4 space-y-3">
