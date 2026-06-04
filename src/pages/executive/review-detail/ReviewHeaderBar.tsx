@@ -180,7 +180,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                  <FileText className="mr-1 h-3.5 w-3.5" /> Documentos <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
+                  <FileText className="mr-1 h-3.5 w-3.5" /> Cotizaciones <ChevronDown className="ml-0.5 h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
