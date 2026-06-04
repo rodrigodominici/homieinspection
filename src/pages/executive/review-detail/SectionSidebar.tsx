@@ -70,7 +70,7 @@ export function SectionSidebar({
               {repairLabel ? (
                 <span className="shrink-0 text-tiny text-muted-foreground tabular-nums">{repairLabel}</span>
               ) : (
-                <SectionStatusBadge status={s.status} />
+                <span className="shrink-0 text-tiny text-muted-foreground/60">Sin reparaciones</span>
               )}
             </div>
           </button>
