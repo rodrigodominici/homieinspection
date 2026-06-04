@@ -8,6 +8,7 @@ import { ChevronRight, Eye, EyeOff, Plus, Trash2, Wrench, X } from 'lucide-react
 import { cn } from '@/lib/utils';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { fmtCurrency } from './helpers';
+import { ContractorPicker } from './ContractorPicker';
 
 interface SectionRepairsPanelProps {
   section: InspectionSection;
@@ -22,6 +23,12 @@ interface SectionRepairsPanelProps {
   onClose?: () => void;
   /** Visual chrome: 'inline' (panel inside layout) or 'sheet' (inside Sheet). */
   variant?: 'inline' | 'sheet';
+  /** Contractor selection — moved here from header bar for contextual relevance. */
+  contractors?: Array<{ id: string; name: string; country: string }>;
+  selectedContractorId?: string | null;
+  onContractorChange?: (id: string) => void;
+  contractorTotal?: number;
+  utility?: number;
 }
 
 /**
@@ -33,6 +40,7 @@ export function SectionRepairsPanel({
   section, repairs, hasContractor,
   expandedRepairId, onToggleExpand, onOpenCatalog, onUpdateRepair, onDeleteRepair,
   onClose, variant = 'inline',
+  contractors, selectedContractorId, onContractorChange, contractorTotal = 0, utility = 0,
 }: SectionRepairsPanelProps) {
   const subtotalClient = repairs
     .filter((r) => r.visible_to_owner)
@@ -41,16 +49,28 @@ export function SectionRepairsPanel({
   return (
     <div className={cn('flex flex-col h-full bg-card', variant === 'inline' && 'border-l')}>
       {/* Header */}
-      <div className="px-5 py-4 border-b flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="text-base font-semibold truncate">Reparaciones</p>
-          <span className="text-xs font-normal text-muted-foreground truncate">· {section.section_title}</span>
+      <div className="px-5 py-3 border-b space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-base font-semibold truncate">Reparaciones</p>
+            <span className="text-xs font-normal text-muted-foreground truncate">· {section.section_title}</span>
+          </div>
+          {onClose && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose} aria-label="Cerrar">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-        {onClose && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose} aria-label="Cerrar">
-            <X className="h-4 w-4" />
-          </Button>
+        {/* Contractor picker — contextually placed here since it drives repair costs */}
+        {contractors && onContractorChange && (
+          <ContractorPicker
+            contractors={contractors}
+            selectedContractorId={selectedContractorId ?? null}
+            onContractorChange={onContractorChange}
+            contractorTotal={contractorTotal}
+            utility={utility}
+          />
         )}
       </div>
 

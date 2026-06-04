@@ -13,6 +13,11 @@ interface SectionRepairsDrawerProps {
   onOpenCatalog: () => void;
   onUpdateRepair: (id: string, field: string, value: any) => void;
   onDeleteRepair: (id: string) => void;
+  contractors?: Array<{ id: string; name: string; country: string }>;
+  selectedContractorId?: string | null;
+  onContractorChange?: (id: string) => void;
+  contractorTotal?: number;
+  utility?: number;
 }
 
 /**

@@ -4,15 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
-  ArrowUpDown, Key,
+  ArrowUpDown, Key, Check, ChevronRight,
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -170,11 +170,11 @@ export default function ExecutiveReviewQueue() {
           <>
             {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              <KpiCard label="Para revisar"     value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}            accent="blue"  onClick={() => setStatusFilter('submitted')} />
-              <KpiCard label="En revisión"      value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}                  accent="blue"  onClick={() => setStatusFilter('in_review')} />
-              <KpiCard label="En corrección"    value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-status-bad" />}           accent="amber" onClick={() => setStatusFilter('needs_changes')} />
-              <KpiCard label="Para publicar"    value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}                 accent="blue"  onClick={() => setStatusFilter('approved')} />
-              <KpiCard label="Publicadas"       value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}          accent="green" onClick={() => setStatusFilter('published')} />
+              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
+              <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
+              <KpiCard label="En corrección" value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-status-bad" />}        accent="amber" active={statusFilter === 'needs_changes'}  onClick={() => setStatusFilter(statusFilter === 'needs_changes'  ? 'all' : 'needs_changes')} />
+              <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
+              <KpiCard label="Publicadas"    value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" active={statusFilter === 'published'}      onClick={() => setStatusFilter(statusFilter === 'published'      ? 'all' : 'published')} />
             </div>
 
             {/* Filters */}
@@ -228,17 +228,24 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={sortKey} onValueChange={(v) => persistSortKey(v as SortKey)}>
-                <SelectTrigger className="w-[240px] h-9 text-caption rounded-lg bg-card">
-                  <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5 text-caption rounded-lg bg-card">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    Ordenar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
                   {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
-                    <SelectItem key={k} value={k}>{label}</SelectItem>
+                    <DropdownMenuItem key={k} onClick={() => persistSortKey(k)} className="gap-2">
+                      {sortKey === k
+                        ? <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                        : <span className="h-3.5 w-3.5 shrink-0" />}
+                      {label}
+                    </DropdownMenuItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </FiltersBar>
 
             {/* Content — 4 groups job-to-be-done */}
@@ -416,50 +423,56 @@ function InspectionRow({
   return (
     <Link to={`/executive/inspection/${insp.id}`}>
       <Card className={cn(
-        'border-0 shadow-sm hover:shadow-md transition-shadow ring-1 ring-border rounded-xl',
-        isActionable && 'border-l-2 border-l-primary/60',
+        'border-0 shadow-sm hover:shadow-md transition-all ring-1 ring-border rounded-xl',
+        isActionable && 'ring-primary/30 bg-primary/[0.018]',
       )}>
-        <CardContent className="py-2 px-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5 flex-1 min-w-0">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-start justify-between gap-4">
+            {/* ── Main info ── */}
+            <div className="flex-1 min-w-0 space-y-1">
+              {/* Line 1: name + status */}
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+                <p className="font-semibold leading-tight truncate">{insp.property_name ?? insp.property_id}</p>
                 <StatusBadge status={insp.status} />
               </div>
-              <p className="text-caption text-muted-foreground">{insp.address}</p>
-              <div className="flex items-center gap-x-2 gap-y-0.5 text-tiny text-muted-foreground flex-wrap">
-                <span>{insp.market}</span>
-                {inspectorName && <span className="font-medium text-foreground/70">Inspector: {inspectorName}</span>}
-                <span>{insp.inspection_type}</span>
+              {/* Line 2: address · inspector */}
+              <p className="text-caption text-muted-foreground truncate">
+                {insp.address}
+                {inspectorName && <span className="text-muted-foreground/60"> · {inspectorName}</span>}
+              </p>
+              {/* Line 3: meta */}
+              <div className="flex items-center gap-x-3 text-tiny text-muted-foreground flex-wrap">
+                <span>{insp.market} · {insp.inspection_type}</span>
                 {bucket === 'in_correction' && contractEndLabel ? (
                   <span>Término: {contractEndLabel}</span>
                 ) : (
                   <span className="flex items-center gap-1">
                     <Key className="h-3 w-3" />
-                    {keyDateLabel ? `Recolección: ${keyDateLabel}` : 'Sin fecha de recolección'}
+                    {keyDateLabel ?? 'Sin fecha de recolección'}
+                  </span>
+                )}
+                {progressLabel && (
+                  <span className="flex items-center gap-1.5">
+                    {progressLabel}
+                    {lastActive && <span className="text-muted-foreground/60 flex items-center gap-0.5"><Clock className="h-3 w-3" />{lastActive}</span>}
                   </span>
                 )}
               </div>
-
-              {progressLabel && (
-                <div className="flex items-center gap-3">
-                  {showProgressBar && (
-                    <div className="flex items-center gap-2 flex-1 max-w-[180px]">
-                      <Progress value={progress.percent} className="h-1.5" />
-                    </div>
-                  )}
-                  <span className="text-tiny text-muted-foreground shrink-0">{progressLabel}</span>
-                  {lastActive && (
-                    <span className="text-tiny text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {lastActive}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
-            <Button variant={cta.variant} size="sm" className="shrink-0 rounded-lg">
-              {cta.icon} {cta.label}
-            </Button>
+
+            {/* ── Action label pill ── */}
+            <span className={cn(
+              'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 mt-0.5',
+              cta.variant === 'default'
+                ? 'bg-primary text-primary-foreground'
+                : cta.variant === 'outline'
+                  ? 'border border-border text-muted-foreground'
+                  : 'bg-muted text-muted-foreground',
+            )}>
+              {cta.icon}
+              <span className="hidden sm:inline">{cta.label}</span>
+              <ChevronRight className="h-3 w-3 opacity-60" />
+            </span>
           </div>
         </CardContent>
       </Card>

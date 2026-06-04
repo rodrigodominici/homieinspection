@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
-import { ContractorPicker } from './ContractorPicker';
 import { RequestChangesPanel } from './RequestChangesPanel';
 import { InspectorProgressCard } from './InspectorProgressCard';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
@@ -24,11 +23,7 @@ interface ReviewHeaderBarProps {
   warrantyDeposit: number | null;
   depositDiff: number | null;
   contractorTotal: number;
-  utility: number;
   clientTotal: number;
-  contractors: Array<{ id: string; name: string; country: string }>;
-  selectedContractorId: string | null;
-  onContractorChange: (id: string) => void;
   inspectorProgressLabel: string;
   progress: { completed: number; total: number };
   lastActiveRelative: string | null;
@@ -60,7 +55,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
   const {
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
-    contractorTotal, utility, clientTotal, contractors, selectedContractorId, onContractorChange,
+    contractorTotal, clientTotal,
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
@@ -99,7 +94,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               address={inspection.address}
             />
           </div>
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
               <>
                 <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
@@ -212,15 +207,6 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
               {allRepairs.length > 0 && <span className="ml-1 opacity-80">· {allRepairs.length}</span>}
             </Button>
 
-            <div className="h-5 w-px bg-border mx-1" aria-hidden />
-
-            <ContractorPicker
-              contractors={contractors}
-              selectedContractorId={selectedContractorId}
-              onContractorChange={onContractorChange}
-              contractorTotal={contractorTotal}
-              utility={utility}
-            />
           </div>
         </div>
 

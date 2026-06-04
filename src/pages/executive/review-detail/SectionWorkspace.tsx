@@ -103,16 +103,21 @@ export function SectionWorkspace({
       {/* Side-by-side observations — public (left border primary) vs internal (gray bg) */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-border/60 p-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observación del Inspector</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-medium text-muted-foreground">Observación del Inspector</p>
+          </div>
           <p className="text-caption whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>
         <div className="rounded-lg border border-border/60 border-l-[3px] border-l-primary p-3 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
-                <Globe className="h-3 w-3 text-primary" />
-                Observación Final · Visible para propietario/inquilino
-              </p>
+              <div className="flex items-center gap-2 cursor-help">
+                <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-primary" />
+                  Observación Final
+                </p>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-primary/10 text-primary">Público</span>
+              </div>
             </TooltipTrigger>
             <TooltipContent>Este texto aparecerá en el reporte público</TooltipContent>
           </Tooltip>
@@ -127,13 +132,16 @@ export function SectionWorkspace({
       </div>
 
       {/* Internal note — gray background, lock icon */}
-      <div className="space-y-1.5 rounded-lg bg-muted/40 p-3">
+      <div className="space-y-1.5 rounded-lg bg-muted/40 border border-border/40 p-3">
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 cursor-help">
-              <LockIcon className="h-3 w-3" />
-              Comentario Interno · Solo visible para el equipo
-            </p>
+            <div className="flex items-center gap-2 cursor-help">
+              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <LockIcon className="h-3.5 w-3.5" />
+                Comentario Interno
+              </p>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-muted-foreground/15 text-muted-foreground">Solo equipo</span>
+            </div>
           </TooltipTrigger>
           <TooltipContent>Este texto NO aparece en el reporte público</TooltipContent>
         </Tooltip>
@@ -166,7 +174,10 @@ export function SectionWorkspace({
             onClick={onOpenRepairsDrawer}
             className="h-8 text-xs w-full sm:w-auto shrink-0"
           >
-            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación
+            {repairs.length > 0
+              ? <><ChevronRight className="mr-1 h-3.5 w-3.5" /> Ver reparaciones ({repairs.length})</>
+              : <><Plus className="mr-1 h-3.5 w-3.5" /> Agregar reparación</>
+            }
           </Button>
         </div>
         {repairs.length === 0 ? (

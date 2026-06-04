@@ -15,6 +15,8 @@ interface KpiCardProps {
   trendSuffix?: string;
   /** When provided, the card becomes clickable (e.g. to apply a filter). */
   onClick?: () => void;
+  /** Highlight the card as the active filter. */
+  active?: boolean;
 }
 
 const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
@@ -25,7 +27,7 @@ const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
 };
 
 export function KpiCard({
-  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick,
+  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick, active,
 }: KpiCardProps) {
   const showTrend = typeof trend === "number";
   const goingUp = (trend ?? 0) > 0;
@@ -48,6 +50,7 @@ export function KpiCard({
         "rounded-xl border border-border bg-card p-4",
         accent && ACCENT_CLASS[accent],
         onClick && "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active && "ring-2 ring-primary ring-offset-2 bg-primary/5",
       )}
     >
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>

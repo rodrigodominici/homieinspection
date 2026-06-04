@@ -314,11 +314,7 @@ export default function ExecutiveReviewDetail() {
         warrantyDeposit={warrantyDeposit}
         depositDiff={depositDiff}
         contractorTotal={contractorTotal}
-        utility={utility}
         clientTotal={clientTotal}
-        contractors={contractors}
-        selectedContractorId={selectedContractorId}
-        onContractorChange={actions.handleContractorChange}
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         lastActiveRelative={lastActiveRelative}
@@ -418,6 +414,11 @@ export default function ExecutiveReviewDetail() {
                   onDeleteRepair={actions.deleteRepairItem}
                   onClose={() => setRepairsDrawerSectionId(null)}
                   variant="inline"
+                  contractors={contractors}
+                  selectedContractorId={selectedContractorId}
+                  onContractorChange={actions.handleContractorChange}
+                  contractorTotal={contractorTotal}
+                  utility={utility}
                 />
               </aside>
             ) : (
@@ -471,6 +472,11 @@ export default function ExecutiveReviewDetail() {
             onOpenCatalog={() => actions.openCatalog(sec.id)}
             onUpdateRepair={actions.updateRepairItem}
             onDeleteRepair={actions.deleteRepairItem}
+            contractors={contractors}
+            selectedContractorId={selectedContractorId}
+            onContractorChange={actions.handleContractorChange}
+            contractorTotal={contractorTotal}
+            utility={utility}
           />
         );
       })()}
