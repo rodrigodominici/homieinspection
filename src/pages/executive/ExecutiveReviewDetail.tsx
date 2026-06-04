@@ -26,6 +26,7 @@ import {
   SubmittedBanner,
   MobileReviewView,
   WorkflowStepper,
+  PropertyContextBar,
   PendingDecisionsBanner,
   RepairsTableView,
   QuotationView,
