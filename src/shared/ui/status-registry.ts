@@ -43,6 +43,7 @@ export const INSPECTION_STATUS: Record<InspectionStatus, StatusEntry> = {
   needs_changes:      { label: "Requiere cambios",   tone: "needs-changes", actionable: true },
   approved:           { label: "Aprobada",           tone: "approved" },
   published:          { label: "Publicada",          tone: "published" },
+  accepted:           { label: "Aceptada",           tone: "approved" },
   sent:               { label: "Entregada",          tone: "published" },
 };
 
