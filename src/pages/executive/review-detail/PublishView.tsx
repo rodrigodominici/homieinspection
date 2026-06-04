@@ -50,7 +50,7 @@ export function PublishView(props: PublishViewProps) {
     returnMode, setReturnMode, selectedReturnSectionsCount, onReturnForChanges,
     onToggleReturnSection, selectedReturnSections,
     onApprove, onPublish, onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
-    onGoToInspection,
+    onGoToInspection, onGoToRepairs,
   } = props;
 
   const checks: ChecklistRow[] = [
