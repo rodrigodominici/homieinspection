@@ -180,7 +180,9 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
     owner_url_generated_at: now,
     approved_at: now,
     approved_by: profileId,
-  }).eq('id', inspection.id);
+    // Re-publishing resets the owner feedback loop for the new version.
+    owner_feedback_status: 'none',
+  } as any).eq('id', inspection.id);
 
   const origin = window.location.origin;
   return {
