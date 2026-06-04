@@ -117,6 +117,7 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
       repairs: visibleRepairs
         .filter((r) => r.inspection_section_id === s.id)
         .map((r) => ({
+          id: r.id,
           name: r.owner_friendly_name_snapshot || r.title_snapshot,
           description: r.description_snapshot,
           category: r.category_snapshot,
