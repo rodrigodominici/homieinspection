@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Eye, EyeOff, Trash2, Plus, Search, Wrench } from 'lucide-react';
+import { Trash2, Plus, Search, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
