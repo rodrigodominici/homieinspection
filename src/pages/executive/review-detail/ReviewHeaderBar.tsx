@@ -24,6 +24,7 @@ interface ReviewHeaderBarProps {
   depositDiff: number | null;
   contractorTotal: number;
   clientTotal: number;
+  selectedContractorId: string | null;
   inspectorProgressLabel: string;
   progress: { completed: number; total: number };
   lastActiveRelative: string | null;
