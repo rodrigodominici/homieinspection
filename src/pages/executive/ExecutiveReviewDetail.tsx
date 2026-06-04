@@ -325,6 +325,7 @@ export default function ExecutiveReviewDetail() {
         repairsCount={allRepairs.length}
         grandTotal={budgetBreakdown.grandTotal}
         isPublished={isPublished}
+        ownerFeedbackStatus={(inspection as any).owner_feedback_status}
       />
 
       {mode === 'inspection' && (
