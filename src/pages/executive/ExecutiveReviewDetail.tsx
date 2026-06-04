@@ -77,6 +77,9 @@ export default function ExecutiveReviewDetail() {
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
+  // Workflow mode (top-rail stepper drives the rendered view).
+  const [mode, setMode] = useState<ReviewMode>('inspection');
+
   // Repairs side drawer (desktop). Holds the section id whose repairs are open.
   const [repairsDrawerSectionId, setRepairsDrawerSectionId] = useState<string | null>(null);
   // Which repair row inside the drawer is expanded for editing (accordion).
