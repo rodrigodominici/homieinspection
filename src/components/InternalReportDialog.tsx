@@ -26,6 +26,7 @@ interface InternalReportDialogProps {
   inspection: Inspection;
   operationalSections: InspectionSection[];
   allRepairs: InspectionRepairItem[];
+  contractorName?: string | null;
 }
 
 // ─── Formatting helpers ─────────────────────────────
@@ -44,6 +45,10 @@ const PRINT_CSS = `
   .doc-title { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
   .doc-subtitle { font-size: 11px; color: #555; margin-bottom: 2px; }
   .doc-date { font-size: 10px; color: #777; margin-bottom: 6px; }
+  .doc-contractor {
+    font-size: 11px; color: #333; margin-bottom: 4px;
+  }
+  .doc-contractor strong { font-weight: 600; }
   .confidential {
     display: inline-block; font-size: 9px; font-weight: 700;
     letter-spacing: .08em; text-transform: uppercase;
@@ -112,6 +117,7 @@ function buildPrintBody(
   ownerVat: ReturnType<typeof applyVat>,
   tenantVat: ReturnType<typeof applyVat>,
   today: string,
+  contractorName?: string | null,
 ): string {
   const esc = (s: string | null | undefined) =>
     (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -189,6 +195,7 @@ function buildPrintBody(
     <div class="doc-title">${esc(inspection.property_name ?? inspection.property_id)}</div>
     ${inspection.address ? `<div class="doc-subtitle">${esc(inspection.address)}</div>` : ''}
     <div class="doc-date">${today}</div>
+    ${contractorName ? `<div class="doc-contractor"><strong>Contratista:</strong> ${esc(contractorName)}</div>` : ''}
     <div class="confidential">Confidencial — uso interno</div>
 
     ${payerSection('Propietario', '', ownerRepairs, ownerVat)}
@@ -218,7 +225,7 @@ function buildPrintBody(
 
 // ─── Component ──────────────────────────────────────
 export function InternalReportDialog({
-  open, onOpenChange, inspection, operationalSections, allRepairs,
+  open, onOpenChange, inspection, operationalSections, allRepairs, contractorName,
 }: InternalReportDialogProps) {
   const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
 
@@ -260,7 +267,7 @@ export function InternalReportDialog({
     const body = buildPrintBody(
       inspection, ownerRepairs, tenantRepairs,
       categoryRows, grandVenta, grandCosto, grandUtil,
-      ownerVat, tenantVat, today,
+      ownerVat, tenantVat, today, contractorName,
     );
     const title = `Informe Interno — ${inspection.property_name ?? inspection.property_id}`;
     const win = window.open('', '_blank', 'width=960,height=1200');
@@ -365,6 +372,11 @@ export function InternalReportDialog({
             <h1 className="text-body-lg font-bold leading-tight">{inspection.property_name ?? inspection.property_id}</h1>
             {inspection.address && <p className="text-caption text-muted-foreground">{inspection.address}</p>}
             <p className="text-[11px] text-muted-foreground mt-0.5">{today}</p>
+            {contractorName && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                <span className="font-semibold text-foreground">Contratista:</span> {contractorName}
+              </p>
+            )}
             <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest text-red-600 border border-red-300 bg-red-50 px-2 py-0.5 rounded">
               Confidencial — uso interno
             </span>

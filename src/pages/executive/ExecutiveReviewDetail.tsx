@@ -518,6 +518,7 @@ export default function ExecutiveReviewDetail() {
         inspection={inspection}
         operationalSections={operationalSections}
         allRepairs={allRepairs}
+        contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
       />
     </div>
     </ExecutiveLayout>
