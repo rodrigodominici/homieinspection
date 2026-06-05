@@ -304,7 +304,7 @@ export default function InspectorInspectionDetail() {
   };
 
   const handleStart = async () => {
-    if (!keyCollectionCoordinated) {
+    if (inspection.status === 'assigned' && !keyCollectionCoordinated) {
       toast({
         title: 'Fecha de recolección requerida',
         description: 'Debes cargar la fecha de recolección de llaves antes de iniciar la inspección.',
