@@ -291,7 +291,7 @@ function DecisionBadge({ decision }: { decision: Decision }) {
   );
 }
 
-/** Single repair row — vertical on mobile, two-column on sm+. */
+/** Single repair row — vertical on mobile, two-column on sm+. Tinted per decision. */
 function RepairRow({
   r,
   interactive,
@@ -306,17 +306,30 @@ function RepairRow({
   lockedDecision?: OwnerDecision;
 }) {
   const subtotal = Number(r.subtotal ?? r.quantity * r.unit_price);
+  const decision = interactive ? state?.decision ?? null : lockedDecision?.decision ?? null;
+
+  const wrapperByDecision: Record<string, string> = {
+    accepted: 'border-primary/30 bg-primary/[0.04]',
+    observed: 'border-amber-300/70 bg-amber-50/40',
+    rejected: 'border-border bg-muted/40 opacity-70',
+  };
+  const wrapperCls = decision
+    ? wrapperByDecision[decision]
+    : 'border-border/60 bg-background/40';
+
+  const isRejected = decision === 'rejected';
+
   return (
-    <div className="py-3 first:pt-0 last:pb-0">
+    <div className={`rounded-lg border p-3 sm:p-4 transition-colors ${wrapperCls}`}>
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-body font-medium leading-snug">{r.name}</p>
+          <p className={`text-body font-medium leading-snug ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{r.name}</p>
           {r.description && (
             <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
           )}
         </div>
         <div className="sm:text-right shrink-0">
-          <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
+          <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
         </div>
       </div>
 
@@ -357,7 +370,9 @@ function RepairGroup({
   lockedDecisions?: Map<string, OwnerDecision>;
 }) {
   if (items.length === 0) return null;
-  const subtotal = sumRepairs(items);
+  const fullSubtotal = sumRepairs(items);
+  const { projected, rejected } = projectedSum(items, decisionState, !!interactive);
+  const showProjected = !!interactive && rejected > 0;
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -366,9 +381,14 @@ function RepairGroup({
             ? 'text-tiny font-semibold uppercase tracking-wide text-muted-foreground'
             : 'text-caption font-semibold uppercase tracking-wide text-foreground'
         }>{title}</h3>
-        <span className="text-caption font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</span>
+        <div className="flex items-baseline gap-2 whitespace-nowrap">
+          {showProjected && (
+            <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(fullSubtotal)}</span>
+          )}
+          <span className="text-caption font-mono tabular-nums font-medium text-foreground">{fmt(projected)}</span>
+        </div>
       </div>
-      <div className="divide-y divide-border/60 rounded-lg border border-border/60 bg-background/40 px-3 sm:px-4">
+      <div className="space-y-2">
         {items.map((r, i) => (
           <RepairRow
             key={r.id ?? i}
