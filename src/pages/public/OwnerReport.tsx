@@ -851,6 +851,12 @@ export default function OwnerReport() {
                             <span className="font-mono tabular-nums">−{fmt(tenantRejected)}</span>
                           </div>
                         )}
+                        {discountAmountTenant > 0 && (
+                          <div className="flex items-center justify-between text-caption text-primary">
+                            <span>Descuento comercial</span>
+                            <span className="font-mono tabular-nums">−{fmt(discountAmountTenant)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
