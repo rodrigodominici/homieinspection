@@ -753,10 +753,10 @@ export default function OwnerReport() {
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
                     <RepairGroup title="Opcionales" items={buckets.owner.optional} variant="subtle"
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    {ownerTotal === 0 && (
+                    {ownerTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
-                    {ownerTotal > 0 && (
+                    {ownerTotalFull > 0 && (
                       <div className="space-y-1 border-t pt-3">
                         <div className="flex items-center justify-between">
                           <span className="text-body font-semibold">Subtotal propietario</span>
