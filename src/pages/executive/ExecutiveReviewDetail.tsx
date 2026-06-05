@@ -485,6 +485,15 @@ export default function ExecutiveReviewDetail() {
         <div className="hidden lg:block h-[calc(100vh-7rem)]">
           <QuotationView
             budgetBreakdown={budgetBreakdown}
+            discountBreakdown={discountBreakdown}
+            activeDiscount={activeDiscountInput}
+            discountReason={discountState.discount?.discount_reason ?? null}
+            onOpenDiscount={() => setDiscountSheetOpen(true)}
+            onRemoveDiscount={async () => {
+              try { await discountState.remove(); toast({ title: 'Descuento eliminado' }); }
+              catch (e: any) { toast({ title: 'No se pudo eliminar', description: e?.message, variant: 'destructive' }); }
+            }}
+            discountSaving={discountState.saving}
             clientTotal={clientTotal}
             contractorTotal={contractorTotal}
             utility={utility}
