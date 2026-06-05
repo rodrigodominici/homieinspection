@@ -558,6 +558,10 @@ export default function OwnerReport() {
   const tenantItems = buckets ? [...buckets.tenant.required, ...buckets.tenant.optional] : [];
   const ownerSums  = projectedSum(ownerItems,  decisions, interactive);
   const tenantSums = projectedSum(tenantItems, decisions, interactive);
+  // Full (pre-decision) totals — used for empty-state guards so the UI doesn't disappear when the owner rejects everything.
+  const ownerTotalFull  = sumRepairs(ownerItems);
+  const tenantTotalFull = sumRepairs(tenantItems);
+  const grandTotalFull  = ownerTotalFull + tenantTotalFull;
   // "Total" = projected (excluding rejected when interactive). Pending items still count.
   const ownerTotal  = ownerSums.projected;
   const tenantTotal = tenantSums.projected;
