@@ -8,6 +8,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTaxConfig } from '@/lib/tax';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { fetchActiveDiscount } from './quotation-discount.service';
+import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import type { Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 export async function startReview(inspectionId: string): Promise<void> {
