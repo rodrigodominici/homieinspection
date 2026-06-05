@@ -728,8 +728,7 @@ export default function OwnerReport() {
                   Revisa cada reparación
                 </p>
                 <p className="text-tiny text-muted-foreground mt-0.5">
-                  Por cada reparación marca <strong>Aceptar</strong>, <strong>Observar</strong> o <strong>Rechazar</strong>.
-                  Cuando termines, envía tu respuesta. Si aceptas todas, el reporte queda confirmado.
+                  Marca <strong>Aceptar</strong>, <strong>Observar</strong> o <strong>Rechazar</strong> en cada una. El total se actualiza en tiempo real para que veas cuánto pagarías. Si aceptas todas, el reporte queda confirmado.
                 </p>
               </div>
             )}
