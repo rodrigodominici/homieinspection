@@ -548,9 +548,24 @@ export default function OwnerReport() {
   }
 
   const { property, published_at, fecha_recoleccion_llaves } = report;
-  const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
-  const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
+
+  // Decide if the owner can interact with the form (computed early so totals can use it).
+  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
+  const showLockedBanner = isOwnerAudience && locked;
+  const acceptedFinal = report.owner_feedback_status === 'accepted';
+
+  const ownerItems  = buckets ? [...buckets.owner.required,  ...buckets.owner.optional]  : [];
+  const tenantItems = buckets ? [...buckets.tenant.required, ...buckets.tenant.optional] : [];
+  const ownerSums  = projectedSum(ownerItems,  decisions, interactive);
+  const tenantSums = projectedSum(tenantItems, decisions, interactive);
+  // "Total" = projected (excluding rejected when interactive). Pending items still count.
+  const ownerTotal  = ownerSums.projected;
+  const tenantTotal = tenantSums.projected;
   const grandTotal  = ownerTotal + tenantTotal;
+  const ownerRejected  = ownerSums.rejected;
+  const tenantRejected = tenantSums.rejected;
+  const grandRejected  = ownerRejected + tenantRejected;
+
   const tax = report.tax_config;
   const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
   const vatPct = Number(tax?.percentage ?? 0);
@@ -567,10 +582,6 @@ export default function OwnerReport() {
 
   const handleDownloadPdf = () => window.print();
 
-  // Decide if the owner can interact with the form.
-  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
-  const showLockedBanner = isOwnerAudience && locked;
-  const acceptedFinal = report.owner_feedback_status === 'accepted';
 
   return (
     <div className="min-h-screen bg-background">
