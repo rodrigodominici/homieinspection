@@ -802,6 +802,12 @@ export default function OwnerReport() {
                           <span className="text-body font-semibold">Subtotal inquilino</span>
                           <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
                         </div>
+                        {interactive && tenantRejected > 0 && (
+                          <div className="flex items-center justify-between text-caption text-muted-foreground">
+                            <span>− Rechazado</span>
+                            <span className="font-mono tabular-nums">−{fmt(tenantRejected)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
