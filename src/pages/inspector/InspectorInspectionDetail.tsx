@@ -303,8 +303,12 @@ export default function InspectorInspectionDetail() {
     }
   };
 
+  const PRE_WORK_STATUSES = ['assigned', 'pending', 'pending_assignment'];
+  const notStartedYet = PRE_WORK_STATUSES.includes(inspection.status) && !inspection.started_at;
+  const blockStart = notStartedYet && !keyCollectionCoordinated;
+
   const handleStart = async () => {
-    if (inspection.status === 'assigned' && !keyCollectionCoordinated) {
+    if (blockStart) {
       toast({
         title: 'Fecha de recolección requerida',
         description: 'Debes cargar la fecha de recolección de llaves antes de iniciar la inspección.',
@@ -313,7 +317,7 @@ export default function InspectorInspectionDetail() {
       openKeyForm();
       return;
     }
-    if (inspection.status === 'assigned') {
+    if (PRE_WORK_STATUSES.includes(inspection.status)) {
       await supabase
         .from('inspections')
         .update({ status: 'in_progress', started_at: new Date().toISOString() })
