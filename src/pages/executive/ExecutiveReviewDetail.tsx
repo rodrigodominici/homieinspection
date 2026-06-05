@@ -82,6 +82,9 @@ export default function ExecutiveReviewDetail() {
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
+  // Quotation discount sheet
+  const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
+
   // Workflow mode (top-rail stepper drives the rendered view).
   const [mode, setMode] = useState<ReviewMode>('inspection');
 
