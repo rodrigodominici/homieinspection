@@ -90,6 +90,15 @@ interface OwnerDecision {
   comment: string | null;
 }
 
+interface PayloadDiscount {
+  type: 'percentage' | 'fixed';
+  value: number;
+  amount: number;
+  amount_owner?: number;
+  amount_tenant?: number;
+  reason?: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -103,6 +112,7 @@ interface ReportPayload {
   sections: PayloadSection[];
   budget_total: number;
   tax_config?: PayloadTaxConfig | null;
+  discount?: PayloadDiscount | null;
   published_at: string;
   fecha_recoleccion_llaves?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
