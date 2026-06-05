@@ -12,6 +12,9 @@ import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { InternalReportDialog } from '@/components/InternalReportDialog';
 import { useReviewDetail, useReviewActions } from '@/modules/review/api';
+import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
+import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
+import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
 import {
   PublishedUrlsDialog,
   MissingObservationsDialog,
@@ -30,6 +33,7 @@ import {
   PendingDecisionsBanner,
   RepairsTableView,
   QuotationView,
+  QuotationDiscountSheet,
   PublishView,
   type ReviewMode,
 } from './review-detail';
@@ -77,6 +81,9 @@ export default function ExecutiveReviewDetail() {
 
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+
+  // Quotation discount sheet
+  const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
 
   // Workflow mode (top-rail stepper drives the rendered view).
   const [mode, setMode] = useState<ReviewMode>('inspection');
@@ -156,6 +163,32 @@ export default function ExecutiveReviewDetail() {
   const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
   const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
   const utility = budgetBreakdown.grandTotal - contractorTotal;
+
+  // Tax config for the inspection market (loaded once, cached in tax.ts).
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+  useEffect(() => {
+    if (!inspection?.market) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig).catch(() => setTaxConfig(null));
+  }, [inspection?.market]);
+
+  // Active quotation discount.
+  const discountState = useQuotationDiscount(id, profile?.id);
+  const activeDiscountInput: QuotationDiscountInput | null = useMemo(
+    () => discountState.discount
+      ? { type: discountState.discount.discount_type, value: Number(discountState.discount.discount_value), reason: discountState.discount.discount_reason }
+      : null,
+    [discountState.discount],
+  );
+
+  const discountBreakdown = useMemo(
+    () => applyQuotationDiscount({
+      subtotalOwner: budgetBreakdown.ownerTotal,
+      subtotalTenant: budgetBreakdown.tenantTotal,
+      discount: activeDiscountInput,
+      taxConfig,
+    }),
+    [budgetBreakdown.ownerTotal, budgetBreakdown.tenantTotal, activeDiscountInput, taxConfig],
+  );
 
   const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
   const warrantyDeposit = typeof effectiveSnapshot.warranty_deposit === 'number' ? effectiveSnapshot.warranty_deposit : null;
@@ -452,6 +485,15 @@ export default function ExecutiveReviewDetail() {
         <div className="hidden lg:block h-[calc(100vh-7rem)]">
           <QuotationView
             budgetBreakdown={budgetBreakdown}
+            discountBreakdown={discountBreakdown}
+            activeDiscount={activeDiscountInput}
+            discountReason={discountState.discount?.discount_reason ?? null}
+            onOpenDiscount={() => setDiscountSheetOpen(true)}
+            onRemoveDiscount={async () => {
+              try { await discountState.remove(); toast({ title: 'Descuento eliminado' }); }
+              catch (e: any) { toast({ title: 'No se pudo eliminar', description: e?.message, variant: 'destructive' }); }
+            }}
+            discountSaving={discountState.saving}
             clientTotal={clientTotal}
             contractorTotal={contractorTotal}
             utility={utility}
@@ -590,6 +632,25 @@ export default function ExecutiveReviewDetail() {
         operationalSections={operationalSections}
         allRepairs={allRepairs}
         contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
+      />
+
+      {/* ── Quotation discount sheet ─────────────────── */}
+      <QuotationDiscountSheet
+        open={discountSheetOpen}
+        onOpenChange={setDiscountSheetOpen}
+        subtotalOwner={budgetBreakdown.ownerTotal}
+        subtotalTenant={budgetBreakdown.tenantTotal}
+        taxConfig={taxConfig}
+        initial={activeDiscountInput}
+        saving={discountState.saving}
+        onSubmit={async (input) => {
+          try {
+            await discountState.apply(input);
+            toast({ title: 'Descuento aplicado' });
+          } catch (e: any) {
+            toast({ title: 'No se pudo aplicar el descuento', description: e?.message, variant: 'destructive' });
+          }
+        }}
       />
     </div>
     </ExecutiveLayout>

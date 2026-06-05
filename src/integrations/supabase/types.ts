@@ -623,6 +623,62 @@ export type Database = {
           },
         ]
       }
+      inspection_quotation_discounts: {
+        Row: {
+          applied_at: string
+          applied_by: string | null
+          created_at: string
+          discount_reason: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          inspection_id: string
+          is_active: boolean
+          removed_at: string | null
+          removed_by: string | null
+          superseded_by_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          applied_by?: string | null
+          created_at?: string
+          discount_reason?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          inspection_id: string
+          is_active?: boolean
+          removed_at?: string | null
+          removed_by?: string | null
+          superseded_by_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          applied_by?: string | null
+          created_at?: string
+          discount_reason?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          inspection_id?: string
+          is_active?: boolean
+          removed_at?: string | null
+          removed_by?: string | null
+          superseded_by_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_quotation_discounts_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_quotation_discounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_repair_items: {
         Row: {
           category_snapshot: string | null

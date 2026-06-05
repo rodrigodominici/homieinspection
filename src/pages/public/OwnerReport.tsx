@@ -90,6 +90,15 @@ interface OwnerDecision {
   comment: string | null;
 }
 
+interface PayloadDiscount {
+  type: 'percentage' | 'fixed';
+  value: number;
+  amount: number;
+  amount_owner?: number;
+  amount_tenant?: number;
+  reason?: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -103,6 +112,7 @@ interface ReportPayload {
   sections: PayloadSection[];
   budget_total: number;
   tax_config?: PayloadTaxConfig | null;
+  discount?: PayloadDiscount | null;
   published_at: string;
   fecha_recoleccion_llaves?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
@@ -574,11 +584,35 @@ export default function OwnerReport() {
   const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
   const vatPct = Number(tax?.percentage ?? 0);
   const vatLabel = tax?.label || 'IVA';
+
+  // Commercial discount (applied before VAT). Prorated against the
+  // PROJECTED subtotal so the discount shrinks when items are rejected.
+  const discount = report.discount;
+  const subtotalAll = ownerTotal + tenantTotal;
+  const fullSubtotalAll = ownerTotalFull + tenantTotalFull;
+  let discountAmountOwner = 0;
+  let discountAmountTenant = 0;
+  if (discount && fullSubtotalAll > 0) {
+    // Scale the snapshot discount to the projected subtotal share.
+    const scale = subtotalAll / fullSubtotalAll;
+    const scaledTotal = Math.round(discount.amount * scale);
+    if (subtotalAll > 0) {
+      discountAmountTenant = Math.round((scaledTotal * tenantTotal) / subtotalAll);
+      discountAmountOwner = Math.min(ownerTotal, scaledTotal - discountAmountTenant);
+      // overflow safety
+      if (discountAmountOwner < 0) discountAmountOwner = 0;
+      if (discountAmountTenant > tenantTotal) discountAmountTenant = tenantTotal;
+    }
+  }
+  const discountAmount = discountAmountOwner + discountAmountTenant;
+  const ownerBase = Math.max(0, ownerTotal - discountAmountOwner);
+  const tenantBase = Math.max(0, tenantTotal - discountAmountTenant);
+
   const calcVat = (n: number) => (vatEnabled ? Math.round((n * vatPct) / 100) : 0);
-  const ownerVat = calcVat(ownerTotal);
-  const tenantVat = calcVat(tenantTotal);
-  const ownerTotalWithVat = ownerTotal + ownerVat;
-  const tenantTotalWithVat = tenantTotal + tenantVat;
+  const ownerVat = calcVat(ownerBase);
+  const tenantVat = calcVat(tenantBase);
+  const ownerTotalWithVat = ownerBase + ownerVat;
+  const tenantTotalWithVat = tenantBase + tenantVat;
   const grandTotalWithVat = ownerTotalWithVat + tenantTotalWithVat;
 
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
@@ -768,6 +802,12 @@ export default function OwnerReport() {
                             <span className="font-mono tabular-nums">−{fmt(ownerRejected)}</span>
                           </div>
                         )}
+                        {discountAmountOwner > 0 && (
+                          <div className="flex items-center justify-between text-caption text-primary">
+                            <span>Descuento comercial</span>
+                            <span className="font-mono tabular-nums">−{fmt(discountAmountOwner)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
@@ -811,6 +851,12 @@ export default function OwnerReport() {
                             <span className="font-mono tabular-nums">−{fmt(tenantRejected)}</span>
                           </div>
                         )}
+                        {discountAmountTenant > 0 && (
+                          <div className="flex items-center justify-between text-caption text-primary">
+                            <span>Descuento comercial</span>
+                            <span className="font-mono tabular-nums">−{fmt(discountAmountTenant)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
@@ -846,6 +892,19 @@ export default function OwnerReport() {
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">− Rechazado por ti</span>
                         <span className="text-body font-mono tabular-nums text-muted-foreground">−{fmt(grandRejected)}</span>
+                      </div>
+                    )}
+                    {discountAmount > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-primary font-medium">
+                          Descuento comercial
+                          {discount && (
+                            <span className="ml-1 text-muted-foreground font-normal">
+                              ({discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo'})
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmount)}</span>
                       </div>
                     )}
                     {vatEnabled && (
@@ -884,6 +943,12 @@ export default function OwnerReport() {
                       <span className="text-caption font-medium">Subtotal</span>
                       <span className="text-body font-mono tabular-nums">{fmt(tenantTotal)}</span>
                     </div>
+                    {discountAmountTenant > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-primary font-medium">Descuento comercial</span>
+                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmountTenant)}</span>
+                      </div>
+                    )}
                     {vatEnabled && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>

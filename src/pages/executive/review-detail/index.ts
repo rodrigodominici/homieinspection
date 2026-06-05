@@ -16,5 +16,6 @@ export { PropertyContextBar } from './PropertyContextBar';
 export { PendingDecisionsBanner } from './PendingDecisionsBanner';
 export { RepairsTableView } from './RepairsTableView';
 export { QuotationView } from './QuotationView';
+export { QuotationDiscountSheet } from './QuotationDiscountSheet';
 export { PublishView } from './PublishView';
 export { OwnerFeedbackPanel } from './OwnerFeedbackPanel';

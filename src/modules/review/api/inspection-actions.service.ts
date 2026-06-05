@@ -8,6 +8,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTaxConfig } from '@/lib/tax';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { fetchActiveDiscount } from './quotation-discount.service';
+import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import type { Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 export async function startReview(inspectionId: string): Promise<void> {
@@ -96,6 +98,27 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   const visibleRepairs = allRepairs.filter((r) => r.visible_to_owner);
   const visiblePhotos = Object.values(photosBySection).flat().filter((p: any) => p.visible_to_owner !== false);
   const taxConfig = await fetchTaxConfig(inspection.market);
+  const activeDiscount = await fetchActiveDiscount(inspection.id);
+  const discountInput: QuotationDiscountInput | null = activeDiscount
+    ? { type: activeDiscount.discount_type, value: Number(activeDiscount.discount_value), reason: activeDiscount.discount_reason }
+    : null;
+
+  // Subtotals for the discount snapshot are derived from the OWNER-VISIBLE
+  // (published) universe so the report's discount line ties out to what the
+  // owner actually sees in the budget tab.
+  const visibleSubtotalOwner = visibleRepairs
+    .filter((r) => r.payer_role !== 'tenant')
+    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+  const visibleSubtotalTenant = visibleRepairs
+    .filter((r) => r.payer_role === 'tenant')
+    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+
+  const discountBreakdown = applyQuotationDiscount({
+    subtotalOwner: visibleSubtotalOwner,
+    subtotalTenant: visibleSubtotalTenant,
+    discount: discountInput,
+    taxConfig,
+  });
 
   const payload = {
     property: {
@@ -136,6 +159,16 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
           percentage: Number(taxConfig.vat_percentage),
           label: taxConfig.vat_label,
           currency: taxConfig.currency,
+        }
+      : null,
+    discount: activeDiscount && discountBreakdown.discountAmount > 0
+      ? {
+          type: activeDiscount.discount_type,
+          value: Number(activeDiscount.discount_value),
+          amount: discountBreakdown.discountAmount,
+          amount_owner: discountBreakdown.discountOwner,
+          amount_tenant: discountBreakdown.discountTenant,
+          reason: activeDiscount.discount_reason,
         }
       : null,
     published_at: new Date().toISOString(),
