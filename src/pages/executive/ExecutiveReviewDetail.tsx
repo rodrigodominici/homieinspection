@@ -164,6 +164,32 @@ export default function ExecutiveReviewDetail() {
   const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
   const utility = budgetBreakdown.grandTotal - contractorTotal;
 
+  // Tax config for the inspection market (loaded once, cached in tax.ts).
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+  useEffect(() => {
+    if (!inspection?.market) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig).catch(() => setTaxConfig(null));
+  }, [inspection?.market]);
+
+  // Active quotation discount.
+  const discountState = useQuotationDiscount(id, profile?.id);
+  const activeDiscountInput: QuotationDiscountInput | null = useMemo(
+    () => discountState.discount
+      ? { type: discountState.discount.discount_type, value: Number(discountState.discount.discount_value), reason: discountState.discount.discount_reason }
+      : null,
+    [discountState.discount],
+  );
+
+  const discountBreakdown = useMemo(
+    () => applyQuotationDiscount({
+      subtotalOwner: budgetBreakdown.ownerTotal,
+      subtotalTenant: budgetBreakdown.tenantTotal,
+      discount: activeDiscountInput,
+      taxConfig,
+    }),
+    [budgetBreakdown.ownerTotal, budgetBreakdown.tenantTotal, activeDiscountInput, taxConfig],
+  );
+
   const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
   const warrantyDeposit = typeof effectiveSnapshot.warranty_deposit === 'number' ? effectiveSnapshot.warranty_deposit : null;
   // Deposit comparison is rebased on owner-mandatory items only (the deposit-relevant universe).
