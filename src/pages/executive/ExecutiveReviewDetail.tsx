@@ -10,7 +10,8 @@ import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
-import { InternalReportDialog } from '@/components/InternalReportDialog';
+import { ContractorQuotationDialog } from '@/components/ContractorQuotationDialog';
+import { WorkOrderDetailsDialog } from '@/components/WorkOrderDetailsDialog';
 import { useReviewDetail, useReviewActions } from '@/modules/review/api';
 import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
@@ -77,7 +78,8 @@ export default function ExecutiveReviewDetail() {
 
   // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
-  const [internalReportOpen, setInternalReportOpen] = useState(false);
+  const [contractorQuotationOpen, setContractorQuotationOpen] = useState(false);
+  const [workOrderDetailsOpen, setWorkOrderDetailsOpen] = useState(false);
 
   // Contractors (selection is local UI state; data comes from the hook)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
@@ -501,7 +503,8 @@ export default function ExecutiveReviewDetail() {
             depositDiff={depositDiff}
             hasRepairs={allRepairs.length > 0}
             onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
-            onOpenInternalReport={() => setInternalReportOpen(true)}
+            onOpenContractorQuotation={() => setContractorQuotationOpen(true)}
+            onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
             onGoToRepairs={() => setMode('repairs')}
             onGoToPublish={() => setMode('publish')}
           />
@@ -615,21 +618,31 @@ export default function ExecutiveReviewDetail() {
       />
 
 
-      {/* ── Quotation dialog ──────────────────────────── */}
+      {/* ── Quotation dialog (owner / tenant) ─────────── */}
       <QuotationDialog
         open={quotationDialog.open}
         onOpenChange={(open) => setQuotationDialog((q) => ({ ...q, open }))}
         payer={quotationDialog.payer}
         inspection={inspection}
         repairs={allRepairs}
+        operationalSections={operationalSections}
       />
 
-      {/* ── Internal full report (confidential) ──────── */}
-      <InternalReportDialog
-        open={internalReportOpen}
-        onOpenChange={setInternalReportOpen}
+      {/* ── Contractor quotation (confidential) ──────── */}
+      <ContractorQuotationDialog
+        open={contractorQuotationOpen}
+        onOpenChange={setContractorQuotationOpen}
         inspection={inspection}
         operationalSections={operationalSections}
+        allRepairs={allRepairs}
+        contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
+      />
+
+      {/* ── Work order details by category (confidential) ── */}
+      <WorkOrderDetailsDialog
+        open={workOrderDetailsOpen}
+        onOpenChange={setWorkOrderDetailsOpen}
+        inspection={inspection}
         allRepairs={allRepairs}
         contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
       />
