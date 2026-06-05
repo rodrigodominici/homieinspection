@@ -584,11 +584,35 @@ export default function OwnerReport() {
   const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
   const vatPct = Number(tax?.percentage ?? 0);
   const vatLabel = tax?.label || 'IVA';
+
+  // Commercial discount (applied before VAT). Prorated against the
+  // PROJECTED subtotal so the discount shrinks when items are rejected.
+  const discount = report.discount;
+  const subtotalAll = ownerTotal + tenantTotal;
+  const fullSubtotalAll = ownerTotalFull + tenantTotalFull;
+  let discountAmountOwner = 0;
+  let discountAmountTenant = 0;
+  if (discount && fullSubtotalAll > 0) {
+    // Scale the snapshot discount to the projected subtotal share.
+    const scale = subtotalAll / fullSubtotalAll;
+    const scaledTotal = Math.round(discount.amount * scale);
+    if (subtotalAll > 0) {
+      discountAmountTenant = Math.round((scaledTotal * tenantTotal) / subtotalAll);
+      discountAmountOwner = Math.min(ownerTotal, scaledTotal - discountAmountTenant);
+      // overflow safety
+      if (discountAmountOwner < 0) discountAmountOwner = 0;
+      if (discountAmountTenant > tenantTotal) discountAmountTenant = tenantTotal;
+    }
+  }
+  const discountAmount = discountAmountOwner + discountAmountTenant;
+  const ownerBase = Math.max(0, ownerTotal - discountAmountOwner);
+  const tenantBase = Math.max(0, tenantTotal - discountAmountTenant);
+
   const calcVat = (n: number) => (vatEnabled ? Math.round((n * vatPct) / 100) : 0);
-  const ownerVat = calcVat(ownerTotal);
-  const tenantVat = calcVat(tenantTotal);
-  const ownerTotalWithVat = ownerTotal + ownerVat;
-  const tenantTotalWithVat = tenantTotal + tenantVat;
+  const ownerVat = calcVat(ownerBase);
+  const tenantVat = calcVat(tenantBase);
+  const ownerTotalWithVat = ownerBase + ownerVat;
+  const tenantTotalWithVat = tenantBase + tenantVat;
   const grandTotalWithVat = ownerTotalWithVat + tenantTotalWithVat;
 
   const audienceLabel = audience === 'owner' ? 'Vista Propietario' : 'Vista Inquilino';
