@@ -186,27 +186,55 @@ function bucketRepairs(sections: PayloadSection[]) {
   return buckets;
 }
 
+const repairAmount = (r: PayloadRepair) =>
+  Number(r.subtotal ?? r.quantity * r.unit_price);
+
 const sumRepairs = (rs: PayloadRepair[]) =>
-  rs.reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
+  rs.reduce((s, r) => s + repairAmount(r), 0);
 
 type DecisionState = Record<string, { decision: Decision | null; comment: string }>;
 
-/** Decision controls for a single repair (interactive mode). */
+/**
+ * Projected sum considering owner decisions:
+ *  - rejected items are excluded
+ *  - accepted / observed / pending are included
+ * Falls back to full sum when not interactive or when item has no id.
+ */
+function projectedSum(
+  rs: PayloadRepair[],
+  decisions: DecisionState | undefined,
+  interactive: boolean,
+): { projected: number; rejected: number } {
+  let projected = 0;
+  let rejected = 0;
+  for (const r of rs) {
+    const amount = repairAmount(r);
+    const d = interactive && r.id ? decisions?.[r.id]?.decision : null;
+    if (d === 'rejected') rejected += amount;
+    else projected += amount;
+  }
+  return { projected, rejected };
+}
+
+/** Decision controls for a single repair (interactive mode) — segmented toggle. */
 function RepairDecisionControl({
   state, onChange,
 }: { state: { decision: Decision | null; comment: string }; onChange: (next: { decision: Decision | null; comment: string }) => void }) {
   const set = (d: Decision) => onChange({ ...state, decision: d });
   const needsComment = state.decision === 'observed' || state.decision === 'rejected';
+  const base = "flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-tiny font-medium transition-all";
+  const inactive = "text-muted-foreground hover:text-foreground";
   return (
-    <div className="mt-2 space-y-2">
-      <div className="grid grid-cols-3 gap-1.5">
+    <div className="mt-3 space-y-2">
+      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/70">
         <button
           type="button"
           onClick={() => set('accepted')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'accepted'}
+          className={`${base} ${
             state.decision === 'accepted'
-              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : inactive
           }`}
         >
           <Check className="h-3.5 w-3.5" /> Aceptar
@@ -214,10 +242,11 @@ function RepairDecisionControl({
         <button
           type="button"
           onClick={() => set('observed')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'observed'}
+          className={`${base} ${
             state.decision === 'observed'
-              ? 'border-amber-500 bg-amber-50 text-amber-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-background border border-amber-300 text-amber-700 shadow-sm'
+              : inactive
           }`}
         >
           <MessageSquare className="h-3.5 w-3.5" /> Observar
@@ -225,10 +254,11 @@ function RepairDecisionControl({
         <button
           type="button"
           onClick={() => set('rejected')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'rejected'}
+          className={`${base} ${
             state.decision === 'rejected'
-              ? 'border-red-500 bg-red-50 text-red-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-destructive text-destructive-foreground shadow-sm'
+              : inactive
           }`}
         >
           <X className="h-3.5 w-3.5" /> Rechazar
