@@ -737,8 +737,8 @@ export default function OwnerReport() {
               </div>
             )}
 
-            {!buckets || (audience === 'owner' && grandTotal === 0) ||
-             (audience === 'tenant' && tenantTotal === 0) ? (
+            {!buckets || (audience === 'owner' && grandTotalFull === 0) ||
+             (audience === 'tenant' && tenantTotalFull === 0) ? (
               <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>
             ) : audience === 'owner' ? (
               <>
