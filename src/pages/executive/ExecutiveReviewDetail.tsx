@@ -633,6 +633,25 @@ export default function ExecutiveReviewDetail() {
         allRepairs={allRepairs}
         contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
       />
+
+      {/* ── Quotation discount sheet ─────────────────── */}
+      <QuotationDiscountSheet
+        open={discountSheetOpen}
+        onOpenChange={setDiscountSheetOpen}
+        subtotalOwner={budgetBreakdown.ownerTotal}
+        subtotalTenant={budgetBreakdown.tenantTotal}
+        taxConfig={taxConfig}
+        initial={activeDiscountInput}
+        saving={discountState.saving}
+        onSubmit={async (input) => {
+          try {
+            await discountState.apply(input);
+            toast({ title: 'Descuento aplicado' });
+          } catch (e: any) {
+            toast({ title: 'No se pudo aplicar el descuento', description: e?.message, variant: 'destructive' });
+          }
+        }}
+      />
     </div>
     </ExecutiveLayout>
   );
