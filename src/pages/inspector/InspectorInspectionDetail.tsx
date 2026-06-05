@@ -724,7 +724,7 @@ export default function InspectorInspectionDetail() {
           </Button>
         ) : (
           <div className="space-y-2">
-            {inspection.status === 'assigned' && !keyCollectionCoordinated && (
+            {blockStart && (
               <p className="text-[11px] text-center text-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-1.5">
                 Carga la fecha de recolección de llaves para iniciar.
               </p>
@@ -733,10 +733,10 @@ export default function InspectorInspectionDetail() {
               onClick={handleStart}
               className="w-full h-12 rounded-xl text-body"
               size="lg"
-              disabled={inspection.status === 'assigned' && !keyCollectionCoordinated}
+              disabled={blockStart}
             >
               <ArrowRight className="mr-2 h-5 w-5" />
-              {displayState.key === 'assigned' ? 'Iniciar Inspección' : 'Continuar Inspección'}
+              {notStartedYet ? 'Iniciar Inspección' : 'Continuar Inspección'}
             </Button>
           </div>
         )}
