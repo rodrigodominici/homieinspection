@@ -839,6 +839,12 @@ export default function OwnerReport() {
                       <span className="text-caption font-medium">Subtotal</span>
                       <span className="text-body font-mono tabular-nums font-medium">{fmt(grandTotal)}</span>
                     </div>
+                    {interactive && grandRejected > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-muted-foreground">− Rechazado por ti</span>
+                        <span className="text-body font-mono tabular-nums text-muted-foreground">−{fmt(grandRejected)}</span>
+                      </div>
+                    )}
                     {vatEnabled && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
@@ -846,9 +852,12 @@ export default function OwnerReport() {
                       </div>
                     )}
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
-                      <span className="text-body-lg font-semibold">Total general</span>
-                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(grandTotalWithVat)}</span>
+                      <span className="text-body-lg font-semibold">{interactive ? 'Total proyectado' : 'Total general'}</span>
+                      <span className="text-h3 font-bold font-mono tabular-nums text-primary">{fmt(grandTotalWithVat)}</span>
                     </div>
+                    {interactive && (
+                      <p className="text-tiny text-muted-foreground pt-1">Se actualiza al marcar cada reparación. No incluye las rechazadas.</p>
+                    )}
                   </CardContent>
                 </Card>
               </>
