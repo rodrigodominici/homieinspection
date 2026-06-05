@@ -186,27 +186,55 @@ function bucketRepairs(sections: PayloadSection[]) {
   return buckets;
 }
 
+const repairAmount = (r: PayloadRepair) =>
+  Number(r.subtotal ?? r.quantity * r.unit_price);
+
 const sumRepairs = (rs: PayloadRepair[]) =>
-  rs.reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
+  rs.reduce((s, r) => s + repairAmount(r), 0);
 
 type DecisionState = Record<string, { decision: Decision | null; comment: string }>;
 
-/** Decision controls for a single repair (interactive mode). */
+/**
+ * Projected sum considering owner decisions:
+ *  - rejected items are excluded
+ *  - accepted / observed / pending are included
+ * Falls back to full sum when not interactive or when item has no id.
+ */
+function projectedSum(
+  rs: PayloadRepair[],
+  decisions: DecisionState | undefined,
+  interactive: boolean,
+): { projected: number; rejected: number } {
+  let projected = 0;
+  let rejected = 0;
+  for (const r of rs) {
+    const amount = repairAmount(r);
+    const d = interactive && r.id ? decisions?.[r.id]?.decision : null;
+    if (d === 'rejected') rejected += amount;
+    else projected += amount;
+  }
+  return { projected, rejected };
+}
+
+/** Decision controls for a single repair (interactive mode) — segmented toggle. */
 function RepairDecisionControl({
   state, onChange,
 }: { state: { decision: Decision | null; comment: string }; onChange: (next: { decision: Decision | null; comment: string }) => void }) {
   const set = (d: Decision) => onChange({ ...state, decision: d });
   const needsComment = state.decision === 'observed' || state.decision === 'rejected';
+  const base = "flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-tiny font-medium transition-all";
+  const inactive = "text-muted-foreground hover:text-foreground";
   return (
-    <div className="mt-2 space-y-2">
-      <div className="grid grid-cols-3 gap-1.5">
+    <div className="mt-3 space-y-2">
+      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/70">
         <button
           type="button"
           onClick={() => set('accepted')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'accepted'}
+          className={`${base} ${
             state.decision === 'accepted'
-              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : inactive
           }`}
         >
           <Check className="h-3.5 w-3.5" /> Aceptar
@@ -214,10 +242,11 @@ function RepairDecisionControl({
         <button
           type="button"
           onClick={() => set('observed')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'observed'}
+          className={`${base} ${
             state.decision === 'observed'
-              ? 'border-amber-500 bg-amber-50 text-amber-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-background border border-amber-300 text-amber-700 shadow-sm'
+              : inactive
           }`}
         >
           <MessageSquare className="h-3.5 w-3.5" /> Observar
@@ -225,10 +254,11 @@ function RepairDecisionControl({
         <button
           type="button"
           onClick={() => set('rejected')}
-          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-tiny font-medium transition-colors ${
+          aria-pressed={state.decision === 'rejected'}
+          className={`${base} ${
             state.decision === 'rejected'
-              ? 'border-red-500 bg-red-50 text-red-700'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+              ? 'bg-destructive text-destructive-foreground shadow-sm'
+              : inactive
           }`}
         >
           <X className="h-3.5 w-3.5" /> Rechazar
@@ -261,7 +291,7 @@ function DecisionBadge({ decision }: { decision: Decision }) {
   );
 }
 
-/** Single repair row — vertical on mobile, two-column on sm+. */
+/** Single repair row — vertical on mobile, two-column on sm+. Tinted per decision. */
 function RepairRow({
   r,
   interactive,
@@ -276,17 +306,30 @@ function RepairRow({
   lockedDecision?: OwnerDecision;
 }) {
   const subtotal = Number(r.subtotal ?? r.quantity * r.unit_price);
+  const decision = interactive ? state?.decision ?? null : lockedDecision?.decision ?? null;
+
+  const wrapperByDecision: Record<string, string> = {
+    accepted: 'border-primary/30 bg-primary/[0.04]',
+    observed: 'border-amber-300/70 bg-amber-50/40',
+    rejected: 'border-border bg-muted/40 opacity-70',
+  };
+  const wrapperCls = decision
+    ? wrapperByDecision[decision]
+    : 'border-border/60 bg-background/40';
+
+  const isRejected = decision === 'rejected';
+
   return (
-    <div className="py-3 first:pt-0 last:pb-0">
+    <div className={`rounded-lg border p-3 sm:p-4 transition-colors ${wrapperCls}`}>
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-body font-medium leading-snug">{r.name}</p>
+          <p className={`text-body font-medium leading-snug ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{r.name}</p>
           {r.description && (
             <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
           )}
         </div>
         <div className="sm:text-right shrink-0">
-          <p className="text-body font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</p>
+          <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
         </div>
       </div>
 
@@ -327,7 +370,9 @@ function RepairGroup({
   lockedDecisions?: Map<string, OwnerDecision>;
 }) {
   if (items.length === 0) return null;
-  const subtotal = sumRepairs(items);
+  const fullSubtotal = sumRepairs(items);
+  const { projected, rejected } = projectedSum(items, decisionState, !!interactive);
+  const showProjected = !!interactive && rejected > 0;
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -336,9 +381,14 @@ function RepairGroup({
             ? 'text-tiny font-semibold uppercase tracking-wide text-muted-foreground'
             : 'text-caption font-semibold uppercase tracking-wide text-foreground'
         }>{title}</h3>
-        <span className="text-caption font-mono tabular-nums font-medium whitespace-nowrap">{fmt(subtotal)}</span>
+        <div className="flex items-baseline gap-2 whitespace-nowrap">
+          {showProjected && (
+            <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(fullSubtotal)}</span>
+          )}
+          <span className="text-caption font-mono tabular-nums font-medium text-foreground">{fmt(projected)}</span>
+        </div>
       </div>
-      <div className="divide-y divide-border/60 rounded-lg border border-border/60 bg-background/40 px-3 sm:px-4">
+      <div className="space-y-2">
         {items.map((r, i) => (
           <RepairRow
             key={r.id ?? i}
@@ -498,9 +548,24 @@ export default function OwnerReport() {
   }
 
   const { property, published_at, fecha_recoleccion_llaves } = report;
-  const ownerTotal  = buckets ? sumRepairs([...buckets.owner.required,  ...buckets.owner.optional])  : 0;
-  const tenantTotal = buckets ? sumRepairs([...buckets.tenant.required, ...buckets.tenant.optional]) : 0;
+
+  // Decide if the owner can interact with the form (computed early so totals can use it).
+  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
+  const showLockedBanner = isOwnerAudience && locked;
+  const acceptedFinal = report.owner_feedback_status === 'accepted';
+
+  const ownerItems  = buckets ? [...buckets.owner.required,  ...buckets.owner.optional]  : [];
+  const tenantItems = buckets ? [...buckets.tenant.required, ...buckets.tenant.optional] : [];
+  const ownerSums  = projectedSum(ownerItems,  decisions, interactive);
+  const tenantSums = projectedSum(tenantItems, decisions, interactive);
+  // "Total" = projected (excluding rejected when interactive). Pending items still count.
+  const ownerTotal  = ownerSums.projected;
+  const tenantTotal = tenantSums.projected;
   const grandTotal  = ownerTotal + tenantTotal;
+  const ownerRejected  = ownerSums.rejected;
+  const tenantRejected = tenantSums.rejected;
+  const grandRejected  = ownerRejected + tenantRejected;
+
   const tax = report.tax_config;
   const vatEnabled = !!tax?.enabled && Number(tax?.percentage) > 0;
   const vatPct = Number(tax?.percentage ?? 0);
@@ -517,10 +582,6 @@ export default function OwnerReport() {
 
   const handleDownloadPdf = () => window.print();
 
-  // Decide if the owner can interact with the form.
-  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
-  const showLockedBanner = isOwnerAudience && locked;
-  const acceptedFinal = report.owner_feedback_status === 'accepted';
 
   return (
     <div className="min-h-screen bg-background">
@@ -667,8 +728,7 @@ export default function OwnerReport() {
                   Revisa cada reparación
                 </p>
                 <p className="text-tiny text-muted-foreground mt-0.5">
-                  Por cada reparación marca <strong>Aceptar</strong>, <strong>Observar</strong> o <strong>Rechazar</strong>.
-                  Cuando termines, envía tu respuesta. Si aceptas todas, el reporte queda confirmado.
+                  Marca <strong>Aceptar</strong>, <strong>Observar</strong> o <strong>Rechazar</strong> en cada una. El total se actualiza en tiempo real para que veas cuánto pagarías. Si aceptas todas, el reporte queda confirmado.
                 </p>
               </div>
             )}
@@ -698,6 +758,12 @@ export default function OwnerReport() {
                           <span className="text-body font-semibold">Subtotal propietario</span>
                           <span className="text-body font-mono tabular-nums font-semibold">{fmt(ownerTotal)}</span>
                         </div>
+                        {interactive && ownerRejected > 0 && (
+                          <div className="flex items-center justify-between text-caption text-muted-foreground">
+                            <span>− Rechazado</span>
+                            <span className="font-mono tabular-nums">−{fmt(ownerRejected)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
@@ -735,6 +801,12 @@ export default function OwnerReport() {
                           <span className="text-body font-semibold">Subtotal inquilino</span>
                           <span className="text-body font-mono tabular-nums font-semibold">{fmt(tenantTotal)}</span>
                         </div>
+                        {interactive && tenantRejected > 0 && (
+                          <div className="flex items-center justify-between text-caption text-muted-foreground">
+                            <span>− Rechazado</span>
+                            <span className="font-mono tabular-nums">−{fmt(tenantRejected)}</span>
+                          </div>
+                        )}
                         {vatEnabled && (
                           <>
                             <div className="flex items-center justify-between text-caption text-muted-foreground">
@@ -766,6 +838,12 @@ export default function OwnerReport() {
                       <span className="text-caption font-medium">Subtotal</span>
                       <span className="text-body font-mono tabular-nums font-medium">{fmt(grandTotal)}</span>
                     </div>
+                    {interactive && grandRejected > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-muted-foreground">− Rechazado por ti</span>
+                        <span className="text-body font-mono tabular-nums text-muted-foreground">−{fmt(grandRejected)}</span>
+                      </div>
+                    )}
                     {vatEnabled && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
@@ -773,9 +851,12 @@ export default function OwnerReport() {
                       </div>
                     )}
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-t pt-2">
-                      <span className="text-body-lg font-semibold">Total general</span>
-                      <span className="text-h3 font-bold font-mono tabular-nums">{fmt(grandTotalWithVat)}</span>
+                      <span className="text-body-lg font-semibold">{interactive ? 'Total proyectado' : 'Total general'}</span>
+                      <span className="text-h3 font-bold font-mono tabular-nums text-primary">{fmt(grandTotalWithVat)}</span>
                     </div>
+                    {interactive && (
+                      <p className="text-tiny text-muted-foreground pt-1">Se actualiza al marcar cada reparación. No incluye las rechazadas.</p>
+                    )}
                   </CardContent>
                 </Card>
               </>
