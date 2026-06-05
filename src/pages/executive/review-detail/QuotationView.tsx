@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { FileText, Download, AlertTriangle } from 'lucide-react';
+import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
+import type { QuotationDiscountBreakdown, QuotationDiscountInput } from '@/lib/quotation-discount';
 
 interface QuotationViewProps {
   budgetBreakdown: {
@@ -9,6 +10,12 @@ interface QuotationViewProps {
     tenantRequired: number; tenantOptional: number; tenantTotal: number;
     grandTotal: number;
   };
+  discountBreakdown: QuotationDiscountBreakdown;
+  activeDiscount: QuotationDiscountInput | null;
+  discountReason: string | null;
+  onOpenDiscount: () => void;
+  onRemoveDiscount: () => void;
+  discountSaving: boolean;
   clientTotal: number;
   contractorTotal: number;
   utility: number;
@@ -22,7 +29,9 @@ interface QuotationViewProps {
 }
 
 export function QuotationView({
-  budgetBreakdown, clientTotal, contractorTotal, utility,
+  budgetBreakdown, discountBreakdown, activeDiscount, discountReason,
+  onOpenDiscount, onRemoveDiscount, discountSaving,
+  clientTotal, contractorTotal, utility,
   warrantyDeposit, depositDiff, hasRepairs,
   onOpenQuotation, onOpenInternalReport, onGoToRepairs, onGoToPublish,
 }: QuotationViewProps) {
@@ -49,7 +58,14 @@ export function QuotationView({
           title="Propietario"
           required={budgetBreakdown.ownerRequired}
           optional={budgetBreakdown.ownerOptional}
-          total={budgetBreakdown.ownerTotal}
+          subtotal={discountBreakdown.subtotalOwner}
+          discount={discountBreakdown.discountOwner}
+          base={discountBreakdown.baseOwner}
+          vat={discountBreakdown.vatOwner}
+          vatLabel={discountBreakdown.vatLabel}
+          vatPercentage={discountBreakdown.vatPercentage}
+          vatEnabled={discountBreakdown.vatEnabled}
+          total={discountBreakdown.totalOwner}
           onGenerate={() => onOpenQuotation('owner')}
           generateLabel="Generar cotización propietario"
           accent="primary"
@@ -58,12 +74,32 @@ export function QuotationView({
           title="Inquilino"
           required={budgetBreakdown.tenantRequired}
           optional={budgetBreakdown.tenantOptional}
-          total={budgetBreakdown.tenantTotal}
+          subtotal={discountBreakdown.subtotalTenant}
+          discount={discountBreakdown.discountTenant}
+          base={discountBreakdown.baseTenant}
+          vat={discountBreakdown.vatTenant}
+          vatLabel={discountBreakdown.vatLabel}
+          vatPercentage={discountBreakdown.vatPercentage}
+          vatEnabled={discountBreakdown.vatEnabled}
+          total={discountBreakdown.totalTenant}
           onGenerate={() => onOpenQuotation('tenant')}
           generateLabel="Generar cotización inquilino"
           accent="muted"
         />
       </div>
+
+      {/* Discount card */}
+      {hasRepairs && (
+        <DiscountCard
+          active={activeDiscount}
+          reason={discountReason}
+          amount={discountBreakdown.discountAmount}
+          subtotal={discountBreakdown.subtotalTotal}
+          onOpen={onOpenDiscount}
+          onRemove={onRemoveDiscount}
+          saving={discountSaving}
+        />
+      )}
 
       {/* Deposit reconciliation */}
       {warrantyDeposit !== null && (
@@ -133,12 +169,79 @@ export function QuotationView({
   );
 }
 
-function PayerCard({
-  title, required, optional, total, onGenerate, generateLabel, accent,
+function DiscountCard({
+  active, reason, amount, subtotal, onOpen, onRemove, saving,
 }: {
-  title: string; required: number; optional: number; total: number;
+  active: QuotationDiscountInput | null;
+  reason: string | null;
+  amount: number;
+  subtotal: number;
+  onOpen: () => void;
+  onRemove: () => void;
+  saving: boolean;
+}) {
+  const disabled = subtotal <= 0;
+
+  if (!active) {
+    return (
+      <div className="rounded-lg border border-dashed bg-primary/[0.03] px-4 py-3 flex items-center gap-3">
+        <Tag className="h-4 w-4 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">Aplicar descuento global</p>
+          <p className="text-xs text-muted-foreground">
+            Descuento comercial sobre la cotización (antes de IVA). No modifica las reparaciones.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={onOpen} disabled={disabled || saving}>
+          <Tag className="mr-1.5 h-3.5 w-3.5" /> Aplicar descuento
+        </Button>
+      </div>
+    );
+  }
+
+  const valueLabel = active.type === 'percentage' ? `${active.value}%` : fmtCurrency(active.value);
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div className="rounded-md bg-primary/15 p-1.5 mt-0.5">
+            <Tag className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              Descuento comercial · {valueLabel}
+              <span className="ml-2 font-mono text-primary">−{fmtCurrency(amount)}</span>
+            </p>
+            {reason && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">{reason}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <Button size="sm" variant="ghost" onClick={onOpen} disabled={saving}>
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onRemove} disabled={saving} className="text-destructive hover:text-destructive">
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Eliminar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PayerCard({
+  title, required, optional, subtotal, discount, base, vat, vatLabel, vatPercentage, vatEnabled, total,
+  onGenerate, generateLabel, accent,
+}: {
+  title: string; required: number; optional: number;
+  subtotal: number; discount: number; base: number;
+  vat: number; vatLabel: string; vatPercentage: number; vatEnabled: boolean;
+  total: number;
   onGenerate: () => void; generateLabel: string; accent: 'primary' | 'muted';
 }) {
+  const hasDiscount = discount > 0;
   return (
     <div className={cn(
       'rounded-lg border bg-card p-4 space-y-3',
@@ -149,18 +252,42 @@ function PayerCard({
         <span className="font-mono font-semibold text-lg">{fmtCurrency(total)}</span>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Obligatorio</span>
-          <span className="font-mono">{fmtCurrency(required)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Opcional</span>
-          <span className="font-mono">{fmtCurrency(optional)}</span>
-        </div>
+        <Row label="Obligatorio" value={fmtCurrency(required)} muted />
+        <Row label="Opcional" value={fmtCurrency(optional)} muted />
+        <Row label="Subtotal" value={fmtCurrency(subtotal)} divider />
+        {hasDiscount && (
+          <>
+            <Row label="Descuento" value={`−${fmtCurrency(discount)}`} accent />
+            <Row label="Base" value={fmtCurrency(base)} muted />
+          </>
+        )}
+        {vatEnabled && (
+          <Row label={`${vatLabel} ${vatPercentage}%`} value={fmtCurrency(vat)} muted />
+        )}
+        <Row label="Total" value={fmtCurrency(total)} strong divider />
       </div>
       <Button size="sm" variant="outline" className="w-full" onClick={onGenerate}>
         <FileText className="mr-1.5 h-3.5 w-3.5" /> {generateLabel}
       </Button>
+    </div>
+  );
+}
+
+function Row({ label, value, muted, strong, divider, accent }: {
+  label: string; value: string; muted?: boolean; strong?: boolean; divider?: boolean; accent?: boolean;
+}) {
+  return (
+    <div className={cn(
+      'flex justify-between',
+      divider && 'pt-1 border-t border-border/60',
+    )}>
+      <span className={cn(muted && 'text-muted-foreground', strong && 'font-medium')}>{label}</span>
+      <span className={cn(
+        'font-mono',
+        muted && 'text-muted-foreground',
+        strong && 'font-semibold',
+        accent && 'text-primary',
+      )}>{value}</span>
     </div>
   );
 }
