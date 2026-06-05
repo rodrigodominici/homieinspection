@@ -558,6 +558,10 @@ export default function OwnerReport() {
   const tenantItems = buckets ? [...buckets.tenant.required, ...buckets.tenant.optional] : [];
   const ownerSums  = projectedSum(ownerItems,  decisions, interactive);
   const tenantSums = projectedSum(tenantItems, decisions, interactive);
+  // Full (pre-decision) totals — used for empty-state guards so the UI doesn't disappear when the owner rejects everything.
+  const ownerTotalFull  = sumRepairs(ownerItems);
+  const tenantTotalFull = sumRepairs(tenantItems);
+  const grandTotalFull  = ownerTotalFull + tenantTotalFull;
   // "Total" = projected (excluding rejected when interactive). Pending items still count.
   const ownerTotal  = ownerSums.projected;
   const tenantTotal = tenantSums.projected;
@@ -733,8 +737,8 @@ export default function OwnerReport() {
               </div>
             )}
 
-            {!buckets || (audience === 'owner' && grandTotal === 0) ||
-             (audience === 'tenant' && tenantTotal === 0) ? (
+            {!buckets || (audience === 'owner' && grandTotalFull === 0) ||
+             (audience === 'tenant' && tenantTotalFull === 0) ? (
               <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>
             ) : audience === 'owner' ? (
               <>
@@ -749,10 +753,10 @@ export default function OwnerReport() {
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
                     <RepairGroup title="Opcionales" items={buckets.owner.optional} variant="subtle"
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    {ownerTotal === 0 && (
+                    {ownerTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
-                    {ownerTotal > 0 && (
+                    {ownerTotalFull > 0 && (
                       <div className="space-y-1 border-t pt-3">
                         <div className="flex items-center justify-between">
                           <span className="text-body font-semibold">Subtotal propietario</span>
@@ -792,10 +796,10 @@ export default function OwnerReport() {
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
                     <RepairGroup title="Opcionales" items={buckets.tenant.optional} variant="subtle"
                       interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    {tenantTotal === 0 && (
+                    {tenantTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
-                    {tenantTotal > 0 && (
+                    {tenantTotalFull > 0 && (
                       <div className="space-y-1 border-t pt-3">
                         <div className="flex items-center justify-between">
                           <span className="text-body font-semibold">Subtotal inquilino</span>
