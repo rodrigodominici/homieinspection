@@ -304,6 +304,15 @@ export default function InspectorInspectionDetail() {
   };
 
   const handleStart = async () => {
+    if (!keyCollectionCoordinated) {
+      toast({
+        title: 'Fecha de recolección requerida',
+        description: 'Debes cargar la fecha de recolección de llaves antes de iniciar la inspección.',
+        variant: 'destructive',
+      });
+      openKeyForm();
+      return;
+    }
     if (inspection.status === 'assigned') {
       await supabase
         .from('inspections')
