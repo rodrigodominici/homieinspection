@@ -23,7 +23,8 @@ interface QuotationViewProps {
   depositDiff: number | null;
   hasRepairs: boolean;
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
-  onOpenInternalReport: () => void;
+  onOpenContractorQuotation: () => void;
+  onOpenWorkOrderDetails: () => void;
   onGoToRepairs: () => void;
   onGoToPublish: () => void;
 }
@@ -33,7 +34,8 @@ export function QuotationView({
   onOpenDiscount, onRemoveDiscount, discountSaving,
   clientTotal, contractorTotal, utility,
   warrantyDeposit, depositDiff, hasRepairs,
-  onOpenQuotation, onOpenInternalReport, onGoToRepairs, onGoToPublish,
+  onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails,
+  onGoToRepairs, onGoToPublish,
 }: QuotationViewProps) {
   return (
     <div className="h-full overflow-y-auto p-6 max-w-5xl mx-auto space-y-6">
@@ -154,9 +156,12 @@ export function QuotationView({
             </p>
           </div>
         </div>
-        <div className="pt-2 border-t border-border/60">
-          <Button variant="outline" size="sm" onClick={onOpenInternalReport}>
-            <Download className="mr-1.5 h-3.5 w-3.5" /> Informe interno
+        <div className="pt-2 border-t border-border/60 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={onOpenContractorQuotation}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Cotización contratista
+          </Button>
+          <Button variant="outline" size="sm" onClick={onOpenWorkOrderDetails}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Detalles de la OT
           </Button>
         </div>
       </div>

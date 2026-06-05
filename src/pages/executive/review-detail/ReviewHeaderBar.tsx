@@ -40,7 +40,8 @@ interface ReviewHeaderBarProps {
   onPublish: (force?: boolean) => Promise<void>;
   onReturnForChanges: () => void;
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
-  onOpenInternalReport: () => void;
+  onOpenContractorQuotation: () => void;
+  onOpenWorkOrderDetails: () => void;
   onOpenRepairsDrawer: (sectionId: string) => void;
   /** Open published owner report in new tab */
   onOpenOwner: () => void;
@@ -60,7 +61,7 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
     inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
     setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
     missingSections, onBack, onApprove, onPublish, onReturnForChanges,
-    onOpenQuotation, onOpenInternalReport, onOpenRepairsDrawer,
+    onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails, onOpenRepairsDrawer,
     onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
   } = props;
 
@@ -183,7 +184,8 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
                 <DropdownMenuItem onClick={() => onOpenQuotation('owner')}>Cotización propietario</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenQuotation('tenant')}>Cotización inquilino</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onOpenInternalReport}>Informe interno</DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenContractorQuotation}>Cotización contratista</DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenWorkOrderDetails}>Detalles de la OT</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
