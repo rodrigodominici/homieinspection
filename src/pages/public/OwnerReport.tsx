@@ -894,6 +894,19 @@ export default function OwnerReport() {
                         <span className="text-body font-mono tabular-nums text-muted-foreground">−{fmt(grandRejected)}</span>
                       </div>
                     )}
+                    {discountAmount > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-primary font-medium">
+                          Descuento comercial
+                          {discount && (
+                            <span className="ml-1 text-muted-foreground font-normal">
+                              ({discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo'})
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmount)}</span>
+                      </div>
+                    )}
                     {vatEnabled && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
