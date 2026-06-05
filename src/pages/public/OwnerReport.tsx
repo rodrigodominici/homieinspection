@@ -943,6 +943,12 @@ export default function OwnerReport() {
                       <span className="text-caption font-medium">Subtotal</span>
                       <span className="text-body font-mono tabular-nums">{fmt(tenantTotal)}</span>
                     </div>
+                    {discountAmountTenant > 0 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-caption text-primary font-medium">Descuento comercial</span>
+                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmountTenant)}</span>
+                      </div>
+                    )}
                     {vatEnabled && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
