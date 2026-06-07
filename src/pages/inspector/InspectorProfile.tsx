@@ -1,11 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
-import { LogOut, User, Mail, Shield } from 'lucide-react';
+import { CheckCircle2, Download, LogOut, Mail, Share2, Shield, Smartphone, User } from 'lucide-react';
 
 export default function InspectorProfile() {
   const { profile, signOut } = useAuth();
+  const { canInstall, install, installed, isIOS, isStandalone } = usePWAInstall();
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -45,6 +47,47 @@ export default function InspectorProfile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* PWA install card — hidden when already running as standalone app */}
+        {!isStandalone && (
+          <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4">
+              {installed ? (
+                /* Post-install confirmation */
+                <div className="flex items-center gap-3 text-green-600">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="text-body font-medium">App instalada</p>
+                    <p className="text-caption text-muted-foreground">Ya puedes abrirla desde tu pantalla de inicio</p>
+                  </div>
+                </div>
+              ) : isIOS ? (
+                /* iOS Safari — no beforeinstallprompt, show manual steps */
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-primary shrink-0" />
+                    <p className="text-body font-medium">Instalar en iPhone / iPad</p>
+                  </div>
+                  <p className="text-caption text-muted-foreground leading-relaxed">
+                    Toca el ícono <Share2 className="inline h-3.5 w-3.5 mx-0.5 align-middle" /> de Safari →&nbsp;
+                    <span className="font-medium">"Añadir a pantalla de inicio"</span>
+                  </p>
+                </div>
+              ) : canInstall ? (
+                /* Android / Chrome — native prompt available */
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-body font-medium">Instalar la app</p>
+                    <p className="text-caption text-muted-foreground">Acceso rápido desde tu pantalla de inicio</p>
+                  </div>
+                  <Button size="sm" className="shrink-0 gap-1.5" onClick={install}>
+                    <Download className="h-3.5 w-3.5" /> Instalar
+                  </Button>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
 
         <Button variant="outline" className="w-full h-12 rounded-xl gap-2" onClick={signOut}>
           <LogOut className="h-4 w-4" /> Cerrar Sesión
