@@ -1,45 +1,70 @@
-# Reporte público (URL): agrupar presupuesto por sección
+# Mejorar visibilidad del feedback del propietario al editar reparaciones
 
-Aplicar al reporte compartido por URL (`src/pages/public/OwnerReport.tsx`, vistas `owner` y `tenant`) el mismo criterio que ya usa `QuotationDialog`: **una tabla por sección del inmueble**, con un **badge `Obligatoria`/`Opcional`** por reparación. Sin cambios en cálculos, decisiones, descuentos, IVA, ni en el payload del RPC.
+## Problema
 
-## 1. Helper de agrupación
-Reemplazar `bucketRepairs` por `groupRepairsBySectionAndPayer(sections)` que devuelve:
+Hoy el feedback del propietario (aceptada / observada / rechazada + comentario) sólo se ve en `OwnerFeedbackPanel` dentro del tab **Compartir**. Apenas el ejecutivo hace clic en "Editar y republicar" y va a **Cotización** o **Reparaciones**, pierde de vista qué ítem fue observado/rechazado y qué dijo el propietario — tiene que volver atrás para recordarlo.
 
-```ts
-{
-  owner:  Array<{ sectionId, sectionTitle, items: PayloadRepair[], subtotal }>,
-  tenant: Array<{ sectionId, sectionTitle, items: PayloadRepair[], subtotal }>,
-}
-```
+## Objetivo
 
-- Recorre `report.sections` en su orden actual (ya viene ordenado del RPC).
-- Para cada sección, separa repairs por `payer_role` (default `owner`).
-- Mantiene la sección sólo si tiene items en ese payer.
-- Conserva `payment_nature` en cada item (no se filtra ni se separa).
+Que el feedback del propietario "viaje" con cada reparación dentro de las vistas de edición, marcando claramente qué ítems requieren acción y mostrando el comentario al lado del ítem que se está editando.
 
-## 2. Nuevo componente `SectionRepairGroup`
-Sustituye a las dos llamadas `RepairGroup` (Obligatorias / Opcionales) por una sola por sección.
+## Cambios propuestos
 
-- Header: título de la sección en el estilo actual de "OBLIGATORIAS" (uppercase, tracking-wide), con el subtotal de la sección a la derecha (usa `projectedSum` cuando `interactive`, igual que hoy).
-- Lista de `RepairRow` ya existente.
-- En `RepairRow`: añadir un `<Badge>` debajo de `r.name` con:
-  - `Obligatoria` → `variant="secondary"`
-  - `Opcional` → `variant="outline"`
-  Usa el componente `Badge` de `@/components/ui/badge` (mismo patrón que `QuotationDialog`). Nada de colores hardcoded.
+### 1. Hook compartido `useOwnerFeedbackByRepair`
 
-## 3. Render en el tab Presupuesto
-En `TabsContent value="budget"`:
+Nuevo archivo: `src/modules/review/api/useOwnerFeedbackByRepair.ts`
 
-- **Audiencia `owner`**: la card "Reparaciones a cargo del propietario" lista `groups.owner` como `SectionRepairGroup` por sección; la card "Reparaciones a cargo del inquilino" lista `groups.tenant`. Si un payer no tiene secciones, se mantiene el mensaje "Sin reparaciones asignadas."
-- **Audiencia `tenant`**: la única card lista `groups.tenant` por sección.
-- Subtotales por payer, descuentos, IVA, "Total proyectado", banner del total combinado y `projectedSum`/`grandRejected` se mantienen exactamente como hoy (siguen sumando sobre los mismos arrays planos `owner.required+optional`, `tenant.required+optional`, recalculados desde los groups).
+- Carga `inspection_report_versions` (audience=owner, is_latest=true) + filas de `inspection_owner_feedback` para esa versión.
+- Devuelve `{ feedbackByRepairId: Map<string, { decision, comment, submitterName, submittedAt }>, version, hasPendingFeedback }`.
+- Usa React Query con key `['owner-feedback', inspectionId]` para compartir caché entre tabs y refetch al republicar.
 
-## 4. Lo que NO cambia
-- `get_published_report` (RPC) y el shape del payload.
-- Lógica de decisiones owner-side (`accepted/observed/rejected`), comments, `submit`, locked state, badges de decisión.
-- Cálculos de IVA, descuento prorrateado, totales por payer y "Total proyectado".
-- Tab "Reporte" (observaciones por sección con fotos) y el resto del archivo.
-- Diseño tokens (sin colores hardcoded; reuso de `Badge`, `Card`, tokens `primary`, `muted-foreground`, etc.).
+### 2. Badge reutilizable `OwnerFeedbackBadge`
 
-## Archivos
-- `src/pages/public/OwnerReport.tsx` — única edición.
+Nuevo archivo: `src/pages/executive/review-detail/OwnerFeedbackBadge.tsx`
+
+- Recibe `decision` + opcionalmente `comment`.
+- Renderiza un badge compacto (Observada amber / Rechazada red / Aceptada emerald) consistente con `OwnerFeedbackPanel`.
+- Variante con tooltip que muestra el comentario completo al hover.
+
+### 3. `SectionRepairsPanel.tsx` — inline en el item expandido
+
+- Aceptar prop `feedbackByRepairId` opcional.
+- En la **fila compacta** del repair: si hay feedback no-aceptado, mostrar el `OwnerFeedbackBadge` junto al título (antes del subtotal).
+- En el **editor expandido**: agregar un callout arriba (border-l amber/red) con la decisión y la cita textual del comentario del propietario.
+- El borde de la tarjeta del repair pasa a `border-amber-500/40` u `border-red-500/40` cuando hay feedback pendiente, para que el ejecutivo identifique de un vistazo qué tocar.
+
+### 4. `RepairsTableView.tsx` — columna y filtro
+
+- Aceptar `feedbackByRepairId`.
+- En cada fila de la tabla agregar el badge de feedback junto al nombre.
+- Agregar nuevo `ToggleGroup` (visible sólo cuando hay feedback): **Todas / Con feedback pendiente**, que filtra a las filas con `decision !== 'accepted'`.
+- Aplicar fondo `bg-amber-50/40` o `bg-red-50/40` sutil a las filas con feedback.
+
+### 5. `QuotationView.tsx` — banner contextual + marcado por sección
+
+- Si `hasPendingFeedback`, mostrar un banner sticky/condensado arriba con: "El propietario pidió ajustes en N reparaciones" + botón "Filtrar pendientes" (que pone foco en las secciones afectadas).
+- Para cada repair listado, marcar visualmente los ítems con feedback (badge + borde).
+
+### 6. Cableado en `ExecutiveReviewDetail.tsx`
+
+- Llamar `useOwnerFeedbackByRepair(id)` una vez.
+- Pasar `feedbackByRepairId` a `QuotationView`, `RepairsTableView`, `SectionRepairsPanel` (inline y vía `SectionRepairsDrawer`).
+- `OwnerFeedbackPanel` puede consumir el mismo hook para evitar la query duplicada (refactor menor).
+
+### 7. Indicador en la navegación
+
+- En `WorkflowStepper` / tab "Cotización" del review: si `hasPendingFeedback`, mostrar un punto ámbar (•) en el tab para recordar al ejecutivo que hay pendientes — sin cambiar la lógica del flujo.
+
+## Lo que NO cambia
+
+- Estructura de tablas, RPC `get_published_report`, lógica de publicación/versionado.
+- `OwnerFeedbackPanel` sigue existiendo en Compartir como vista resumen.
+- No se modifica el reporte público del propietario/inquilino.
+
+## Archivos afectados
+
+- **Nuevo**: `src/modules/review/api/useOwnerFeedbackByRepair.ts`
+- **Nuevo**: `src/pages/executive/review-detail/OwnerFeedbackBadge.tsx`
+- **Editado**: `SectionRepairsPanel.tsx`, `SectionRepairsDrawer.tsx`, `RepairsTableView.tsx`, `QuotationView.tsx`, `ExecutiveReviewDetail.tsx`, `WorkflowStepper.tsx`, `OwnerFeedbackPanel.tsx` (refactor a hook compartido).
+
+¿Apruebas el plan o quieres ajustar algún punto antes de implementar?
