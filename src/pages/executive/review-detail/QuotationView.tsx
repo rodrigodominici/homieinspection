@@ -27,6 +27,9 @@ interface QuotationViewProps {
   onOpenWorkOrderDetails: () => void;
   onGoToRepairs: () => void;
   onGoToPublish: () => void;
+  /** Si el propietario pidió ajustes, mostramos banner con CTA a Reparaciones filtradas. */
+  ownerPendingFeedbackCount?: number;
+  ownerFeedbackVersionNumber?: number | null;
 }
 
 export function QuotationView({
@@ -36,6 +39,7 @@ export function QuotationView({
   warrantyDeposit, depositDiff, hasRepairs,
   onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails,
   onGoToRepairs, onGoToPublish,
+  ownerPendingFeedbackCount = 0, ownerFeedbackVersionNumber = null,
 }: QuotationViewProps) {
   return (
     <div className="h-full overflow-y-auto p-6 max-w-5xl mx-auto space-y-6">
