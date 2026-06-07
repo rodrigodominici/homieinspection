@@ -67,6 +67,10 @@ export function RepairsTableView({
       if (payerFilter !== 'all' && r.payer_role !== payerFilter) return false;
       if (natureFilter !== 'all' && r.payment_nature !== natureFilter) return false;
       if (sectionFilter !== 'all' && r.inspection_section_id !== sectionFilter) return false;
+      if (feedbackFilter === 'pending') {
+        const fb = feedbackByRepairId?.get(r.id);
+        if (!fb || fb.decision === 'accepted') return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const hay = `${r.title_snapshot} ${r.category_snapshot ?? ''} ${sectionTitle(r.inspection_section_id)}`.toLowerCase();
@@ -74,7 +78,7 @@ export function RepairsTableView({
       }
       return true;
     });
-  }, [allRepairs, payerFilter, natureFilter, sectionFilter, search, sections]);
+  }, [allRepairs, payerFilter, natureFilter, sectionFilter, feedbackFilter, feedbackByRepairId, search, sections]);
 
   const filteredTotal = filtered.reduce((s, r) => s + r.quantity * r.unit_price, 0);
   const hasContractor = !!selectedContractorId;
