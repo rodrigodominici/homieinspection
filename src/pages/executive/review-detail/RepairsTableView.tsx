@@ -6,7 +6,9 @@ import { Trash2, Plus, Search, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
+import { OwnerFeedbackBadge, feedbackAccentClasses } from './OwnerFeedbackBadge';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
+import type { OwnerFeedbackEntry } from '@/modules/review/api/useOwnerFeedbackByRepair';
 
 interface RepairsTableViewProps {
   sections: InspectionSection[];
@@ -27,6 +29,7 @@ interface RepairsTableViewProps {
   onOpenCatalog: (sectionId: string) => void;
   onUpdateRepair: (id: string, field: string, value: any) => void;
   onDeleteRepair: (id: string) => void;
+  feedbackByRepairId?: Map<string, OwnerFeedbackEntry>;
 }
 
 type PayerFilter = 'all' | 'owner' | 'tenant';
