@@ -59,14 +59,14 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop: branded right panel */}
-      <div className="hidden md:flex md:w-1/2 bg-[hsl(var(--sidebar-background))] items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
+      <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
         <div className="relative max-w-md text-center space-y-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto shadow-lg">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/20 mx-auto shadow-lg backdrop-blur-sm">
             <span className="text-2xl font-bold text-primary-foreground">H</span>
           </div>
-          <h2 className="text-h1 text-white">Homie Inspection</h2>
-          <p className="text-body-lg text-white/60">
+          <h2 className="text-h1 text-primary-foreground">Homie Inspection</h2>
+          <p className="text-body-lg text-primary-foreground/80">
             Gestiona inspecciones inmobiliarias de forma eficiente y profesional
           </p>
         </div>
@@ -75,12 +75,12 @@ export default function Auth() {
       {/* Form panel */}
       <div className="flex-1 flex flex-col">
         {/* Mobile header */}
-        <div className="md:hidden bg-[hsl(var(--sidebar-background))] px-6 py-8">
+        <div className="md:hidden bg-primary px-6 py-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20">
               <span className="text-lg font-bold text-primary-foreground">H</span>
             </div>
-            <span className="text-body-lg font-semibold text-white">Homie Inspection</span>
+            <span className="text-body-lg font-semibold text-primary-foreground">Homie Inspection</span>
           </div>
         </div>
 
