@@ -19,3 +19,4 @@ export { QuotationView } from './QuotationView';
 export { QuotationDiscountSheet } from './QuotationDiscountSheet';
 export { PublishView } from './PublishView';
 export { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
+export { OwnerFeedbackBadge, feedbackAccentClasses } from './OwnerFeedbackBadge';
