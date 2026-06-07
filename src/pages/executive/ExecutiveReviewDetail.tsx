@@ -594,6 +594,7 @@ export default function ExecutiveReviewDetail() {
             onContractorChange={actions.handleContractorChange}
             contractorTotal={contractorTotal}
             utility={utility}
+            feedbackByRepairId={ownerFeedback.feedbackByRepairId}
           />
         );
       })()}
