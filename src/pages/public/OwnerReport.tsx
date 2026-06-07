@@ -367,11 +367,18 @@ function RepairRow({
           {r.description && (
             <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
           )}
+          <Badge
+            variant={r.payment_nature === 'optional' ? 'outline' : 'secondary'}
+            className="mt-1.5 text-[10px] px-1.5 py-0 font-medium"
+          >
+            {r.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+          </Badge>
         </div>
         <div className="sm:text-right shrink-0">
           <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
         </div>
       </div>
+
 
       {interactive && state && onChange && r.id && (
         <RepairDecisionControl state={state} onChange={onChange} />
