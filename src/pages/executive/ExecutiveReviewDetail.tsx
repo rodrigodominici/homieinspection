@@ -258,18 +258,88 @@ export default function ExecutiveReviewDetail() {
 
 
 
-  const toggleReturnSection = (secId: string) => {
+  const toggleReturnSection = useCallback((secId: string) => {
     setSelectedReturnSections((prev) => {
       const next = new Set(prev);
       if (next.has(secId)) next.delete(secId); else next.add(secId);
       return next;
     });
-  };
+  }, []);
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: 'Copiado al portapapeles' });
-  };
+  }, [toast]);
+
+  /** Stable refetch handler — avoids PhotoPanel remount on every render. */
+  const handlePhotosChanged = useCallback(() => refetch(), [refetch]);
+
+  // ─── Stable handlers for active-section workspace ──────
+  // These are keyed on activeSection?.id so they only change when the user
+  // navigates to a different section — not on every parent re-render.
+  const handleFinalObsChange = useCallback((v: string) => {
+    setFinalObservations(p => ({ ...p, [activeSectionId ?? '']: v }));
+  }, [activeSectionId]);
+
+  const handleInternalNoteChange = useCallback((v: string) => {
+    setInternalNotes(p => ({ ...p, [activeSectionId ?? '']: v }));
+  }, [activeSectionId]);
+
+  const handleOpenRepairsDrawer = useCallback(() => {
+    if (!activeSectionId) return;
+    setExpandedRepairId(null);
+    setRepairsDrawerSectionId(activeSectionId);
+  }, [activeSectionId]);
+
+  const handleOpenRepairsDrawerMobile = useCallback((sid: string) => {
+    setExpandedRepairId(null);
+    setRepairsDrawerSectionId(sid);
+  }, []);
+
+  const handleToggleReturn = useCallback(() => {
+    if (!activeSectionId) return;
+    toggleReturnSection(activeSectionId);
+  }, [activeSectionId, toggleReturnSection]);
+
+  const handleReturnCommentChange = useCallback((v: string) => {
+    setReturnComments(p => ({ ...p, [activeSectionId ?? '']: v }));
+  }, [activeSectionId]);
+
+  // ─── Stable mode/dialog handlers ───────────────────────
+  const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
+  const handleGoToRepairs = useCallback(() => setMode('repairs'), []);
+  const handleGoToPublish = useCallback(() => setMode('publish'), []);
+  const handleGoToInspection = useCallback((sid?: string) => {
+    if (sid) setActiveSectionId(sid);
+    setMode('inspection');
+  }, []);
+  const handleOpenQuotation = useCallback((payer: 'owner' | 'tenant') => setQuotationDialog({ open: true, payer }), []);
+  const handleOpenContractorQuotation = useCallback(() => setContractorQuotationOpen(true), []);
+  const handleOpenWorkOrderDetails = useCallback(() => setWorkOrderDetailsOpen(true), []);
+
+  const handleRemoveDiscount = useCallback(async () => {
+    try {
+      await discountState.remove();
+      toast({ title: 'Descuento eliminado' });
+    } catch (e: any) {
+      toast({ title: 'No se pudo eliminar', description: (e as any)?.message, variant: 'destructive' });
+    }
+  }, [discountState.remove, toast]);
+
+  const handleDiscountSubmit = useCallback(async (input: QuotationDiscountInput) => {
+    try {
+      await discountState.apply(input);
+      toast({ title: 'Descuento aplicado' });
+    } catch (e: any) {
+      toast({ title: 'No se pudo aplicar el descuento', description: (e as any)?.message, variant: 'destructive' });
+    }
+  }, [discountState.apply, toast]);
+
+  /** Stable computed: contractor name used in quotation dialogs. */
+  const selectedContractorName = useMemo(
+    () => contractors.find(c => c.id === selectedContractorId)?.name ?? null,
+    [contractors, selectedContractorId],
+  );
 
   /** Fetches latest published tokens from DB for the given audiences. */
   const fetchPublishedUrls = useCallback(async () => {
@@ -392,7 +462,7 @@ export default function ExecutiveReviewDetail() {
             uploadedBy={profile?.id}
             urlOf={urlOf}
             onToggleVisibility={actions.togglePhotoVisibility}
-            onPhotosChanged={() => refetch()}
+            onPhotosChanged={handlePhotosChanged}
           />
         ) : null;
 
@@ -422,16 +492,16 @@ export default function ExecutiveReviewDetail() {
                 inspectorObs={(fieldsBySection[activeSection.id] ?? []).find(f => f.group_key === 'observation')?.value_text ?? ''}
                 finalObservation={finalObservations[activeSection.id] ?? ''}
                 internalNote={internalNotes[activeSection.id] ?? ''}
-                onFinalObsChange={(v) => setFinalObservations(p => ({ ...p, [activeSection.id]: v }))}
-                onInternalNoteChange={(v) => setInternalNotes(p => ({ ...p, [activeSection.id]: v }))}
+                onFinalObsChange={handleFinalObsChange}
+                onInternalNoteChange={handleInternalNoteChange}
                 onSaveFinalObsSilent={saveFinalObservationSilent}
                 onSaveNoteSilent={saveInternalNoteSilent}
-                onOpenRepairsDrawer={() => { setExpandedRepairId(null); setRepairsDrawerSectionId(activeSection.id); }}
+                onOpenRepairsDrawer={handleOpenRepairsDrawer}
                 returnMode={returnMode}
                 returnSelected={selectedReturnSections.has(activeSection.id)}
-                onToggleReturn={() => toggleReturnSection(activeSection.id)}
+                onToggleReturn={handleToggleReturn}
                 returnComment={returnComments[activeSection.id] ?? ''}
-                onReturnCommentChange={(v) => setReturnComments(p => ({ ...p, [activeSection.id]: v }))}
+                onReturnCommentChange={handleReturnCommentChange}
                 photosSlot={inlineRepairsOpen ? photosNode : undefined}
               />}
             </main>
@@ -495,11 +565,8 @@ export default function ExecutiveReviewDetail() {
             discountBreakdown={discountBreakdown}
             activeDiscount={activeDiscountInput}
             discountReason={discountState.discount?.discount_reason ?? null}
-            onOpenDiscount={() => setDiscountSheetOpen(true)}
-            onRemoveDiscount={async () => {
-              try { await discountState.remove(); toast({ title: 'Descuento eliminado' }); }
-              catch (e: any) { toast({ title: 'No se pudo eliminar', description: e?.message, variant: 'destructive' }); }
-            }}
+            onOpenDiscount={handleOpenDiscount}
+            onRemoveDiscount={handleRemoveDiscount}
             discountSaving={discountState.saving}
             clientTotal={clientTotal}
             contractorTotal={contractorTotal}
@@ -507,11 +574,11 @@ export default function ExecutiveReviewDetail() {
             warrantyDeposit={warrantyDeposit}
             depositDiff={depositDiff}
             hasRepairs={allRepairs.length > 0}
-            onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
-            onOpenContractorQuotation={() => setContractorQuotationOpen(true)}
-            onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
-            onGoToRepairs={() => setMode('repairs')}
-            onGoToPublish={() => setMode('publish')}
+            onOpenQuotation={handleOpenQuotation}
+            onOpenContractorQuotation={handleOpenContractorQuotation}
+            onOpenWorkOrderDetails={handleOpenWorkOrderDetails}
+            onGoToRepairs={handleGoToRepairs}
+            onGoToPublish={handleGoToPublish}
             ownerPendingFeedbackCount={ownerFeedback.pendingCount}
             ownerFeedbackVersionNumber={ownerFeedback.versionNumber}
           />
@@ -537,12 +604,12 @@ export default function ExecutiveReviewDetail() {
             onToggleReturnSection={toggleReturnSection}
             onApprove={actions.handleApprove}
             onPublish={actions.handlePublish}
-            onOpenOwner={() => void handleOpenOwner()}
-            onOpenTenant={() => void handleOpenTenant()}
-            onCopyOwner={() => void handleCopyOwner()}
-            onCopyTenant={() => void handleCopyTenant()}
-            onGoToInspection={(sid) => { if (sid) setActiveSectionId(sid); setMode('inspection'); }}
-            onGoToRepairs={() => setMode('repairs')}
+            onOpenOwner={handleOpenOwner}
+            onOpenTenant={handleOpenTenant}
+            onCopyOwner={handleCopyOwner}
+            onCopyTenant={handleCopyTenant}
+            onGoToInspection={handleGoToInspection}
+            onGoToRepairs={handleGoToRepairs}
           />
         </div>
       )}
@@ -567,8 +634,8 @@ export default function ExecutiveReviewDetail() {
         returnMode={returnMode}
         setReturnMode={setReturnMode}
         onOpenCatalog={actions.openCatalog}
-        onOpenRepairsDrawer={(sid) => { setExpandedRepairId(null); setRepairsDrawerSectionId(sid); }}
-        onPublish={() => actions.handlePublish()}
+        onOpenRepairsDrawer={handleOpenRepairsDrawerMobile}
+        onPublish={actions.handlePublish}
       />
 
 
@@ -643,7 +710,7 @@ export default function ExecutiveReviewDetail() {
         inspection={inspection}
         operationalSections={operationalSections}
         allRepairs={allRepairs}
-        contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
+        contractorName={selectedContractorName}
       />
 
       {/* ── Work order details by category (confidential) ── */}
@@ -652,7 +719,7 @@ export default function ExecutiveReviewDetail() {
         onOpenChange={setWorkOrderDetailsOpen}
         inspection={inspection}
         allRepairs={allRepairs}
-        contractorName={contractors.find(c => c.id === selectedContractorId)?.name ?? null}
+        contractorName={selectedContractorName}
       />
 
       {/* ── Quotation discount sheet ─────────────────── */}
@@ -664,14 +731,7 @@ export default function ExecutiveReviewDetail() {
         taxConfig={taxConfig}
         initial={activeDiscountInput}
         saving={discountState.saving}
-        onSubmit={async (input) => {
-          try {
-            await discountState.apply(input);
-            toast({ title: 'Descuento aplicado' });
-          } catch (e: any) {
-            toast({ title: 'No se pudo aplicar el descuento', description: e?.message, variant: 'destructive' });
-          }
-        }}
+        onSubmit={handleDiscountSubmit}
       />
     </div>
     </ExecutiveLayout>

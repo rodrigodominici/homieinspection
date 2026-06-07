@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,7 +41,7 @@ interface SectionRepairsPanelProps {
  * repair items for one section. Hosted either inline (desktop split column)
  * via `ExecutiveReviewDetail` or inside `SectionRepairsDrawer` (mobile sheet).
  */
-export function SectionRepairsPanel({
+export const SectionRepairsPanel = memo(function SectionRepairsPanel({
   section, repairs, hasContractor,
   expandedRepairId, onToggleExpand, onOpenCatalog, onUpdateRepair, onDeleteRepair,
   onClose, variant = 'inline',
@@ -281,4 +282,4 @@ export function SectionRepairsPanel({
       </div>
     </div>
   );
-}
+});

@@ -62,7 +62,7 @@ const EMPTY: ReviewDetailData = {
 async function fetchReviewDetail(inspectionId: string): Promise<ReviewDetailData> {
   const [{ data: insp }, { data: contractorData }] = await Promise.all([
     supabase.from('inspections').select('*').eq('id', inspectionId).single(),
-    supabase.from('contractors').select('*').eq('is_active', true).order('name'),
+    supabase.from('contractors').select('id, name, is_active').eq('is_active', true).order('name'),
   ]);
 
   const { data: secs } = await supabase
@@ -82,7 +82,7 @@ async function fetchReviewDetail(inspectionId: string): Promise<ReviewDetailData
   const secIds = secList.map((s) => s.id);
   if (secIds.length > 0) {
     const [{ data: fields }, { data: photos }, { data: reviews }, { data: repairs }] = await Promise.all([
-      supabase.from('inspection_field_values').select('*').in('inspection_section_id', secIds).order('sort_order'),
+      supabase.from('inspection_field_values').select('id, inspection_section_id, sort_order, field_label, group_key, value_text').in('inspection_section_id', secIds).order('sort_order'),
       supabase.from('inspection_photos').select('*').in('inspection_section_id', secIds).order('sort_order'),
       supabase.from('inspection_reviews').select('*').in('inspection_section_id', secIds).order('created_at'),
       supabase.from('inspection_repair_items').select('*').in('inspection_section_id', secIds).order('sort_order'),

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { memo, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -24,7 +24,7 @@ interface PhotoPanelProps {
 }
 
 /** Right-side photo panel for the Executive review workstation. */
-export function PhotoPanel({
+export const PhotoPanel = memo(function PhotoPanel({
   photos, inspectionId, sectionId, sectionKey, uploadedBy, urlOf,
   onToggleVisibility, onPhotosChanged,
 }: PhotoPanelProps) {
@@ -211,4 +211,4 @@ export function PhotoPanel({
       </AlertDialog>
     </div>
   );
-}
+});

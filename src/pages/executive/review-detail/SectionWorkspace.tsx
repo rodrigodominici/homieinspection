@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,7 +43,7 @@ interface SectionWorkspaceProps {
  * review content (status fields, observations, internal note) and a compact
  * repair strip whose CTA opens `SectionRepairsDrawer`.
  */
-export function SectionWorkspace({
+export const SectionWorkspace = memo(function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
   onFinalObsChange, onInternalNoteChange, onSaveFinalObsSilent, onSaveNoteSilent,
   onOpenRepairsDrawer,
@@ -224,4 +225,4 @@ export function SectionWorkspace({
       )}
     </div>
   );
-}
+});

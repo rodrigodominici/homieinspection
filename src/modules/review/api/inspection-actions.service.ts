@@ -43,26 +43,30 @@ export interface RequestChangesArgs {
 
 export async function requestChanges(args: RequestChangesArgs): Promise<void> {
   const { inspectionId, profileId, selectedSectionIds, commentsBySection } = args;
-  for (const secId of selectedSectionIds) {
-    const comment = commentsBySection[secId]?.trim();
-    if (comment) {
-      await supabase.from('inspection_reviews').insert({
-        inspection_id: inspectionId,
-        inspection_section_id: secId,
-        comment_type: 'revision_request',
-        comment,
-        created_by: profileId,
-      });
-    }
-    await supabase
-      .from('inspection_sections')
-      .update({ status: 'needs_changes' })
-      .eq('id', secId);
+
+  // Batch insert all review comments in a single round-trip
+  const reviewRows = selectedSectionIds
+    .filter((secId) => commentsBySection[secId]?.trim())
+    .map((secId) => ({
+      inspection_id: inspectionId,
+      inspection_section_id: secId,
+      comment_type: 'revision_request',
+      comment: commentsBySection[secId].trim(),
+      created_by: profileId,
+    }));
+  if (reviewRows.length > 0) {
+    await supabase.from('inspection_reviews').insert(reviewRows);
   }
-  const { error } = await supabase
-    .from('inspections')
-    .update({ status: 'needs_changes' })
-    .eq('id', inspectionId);
+
+  // Update all sections and the inspection status in parallel
+  const [, { error }] = await Promise.all([
+    Promise.all(
+      selectedSectionIds.map((secId) =>
+        supabase.from('inspection_sections').update({ status: 'needs_changes' }).eq('id', secId),
+      ),
+    ),
+    supabase.from('inspections').update({ status: 'needs_changes' }).eq('id', inspectionId),
+  ]);
   if (error) throw error;
 }
 

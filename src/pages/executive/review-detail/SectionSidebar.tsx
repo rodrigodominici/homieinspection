@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,7 +18,7 @@ interface SectionSidebarProps {
  * workstation. Inspection metadata (Introducción, Datos del inmueble,
  * Firma del inquilino, etc.) lives in the top-rail Contexto popover.
  */
-export function SectionSidebar({
+export const SectionSidebar = memo(function SectionSidebar({
   operationalSections,
   activeSectionId,
   onSelectSection,
@@ -78,4 +79,4 @@ export function SectionSidebar({
       })}
     </aside>
   );
-}
+});

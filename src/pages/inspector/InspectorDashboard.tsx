@@ -41,13 +41,23 @@ export default function InspectorDashboard() {
 
       if (!inspData) { setLoading(false); return; }
 
+      // Batch-load ALL sections for ALL inspections in ONE query (avoids N+1)
+      const inspectionIds = (inspData as unknown as Inspection[]).map((i) => i.id);
+      const { data: allSections } = await supabase
+        .from('inspection_sections')
+        .select('id, inspection_id, status, is_visible, section_type')
+        .in('inspection_id', inspectionIds);
+
+      // Group sections by inspection_id for O(1) lookup
+      const sectionsByInspection = ((allSections ?? []) as unknown as (Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'> & { inspection_id: string })[])
+        .reduce<Record<string, Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]>>(
+          (acc, s) => { (acc[s.inspection_id] ??= []).push(s); return acc; },
+          {},
+        );
+
       const withProgress = await Promise.all(
         (inspData as unknown as Inspection[]).map(async (insp) => {
-          const { data: sections } = await supabase
-            .from('inspection_sections')
-            .select('id, status, is_visible, section_type')
-            .eq('inspection_id', insp.id);
-          const secs = (sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[];
+          const secs = sectionsByInspection[insp.id] ?? [];
           const progress = calculateProgress(secs);
 
           if (progress.completed > 0 && ['pending', 'assigned', 'pending_assignment'].includes(insp.status)) {

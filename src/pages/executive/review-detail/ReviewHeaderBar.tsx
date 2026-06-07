@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -53,7 +54,7 @@ interface ReviewHeaderBarProps {
   onCopyTenant: () => void;
 }
 
-export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
+export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeaderBarProps) {
   const {
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
@@ -209,4 +210,4 @@ export function ReviewHeaderBar(props: ReviewHeaderBarProps) {
       </div>
     </header>
   );
-}
+});
