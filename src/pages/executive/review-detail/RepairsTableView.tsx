@@ -208,10 +208,19 @@ export function RepairsTableView({
           <ul className="divide-y divide-border/60">
             {filtered.map((r) => {
               const subtotal = r.quantity * r.unit_price;
+              const fb = feedbackByRepairId?.get(r.id);
+              const pendingFb = fb && fb.decision !== 'accepted' ? fb : null;
+              const accent = feedbackAccentClasses(pendingFb?.decision);
               return (
-                <li key={r.id} className="grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 items-center text-sm">
+                <li key={r.id} className={cn(
+                  'grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 items-center text-sm',
+                  pendingFb && accent.bg,
+                )}>
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{r.title_snapshot}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="font-medium truncate">{r.title_snapshot}</p>
+                      {pendingFb && <OwnerFeedbackBadge decision={pendingFb.decision} comment={pendingFb.comment} size="xs" />}
+                    </div>
                     {r.category_snapshot && (
                       <p className="text-[10px] text-muted-foreground truncate">{r.category_snapshot}</p>
                     )}
