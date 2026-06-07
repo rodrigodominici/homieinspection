@@ -35,19 +35,32 @@ interface RepairsTableViewProps {
 type PayerFilter = 'all' | 'owner' | 'tenant';
 type NatureFilter = 'all' | 'required' | 'optional';
 
+type FeedbackFilter = 'all' | 'pending';
+
 export function RepairsTableView({
   sections, allRepairs, contractors, selectedContractorId, onContractorChange,
   contractorTotal, clientTotal, utility, budgetBreakdown, warrantyDeposit, depositDiff,
-  onOpenCatalog, onUpdateRepair, onDeleteRepair,
+  onOpenCatalog, onUpdateRepair, onDeleteRepair, feedbackByRepairId,
 }: RepairsTableViewProps) {
   const [payerFilter, setPayerFilter] = useState<PayerFilter>('all');
   const [natureFilter, setNatureFilter] = useState<NatureFilter>('all');
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackFilter>('all');
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [addToSection, setAddToSection] = useState<string>(sections[0]?.id ?? '');
 
   const sectionTitle = (id: string) =>
     sections.find((s) => s.id === id)?.section_title ?? '—';
+
+  const pendingFeedbackCount = useMemo(() => {
+    if (!feedbackByRepairId || feedbackByRepairId.size === 0) return 0;
+    let n = 0;
+    for (const r of allRepairs) {
+      const fb = feedbackByRepairId.get(r.id);
+      if (fb && fb.decision !== 'accepted') n += 1;
+    }
+    return n;
+  }, [allRepairs, feedbackByRepairId]);
 
   const filtered = useMemo(() => {
     return allRepairs.filter((r) => {
