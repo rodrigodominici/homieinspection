@@ -50,6 +50,24 @@ export function QuotationView({
         </p>
       </div>
 
+      {ownerPendingFeedbackCount > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-50/70 px-4 py-3 flex items-center gap-3">
+          <MessageSquare className="h-4 w-4 text-amber-700 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900">
+              El propietario pidió ajustes en {ownerPendingFeedbackCount} {ownerPendingFeedbackCount === 1 ? 'reparación' : 'reparaciones'}
+              {ownerFeedbackVersionNumber ? ` · v${ownerFeedbackVersionNumber}` : ''}
+            </p>
+            <p className="text-xs text-amber-800/80 mt-0.5">
+              Revisa los comentarios en cada ítem antes de republicar.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onGoToRepairs} className="border-amber-500/50 text-amber-900 hover:bg-amber-100">
+            Ver reparaciones
+          </Button>
+        </div>
+      )}
+
       {!hasRepairs && (
         <div className="rounded-lg border border-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/8 px-4 py-3 flex items-center gap-3">
           <AlertTriangle className="h-4 w-4 text-[hsl(var(--status-regular))]" />
