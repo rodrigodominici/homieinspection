@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Google Fonts is loaded via <link> tags in index.html for better performance.
+   (Avoids render-blocking @import and PostCSS ordering warnings.) */
 
 /* Homie Design System — aligned to Homie Admin Portal (DS canónico).
  * All colors HSL. Legacy --status-* tokens preserved for backwards compat
