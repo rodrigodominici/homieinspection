@@ -529,6 +529,12 @@ export default function OwnerReport() {
     [report]
   );
 
+  const sectionGroups = useMemo(
+    () => report ? groupSectionsByPayer(report.sections) : { owner: [], tenant: [] },
+    [report]
+  );
+
+
   const handleDecisionChange = useCallback(
     (id: string, next: { decision: Decision | null; comment: string }) => {
       setDecisions((prev) => ({ ...prev, [id]: next }));
