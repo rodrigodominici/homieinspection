@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2 } from 'lucide-react';
+import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import type { QuotationDiscountBreakdown, QuotationDiscountInput } from '@/lib/quotation-discount';
