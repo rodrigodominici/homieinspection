@@ -12,7 +12,7 @@ import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { ContractorQuotationDialog } from '@/components/ContractorQuotationDialog';
 import { WorkOrderDetailsDialog } from '@/components/WorkOrderDetailsDialog';
-import { useReviewDetail, useReviewActions } from '@/modules/review/api';
+import { useReviewDetail, useReviewActions, useOwnerFeedbackByRepair } from '@/modules/review/api';
 import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
@@ -63,6 +63,9 @@ export default function ExecutiveReviewDetail() {
   } = useReviewDetail(id);
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
+
+  // Feedback del propietario sobre la última versión publicada (mapeado por repair_id).
+  const ownerFeedback = useOwnerFeedbackByRepair(id);
 
   // Active section for desktop
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -451,6 +454,7 @@ export default function ExecutiveReviewDetail() {
                   onContractorChange={actions.handleContractorChange}
                   contractorTotal={contractorTotal}
                   utility={utility}
+                  feedbackByRepairId={ownerFeedback.feedbackByRepairId}
                 />
               </aside>
             ) : (
@@ -479,6 +483,7 @@ export default function ExecutiveReviewDetail() {
             onOpenCatalog={actions.openCatalog}
             onUpdateRepair={actions.updateRepairItem}
             onDeleteRepair={actions.deleteRepairItem}
+            feedbackByRepairId={ownerFeedback.feedbackByRepairId}
           />
         </div>
       )}
@@ -507,6 +512,8 @@ export default function ExecutiveReviewDetail() {
             onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
             onGoToRepairs={() => setMode('repairs')}
             onGoToPublish={() => setMode('publish')}
+            ownerPendingFeedbackCount={ownerFeedback.pendingCount}
+            ownerFeedbackVersionNumber={ownerFeedback.versionNumber}
           />
         </div>
       )}
@@ -587,6 +594,7 @@ export default function ExecutiveReviewDetail() {
             onContractorChange={actions.handleContractorChange}
             contractorTotal={contractorTotal}
             utility={utility}
+            feedbackByRepairId={ownerFeedback.feedbackByRepairId}
           />
         );
       })()}

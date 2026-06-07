@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2 } from 'lucide-react';
+import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import type { QuotationDiscountBreakdown, QuotationDiscountInput } from '@/lib/quotation-discount';
@@ -27,6 +27,9 @@ interface QuotationViewProps {
   onOpenWorkOrderDetails: () => void;
   onGoToRepairs: () => void;
   onGoToPublish: () => void;
+  /** Si el propietario pidió ajustes, mostramos banner con CTA a Reparaciones filtradas. */
+  ownerPendingFeedbackCount?: number;
+  ownerFeedbackVersionNumber?: number | null;
 }
 
 export function QuotationView({
@@ -36,6 +39,7 @@ export function QuotationView({
   warrantyDeposit, depositDiff, hasRepairs,
   onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails,
   onGoToRepairs, onGoToPublish,
+  ownerPendingFeedbackCount = 0, ownerFeedbackVersionNumber = null,
 }: QuotationViewProps) {
   return (
     <div className="h-full overflow-y-auto p-6 max-w-5xl mx-auto space-y-6">
@@ -45,6 +49,24 @@ export function QuotationView({
           Revisa los totales por responsable antes de publicar. Genera las cotizaciones de propietario e inquilino o descarga el informe interno.
         </p>
       </div>
+
+      {ownerPendingFeedbackCount > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-50/70 px-4 py-3 flex items-center gap-3">
+          <MessageSquare className="h-4 w-4 text-amber-700 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900">
+              El propietario pidió ajustes en {ownerPendingFeedbackCount} {ownerPendingFeedbackCount === 1 ? 'reparación' : 'reparaciones'}
+              {ownerFeedbackVersionNumber ? ` · v${ownerFeedbackVersionNumber}` : ''}
+            </p>
+            <p className="text-xs text-amber-800/80 mt-0.5">
+              Revisa los comentarios en cada ítem antes de republicar.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onGoToRepairs} className="border-amber-500/50 text-amber-900 hover:bg-amber-100">
+            Ver reparaciones
+          </Button>
+        </div>
+      )}
 
       {!hasRepairs && (
         <div className="rounded-lg border border-[hsl(var(--status-regular))]/30 bg-[hsl(var(--status-regular))]/8 px-4 py-3 flex items-center gap-3">

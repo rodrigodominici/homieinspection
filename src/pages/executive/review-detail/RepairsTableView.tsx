@@ -6,7 +6,9 @@ import { Trash2, Plus, Search, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
+import { OwnerFeedbackBadge, feedbackAccentClasses } from './OwnerFeedbackBadge';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
+import type { OwnerFeedbackEntry } from '@/modules/review/api/useOwnerFeedbackByRepair';
 
 interface RepairsTableViewProps {
   sections: InspectionSection[];
@@ -27,18 +29,22 @@ interface RepairsTableViewProps {
   onOpenCatalog: (sectionId: string) => void;
   onUpdateRepair: (id: string, field: string, value: any) => void;
   onDeleteRepair: (id: string) => void;
+  feedbackByRepairId?: Map<string, OwnerFeedbackEntry>;
 }
 
 type PayerFilter = 'all' | 'owner' | 'tenant';
 type NatureFilter = 'all' | 'required' | 'optional';
 
+type FeedbackFilter = 'all' | 'pending';
+
 export function RepairsTableView({
   sections, allRepairs, contractors, selectedContractorId, onContractorChange,
   contractorTotal, clientTotal, utility, budgetBreakdown, warrantyDeposit, depositDiff,
-  onOpenCatalog, onUpdateRepair, onDeleteRepair,
+  onOpenCatalog, onUpdateRepair, onDeleteRepair, feedbackByRepairId,
 }: RepairsTableViewProps) {
   const [payerFilter, setPayerFilter] = useState<PayerFilter>('all');
   const [natureFilter, setNatureFilter] = useState<NatureFilter>('all');
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackFilter>('all');
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [addToSection, setAddToSection] = useState<string>(sections[0]?.id ?? '');
@@ -46,11 +52,25 @@ export function RepairsTableView({
   const sectionTitle = (id: string) =>
     sections.find((s) => s.id === id)?.section_title ?? '—';
 
+  const pendingFeedbackCount = useMemo(() => {
+    if (!feedbackByRepairId || feedbackByRepairId.size === 0) return 0;
+    let n = 0;
+    for (const r of allRepairs) {
+      const fb = feedbackByRepairId.get(r.id);
+      if (fb && fb.decision !== 'accepted') n += 1;
+    }
+    return n;
+  }, [allRepairs, feedbackByRepairId]);
+
   const filtered = useMemo(() => {
     return allRepairs.filter((r) => {
       if (payerFilter !== 'all' && r.payer_role !== payerFilter) return false;
       if (natureFilter !== 'all' && r.payment_nature !== natureFilter) return false;
       if (sectionFilter !== 'all' && r.inspection_section_id !== sectionFilter) return false;
+      if (feedbackFilter === 'pending') {
+        const fb = feedbackByRepairId?.get(r.id);
+        if (!fb || fb.decision === 'accepted') return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const hay = `${r.title_snapshot} ${r.category_snapshot ?? ''} ${sectionTitle(r.inspection_section_id)}`.toLowerCase();
@@ -58,7 +78,7 @@ export function RepairsTableView({
       }
       return true;
     });
-  }, [allRepairs, payerFilter, natureFilter, sectionFilter, search, sections]);
+  }, [allRepairs, payerFilter, natureFilter, sectionFilter, feedbackFilter, feedbackByRepairId, search, sections]);
 
   const filteredTotal = filtered.reduce((s, r) => s + r.quantity * r.unit_price, 0);
   const hasContractor = !!selectedContractorId;
@@ -131,6 +151,16 @@ export function RepairsTableView({
           <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Obligatorias</ToggleGroupItem>
           <ToggleGroupItem value="optional" className="h-7 px-3 text-xs">Opcionales</ToggleGroupItem>
         </ToggleGroup>
+        {pendingFeedbackCount > 0 && (
+          <ToggleGroup type="single" value={feedbackFilter} onValueChange={(v) => v && setFeedbackFilter(v as FeedbackFilter)}
+            className="h-9 rounded-md border border-amber-500/40 bg-amber-50/60 p-0.5">
+            <ToggleGroupItem value="all" className="h-7 px-3 text-xs">Todas</ToggleGroupItem>
+            <ToggleGroupItem value="pending" className="h-7 px-3 text-xs gap-1 text-amber-800 data-[state=on]:bg-amber-200/70">
+              Feedback pendiente
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold tabular-nums">{pendingFeedbackCount}</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
         <select
           value={sectionFilter}
           onChange={(e) => setSectionFilter(e.target.value)}
@@ -178,10 +208,19 @@ export function RepairsTableView({
           <ul className="divide-y divide-border/60">
             {filtered.map((r) => {
               const subtotal = r.quantity * r.unit_price;
+              const fb = feedbackByRepairId?.get(r.id);
+              const pendingFb = fb && fb.decision !== 'accepted' ? fb : null;
+              const accent = feedbackAccentClasses(pendingFb?.decision);
               return (
-                <li key={r.id} className="grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 items-center text-sm">
+                <li key={r.id} className={cn(
+                  'grid grid-cols-[1fr_120px_120px_120px_90px_80px_40px] gap-2 px-3 py-2 items-center text-sm',
+                  pendingFb && accent.bg,
+                )}>
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{r.title_snapshot}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="font-medium truncate">{r.title_snapshot}</p>
+                      {pendingFb && <OwnerFeedbackBadge decision={pendingFb.decision} comment={pendingFb.comment} size="xs" />}
+                    </div>
                     {r.category_snapshot && (
                       <p className="text-[10px] text-muted-foreground truncate">{r.category_snapshot}</p>
                     )}

@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
+import { OwnerFeedbackBadge, feedbackAccentClasses } from './OwnerFeedbackBadge';
+import type { OwnerFeedbackEntry } from '@/modules/review/api/useOwnerFeedbackByRepair';
 
 interface SectionRepairsPanelProps {
   section: InspectionSection;
@@ -29,6 +31,8 @@ interface SectionRepairsPanelProps {
   onContractorChange?: (id: string) => void;
   contractorTotal?: number;
   utility?: number;
+  /** Map repair_id → última decisión del propietario. Resalta ítems con observación/rechazo. */
+  feedbackByRepairId?: Map<string, OwnerFeedbackEntry>;
 }
 
 /**
@@ -41,6 +45,7 @@ export function SectionRepairsPanel({
   expandedRepairId, onToggleExpand, onOpenCatalog, onUpdateRepair, onDeleteRepair,
   onClose, variant = 'inline',
   contractors, selectedContractorId, onContractorChange, contractorTotal = 0, utility = 0,
+  feedbackByRepairId,
 }: SectionRepairsPanelProps) {
   const subtotalClient = repairs
     .filter((r) => r.visible_to_owner)
@@ -92,10 +97,15 @@ export function SectionRepairsPanel({
         {repairs.map((repair) => {
           const expanded = expandedRepairId === repair.id;
           const itemSubtotal = repair.quantity * repair.unit_price;
+          const fb = feedbackByRepairId?.get(repair.id);
+          const pendingFb = fb && fb.decision !== 'accepted' ? fb : null;
+          const accent = feedbackAccentClasses(pendingFb?.decision);
           return (
             <div key={repair.id} className={cn(
               'rounded-md border bg-card transition-colors',
               !repair.visible_to_owner ? 'opacity-60 border-dashed border-border/60' : 'border-border/60',
+              pendingFb && accent.border,
+              pendingFb && accent.bg,
               expanded && 'ring-1 ring-primary/30'
             )}>
               {/* Compact summary row (always visible) */}
@@ -109,7 +119,10 @@ export function SectionRepairsPanel({
                   expanded && 'rotate-90'
                 )} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{repair.title_snapshot}</p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-medium truncate">{repair.title_snapshot}</p>
+                    {pendingFb && <OwnerFeedbackBadge decision={pendingFb.decision} size="xs" />}
+                  </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span>{repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}</span>
                     <span className="opacity-50">·</span>
@@ -118,6 +131,23 @@ export function SectionRepairsPanel({
                 </div>
                 <span className="text-xs font-mono font-medium shrink-0">{fmtCurrency(itemSubtotal)}</span>
               </button>
+
+              {/* Owner feedback callout — visible siempre que haya feedback pendiente */}
+              {pendingFb && (
+                <div className={cn(
+                  'mx-3 mb-2 rounded-md border-l-2 px-2.5 py-1.5 text-xs',
+                  pendingFb.decision === 'rejected'
+                    ? 'border-l-red-500 bg-red-50/60 text-red-900'
+                    : 'border-l-amber-500 bg-amber-50/60 text-amber-900',
+                )}>
+                  <p className="font-medium">
+                    Propietario {pendingFb.decision === 'rejected' ? 'rechazó' : 'observó'} esta reparación
+                  </p>
+                  {pendingFb.comment && (
+                    <p className="italic mt-0.5">"{pendingFb.comment}"</p>
+                  )}
+                </div>
+              )}
 
               {/* Expanded editor */}
               {expanded && (
