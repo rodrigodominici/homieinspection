@@ -512,6 +512,8 @@ export default function ExecutiveReviewDetail() {
             onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
             onGoToRepairs={() => setMode('repairs')}
             onGoToPublish={() => setMode('publish')}
+            ownerPendingFeedbackCount={ownerFeedback.pendingCount}
+            ownerFeedbackVersionNumber={ownerFeedback.versionNumber}
           />
         </div>
       )}
