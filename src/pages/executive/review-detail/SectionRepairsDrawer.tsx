@@ -1,6 +1,7 @@
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { SectionRepairsPanel } from './SectionRepairsPanel';
+import type { OwnerFeedbackEntry } from '@/modules/review/api/useOwnerFeedbackByRepair';
 
 interface SectionRepairsDrawerProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface SectionRepairsDrawerProps {
   onContractorChange?: (id: string) => void;
   contractorTotal?: number;
   utility?: number;
+  feedbackByRepairId?: Map<string, OwnerFeedbackEntry>;
 }
 
 /**
