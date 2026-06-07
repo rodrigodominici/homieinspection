@@ -113,7 +113,15 @@ export function PhotoPanel({
                     !visible && 'opacity-40',
                   )}
                 >
-                  <img src={urlOf(p.id)} alt={p.caption ?? ''} className="w-full h-full object-cover" />
+                  <img
+                    src={urlOf(p.id)}
+                    alt={p.caption ?? ''}
+                    loading="lazy"
+                    decoding="async"
+                    width={400}
+                    height={300}
+                    className="w-full h-full object-cover"
+                  />
                 </button>
                 <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -159,6 +167,7 @@ export function PhotoPanel({
               <img
                 src={urlOf(featured.id)}
                 alt={featured.caption ?? ''}
+                decoding="async"
                 className="w-full rounded-lg object-contain max-h-[75vh] bg-muted/30"
               />
               {photos.length > 1 && (

@@ -5,7 +5,12 @@ import type { InspectionPhoto } from '@/lib/types';
  * Shared inspection-photo helpers (executive + inspector).
  * Compresses to ≤1920px JPEG @0.8 and persists a row in inspection_photos.
  */
-async function compressImage(file: File): Promise<Blob> {
+
+/**
+ * Client-side compression: scales down to ≤1920px and re-encodes as JPEG @0.8.
+ * Exported so page components can use it directly without duplicating the logic.
+ */
+export async function compressImage(file: File): Promise<Blob> {
   if (!file.type.startsWith('image/')) return file;
   return new Promise((resolve) => {
     const img = new Image();

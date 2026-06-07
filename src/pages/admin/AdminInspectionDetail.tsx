@@ -350,6 +350,18 @@ export default function AdminInspectionDetail() {
     try {
       // Delete related records in order (no FK cascades)
       await supabase.from('inspection_field_values').delete().eq('inspection_id', inspection.id);
+
+      // Delete photos from storage first to avoid orphaned files
+      const { data: photoRows } = await supabase
+        .from('inspection_photos')
+        .select('storage_path')
+        .eq('inspection_id', inspection.id);
+      const storagePaths = (photoRows ?? [])
+        .map((p: { storage_path: string }) => p.storage_path)
+        .filter(Boolean);
+      if (storagePaths.length > 0) {
+        await supabase.storage.from('inspection-photos').remove(storagePaths);
+      }
       await supabase.from('inspection_photos').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_reviews').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_repair_items').delete().eq('inspection_id', inspection.id);

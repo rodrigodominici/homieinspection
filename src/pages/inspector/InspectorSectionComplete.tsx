@@ -28,6 +28,7 @@ import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/in
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
+import { compressImage } from '@/shared/lib/inspection-photos';
 
 // ─── Group labels ────────────────────────────────────────────────────────
 const PROPERTY_GROUP_LABELS: Record<string, string> = {
@@ -154,27 +155,7 @@ export default function InspectorSectionComplete() {
     saveField(fieldId, value);
   };
 
-  const compressImage = async (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX = 1920;
-        let { width, height } = img;
-        if (width > MAX || height > MAX) {
-          if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
-          else { width = Math.round((width * MAX) / height); height = MAX; }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.8);
-      };
-      img.onerror = () => resolve(file);
-      img.src = URL.createObjectURL(file);
-    });
-  };
+  // compressImage is imported from @/shared/lib/inspection-photos — single source of truth
 
   const handlePhotoUpload = async (files: FileList | null, fieldKey?: string | null) => {
     if (!files || !inspectionId || !sectionId || !section) return;
@@ -499,6 +480,10 @@ export default function InspectorSectionComplete() {
                 <img
                   src={photoUrls[photo.id] ?? ''}
                   alt={photo.caption ?? 'Foto'}
+                  loading="lazy"
+                  decoding="async"
+                  width={400}
+                  height={400}
                   className="w-full h-full object-cover"
                 />
                 {!readOnly && (
