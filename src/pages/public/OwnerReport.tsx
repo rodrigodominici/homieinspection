@@ -196,6 +196,36 @@ function bucketRepairs(sections: PayloadSection[]) {
   return buckets;
 }
 
+interface SectionPayerGroup {
+  sectionId: string;
+  sectionTitle: string;
+  items: PayloadRepair[];
+}
+
+/**
+ * Group repairs by property section, split per payer. Keeps the section
+ * order from the RPC payload. A section is included only if it has at
+ * least one repair for that payer.
+ */
+function groupSectionsByPayer(sections: PayloadSection[]): {
+  owner: SectionPayerGroup[];
+  tenant: SectionPayerGroup[];
+} {
+  const owner: SectionPayerGroup[] = [];
+  const tenant: SectionPayerGroup[] = [];
+  for (const s of sections) {
+    const o: PayloadRepair[] = [];
+    const t: PayloadRepair[] = [];
+    for (const r of s.repairs) {
+      const payer: PayerRole = r.payer_role === 'tenant' ? 'tenant' : 'owner';
+      (payer === 'tenant' ? t : o).push(r);
+    }
+    if (o.length > 0) owner.push({ sectionId: s.id, sectionTitle: s.title, items: o });
+    if (t.length > 0) tenant.push({ sectionId: s.id, sectionTitle: s.title, items: t });
+  }
+  return { owner, tenant };
+}
+
 const repairAmount = (r: PayloadRepair) =>
   Number(r.subtotal ?? r.quantity * r.unit_price);
 
