@@ -483,6 +483,7 @@ export default function ExecutiveReviewDetail() {
             onOpenCatalog={actions.openCatalog}
             onUpdateRepair={actions.updateRepairItem}
             onDeleteRepair={actions.deleteRepairItem}
+            feedbackByRepairId={ownerFeedback.feedbackByRepairId}
           />
         </div>
       )}
