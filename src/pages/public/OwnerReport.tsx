@@ -991,8 +991,10 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.tenant.required} />
-                    <RepairGroup title="Opcionales"   items={buckets.tenant.optional} variant="subtle" />
+                    {sectionGroups.tenant.map((g) => (
+                      <RepairGroup key={g.sectionId} title={g.sectionTitle} items={g.items} />
+                    ))}
+
                   </CardContent>
                 </Card>
 
