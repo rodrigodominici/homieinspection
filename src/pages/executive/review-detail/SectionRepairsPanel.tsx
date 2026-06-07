@@ -45,6 +45,7 @@ export function SectionRepairsPanel({
   expandedRepairId, onToggleExpand, onOpenCatalog, onUpdateRepair, onDeleteRepair,
   onClose, variant = 'inline',
   contractors, selectedContractorId, onContractorChange, contractorTotal = 0, utility = 0,
+  feedbackByRepairId,
 }: SectionRepairsPanelProps) {
   const subtotalClient = repairs
     .filter((r) => r.visible_to_owner)
