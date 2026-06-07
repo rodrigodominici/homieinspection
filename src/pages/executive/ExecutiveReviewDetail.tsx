@@ -64,6 +64,9 @@ export default function ExecutiveReviewDetail() {
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
 
+  // Feedback del propietario sobre la última versión publicada (mapeado por repair_id).
+  const ownerFeedback = useOwnerFeedbackByRepair(id);
+
   // Active section for desktop
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
