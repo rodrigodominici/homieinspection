@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import type { InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { fmtCurrency } from './helpers';
 import { ContractorPicker } from './ContractorPicker';
+import { OwnerFeedbackBadge, feedbackAccentClasses } from './OwnerFeedbackBadge';
+import type { OwnerFeedbackEntry } from '@/modules/review/api/useOwnerFeedbackByRepair';
 
 interface SectionRepairsPanelProps {
   section: InspectionSection;
