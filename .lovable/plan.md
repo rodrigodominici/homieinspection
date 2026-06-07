@@ -1,43 +1,45 @@
-# Reestructurar cotizaciones e informes internos
+# Reporte público (URL): agrupar presupuesto por sección
 
-## 1. `QuotationDialog` (Propietario / Inquilino)
-- Aceptar nueva prop `operationalSections: InspectionSection[]`.
-- Reemplazar las tablas separadas de "obligatorias" / "opcionales" por **una tabla por sección del inmueble** (ordenadas por `sort_order`).
-- Cada fila incluye un `<Badge>`:
-  - `Obligatoria` → variant `secondary`
-  - `Opcional` → variant `outline`
-- Subtotal por sección en `tfoot`.
-- Totales finales: subtotal + IVA + total (igual que hoy), con resumen compacto de obligatorias vs opcionales debajo.
-- Actualizar la versión de impresión (PRINT_CSS) y el "Copiar resumen" para reflejar el agrupamiento por sección + tag.
+Aplicar al reporte compartido por URL (`src/pages/public/OwnerReport.tsx`, vistas `owner` y `tenant`) el mismo criterio que ya usa `QuotationDialog`: **una tabla por sección del inmueble**, con un **badge `Obligatoria`/`Opcional`** por reparación. Sin cambios en cálculos, decisiones, descuentos, IVA, ni en el payload del RPC.
 
-## 2. Dividir `InternalReportDialog` en dos componentes nuevos
+## 1. Helper de agrupación
+Reemplazar `bucketRepairs` por `groupRepairsBySectionAndPayer(sections)` que devuelve:
 
-### a) `ContractorQuotationDialog` (nuevo archivo)
-- Una tabla por sección del inmueble.
-- Columnas: reparación (título + descripción), cantidad, **costo del contratista** (`contractor_unit_price`), subtotal.
-- **Sin** distinción propietario/inquilino.
-- **Sin** tag obligatoria/opcional.
-- **Sin** IVA ni utilidad.
-- PRINT_CSS propio, título "Cotización Contratista".
+```ts
+{
+  owner:  Array<{ sectionId, sectionTitle, items: PayloadRepair[], subtotal }>,
+  tenant: Array<{ sectionId, sectionTitle, items: PayloadRepair[], subtotal }>,
+}
+```
 
-### b) `WorkOrderDetailsDialog` (nuevo archivo)
-- Contiene exclusivamente la tabla actual "Resumen por categoría" (categoría | total venta | costo contratista | utilidad).
-- Título "Detalles de la OT".
-- PRINT_CSS propio.
+- Recorre `report.sections` en su orden actual (ya viene ordenado del RPC).
+- Para cada sección, separa repairs por `payer_role` (default `owner`).
+- Mantiene la sección sólo si tiene items en ese payer.
+- Conserva `payment_nature` en cada item (no se filtra ni se separa).
 
-## 3. `ExecutiveReviewDetail.tsx`
-- Reemplazar el state `internalReportOpen` por `contractorQuotationOpen` y `workOrderDetailsOpen`.
-- Montar los dos nuevos diálogos en lugar de `InternalReportDialog`.
-- Pasar `operationalSections` al `QuotationDialog`.
+## 2. Nuevo componente `SectionRepairGroup`
+Sustituye a las dos llamadas `RepairGroup` (Obligatorias / Opcionales) por una sola por sección.
 
-## 4. `QuotationView.tsx` + `ReviewHeaderBar.tsx`
-- Reemplazar el item de dropdown "Informe interno" por dos entradas:
-  - "Cotización contratista" → abre `ContractorQuotationDialog`
-  - "Detalles de la OT" → abre `WorkOrderDetailsDialog`
-- Mismo patrón en cualquier otro lugar que dispare el informe interno actual.
+- Header: título de la sección en el estilo actual de "OBLIGATORIAS" (uppercase, tracking-wide), con el subtotal de la sección a la derecha (usa `projectedSum` cuando `interactive`, igual que hoy).
+- Lista de `RepairRow` ya existente.
+- En `RepairRow`: añadir un `<Badge>` debajo de `r.name` con:
+  - `Obligatoria` → `variant="secondary"`
+  - `Opcional` → `variant="outline"`
+  Usa el componente `Badge` de `@/components/ui/badge` (mismo patrón que `QuotationDialog`). Nada de colores hardcoded.
 
-## 5. Detalles técnicos
-- Helper `groupBySection(repairs, sections)` reutilizable (puede vivir en `helpers.tsx`).
-- Sin cambios de DB, RLS, snapshots ni tipos.
-- `InternalReportDialog.tsx` queda obsoleto; eliminarlo una vez removidas todas sus referencias.
-- Mantener tokens semánticos del design system (sin colores hardcoded).
+## 3. Render en el tab Presupuesto
+En `TabsContent value="budget"`:
+
+- **Audiencia `owner`**: la card "Reparaciones a cargo del propietario" lista `groups.owner` como `SectionRepairGroup` por sección; la card "Reparaciones a cargo del inquilino" lista `groups.tenant`. Si un payer no tiene secciones, se mantiene el mensaje "Sin reparaciones asignadas."
+- **Audiencia `tenant`**: la única card lista `groups.tenant` por sección.
+- Subtotales por payer, descuentos, IVA, "Total proyectado", banner del total combinado y `projectedSum`/`grandRejected` se mantienen exactamente como hoy (siguen sumando sobre los mismos arrays planos `owner.required+optional`, `tenant.required+optional`, recalculados desde los groups).
+
+## 4. Lo que NO cambia
+- `get_published_report` (RPC) y el shape del payload.
+- Lógica de decisiones owner-side (`accepted/observed/rejected`), comments, `submit`, locked state, badges de decisión.
+- Cálculos de IVA, descuento prorrateado, totales por payer y "Total proyectado".
+- Tab "Reporte" (observaciones por sección con fotos) y el resto del archivo.
+- Diseño tokens (sin colores hardcoded; reuso de `Badge`, `Card`, tokens `primary`, `muted-foreground`, etc.).
+
+## Archivos
+- `src/pages/public/OwnerReport.tsx` — única edición.

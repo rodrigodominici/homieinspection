@@ -196,6 +196,36 @@ function bucketRepairs(sections: PayloadSection[]) {
   return buckets;
 }
 
+interface SectionPayerGroup {
+  sectionId: string;
+  sectionTitle: string;
+  items: PayloadRepair[];
+}
+
+/**
+ * Group repairs by property section, split per payer. Keeps the section
+ * order from the RPC payload. A section is included only if it has at
+ * least one repair for that payer.
+ */
+function groupSectionsByPayer(sections: PayloadSection[]): {
+  owner: SectionPayerGroup[];
+  tenant: SectionPayerGroup[];
+} {
+  const owner: SectionPayerGroup[] = [];
+  const tenant: SectionPayerGroup[] = [];
+  for (const s of sections) {
+    const o: PayloadRepair[] = [];
+    const t: PayloadRepair[] = [];
+    for (const r of s.repairs) {
+      const payer: PayerRole = r.payer_role === 'tenant' ? 'tenant' : 'owner';
+      (payer === 'tenant' ? t : o).push(r);
+    }
+    if (o.length > 0) owner.push({ sectionId: s.id, sectionTitle: s.title, items: o });
+    if (t.length > 0) tenant.push({ sectionId: s.id, sectionTitle: s.title, items: t });
+  }
+  return { owner, tenant };
+}
+
 const repairAmount = (r: PayloadRepair) =>
   Number(r.subtotal ?? r.quantity * r.unit_price);
 
@@ -337,11 +367,18 @@ function RepairRow({
           {r.description && (
             <p className="text-caption text-muted-foreground mt-0.5 leading-snug">{r.description}</p>
           )}
+          <Badge
+            variant={r.payment_nature === 'optional' ? 'outline' : 'secondary'}
+            className="mt-1.5 text-[10px] px-1.5 py-0 font-medium"
+          >
+            {r.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+          </Badge>
         </div>
         <div className="sm:text-right shrink-0">
           <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
         </div>
       </div>
+
 
       {interactive && state && onChange && r.id && (
         <RepairDecisionControl state={state} onChange={onChange} />
@@ -491,6 +528,12 @@ export default function OwnerReport() {
     () => report ? bucketRepairs(report.sections) : null,
     [report]
   );
+
+  const sectionGroups = useMemo(
+    () => report ? groupSectionsByPayer(report.sections) : { owner: [], tenant: [] },
+    [report]
+  );
+
 
   const handleDecisionChange = useCallback(
     (id: string, next: { decision: Decision | null; comment: string }) => {
@@ -783,10 +826,18 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.owner.required}
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    <RepairGroup title="Opcionales" items={buckets.owner.optional} variant="subtle"
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
+                    {sectionGroups.owner.map((g) => (
+                      <RepairGroup
+                        key={g.sectionId}
+                        title={g.sectionTitle}
+                        items={g.items}
+                        interactive={interactive}
+                        decisionState={decisions}
+                        onDecisionChange={handleDecisionChange}
+                        lockedDecisions={lockedMap}
+                      />
+                    ))}
+
                     {ownerTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
@@ -832,10 +883,18 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.tenant.required}
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    <RepairGroup title="Opcionales" items={buckets.tenant.optional} variant="subtle"
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
+                    {sectionGroups.tenant.map((g) => (
+                      <RepairGroup
+                        key={g.sectionId}
+                        title={g.sectionTitle}
+                        items={g.items}
+                        interactive={interactive}
+                        decisionState={decisions}
+                        onDecisionChange={handleDecisionChange}
+                        lockedDecisions={lockedMap}
+                      />
+                    ))}
+
                     {tenantTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
@@ -932,8 +991,10 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.tenant.required} />
-                    <RepairGroup title="Opcionales"   items={buckets.tenant.optional} variant="subtle" />
+                    {sectionGroups.tenant.map((g) => (
+                      <RepairGroup key={g.sectionId} title={g.sectionTitle} items={g.items} />
+                    ))}
+
                   </CardContent>
                 </Card>
 
