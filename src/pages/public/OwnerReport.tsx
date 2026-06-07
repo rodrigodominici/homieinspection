@@ -883,10 +883,18 @@ export default function OwnerReport() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RepairGroup title="Obligatorias" items={buckets.tenant.required}
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
-                    <RepairGroup title="Opcionales" items={buckets.tenant.optional} variant="subtle"
-                      interactive={interactive} decisionState={decisions} onDecisionChange={handleDecisionChange} lockedDecisions={lockedMap} />
+                    {sectionGroups.tenant.map((g) => (
+                      <RepairGroup
+                        key={g.sectionId}
+                        title={g.sectionTitle}
+                        items={g.items}
+                        interactive={interactive}
+                        decisionState={decisions}
+                        onDecisionChange={handleDecisionChange}
+                        lockedDecisions={lockedMap}
+                      />
+                    ))}
+
                     {tenantTotalFull === 0 && (
                       <p className="text-caption text-muted-foreground">Sin reparaciones asignadas.</p>
                     )}
