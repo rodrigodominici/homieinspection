@@ -31,6 +31,8 @@ interface SectionRepairsPanelProps {
   onContractorChange?: (id: string) => void;
   contractorTotal?: number;
   utility?: number;
+  /** Map repair_id → última decisión del propietario. Resalta ítems con observación/rechazo. */
+  feedbackByRepairId?: Map<string, OwnerFeedbackEntry>;
 }
 
 /**
