@@ -151,6 +151,16 @@ export function RepairsTableView({
           <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Obligatorias</ToggleGroupItem>
           <ToggleGroupItem value="optional" className="h-7 px-3 text-xs">Opcionales</ToggleGroupItem>
         </ToggleGroup>
+        {pendingFeedbackCount > 0 && (
+          <ToggleGroup type="single" value={feedbackFilter} onValueChange={(v) => v && setFeedbackFilter(v as FeedbackFilter)}
+            className="h-9 rounded-md border border-amber-500/40 bg-amber-50/60 p-0.5">
+            <ToggleGroupItem value="all" className="h-7 px-3 text-xs">Todas</ToggleGroupItem>
+            <ToggleGroupItem value="pending" className="h-7 px-3 text-xs gap-1 text-amber-800 data-[state=on]:bg-amber-200/70">
+              Feedback pendiente
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold tabular-nums">{pendingFeedbackCount}</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
         <select
           value={sectionFilter}
           onChange={(e) => setSectionFilter(e.target.value)}
