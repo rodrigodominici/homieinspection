@@ -12,7 +12,7 @@ import type { InspectionPhoto } from '@/lib/types';
 import { QuotationDialog } from '@/components/QuotationDialog';
 import { ContractorQuotationDialog } from '@/components/ContractorQuotationDialog';
 import { WorkOrderDetailsDialog } from '@/components/WorkOrderDetailsDialog';
-import { useReviewDetail, useReviewActions } from '@/modules/review/api';
+import { useReviewDetail, useReviewActions, useOwnerFeedbackByRepair } from '@/modules/review/api';
 import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
