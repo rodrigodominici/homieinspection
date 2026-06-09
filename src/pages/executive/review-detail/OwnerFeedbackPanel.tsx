@@ -23,7 +23,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, MessageSquare, X, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Check, MessageSquare, X, CheckCircle2, AlertCircle, RefreshCw, UserCheck } from 'lucide-react';
+import { ManualCloseOwnerFeedbackDialog } from './ManualCloseOwnerFeedbackDialog';
 
 type Decision = 'accepted' | 'observed' | 'rejected';
 
@@ -45,6 +46,19 @@ interface VersionRow {
   normalized_payload: any;
   owner_decision_summary_json: any;
 }
+
+interface ManualClosure {
+  reason: 'no_response' | 'coordinated_offline' | 'other';
+  note: string | null;
+  closed_by_name: string | null;
+  closed_at: string | null;
+}
+
+const REASON_LABEL: Record<ManualClosure['reason'], string> = {
+  no_response: 'Sin respuesta del propietario',
+  coordinated_offline: 'Aprobado fuera de la plataforma',
+  other: 'Otro motivo',
+};
 
 export function OwnerFeedbackPanel({
   inspectionId,
