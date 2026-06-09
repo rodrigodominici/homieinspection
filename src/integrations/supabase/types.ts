@@ -1643,6 +1643,10 @@ export type Database = {
           inspection_id: string
         }[]
       }
+      executive_force_close_owner_feedback: {
+        Args: { p_inspection_id: string; p_note?: string; p_reason: string }
+        Returns: Json
+      }
       get_published_report: {
         Args: { p_property_id: string; p_token: string }
         Returns: Json

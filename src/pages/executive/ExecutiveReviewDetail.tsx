@@ -610,6 +610,7 @@ export default function ExecutiveReviewDetail() {
             onCopyTenant={handleCopyTenant}
             onGoToInspection={handleGoToInspection}
             onGoToRepairs={handleGoToRepairs}
+            onRefresh={refetch}
           />
         </div>
       )}

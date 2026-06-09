@@ -32,6 +32,7 @@ interface PublishViewProps {
 
   onGoToInspection: (sectionId?: string) => void;
   onGoToRepairs?: () => void;
+  onRefresh?: () => void;
 }
 
 type CheckLevel = 'ok' | 'warn' | 'block';
@@ -50,7 +51,7 @@ export function PublishView(props: PublishViewProps) {
     returnMode, setReturnMode, selectedReturnSectionsCount, onReturnForChanges,
     onToggleReturnSection, selectedReturnSections,
     onApprove, onPublish, onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
-    onGoToInspection, onGoToRepairs,
+    onGoToInspection, onGoToRepairs, onRefresh,
   } = props;
 
   const checks: ChecklistRow[] = [
@@ -224,8 +225,10 @@ export function PublishView(props: PublishViewProps) {
         <OwnerFeedbackPanel
           inspectionId={inspection.id}
           ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
+          inspectionStatus={inspection.status}
           lastSubmittedAt={(inspection as any).owner_feedback_last_submitted_at}
           onGoToCotizacion={onGoToRepairs}
+          onChanged={onRefresh}
         />
       )}
 
