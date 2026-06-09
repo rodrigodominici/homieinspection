@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, FileText, Loader2 } from 'lucide-react';
+import { Eye, FileText, Loader2, CheckCircle2, UserCheck } from 'lucide-react';
 import { useReportVersionsHistory, type ReportVersionHistoryEntry } from '@/modules/review/api/useReportVersionsHistory';
 
 const fmtMoney = (n: number) =>
