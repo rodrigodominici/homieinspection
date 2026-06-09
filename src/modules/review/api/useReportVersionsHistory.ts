@@ -17,6 +17,9 @@ export interface ReportVersionHistoryEntry {
   published_by_name: string | null;
   normalized_payload: any;
   owner_decision_summary_json: any;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  approval_kind: 'owner' | 'manual' | null;
 }
 
 async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryEntry[]> {
@@ -39,17 +42,45 @@ async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryE
     nameById = new Map((profs ?? []).map((p: any) => [p.id, p.full_name || p.email || 'Ejecutivo']));
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    version_number: r.version_number,
-    created_at: r.created_at,
-    is_latest: r.is_latest,
-    published_by: r.published_by ?? null,
-    published_by_name: r.published_by ? (nameById.get(r.published_by) ?? null) : null,
-    normalized_payload: r.normalized_payload,
-    owner_decision_summary_json: r.owner_decision_summary_json,
-  }));
+  // Approval evidence per version (last accepted submission)
+  const versionIds = rows.map((r) => r.id);
+  const approvalByVersion = new Map<string, { name: string | null; at: string; kind: 'owner' | 'manual' }>();
+  if (versionIds.length > 0) {
+    const { data: subs } = await supabase
+      .from('inspection_owner_feedback_submissions')
+      .select('report_version_id, submitter_name, submitted_at, all_accepted, summary_json')
+      .in('report_version_id', versionIds)
+      .eq('all_accepted', true)
+      .order('submitted_at', { ascending: false });
+    for (const s of (subs ?? []) as any[]) {
+      if (approvalByVersion.has(s.report_version_id)) continue;
+      const manual = !!s.summary_json?.manual_closure;
+      approvalByVersion.set(s.report_version_id, {
+        name: manual ? (s.summary_json?.closed_by_name ?? null) : (s.submitter_name ?? null),
+        at: s.submitted_at,
+        kind: manual ? 'manual' : 'owner',
+      });
+    }
+  }
+
+  return rows.map((r) => {
+    const ap = approvalByVersion.get(r.id) ?? null;
+    return {
+      id: r.id,
+      version_number: r.version_number,
+      created_at: r.created_at,
+      is_latest: r.is_latest,
+      published_by: r.published_by ?? null,
+      published_by_name: r.published_by ? (nameById.get(r.published_by) ?? null) : null,
+      normalized_payload: r.normalized_payload,
+      owner_decision_summary_json: r.owner_decision_summary_json,
+      approved_by_name: ap?.name ?? null,
+      approved_at: ap?.at ?? null,
+      approval_kind: ap?.kind ?? null,
+    };
+  });
 }
+
 
 export function useReportVersionsHistory(inspectionId: string | undefined) {
   return useQuery({
