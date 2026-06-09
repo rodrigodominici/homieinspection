@@ -204,9 +204,11 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   const tenantToken = priorTenant ?? crypto.randomUUID();
   const { error } = await supabase.from('inspection_report_versions').insert([
     { inspection_id: inspection.id, version_number: nextVersion, status: 'published',
-      audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
+      audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true,
+      published_by: profileId ?? null },
     { inspection_id: inspection.id, version_number: nextVersion, status: 'published',
-      audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
+      audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true,
+      published_by: profileId ?? null },
   ]);
   if (error) throw error;
 

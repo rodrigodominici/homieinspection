@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { RequestChangesPanel } from './RequestChangesPanel';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
+import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
 
 interface PublishViewProps {
@@ -250,6 +251,9 @@ export function PublishView(props: PublishViewProps) {
           </div>
         </div>
       )}
+
+      {/* Published versions timeline */}
+      {isPublished && <PublishedVersionsTimeline inspectionId={inspection.id} />}
     </div>
   );
 }

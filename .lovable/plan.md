@@ -1,61 +1,58 @@
+# Historial de cotizaciones + aprobación final del propietario
+
 ## Contexto
 
-Hoy el flujo de "feedback del propietario" solo avanza si el propietario abre el link público y envía decisiones vía `submit_owner_feedback`. Si nunca responde — o si se aprueba por WhatsApp/correo/llamada — la inspección se queda en `published` con `owner_feedback_status = 'none'` y el `OwnerFeedbackPanel` muestra "Aún no recibimos respuesta…" sin ninguna acción disponible para el ejecutivo.
+La base de datos ya persiste todo lo necesario:
 
-Necesitamos darle al ejecutivo una salida explícita y auditable para cerrar el ciclo manualmente.
+- **Cotizaciones**: `inspection_report_versions` guarda un snapshot completo (`normalized_payload`) por cada publicación/republicación, con `version_number`, `audience`, `published_at`, `published_by`, `public_token` e `is_latest`.
+- **Aprobación final**: `inspections.owner_feedback_status='accepted'` + `approved_at` + `approved_by`, complementado con `inspection_owner_feedback_submissions` (incluye cierre manual con motivo) e `inspection_audit_log`.
 
-## Objetivo
-
-Permitir al ejecutivo marcar la inspección como **aprobada por gestión manual**, registrando motivo (sin respuesta / coordinado fuera de la plataforma / otro) y nota libre, sin alterar el flujo normal cuando sí hay respuesta del propietario.
+Falta exponerlo en la UI del ejecutivo. No hay cambios de esquema ni de RPC de escritura. Tampoco se tocan los links públicos: solo `is_latest=true` sigue siendo accesible externamente.
 
 ## Alcance
 
-### 1. Backend — nuevo RPC `executive_force_close_owner_feedback`
+### 1. Timeline de cotizaciones publicadas
+Nuevo componente `PublishedVersionsTimeline` dentro de `PublishView.tsx`, ubicado bajo el card "Compartir reporte" (visible solo cuando `isPublished`).
 
-`SECURITY DEFINER`, validando rol `executive` o `admin` vía `has_role(auth.uid(), …)`. Parámetros:
+Por cada versión (audiencia `owner`, orden desc):
+- Etiqueta `v{n}` + chip "Vigente" si `is_latest`.
+- Fecha de publicación y nombre del ejecutivo (`published_by` → `profiles.full_name`).
+- Acciones:
+  - **Ver snapshot interno**: abre un `Sheet` lateral con el `normalized_payload` renderizado en modo solo lectura (reusa la vista de `OwnerReport` pero forzando los datos del payload de esa versión, sin pasar por `get_published_report`).
+  - **Copiar resumen** (totales: # reparaciones, total cliente) — opcional, secundario.
+- Los links públicos siguen apuntando solo a la vigente; versiones anteriores **no** exponen `public_token` en UI.
 
-- `p_inspection_id uuid`
-- `p_reason text` (enum lógico: `no_response`, `coordinated_offline`, `other`)
-- `p_note text` (opcional, requerida si `reason = 'other'`)
+### 2. Resumen de aprobación final
+Reforzar `OwnerFeedbackPanel.tsx`: cuando `owner_feedback_status='accepted'`, mostrar un bloque consolidado siempre visible con:
+- **Quién aprobó**: nombre tomado del último `inspection_owner_feedback_submissions` (propietario directo) o del `closed_by_name` dentro de `summary_json` si `manual_closure=true` (cierre por ejecutivo).
+- **Cuándo**: `submitted_at` de esa fila / `inspections.approved_at`.
+- **Tipo**: badge "Aprobada por propietario" o "Cierre manual · {motivo}".
 
-Comportamiento:
+Esta info ya se carga en el panel; solo es un refactor de presentación para que siempre quede como tarjeta resumen arriba del historial de submissions actual.
 
-- Sólo opera si la inspección está en `status IN ('published','sent')` y `owner_feedback_status IN ('none','pending_executive_review')`. Si ya está `accepted` / `approved`, devuelve no-op.
-- Actualiza `inspections`:
-  - `owner_feedback_status = 'accepted'`
-  - `owner_feedback_last_submitted_at = now()` (sólo si era NULL)
-  - `status = 'approved'`
-  - `approved_at = now()`, `approved_by = auth.uid()`
-- Inserta en `inspection_owner_feedback_submissions` una fila sintética: `submitter_name = 'Cierre manual — <ejecutivo>'`, `summary_json = { manual_closure: true, reason, note }`, `all_accepted = true`. No se tocan filas de `inspection_owner_feedback` (no son decisiones reales del propietario).
-- Inserta en `inspection_audit_log` (`action = 'owner_feedback_manual_closure'`, payload con reason/note/old_status/new_status).
+### 3. Acceso interno a snapshots antiguos
+Las versiones anteriores se leen directo de la tabla (RLS ya permite a ejecutivo/admin). No se crea RPC nueva — el cliente hace `select` filtrado por `inspection_id` y `audience='owner'`.
 
-### 2. Frontend — UI en `OwnerFeedbackPanel`
+## Detalles técnicos
 
-Cuando `status` esté en `published`/`sent`, `owner_feedback_status !== 'accepted'`, y no haya filas en `inspection_owner_feedback` para la versión activa: añadir botón secundario **"Cerrar manualmente…"** junto al texto "Aún no recibimos respuesta".
+**Nuevo hook** `useReportVersionsHistory(inspectionId)` en `src/modules/review/api/`:
+- `select id, version_number, published_at, published_by, is_latest, normalized_payload, owner_decision_summary_json from inspection_report_versions where inspection_id = ? and audience = 'owner' order by version_number desc`
+- Join lateral con `profiles` para `published_by_name` (separado en 2 queries para evitar embed complicado).
+- React Query key: `['report-versions', inspectionId]`, `staleTime: 60s`.
 
-El botón abre un `Dialog` con:
-- Radio: motivo (Sin respuesta del propietario / Aprobado fuera de la plataforma / Otro)
-- Textarea: nota interna (obligatoria si "Otro")
-- Aviso: "Esto marcará la inspección como aprobada y quedará registrado en el historial. No envía notificación al propietario."
-- Confirmación: llama al RPC, muestra toast, invalida queries (`useReviewDetail`) y refresca panel.
+**Nuevo componente** `PublishedVersionsTimeline.tsx` en `src/pages/executive/review-detail/`:
+- Lista vertical con dot indicator.
+- `Sheet` (shadcn) para mostrar snapshot: monta un componente `OwnerReportPreview` que recibe el `normalized_payload` como prop y renderiza el mismo layout que `OwnerReport.tsx` pero sin lógica de feedback (read-only). Para no duplicar mucho, se extrae el renderer puro de `OwnerReport` a `OwnerReportContent` y se reusa.
 
-Cuando ya está cerrada manualmente (detectable porque la submission tiene `summary_json.manual_closure = true`), el panel muestra una variante del estado "aceptado" con la etiqueta **"Cierre manual"** + motivo + ejecutivo + fecha, en lugar de la tarjeta verde estándar de aceptación del propietario.
+**Refactor en `OwnerFeedbackPanel.tsx`**:
+- Nuevo subcomponente local `FinalApprovalSummary` que recibe `submissions` + `inspection.approved_at/by` y resuelve quién/cuándo/tipo.
+- Se renderiza cuando `owner_feedback_status === 'accepted'`, encima del listado actual.
 
-### 3. Auditoría y visibilidad
-
-- `inspection_audit_log` ya existe; añadimos la acción nueva. El `AdminInspectionDetail` que ya consume el log la mostrará automáticamente.
-- No se requieren migraciones de constraints adicionales (status `approved` ya está en el CHECK).
-
-## Fuera de alcance
-
-- Notificaciones automáticas al propietario.
-- Reversión del cierre manual (si se necesita, el ejecutivo puede republicar — eso ya resetea `owner_feedback_status` a `none`).
-- Cambios en el reporte público; el propietario que entre verá la versión publicada normal (sin pedir decisiones, ya que la inspección quedó `approved`).
+**Sin cambios** en: `submit_owner_feedback`, `executive_force_close_owner_feedback`, `get_published_report`, esquema de tablas, RLS, links públicos.
 
 ## Validación
 
-1. Inspección publicada, sin respuesta del propietario → ejecutivo cierra manualmente → `status='approved'`, `owner_feedback_status='accepted'`, panel muestra "Cierre manual · Coordinado fuera de la plataforma".
-2. Inspección con respuesta parcial (`pending_executive_review`) → ejecutivo puede cerrar manualmente igual; quedan las decisiones originales visibles más la fila de cierre.
-3. Intento de cerrar manualmente una ya `approved` → RPC devuelve mensaje "ya estaba cerrada", UI sin cambios.
-4. Usuario sin rol ejecutivo/admin → RPC rechaza con error de permiso.
-5. Log de auditoría muestra la acción con motivo y nota.
+- Inspección con 3 publicaciones → timeline muestra v3 (vigente), v2, v1 con fechas/autores correctos; abrir v1 muestra el snapshot histórico.
+- Aprobación por propietario → tarjeta resumen muestra nombre del submitter y fecha.
+- Cierre manual del ejecutivo → tarjeta muestra "Cierre manual · {motivo}" + nombre del ejecutivo.
+- Links públicos: copiar link sigue funcionando solo para la versión vigente; abrir un `public_token` de versión anterior sigue dando el reporte vigente (comportamiento actual no cambia).
