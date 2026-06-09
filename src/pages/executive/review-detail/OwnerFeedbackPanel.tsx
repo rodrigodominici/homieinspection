@@ -63,17 +63,23 @@ const REASON_LABEL: Record<ManualClosure['reason'], string> = {
 export function OwnerFeedbackPanel({
   inspectionId,
   ownerFeedbackStatus,
+  inspectionStatus,
   lastSubmittedAt,
   onGoToCotizacion,
+  onChanged,
 }: {
   inspectionId: string;
   ownerFeedbackStatus: 'none' | 'pending_executive_review' | 'accepted' | null | undefined;
+  inspectionStatus?: string | null;
   lastSubmittedAt: string | null | undefined;
   onGoToCotizacion?: () => void;
+  onChanged?: () => void;
 }) {
   const [version, setVersion] = useState<VersionRow | null>(null);
   const [rows, setRows] = useState<FeedbackRow[]>([]);
+  const [manualClosure, setManualClosure] = useState<ManualClosure | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +94,36 @@ export function OwnerFeedbackPanel({
         .maybeSingle();
       if (cancelled || !v) { setLoading(false); return; }
       setVersion(v as any);
-      const { data: fb } = await supabase
-        .from('inspection_owner_feedback')
-        .select('id, repair_item_id, decision, comment, submitter_name, submitted_at')
-        .eq('report_version_id', (v as any).id)
-        .order('submitted_at', { ascending: true });
+
+      const [{ data: fb }, { data: sub }] = await Promise.all([
+        supabase
+          .from('inspection_owner_feedback')
+          .select('id, repair_item_id, decision, comment, submitter_name, submitted_at')
+          .eq('report_version_id', (v as any).id)
+          .order('submitted_at', { ascending: true }),
+        supabase
+          .from('inspection_owner_feedback_submissions')
+          .select('summary_json, submitted_at')
+          .eq('report_version_id', (v as any).id)
+          .order('submitted_at', { ascending: false })
+          .limit(1),
+      ]);
+
       if (cancelled) return;
       setRows((fb ?? []) as any);
+
+      const lastSub = (sub ?? [])[0] as any;
+      const sj = lastSub?.summary_json;
+      if (sj?.manual_closure) {
+        setManualClosure({
+          reason: sj.reason,
+          note: sj.note ?? null,
+          closed_by_name: sj.closed_by_name ?? null,
+          closed_at: sj.closed_at ?? lastSub?.submitted_at ?? null,
+        });
+      } else {
+        setManualClosure(null);
+      }
       setLoading(false);
     };
     run();
@@ -113,6 +142,13 @@ export function OwnerFeedbackPanel({
     return map;
   }, [version]);
 
+  // Allow manual closure when the inspection is published/sent and the owner
+  // has not yet accepted via the public link.
+  const canManuallyClose =
+    !!inspectionStatus &&
+    ['published', 'sent'].includes(inspectionStatus) &&
+    ownerFeedbackStatus !== 'accepted';
+
   if (loading) {
     return (
       <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
@@ -121,15 +157,69 @@ export function OwnerFeedbackPanel({
     );
   }
 
+  // ── Manual closure card (no real owner decisions, executive closed loop) ──
+  if (manualClosure && rows.length === 0) {
+    return (
+      <>
+        <Card className="border-emerald-500/40">
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-2">
+              <UserCheck className="h-5 w-5 text-emerald-600 mt-0.5" />
+              <div>
+                <CardTitle className="text-base">Cierre manual del ejecutivo</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {REASON_LABEL[manualClosure.reason]}
+                  {manualClosure.closed_by_name ? ` · ${manualClosure.closed_by_name}` : ''}
+                  {manualClosure.closed_at
+                    ? ` · ${new Date(manualClosure.closed_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`
+                    : ''}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          {manualClosure.note && (
+            <CardContent>
+              <p className="text-sm text-foreground/80 italic leading-snug border-l-2 border-border pl-2">
+                "{manualClosure.note}"
+              </p>
+            </CardContent>
+          )}
+        </Card>
+      </>
+    );
+  }
+
   if (!version || rows.length === 0) {
     // No feedback yet for the current version
     return (
-      <div className="rounded-lg border bg-card p-4">
-        <p className="text-sm font-medium">Respuesta del propietario</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Aún no recibimos respuesta del propietario para la versión v{version?.version_number ?? '—'}.
-        </p>
-      </div>
+      <>
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Respuesta del propietario</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Aún no recibimos respuesta del propietario para la versión v{version?.version_number ?? '—'}.
+              </p>
+            </div>
+            {canManuallyClose && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5"
+                onClick={() => setDialogOpen(true)}
+              >
+                <UserCheck className="h-3.5 w-3.5" /> Cerrar manualmente
+              </Button>
+            )}
+          </div>
+        </div>
+        <ManualCloseOwnerFeedbackDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          inspectionId={inspectionId}
+          onClosed={onChanged}
+        />
+      </>
     );
   }
 
@@ -146,70 +236,85 @@ export function OwnerFeedbackPanel({
   const pending = rows.filter(r => r.decision !== 'accepted');
 
   return (
-    <Card className={allAccepted ? 'border-emerald-500/40' : 'border-amber-500/40'}>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-2">
-            {allAccepted
-              ? <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
-              : <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />}
-            <div>
-              <CardTitle className="text-base">
-                {allAccepted ? 'Propietario aceptó el reporte' : 'El propietario pidió ajustes'}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Versión v{version.version_number}
-                {submitter ? ` · enviado por ${submitter}` : ''}
-                {submittedAt ? ` · ${new Date(submittedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
-              </p>
+    <>
+      <Card className={allAccepted ? 'border-emerald-500/40' : 'border-amber-500/40'}>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-2">
+              {allAccepted
+                ? <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                : <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />}
+              <div>
+                <CardTitle className="text-base">
+                  {allAccepted ? 'Propietario aceptó el reporte' : 'El propietario pidió ajustes'}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Versión v{version.version_number}
+                  {submitter ? ` · enviado por ${submitter}` : ''}
+                  {submittedAt ? ` · ${new Date(submittedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {!allAccepted && onGoToCotizacion && (
+                <Button size="sm" variant="outline" onClick={onGoToCotizacion} className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" /> Editar y republicar
+                </Button>
+              )}
+              {!allAccepted && canManuallyClose && (
+                <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)} className="gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5" /> Cerrar manualmente
+                </Button>
+              )}
             </div>
           </div>
-          {!allAccepted && onGoToCotizacion && (
-            <Button size="sm" variant="outline" onClick={onGoToCotizacion} className="gap-1.5 shrink-0">
-              <RefreshCw className="h-3.5 w-3.5" /> Editar y republicar
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Counts */}
-        <div className="grid grid-cols-3 gap-2">
-          <SummaryStat label="Aceptadas" value={accepted} total={total} tone="emerald" Icon={Check} />
-          <SummaryStat label="Observadas" value={observed} total={total} tone="amber" Icon={MessageSquare} />
-          <SummaryStat label="Rechazadas" value={rejected} total={total} tone="red" Icon={X} />
-        </div>
-
-        {/* Pending decisions list */}
-        {pending.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              Reparaciones con observación o rechazo
-            </p>
-            <ul className="divide-y divide-border/60 rounded-md border bg-muted/20">
-              {pending.map((r) => {
-                const meta = repairIndex.get(r.repair_item_id);
-                return (
-                  <li key={r.id} className="px-3 py-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-snug">{meta?.name ?? '— reparación —'}</p>
-                        <p className="text-xs text-muted-foreground">{meta?.section ?? ''}</p>
-                      </div>
-                      <DecisionBadge decision={r.decision} />
-                    </div>
-                    {r.comment && (
-                      <p className="text-xs text-foreground/80 italic leading-snug mt-1.5 border-l-2 border-border pl-2">
-                        "{r.comment}"
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Counts */}
+          <div className="grid grid-cols-3 gap-2">
+            <SummaryStat label="Aceptadas" value={accepted} total={total} tone="emerald" Icon={Check} />
+            <SummaryStat label="Observadas" value={observed} total={total} tone="amber" Icon={MessageSquare} />
+            <SummaryStat label="Rechazadas" value={rejected} total={total} tone="red" Icon={X} />
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Pending decisions list */}
+          {pending.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Reparaciones con observación o rechazo
+              </p>
+              <ul className="divide-y divide-border/60 rounded-md border bg-muted/20">
+                {pending.map((r) => {
+                  const meta = repairIndex.get(r.repair_item_id);
+                  return (
+                    <li key={r.id} className="px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-snug">{meta?.name ?? '— reparación —'}</p>
+                          <p className="text-xs text-muted-foreground">{meta?.section ?? ''}</p>
+                        </div>
+                        <DecisionBadge decision={r.decision} />
+                      </div>
+                      {r.comment && (
+                        <p className="text-xs text-foreground/80 italic leading-snug mt-1.5 border-l-2 border-border pl-2">
+                          "{r.comment}"
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <ManualCloseOwnerFeedbackDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        inspectionId={inspectionId}
+        onClosed={onChanged}
+      />
+    </>
   );
 }
 
