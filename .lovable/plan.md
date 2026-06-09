@@ -1,72 +1,61 @@
-## Diagnóstico
+## Contexto
 
-La edge function `admin-create-user` se ejecuta sin error en `auth.admin.createUser` (los logs confirman el `user_signedup`), pero **inmediatamente después borra al usuario recién creado** (`user_deleted` ~1s después). Esa secuencia es exactamente el flujo de cleanup del `catch` cuando falla el `UPDATE` del perfil (líneas 128‑132 del index.ts).
+Hoy el flujo de "feedback del propietario" solo avanza si el propietario abre el link público y envía decisiones vía `submit_owner_feedback`. Si nunca responde — o si se aprueba por WhatsApp/correo/llamada — la inspección se queda en `published` con `owner_feedback_status = 'none'` y el `OwnerFeedbackPanel` muestra "Aún no recibimos respuesta…" sin ninguna acción disponible para el ejecutivo.
 
-El UPDATE falla por culpa del trigger `trg_prevent_profile_privilege_escalation` sobre `public.profiles`:
+Necesitamos darle al ejecutivo una salida explícita y auditable para cerrar el ciclo manualmente.
 
-```sql
-IF public.has_role(auth.uid(), 'admin') THEN RETURN NEW; END IF;
-IF NEW.is_active IS DISTINCT FROM OLD.is_active THEN
-  RAISE EXCEPTION 'Not allowed to change is_active';
-END IF;
-...
-```
+## Objetivo
 
-La edge function corre con **service‑role key** → dentro del trigger `auth.uid()` es `NULL` → `has_role(NULL,'admin')` devuelve `false` → el trigger asume que es un usuario no‑admin y rechaza el cambio de `is_active` (de `false` a `true`) o de `approval_status` (de `'pending'` a `'approved'`). Se lanza la excepción, la función entra al `catch`, borra al auth user y responde 500.
-
-Esto afecta a cualquier rol creado por esa edge function (admin, inspector, executive); el usuario lo notó al intentar crear un admin.
-
-## Solución
-
-Ajustar el trigger para que **distinga la ausencia de sesión (service‑role / contexto del backend) de un usuario autenticado sin privilegios**. El bypass por `auth.uid() IS NULL` es seguro porque:
-
-- Las escrituras directas desde el cliente siempre llevan JWT → `auth.uid()` no es null.
-- Solo el service‑role (edge functions, jobs internos) o llamadas a nivel de DB pueden tener `auth.uid()` null, y ya son canales confiables.
-- RLS sigue siendo la primera línea de defensa para clientes anónimos/autenticados.
-
-### Migración
-
-```sql
-CREATE OR REPLACE FUNCTION public.prevent_profile_privilege_escalation()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- Service-role / backend context (no JWT): permitir.
-  IF auth.uid() IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  -- Admins autenticados: permitir cualquier cambio.
-  IF public.has_role(auth.uid(), 'admin') THEN
-    RETURN NEW;
-  END IF;
-
-  -- Usuarios no-admin: no pueden tocar campos sensibles de su propio perfil.
-  IF NEW.role IS DISTINCT FROM OLD.role THEN
-    RAISE EXCEPTION 'Not allowed to change role';
-  END IF;
-  IF NEW.is_active IS DISTINCT FROM OLD.is_active THEN
-    RAISE EXCEPTION 'Not allowed to change is_active';
-  END IF;
-  IF NEW.approval_status IS DISTINCT FROM OLD.approval_status THEN
-    RAISE EXCEPTION 'Not allowed to change approval_status';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-```
-
-## Validación post‑deploy
-
-1. Desde el panel de Admin → Usuarios, crear un usuario con rol **admin** → debe devolver 200 y aparecer en la lista con `approval_status='approved'`, `is_active=true`.
-2. Repetir con rol **inspector** y **executive** para confirmar que no se rompió el flujo existente.
-3. Verificar que un usuario no‑admin logueado **no** pueda cambiar su propio `role` / `is_active` / `approval_status` desde el cliente (RLS + trigger lo siguen bloqueando).
+Permitir al ejecutivo marcar la inspección como **aprobada por gestión manual**, registrando motivo (sin respuesta / coordinado fuera de la plataforma / otro) y nota libre, sin alterar el flujo normal cuando sí hay respuesta del propietario.
 
 ## Alcance
 
-- 1 migración (re‑definición de la función del trigger).
-- Sin cambios en la edge function ni en el cliente.
+### 1. Backend — nuevo RPC `executive_force_close_owner_feedback`
+
+`SECURITY DEFINER`, validando rol `executive` o `admin` vía `has_role(auth.uid(), …)`. Parámetros:
+
+- `p_inspection_id uuid`
+- `p_reason text` (enum lógico: `no_response`, `coordinated_offline`, `other`)
+- `p_note text` (opcional, requerida si `reason = 'other'`)
+
+Comportamiento:
+
+- Sólo opera si la inspección está en `status IN ('published','sent')` y `owner_feedback_status IN ('none','pending_executive_review')`. Si ya está `accepted` / `approved`, devuelve no-op.
+- Actualiza `inspections`:
+  - `owner_feedback_status = 'accepted'`
+  - `owner_feedback_last_submitted_at = now()` (sólo si era NULL)
+  - `status = 'approved'`
+  - `approved_at = now()`, `approved_by = auth.uid()`
+- Inserta en `inspection_owner_feedback_submissions` una fila sintética: `submitter_name = 'Cierre manual — <ejecutivo>'`, `summary_json = { manual_closure: true, reason, note }`, `all_accepted = true`. No se tocan filas de `inspection_owner_feedback` (no son decisiones reales del propietario).
+- Inserta en `inspection_audit_log` (`action = 'owner_feedback_manual_closure'`, payload con reason/note/old_status/new_status).
+
+### 2. Frontend — UI en `OwnerFeedbackPanel`
+
+Cuando `status` esté en `published`/`sent`, `owner_feedback_status !== 'accepted'`, y no haya filas en `inspection_owner_feedback` para la versión activa: añadir botón secundario **"Cerrar manualmente…"** junto al texto "Aún no recibimos respuesta".
+
+El botón abre un `Dialog` con:
+- Radio: motivo (Sin respuesta del propietario / Aprobado fuera de la plataforma / Otro)
+- Textarea: nota interna (obligatoria si "Otro")
+- Aviso: "Esto marcará la inspección como aprobada y quedará registrado en el historial. No envía notificación al propietario."
+- Confirmación: llama al RPC, muestra toast, invalida queries (`useReviewDetail`) y refresca panel.
+
+Cuando ya está cerrada manualmente (detectable porque la submission tiene `summary_json.manual_closure = true`), el panel muestra una variante del estado "aceptado" con la etiqueta **"Cierre manual"** + motivo + ejecutivo + fecha, en lugar de la tarjeta verde estándar de aceptación del propietario.
+
+### 3. Auditoría y visibilidad
+
+- `inspection_audit_log` ya existe; añadimos la acción nueva. El `AdminInspectionDetail` que ya consume el log la mostrará automáticamente.
+- No se requieren migraciones de constraints adicionales (status `approved` ya está en el CHECK).
+
+## Fuera de alcance
+
+- Notificaciones automáticas al propietario.
+- Reversión del cierre manual (si se necesita, el ejecutivo puede republicar — eso ya resetea `owner_feedback_status` a `none`).
+- Cambios en el reporte público; el propietario que entre verá la versión publicada normal (sin pedir decisiones, ya que la inspección quedó `approved`).
+
+## Validación
+
+1. Inspección publicada, sin respuesta del propietario → ejecutivo cierra manualmente → `status='approved'`, `owner_feedback_status='accepted'`, panel muestra "Cierre manual · Coordinado fuera de la plataforma".
+2. Inspección con respuesta parcial (`pending_executive_review`) → ejecutivo puede cerrar manualmente igual; quedan las decisiones originales visibles más la fila de cierre.
+3. Intento de cerrar manualmente una ya `approved` → RPC devuelve mensaje "ya estaba cerrada", UI sin cambios.
+4. Usuario sin rol ejecutivo/admin → RPC rechaza con error de permiso.
+5. Log de auditoría muestra la acción con motivo y nota.
