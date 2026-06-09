@@ -61,7 +61,20 @@ export function PublishedVersionsTimeline({ inspectionId }: { inspectionId: stri
                   {fmtDateTime(v.created_at)}
                   {v.published_by_name ? ` · ${v.published_by_name}` : ''}
                 </p>
+                {v.approved_at && (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                    {v.approval_kind === 'manual'
+                      ? <UserCheck className="h-3 w-3" />
+                      : <CheckCircle2 className="h-3 w-3" />}
+                    <span>
+                      {v.approval_kind === 'manual' ? 'Cierre manual' : 'Aprobada por'}
+                      {v.approved_by_name ? ` ${v.approval_kind === 'manual' ? '·' : ''} ${v.approved_by_name}` : ''}
+                      {' · '}{fmtDateTime(v.approved_at)}
+                    </span>
+                  </div>
+                )}
               </div>
+
               <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => setSelected(v)}>
                 <Eye className="h-3.5 w-3.5" /> Ver snapshot
               </Button>
