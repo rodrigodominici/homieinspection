@@ -110,7 +110,7 @@ export function ManualCloseOwnerFeedbackDialog({ open, onOpenChange, inspectionI
             />
           </div>
 
-          <AlertCallout tone="warning">
+          <AlertCallout variant="warning">
             Esto marcará la inspección como aprobada y quedará registrado en el historial. No envía notificación al propietario.
           </AlertCallout>
         </div>
