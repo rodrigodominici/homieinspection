@@ -803,6 +803,7 @@ export type Database = {
           normalized_payload: Json
           owner_decision_summary_json: Json | null
           public_token: string | null
+          published_by: string | null
           status: string
           version_number: number
         }
@@ -815,6 +816,7 @@ export type Database = {
           normalized_payload: Json
           owner_decision_summary_json?: Json | null
           public_token?: string | null
+          published_by?: string | null
           status: string
           version_number: number
         }
@@ -827,6 +829,7 @@ export type Database = {
           normalized_payload?: Json
           owner_decision_summary_json?: Json | null
           public_token?: string | null
+          published_by?: string | null
           status?: string
           version_number?: number
         }
@@ -836,6 +839,13 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_report_versions_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
