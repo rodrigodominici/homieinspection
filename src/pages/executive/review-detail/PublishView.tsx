@@ -32,6 +32,7 @@ interface PublishViewProps {
 
   onGoToInspection: (sectionId?: string) => void;
   onGoToRepairs?: () => void;
+  onRefresh?: () => void;
 }
 
 type CheckLevel = 'ok' | 'warn' | 'block';
