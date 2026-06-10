@@ -355,7 +355,9 @@ export default function AdminUsers() {
                 </div>
               </Card>
             )}
+          </TabsContent>
         </Tabs>
+
       </div>
 
       {/* Edit user dialog */}
