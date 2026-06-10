@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
-import { Pencil, UserCheck, UserX, Plus, Link2, Unlink, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { Pencil, UserCheck, UserX, Plus, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MARKET_OPTIONS,
