@@ -248,9 +248,8 @@ export default function AdminUsers() {
               Pendientes ({pendingProfiles.length})
             </TabsTrigger>
             <TabsTrigger value="users">Usuarios Internos ({profiles.filter(p => p.role !== 'pending').length})</TabsTrigger>
-            <TabsTrigger value="hubspot">HubSpot Links ({linkedMappings.length})</TabsTrigger>
-            <TabsTrigger value="unresolved">Sin Vincular ({unresolvedMappings.length})</TabsTrigger>
           </TabsList>
+
 
           {/* ─── Pending Approval Tab ─── */}
           <TabsContent value="pending" className="space-y-4 mt-4">
