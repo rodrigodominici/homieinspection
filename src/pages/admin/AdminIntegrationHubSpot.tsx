@@ -46,7 +46,7 @@ const FIELD_MAPPING = [
   { field: 'has_storage', required: false, note: 'Activa la sección Bodega.' },
   { field: 'has_parking', required: false, note: 'Activa la sección Estacionamiento.' },
   { field: 'fecha_de_termino_real_de_contrato', required: false, note: 'Fecha real de término del contrato.' },
-  { field: 'inspector_email', required: false, note: 'Resuelto vía external_user_mappings (provider=hubspot) → fallback profiles.email + role=inspector. El intake inyecta el id resuelto; el status final lo decide la RPC (assigned solo si ambos ids existen).' },
+  { field: 'inspector_email', required: false, note: 'Match directo contra profiles.email con role=inspector (case-insensitive, solo activos). Si no hay match o el email no viene, la inspección queda en pending_assignment para asignación manual.' },
   { field: 'executive_email', required: false, note: 'Misma resolución que inspector_email pero con role=executive.' },
   { field: 'inspector / executive', required: false, note: 'Compat — bloque { id, email } legacy. Preferir *_email; si llega id explícito, prevalece.' },
   { field: 'typology / has_walking_closet / has_front_yard', required: false, note: '⚠️ Deprecados — ignorados por el generador.' },
