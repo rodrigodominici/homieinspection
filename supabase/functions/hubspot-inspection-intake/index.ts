@@ -69,7 +69,7 @@ function extractSlotEmail(data: any, slot: 'inspector' | 'executive'): string | 
 type ResolutionStep = { step: string; outcome: 'hit' | 'miss' | 'error'; detail: string };
 type SlotResolution = {
   input_email: string | null;
-  resolved_via: 'mapping' | 'profile' | 'unresolved' | 'absent';
+  resolved_via: 'profile' | 'unresolved' | 'absent';
   resolved_profile_id: string | null;
   steps: ResolutionStep[];
   warnings: string[];
@@ -87,40 +87,7 @@ async function resolveAssignment(
   const steps: ResolutionStep[] = [];
   const warnings: string[] = [];
 
-  // Step 1: external_user_mappings (case-insensitive on hubspot_email)
-  try {
-    const { data: mapRows, error: mapErr } = await supabase
-      .from('external_user_mappings')
-      .select('profile_id, role_hint')
-      .eq('provider', 'hubspot')
-      .eq('is_active', true)
-      .ilike('hubspot_email', email);
-
-    if (mapErr) {
-      steps.push({ step: 'external_user_mappings', outcome: 'error', detail: mapErr.message });
-    } else {
-      const match = (mapRows ?? []).find(
-        (r: any) => !r.role_hint || r.role_hint === slot,
-      );
-      if (match?.profile_id) {
-        steps.push({
-          step: 'external_user_mappings',
-          outcome: 'hit',
-          detail: `matched provider=hubspot, hubspot_email=${email}${match.role_hint ? `, role_hint=${match.role_hint}` : ', no role_hint'}`,
-        });
-        return { input_email: email, resolved_via: 'mapping', resolved_profile_id: match.profile_id, steps, warnings };
-      }
-      steps.push({
-        step: 'external_user_mappings',
-        outcome: 'miss',
-        detail: `no active mapping for hubspot_email=${email}${(mapRows ?? []).length ? ' (role_hint mismatch)' : ''}`,
-      });
-    }
-  } catch (e) {
-    steps.push({ step: 'external_user_mappings', outcome: 'error', detail: (e as Error).message });
-  }
-
-  // Step 2: profiles fallback (case-insensitive on email, role-scoped)
+  // Single step: match by email + role on profiles (case-insensitive, active only).
   try {
     const { data: profRows, error: profErr } = await supabase
       .from('profiles')
@@ -131,28 +98,29 @@ async function resolveAssignment(
       .limit(1);
 
     if (profErr) {
-      steps.push({ step: 'profiles_fallback', outcome: 'error', detail: profErr.message });
+      steps.push({ step: 'profiles_lookup', outcome: 'error', detail: profErr.message });
     } else if (profRows && profRows.length > 0) {
       steps.push({
-        step: 'profiles_fallback',
+        step: 'profiles_lookup',
         outcome: 'hit',
         detail: `matched profiles.email=${email} + role=${slot}`,
       });
       return { input_email: email, resolved_via: 'profile', resolved_profile_id: profRows[0].id, steps, warnings };
     } else {
       steps.push({
-        step: 'profiles_fallback',
+        step: 'profiles_lookup',
         outcome: 'miss',
         detail: `no active profile with email=${email} and role=${slot}`,
       });
     }
   } catch (e) {
-    steps.push({ step: 'profiles_fallback', outcome: 'error', detail: (e as Error).message });
+    steps.push({ step: 'profiles_lookup', outcome: 'error', detail: (e as Error).message });
   }
 
-  warnings.push(`No se pudo resolver ${slot}_email=${email} en mapping ni profiles.`);
+  warnings.push(`No se pudo resolver ${slot}_email=${email} en profiles.`);
   return { input_email: email, resolved_via: 'unresolved', resolved_profile_id: null, steps, warnings };
 }
+
 
 // Generate the full 15-screen structure using the canonical shared generator.
 // Fallback: if data.__generated__ is precomputed (replays/tests only), respect it.
