@@ -33,7 +33,6 @@ const BUSINESS_ROLES: { value: string; label: string }[] = [
 export default function AdminUsers() {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [mappings, setMappings] = useState<ExternalMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('users');
@@ -61,27 +60,9 @@ export default function AdminUsers() {
   const [cuIsActive, setCuIsActive] = useState<boolean>(true);
   const [cuSubmitting, setCuSubmitting] = useState(false);
 
-  // Mapping dialogs
-  const [creating, setCreating] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [newHubspotId, setNewHubspotId] = useState('');
-  const [newRoleHint, setNewRoleHint] = useState('inspector');
-  const [newProfileId, setNewProfileId] = useState('');
-  const [linkingMapping, setLinkingMapping] = useState<ExternalMapping | null>(null);
-  const [linkProfileId, setLinkProfileId] = useState('');
-  const [editingMapping, setEditingMapping] = useState<ExternalMapping | null>(null);
-  const [editMapEmail, setEditMapEmail] = useState('');
-  const [editMapRoleHint, setEditMapRoleHint] = useState<'inspector' | 'executive'>('inspector');
-  const [editMapIsActive, setEditMapIsActive] = useState(true);
-  const [editMapProfileId, setEditMapProfileId] = useState('');
-
   const fetchAll = async () => {
-    const [pRes, mRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('external_user_mappings').select('*').order('created_at', { ascending: false }),
-    ]);
+    const pRes = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
     setProfiles((pRes.data ?? []) as unknown as Profile[]);
-    setMappings((mRes.data ?? []) as unknown as ExternalMapping[]);
     setLoading(false);
   };
 
@@ -91,8 +72,7 @@ export default function AdminUsers() {
   const filtered = filterRole === 'all'
     ? profiles.filter(p => p.role !== 'pending')
     : profiles.filter((p) => p.role === filterRole);
-  const linkedMappings = mappings.filter((m) => m.profile_id);
-  const unresolvedMappings = mappings.filter((m) => !m.profile_id);
+
 
   /* ─── User actions ─── */
   const handleApprove = async (p: Profile, role: UserRole) => {
