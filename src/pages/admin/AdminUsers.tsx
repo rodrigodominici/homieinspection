@@ -23,17 +23,6 @@ import {
   formatPhoneDisplay,
 } from '@/lib/markets';
 
-interface ExternalMapping {
-  id: string;
-  provider: string;
-  hubspot_user_id: string | null;
-  hubspot_email: string | null;
-  profile_id: string | null;
-  role_hint: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
 
 const BUSINESS_ROLES: { value: string; label: string }[] = [
   { value: 'admin', label: 'Admin' },
