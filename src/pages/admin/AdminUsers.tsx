@@ -208,77 +208,8 @@ export default function AdminUsers() {
     void data;
   };
 
-
-  /* ─── Mapping handlers ─── */
-  const handleCreateMapping = async () => {
-    if (!newEmail && !newHubspotId) { toast({ title: 'Ingresa email o ID', variant: 'destructive' }); return; }
-    setSaving(true);
-    const { error } = await supabase.from('external_user_mappings').insert({
-      hubspot_email: newEmail || null,
-      hubspot_user_id: newHubspotId || null,
-      role_hint: newRoleHint,
-      profile_id: newProfileId || null,
-    });
-    setSaving(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Mapping creado' });
-    setCreating(false);
-    setNewEmail(''); setNewHubspotId(''); setNewProfileId('');
-    fetchAll();
-  };
-
-  const handleLink = async () => {
-    if (!linkingMapping || !linkProfileId) return;
-    setSaving(true);
-    const { error } = await supabase.from('external_user_mappings').update({ profile_id: linkProfileId }).eq('id', linkingMapping.id);
-    setSaving(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMappings(prev => prev.map(m => m.id === linkingMapping.id ? { ...m, profile_id: linkProfileId } : m));
-    setLinkingMapping(null);
-    toast({ title: 'Vinculado' });
-  };
-
-  const handleEditMappingOpen = (m: ExternalMapping) => {
-    setEditingMapping(m);
-    setEditMapEmail(m.hubspot_email ?? '');
-    setEditMapRoleHint((m.role_hint === 'executive' ? 'executive' : 'inspector'));
-    setEditMapIsActive(m.is_active);
-    setEditMapProfileId(m.profile_id ?? '');
-  };
-
-  const handleEditMappingSave = async () => {
-    if (!editingMapping) return;
-    setSaving(true);
-    const updates = {
-      hubspot_email: editMapEmail.trim() || null,
-      role_hint: editMapRoleHint,
-      is_active: editMapIsActive,
-      profile_id: editMapProfileId || null,
-    };
-    const { error } = await supabase
-      .from('external_user_mappings')
-      .update(updates)
-      .eq('id', editingMapping.id);
-    setSaving(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMappings(prev => prev.map(m => m.id === editingMapping.id ? { ...m, ...updates } : m));
-    setEditingMapping(null);
-    toast({ title: 'Mapping actualizado' });
-  };
-
-  const handleUnlink = async (mapping: ExternalMapping) => {
-    const { error } = await supabase.from('external_user_mappings').update({ profile_id: null }).eq('id', mapping.id);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMappings(prev => prev.map(m => m.id === mapping.id ? { ...m, profile_id: null } : m));
-    toast({ title: 'Desvinculado' });
-  };
-
-  const profileName = (id: string | null) => {
-    if (!id) return null;
-    return profiles.find(p => p.id === id)?.full_name ?? id.slice(0, 8);
-  };
-
   const roleBadge = (role: string) => {
+
     const colors: Record<string, string> = {
       admin: 'bg-primary/10 text-primary',
       inspector: 'bg-status-regular-bg text-status-regular',
