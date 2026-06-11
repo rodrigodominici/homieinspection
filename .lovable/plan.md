@@ -1,81 +1,75 @@
+## Objetivo
 
-## 1. Rediseño de KPIs del Admin Dashboard
+Eliminar completamente el flujo y estado `needs_changes` del producto. El ejecutivo solo podrá **aprobar** o seguir revisando — no podrá devolver al inspector. Una vez que el inspector envía (`submitted`), la inspección avanza linealmente hasta `published`.
 
-Reemplazar las 5 tarjetas actuales (`Total / Sin Asignar / En Curso / En Revisión / Aprobadas`) de `src/pages/admin/AdminDashboard.tsx` por el mismo set de 6 `KpiCard` que ya usa `AdminInspections.tsx` (y que es consistente con `ExecutiveReviewQueue`):
+## Flujo resultante
 
 ```text
-Sin asignar | En progreso | Para revisar | En corrección | Para publicar | Publicadas
+assigned → in_progress → submitted → in_review → approved → published
 ```
 
-Detalles:
-- Importar `KpiCard` desde `@/shared/ui` y los iconos equivalentes (`UserCheck`, `Clock`, `FileSearch`, `AlertCircle`, `Send`, `CheckCircle2`).
-- Calcular los conteos reutilizando `priorityBucket`/`sharedPriorityBucket` y la misma derivación de buckets que ya existe en `AdminInspections` (extraerla a `src/lib/inspection-buckets.ts` para no duplicar lógica).
-- Cada card enlaza a `/admin/inspections?...` con el mismo `bucketFilter` / `statusFilter` que activa en `AdminInspections` para que el flujo sea consistente.
-- Mantener las tarjetas inferiores (`Pendientes por Inspector`, `Por Revisar por Ejecutivo`, `Sin Asignar`, `Próximas Programadas`, `Recientes`) sin cambios visuales.
+Sin ramas hacia atrás. Sin botón "Devolver". Sin tarjetas KPI de "En corrección".
 
-## 2. Análisis integral de performance — hallazgos
+---
 
-Síntomas medidos (top de `pg_stat_statements`):
+## Cambios por capa
 
-| Consulta | Calls | Mean | Total |
-|---|---|---|---|
-| `inspection_sections WHERE inspection_id=$1` | 6,531 | 5 ms | 32.9 s |
-| `inspections ORDER BY updated_at LIMIT/OFFSET` | 810 | 37 ms | 30 s |
-| `inspection_report_versions WHERE public_token` | 14,982 | 1.75 ms | 26 s |
-| `inspection_field_values WHERE inspection_id AND field_key=ANY` | 418 | 62 ms | 26 s |
-| `UPDATE inspection_field_values` | 6,005 | 4.3 ms | 25.7 s |
+### 1. Backend / Lógica de acciones
+- `src/modules/review/api/inspection-actions.service.ts`: eliminar `requestChanges()` y la interfaz `RequestChangesArgs`.
+- `src/modules/review/api/useReviewActions.ts`: remover el handler `requestChanges` y cualquier estado asociado (selección de secciones, comentarios por sección, modo "request changes").
 
-Causas en el código:
+### 2. UI Ejecutivo (devolver secciones)
+- Borrar `src/pages/executive/review-detail/RequestChangesPanel.tsx`.
+- `ReviewHeaderBar.tsx`: quitar botón/acción "Solicitar cambios" / "Devolver".
+- `PublishView.tsx`: quitar entry point a request changes.
+- `SectionSidebar.tsx` / `SectionWorkspace.tsx`: quitar checkboxes de selección para devolución y textareas de comentarios de revisión, si existen.
+- `MobileReviewView.tsx`: quitar acción equivalente en mobile.
 
-1. **N+1 de `inspection_sections`** — `useSectionsBulk` (usado por `useExecutiveQueue` y otras listas) hace una llamada por inspección. Confirmado por las 6,531 llamadas individuales con `WHERE inspection_id = $1`.
-2. **Dashboard sin límites** — `AdminDashboard` hace `select('*').order('created_at')` sin `limit`, trayendo `property_snapshot_json`, `generated_structure_json` y `property_overrides_json` enteros (las columnas más pesadas), únicamente para mostrar 10 filas y conteos agregados.
-3. **`getEffectiveSnapshot` recorre todas las inspecciones** para calcular "Próximas Programadas" en cada render del Dashboard (deep merge JSON × N).
-4. **Rutas admin/ejecutivo importadas eager** en `App.tsx` — no se usa `React.lazy`, el bundle inicial carga `RepairsTableView`, `QuotationView`, `PublishView`, etc.
-5. **Detalle de inspección carga todo en paralelo** sin lazy por tab: repairs, photos, signatures, audit, feedback, versions.
-6. **`UPDATE inspection_field_values` (6,005 calls)** sugiere que el autosave del Inspector dispara escrituras por cada cambio — falta debounce o coalescing por sección.
-7. **`inspection_report_versions WHERE public_token`** se invoca casi 15k veces: cada vista pública dispara la query sin caché HTTP/in-memory.
+### 3. UI Inspector (recibir correcciones)
+- `InspectorDashboard.tsx`: eliminar el cómputo `needsAttention` y la sección/badge "Requiere correcciones".
+- `InspectorSectionComplete.tsx`: quitar el bloque que muestra comentarios de `revision_request` cuando `status = needs_changes`.
+- `InspectorInspectionDetail.tsx`: quitar lógica de reenvío específica para `needs_changes` (el reenvío normal `submitted` se mantiene si aplica desde otros estados, si no se elimina).
+- `InspectorStatusBadge.tsx` / `InspectorAllInspections.tsx`: remover handling visual de `needs_changes`.
 
-## 3. Acciones de performance (en este loop)
+### 4. KPIs y filtros
+- `src/lib/inspection-buckets.ts`: remover `needsChanges` del KPI y del cálculo.
+- `src/pages/admin/AdminDashboard.tsx`: eliminar tarjeta "En corrección".
+- `src/pages/executive/ExecutiveReviewQueue.tsx`: eliminar KPI "En corrección" y filtro asociado.
+- `src/pages/admin/AdminInspections.tsx`: remover `needs_changes` de filtros de estado.
 
-### Frontend — quick wins
-- **`AdminDashboard.tsx`**:
-  - Cambiar el select a columnas mínimas: `id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, market, property_overrides_json` (omitir `property_snapshot_json` y `generated_structure_json`).
-  - Añadir `.limit(200)`.
-  - Memoizar `stats`, `pendingByInspector`, `pendingByExecutive`, `upcoming`, `unassigned` con `useMemo` y precomputar `priorityBucket` una vez.
-  - Usar `React Query` (`useQuery`) en vez de `useEffect+setState` para compartir caché con `AdminInspections` (mismo `queryKey` `['admin','inspections','list']`, `staleTime: 30s`).
-- **`useExecutiveQueue.ts`**: pasar al `useSectionsBulk` solo los IDs de la página visible (después de paginación) — evita 500× queries al cargar.
-- **`App.tsx`**: convertir todas las rutas `/admin/*` y `/executive/*` a `React.lazy` + `Suspense` con un fallback global.
-- **`AdminInspectionDetail.tsx`**: lazy fetch por tab — `repairs` solo cuando la tab "Presupuesto" abre, `quotation` en "Cotización", `versions` en "Publicación". Usar `enabled: activeTab === 'budget'` en cada `useQuery`.
-- **Inspector autosave**: aplicar `debounce(500ms)` por `field_key` en las mutaciones a `inspection_field_values` y coalescer escrituras consecutivas al mismo campo.
+### 5. Tipos y registro de estados
+- `src/lib/types.ts`: remover `'needs_changes'` de `InspectionStatus` y de `SectionStatus`.
+- `src/shared/ui/status-registry.ts`: borrar entradas `needs_changes` de `INSPECTION_STATUS` y `SECTION_STATUS`. Considerar conservar un fallback silencioso (vía el `?? { label: s, tone: "neutral" }` ya existente) para no romper si quedan datos legacy.
+- `src/lib/inspection-status-guard.ts`: revisar y limpiar referencias.
 
-### Backend — sin migraciones destructivas
-- Crear una RPC ligera `get_admin_inspection_summary(limit)` que devuelva una sola fila por inspección con: id, status, inspector_id, executive_id, snapshot_meta (subset), section_counts (jsonb agregado). Reemplaza el N+1 de `useSectionsBulk` en la pantalla de listado. (Se deja para un follow-up explícito si el usuario lo aprueba.)
-- Añadir índices verificados (`CREATE INDEX IF NOT EXISTS`):
-  - `inspection_sections (inspection_id, is_visible, sort_order)`
-  - `inspection_field_values (inspection_id, field_key)`
-  - `inspection_report_versions (public_token, status, is_latest)`
-- Cachear `get_published_report` a nivel cliente (React Query `staleTime: 5min`) en el visor público.
+### 6. Datos existentes
+- **Estado en DB**: hoy hay **0 inspecciones** con `status = 'needs_changes'`, así que no se requiere migración de datos para `inspections`.
+- Verificar `inspection_sections.status = 'needs_changes'` (puede haber filas históricas de pruebas). Si existen, normalizarlas a `in_progress` o `completed` según corresponda mediante una operación de datos puntual.
+- `inspection_reviews` con `comment_type = 'revision_request'`: mantener como histórico (no se borran), pero ya no se generarán nuevos.
+- No se modificará el enum/columna a nivel SQL en esta iteración para evitar romper datos históricos; el valor simplemente deja de ser escrito y deja de aparecer en la UI.
 
-### Métricas de éxito
-- Reducir llamadas a `/inspections` en Dashboard de 1×(payload completo) → 1×(payload reducido, ≈10× más pequeño).
-- Eliminar el bucle de `inspection_sections` en el listado admin (de N llamadas a 1 RPC).
-- TTI del Dashboard < 1s con caché caliente.
+### 7. Documentación
+- `docs/PRODUCT_LOGIC.md`: actualizar la sección del workflow de revisión para reflejar el flujo lineal sin devolución.
+- Actualizar memoria `mem://features/review-workflow` removiendo cualquier referencia a "needs_changes" / "Solicitar cambios".
 
-## 4. Alcance de este loop
+---
 
-1. Refactor de KPIs en `AdminDashboard.tsx` + extracción a `src/lib/inspection-buckets.ts`.
-2. Optimizaciones frontend: select reducido + `limit` + `useMemo` + `useQuery` compartida en Dashboard.
-3. Lazy routes en `App.tsx`.
-4. Lazy fetch por tab en `AdminInspectionDetail.tsx`.
-5. Limitar `useSectionsBulk` a la página visible en `useExecutiveQueue.ts`.
+## Detalles técnicos clave
 
-**Fuera de alcance (follow-up):** debounce del autosave del Inspector, creación de RPC `get_admin_inspection_summary`, creación de índices (requiere migración explícita), caché del reporte público.
+- **Decisión: no se hace `ALTER TYPE` para quitar el valor del enum** en esta iteración. Postgres no permite eliminar valores de enum sin recrearlo, y mantenerlo no causa daño dado que ya no se escribirá. Si más adelante se quiere limpiar el enum, se hará en una migración dedicada.
+- El tipo TS de `InspectionStatus` sí se reduce, lo que dará error de compilación en cualquier lugar que aún referencie el literal — útil como red de seguridad para encontrar restos.
+- `SectionStatus` se reduce análogamente.
 
-## 5. Archivos a tocar
+## Fuera de alcance
 
-- `src/pages/admin/AdminDashboard.tsx`
-- `src/lib/inspection-buckets.ts` (nuevo)
-- `src/pages/admin/AdminInspections.tsx` (importar el helper compartido)
-- `src/App.tsx` (React.lazy)
-- `src/pages/admin/AdminInspectionDetail.tsx` (enabled por tab)
-- `src/shared/hooks/useExecutiveQueue.ts` (sections solo visibles)
+- No se tocan reportes públicos ni feedback del propietario.
+- No se modifica la lógica de `approved → published`.
+- No se borran comentarios históricos de `inspection_reviews`.
+
+## Verificación
+
+1. Build TS pasa sin errores tras la poda de tipos.
+2. `rg "needs_changes"` solo devuelve coincidencias en `docs/`, comentarios o migraciones históricas — nada en código activo.
+3. Dashboard Admin y Executive Queue ya no muestran tarjeta "En corrección".
+4. Detalle ejecutivo no muestra botón "Devolver" ni panel de selección de secciones.
+5. Inspector no ve sección "Requiere correcciones" ni comentarios de revisión.
