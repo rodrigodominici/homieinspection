@@ -93,17 +93,12 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
             />
           </div>
           <div className="hidden md:flex items-center gap-2">
-            {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
-                </Button>
-                <ApproveInspectionDialog
-                  operationalSections={operationalSections}
-                  disabled={submitting}
-                  onApprove={onApprove}
-                />
-              </>
+            {['submitted', 'in_review'].includes(inspection.status) && (
+              <ApproveInspectionDialog
+                operationalSections={operationalSections}
+                disabled={submitting}
+                onApprove={onApprove}
+              />
             )}
 
             {/* Ver reporte — single dropdown replacing Abrir + Copiar link */}
