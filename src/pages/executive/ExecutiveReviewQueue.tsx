@@ -412,6 +412,15 @@ function InspectionRow({
     ? formatDistanceToNow(new Date(insp.last_active_at), { addSuffix: true, locale: es })
     : null;
 
+  const waitingLabel = useMemo(() => {
+    if (bucket !== 'owner_feedback' || !insp.owner_feedback_last_submitted_at) return null;
+    const days = Math.floor((Date.now() - new Date(insp.owner_feedback_last_submitted_at).getTime()) / 86_400_000);
+    if (days <= 0) return 'Hoy';
+    if (days === 1) return '1 día esperando';
+    return `${days} días esperando`;
+  }, [bucket, insp.owner_feedback_last_submitted_at]);
+
+
   const snapshot = getEffectiveSnapshot(insp);
   const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const contractEnd = snapshot?.fecha_de_termino_real_de_contrato as string | undefined;

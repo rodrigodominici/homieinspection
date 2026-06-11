@@ -1,13 +1,30 @@
 ## Objetivo
-Alinear el comportamiento de los dos grupos prioritarios en la cola ejecutiva para que siempre se muestren, mostrando un `0` en el contador cuando no tengan inspecciones.
+Mostrar un indicador de "días en feedback del propietario" en las tarjetas del grupo "Feedback del propietario" de la cola ejecutiva, para visualizar cuánto tiempo lleva una inspección esperando respuesta del ejecutivo.
 
-## Cambios
+## Cálculo
+- Fuente: `inspections.owner_feedback_last_submitted_at` (timestamp del último envío del propietario que dejó el estado en `pending_executive_review`).
+- Métrica: días enteros transcurridos desde ese timestamp hasta hoy (`Math.floor((now - submittedAt) / 86_400_000)`).
+- Etiqueta:
+  - `0` días → "Hoy"
+  - `1` día → "1 día esperando"
+  - `n > 1` → "{n} días esperando"
+  - Sin timestamp → no mostrar indicador.
 
-### `src/pages/executive/ExecutiveReviewQueue.tsx`
+## Cambio en `src/pages/executive/ExecutiveReviewQueue.tsx`
 
-1. **Feedback del propietario**: eliminar la condición `grouped.owner_feedback.length > 0 &&` para que el grupo se renderice siempre. El `GroupHeader` ya recibe `total={grouped.owner_feedback.length}`, que será `0` cuando corresponda.
+En `InspectionRow` (línea ~457, dentro de la línea 3 de meta), cuando `bucket === 'owner_feedback'` y exista `insp.owner_feedback_last_submitted_at`, agregar un chip/pill al inicio del bloque meta:
 
-2. **Requieren tu acción**: simplificar el bloque para que siempre renderice el `GroupHeader` y el `BucketSection` directamente, eliminando el mensaje de estado vacío (`<p>No hay inspecciones esperando tu acción.</p>`). El `BucketSection` manejará naturalmente una lista vacía.
+```tsx
+{bucket === 'owner_feedback' && waitingLabel && (
+  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-status-bad/10 text-status-bad font-medium">
+    <Clock className="h-3 w-3" />
+    {waitingLabel}
+  </span>
+)}
+```
 
-## Resultado esperado
-Ambos grupos son visibles permanentemente. Si no tienen inspecciones, el header muestra `· 0` y la sección de tarjetas aparece vacía. Los grupos `Seguimiento` y `Pre-inspección` mantienen su comportamiento colapsable actual (solo se muestran si tienen contenido).
+Con `waitingLabel` derivado en el `useMemo` correspondiente a partir de `insp.owner_feedback_last_submitted_at`.
+
+## Fuera de alcance
+- Cambios en KPIs, filtros, otros buckets, vista de detalle ejecutivo o admin.
+- Lógica de backend / migraciones.
