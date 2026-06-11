@@ -761,7 +761,51 @@ export default function AdminInspections() {
                 })}
               </div>
             )}
+
+            {/* Pagination footer */}
+            {totalResults > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="text-tiny text-muted-foreground">
+                  Mostrando {firstShown}–{lastShown} de {totalResults}
+                  {inspections.length >= 500 && (
+                    <span className="ml-2 text-amber-700">
+                      · Mostrando las 500 más recientes
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(parseInt(v, 10))}>
+                    <SelectTrigger className="w-[110px] h-9 text-caption rounded-lg bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} / página</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-caption text-muted-foreground px-2">
+                    Página {safePage} de {pageCount}
+                  </span>
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={safePage >= pageCount}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
+
 
           {/* Pending Assignment */}
           <TabsContent value="pending" className="space-y-4 mt-4">
