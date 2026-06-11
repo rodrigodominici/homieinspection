@@ -51,7 +51,6 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'En progreso' },
   { value: 'submitted', label: 'Lista para revisión' },
   { value: 'in_review', label: 'En revisión' },
-  { value: 'needs_changes', label: 'Requiere cambios' },
   { value: 'approved', label: 'Aprobada' },
   { value: 'published', label: 'Publicada' },
   { value: 'accepted', label: 'Aceptada por propietario' },
