@@ -421,14 +421,10 @@ function InspectionRow({
               {/* Line 3: meta */}
               <div className="flex items-center gap-x-3 text-tiny text-muted-foreground flex-wrap">
                 <span>{insp.market} · {insp.inspection_type}</span>
-                {bucket === 'in_correction' && contractEndLabel ? (
-                  <span>Término: {contractEndLabel}</span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <Key className="h-3 w-3" />
-                    {keyDateLabel ?? 'Sin fecha de recolección'}
-                  </span>
-                )}
+                <span className="flex items-center gap-1">
+                  <Key className="h-3 w-3" />
+                  {keyDateLabel ?? 'Sin fecha de recolección'}
+                </span>
                 {progressLabel && (
                   <span className="flex items-center gap-1.5">
                     {progressLabel}
