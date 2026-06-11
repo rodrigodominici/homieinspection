@@ -472,11 +472,6 @@ export default function ExecutiveReviewDetail() {
                 onSaveFinalObsSilent={saveFinalObservationSilent}
                 onSaveNoteSilent={saveInternalNoteSilent}
                 onOpenRepairsDrawer={handleOpenRepairsDrawer}
-                returnMode={returnMode}
-                returnSelected={selectedReturnSections.has(activeSection.id)}
-                onToggleReturn={handleToggleReturn}
-                returnComment={returnComments[activeSection.id] ?? ''}
-                onReturnCommentChange={handleReturnCommentChange}
                 photosSlot={inlineRepairsOpen ? photosNode : undefined}
               />}
             </main>
