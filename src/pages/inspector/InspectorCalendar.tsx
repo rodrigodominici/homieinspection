@@ -270,9 +270,7 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
     ? 'Revisar'
     : displayState.key === 'assigned'
       ? 'Iniciar'
-      : displayState.key === 'needs_changes'
-        ? 'Corregir'
-        : 'Continuar';
+      : 'Continuar';
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-all">
