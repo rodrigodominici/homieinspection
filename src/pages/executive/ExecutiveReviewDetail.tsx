@@ -566,12 +566,6 @@ export default function ExecutiveReviewDetail() {
             signatureRecord={signatureRecord}
             isPublished={isPublished}
             submitting={submitting}
-            returnMode={returnMode}
-            setReturnMode={setReturnMode}
-            selectedReturnSectionsCount={selectedReturnSections.size}
-            selectedReturnSections={selectedReturnSections}
-            onReturnForChanges={handleReturnForChanges}
-            onToggleReturnSection={toggleReturnSection}
             onApprove={actions.handleApprove}
             onPublish={actions.handlePublish}
             onOpenOwner={handleOpenOwner}
