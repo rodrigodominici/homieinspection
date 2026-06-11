@@ -739,40 +739,6 @@ export default function AdminInspectionDetail() {
     await fetchAll();
   }, [inspection, allRepairs, fetchAll, toast]);
 
-  const toggleReturnSection = useCallback((secId: string) => {
-    setSelectedReturnSections(prev => {
-      const next = new Set(prev);
-      if (next.has(secId)) next.delete(secId); else next.add(secId);
-      return next;
-    });
-  }, []);
-
-  const handleAdminReturnForChanges = useCallback(async () => {
-    if (!id) return;
-    const ids = Array.from(selectedReturnSections);
-    if (ids.length === 0) {
-      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
-      return;
-    }
-    setSaving(true);
-    try {
-      await inspectionActionsService.requestChanges({
-        inspectionId: id,
-        profileId: profile?.id,
-        selectedSectionIds: ids,
-        commentsBySection: returnComments,
-      });
-      toast({ title: 'Devuelta para cambios' });
-      setReturnMode(false);
-      setSelectedReturnSections(new Set());
-      setReturnComments({});
-      await fetchAll();
-    } catch (e: any) {
-      toast({ title: 'No se pudo devolver', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  }, [id, selectedReturnSections, returnComments, profile?.id, fetchAll, toast]);
 
   const handleAdminApprove = useCallback(async () => {
     if (!id) return;
