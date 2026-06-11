@@ -9,7 +9,6 @@ export type InspectionStatus =
   | 'in_progress'
   | 'submitted'
   | 'in_review'
-  | 'needs_changes'
   | 'approved'
   | 'published'
   | 'accepted'
@@ -19,7 +18,6 @@ export type SectionStatus =
   | 'not_started'
   | 'in_progress'
   | 'completed'
-  | 'needs_changes'
   | 'reviewed';
 
 export type SectionType =
