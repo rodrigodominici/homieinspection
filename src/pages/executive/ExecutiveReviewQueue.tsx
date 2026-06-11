@@ -272,23 +272,22 @@ export default function ExecutiveReviewQueue() {
               />
             ) : (
               <div className="space-y-6">
-                {grouped.owner_feedback.length > 0 && (
-                  <div className="space-y-3">
-                    <GroupHeader tone="amber" label="Feedback del propietario" total={grouped.owner_feedback.length} />
+                <div className="space-y-3">
+                  <GroupHeader tone="amber" label="Feedback del propietario" total={grouped.owner_feedback.length} />
+                  {grouped.owner_feedback.length > 0 && (
                     <BucketSection inspections={grouped.owner_feedback} bucket="owner_feedback"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="space-y-3">
                   <GroupHeader tone="primary" label="Requieren tu acción" total={grouped.action.length} />
-                  {grouped.action.length === 0 ? (
-                    <p className="text-caption text-muted-foreground ml-5">No hay inspecciones esperando tu acción.</p>
-                  ) : (
+                  {grouped.action.length > 0 && (
                     <BucketSection inspections={grouped.action} bucket="action"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   )}
                 </div>
+
 
 
                 {grouped.follow_up.length > 0 && (
