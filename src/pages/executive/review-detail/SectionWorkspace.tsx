@@ -204,19 +204,6 @@ export const SectionWorkspace = memo(function SectionWorkspace({
         )}
       </div>}
 
-      {/* Return mode */}
-      {returnMode && (
-        <div className="border-t pt-3 space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={returnSelected} onChange={onToggleReturn} className="rounded" />
-            <span className="text-caption font-medium">Marcar para corrección</span>
-          </label>
-          {returnSelected && (
-            <Textarea placeholder="Comentario de corrección..." value={returnComment}
-              onChange={(e) => onReturnCommentChange(e.target.value)} rows={2} className="text-caption" />
-          )}
-        </div>
-      )}
     </div>
   );
 });
