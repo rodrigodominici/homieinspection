@@ -31,17 +31,22 @@ import { useExecutiveQueue } from '@/modules/review/api';
 
 // ─── Bucketing (job-to-be-done) ────────────────────
 type ExecutiveBucket =
-  | 'action'        // submitted, in_review, approved
-  | 'follow_up'     // published, sent
+  | 'owner_feedback'  // published + owner pidió cambios → máxima prioridad
+  | 'action'          // submitted, in_review, approved
+  | 'follow_up'       // published, sent (sin feedback) y aceptadas
   | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
+  if ((insp.status === 'published' || insp.status === 'sent')
+      && insp.owner_feedback_status === 'pending_executive_review') {
+    return 'owner_feedback';
+  }
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
   if (['published', 'sent'].includes(insp.status)) return 'follow_up';
   return 'pre_inspection';
 }
 
-const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['action'];
+const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['action', 'owner_feedback'];
 
 type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
 const SORT_LABELS: Record<SortKey, string> = {
@@ -56,6 +61,9 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
   // Pre-inspección: informativo únicamente, el ejecutivo no asigna inspectores
   if (bucket === 'pre_inspection') {
     return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+  }
+  if (bucket === 'owner_feedback') {
+    return { label: 'Revisar feedback', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
   }
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
@@ -107,10 +115,16 @@ export default function ExecutiveReviewQueue() {
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
 
   const kpis = useMemo(() => ({
+    ownerFeedback:inspections.filter(i =>
+      (i.status === 'published' || i.status === 'sent')
+      && i.owner_feedback_status === 'pending_executive_review').length,
     forReview:    inspections.filter(i => i.status === 'submitted').length,
     inReview:     inspections.filter(i => i.status === 'in_review').length,
-    toPublish:    inspections.filter(i => i.status === 'approved').length,
-    published:    inspections.filter(i => ['published', 'sent'].includes(i.status)).length,
+    toPublish:    inspections.filter(i => i.status === 'approved' && i.owner_feedback_status !== 'accepted').length,
+    waitingOwner: inspections.filter(i =>
+      (i.status === 'published' || i.status === 'sent')
+      && (i.owner_feedback_status ?? 'none') === 'none').length,
+    accepted:     inspections.filter(i => i.owner_feedback_status === 'accepted').length,
   }), [inspections]);
 
   // Per-bucket sorts. Action: oldest activity first (longest in state).
