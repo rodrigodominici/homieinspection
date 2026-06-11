@@ -42,6 +42,8 @@ function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
       && insp.owner_feedback_status === 'pending_executive_review') {
     return 'owner_feedback';
   }
+  // Aceptada por propietario = ciclo cerrado, no es acción pendiente.
+  if (isAcceptedByOwner(insp)) return 'follow_up';
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
   if (['published', 'sent'].includes(insp.status)) return 'follow_up';
   return 'pre_inspection';
