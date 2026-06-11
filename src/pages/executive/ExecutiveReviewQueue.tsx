@@ -412,6 +412,15 @@ function InspectionRow({
     ? formatDistanceToNow(new Date(insp.last_active_at), { addSuffix: true, locale: es })
     : null;
 
+  const waitingLabel = useMemo(() => {
+    if (bucket !== 'owner_feedback' || !insp.owner_feedback_last_submitted_at) return null;
+    const days = Math.floor((Date.now() - new Date(insp.owner_feedback_last_submitted_at).getTime()) / 86_400_000);
+    if (days <= 0) return 'Hoy';
+    if (days === 1) return '1 día esperando';
+    return `${days} días esperando`;
+  }, [bucket, insp.owner_feedback_last_submitted_at]);
+
+
   const snapshot = getEffectiveSnapshot(insp);
   const keyDate = snapshot?.fecha_recoleccion_llaves as string | undefined;
   const contractEnd = snapshot?.fecha_de_termino_real_de_contrato as string | undefined;
@@ -455,11 +464,18 @@ function InspectionRow({
               </p>
               {/* Line 3: meta */}
               <div className="flex items-center gap-x-3 text-tiny text-muted-foreground flex-wrap">
+                {waitingLabel && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-status-bad/10 text-status-bad font-medium">
+                    <Clock className="h-3 w-3" />
+                    {waitingLabel}
+                  </span>
+                )}
                 <span>{insp.market} · {insp.inspection_type}</span>
                 <span className="flex items-center gap-1">
                   <Key className="h-3 w-3" />
                   {keyDateLabel ?? 'Sin fecha de recolección'}
                 </span>
+
                 {progressLabel && (
                   <span className="flex items-center gap-1.5">
                     {progressLabel}
