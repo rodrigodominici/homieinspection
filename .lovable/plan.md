@@ -1,48 +1,47 @@
-# Tooltips en KPIs de dashboards + orden correcto en ejecutivo
+## Problema
 
-## Objetivo
-1. Que cada tarjeta KPI explique en un tooltip qué inspecciones cuenta y qué acción implica.
-2. Corregir el orden de la Bandeja de revisión del ejecutivo para que **Feedback propietario** quede después de **Esperando propietario**, respetando la secuencia real del flujo.
+Cuando una inspección queda en `status = 'approved'` + `owner_feedback_status = 'accepted'` (cierre manual del loop de feedback sin publicación, o aceptación post-cierre), el sistema la sigue tratando como "aprobada lista para publicar":
 
-## Cambio 1 — Reordenar KPIs del ejecutivo
-Archivo: `src/pages/executive/ExecutiveReviewQueue.tsx`
+- **Bandeja ejecutiva** la mete en el bucket `action` ("Requieren tu acción").
+- **Botón contextual** de la tarjeta dice "Publicar".
+- **Cabecera de Review (ejecutivo)** muestra el CTA "Publicar".
+- **Detalle de Admin** muestra "Publicar y Generar URL" porque la stage es `share` y no hay `published_at`.
 
-Orden actual:
-`Feedback propietario · Para revisar · En revisión · Para publicar · Esperando propietario · Aceptadas`
+El status combinado ya la marca correctamente como "Aceptada por propietario" (estado terminal), pero los buckets y CTAs no consultan `owner_feedback_status`, por lo que aparece como pendiente de acción en ambas vistas.
 
-Orden nuevo (sigue el ciclo de vida real):
-`Para revisar → En revisión → Para publicar → Esperando propietario → Feedback propietario → Aceptadas`
+## Cambios
 
-Se mantiene el acento rojo de "Feedback propietario" para que siga destacándose como el único que requiere acción del ejecutivo en la post-publicación.
+### 1. `src/pages/executive/ExecutiveReviewQueue.tsx`
 
-## Cambio 2 — Soporte de tooltip en las tarjetas
-Archivo: `src/shared/ui/KpiCard.tsx`
-- Agregar prop opcional `tooltip?: string`.
-- Cuando esté presente, envolver la tarjeta con `Tooltip` (`@/components/ui/tooltip`) usando `TooltipProvider` + `TooltipTrigger asChild` + `TooltipContent` (max-w ~260px, texto pequeño).
-- No cambia layout, solo añade el envoltorio condicional.
+- `getExecutiveBucket`: tratar `status === 'approved' && owner_feedback_status === 'accepted'` como `follow_up` (cerrada), no como `action`.
+- `getContextualCTA`: cuando una inspección está aceptada por propietario, devolver `"Ver detalle"` (variant `outline`) en vez de "Publicar"/"Abrir reporte".
+- Reusar los helpers existentes `isAcceptedByOwner` / `getCombinedInspectionStatus` de `src/lib/inspection-combined-status.ts` para no duplicar lógica.
 
-Archivo: `src/pages/inspector/InspectorDashboard.tsx`
-- Agregar la misma prop `tooltip` al `StatTile` local con el mismo patrón.
+### 2. `src/pages/executive/review-detail/ReviewHeaderBar.tsx`
 
-## Cambio 3 — Textos de tooltip por KPI
+- Ocultar el botón "Publicar" cuando `isAcceptedByOwner(inspection)` sea verdadero (status `approved` + feedback `accepted`). El ciclo ya está cerrado: no debe haber CTA de publicación.
+- Si además no hay `published_at`, mostrar únicamente el badge combinado "Aceptada por propietario" sin acciones de publicación/republicación.
 
-### Ejecutivo (`ExecutiveReviewQueue.tsx`)
-- **Para revisar**: "Inspecciones enviadas por el inspector que esperan tu revisión inicial."
-- **En revisión**: "Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios."
-- **Para publicar**: "Aprobadas internamente. Falta enviarlas al propietario."
-- **Esperando propietario**: "Publicadas y enviadas al propietario. Aguardando su respuesta."
-- **Feedback propietario**: "El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar."
-- **Aceptadas**: "El propietario aceptó la cotización. Ciclo cerrado."
+### 3. `src/pages/admin/AdminInspectionDetail.tsx` (líneas ~1090-1094)
 
-### Admin Dashboard (`src/pages/admin/AdminDashboard.tsx`) y Lista (`AdminInspections.tsx`)
-Mismos textos que los del ejecutivo para los KPIs equivalentes (Para revisar, Para publicar, Esperando propietario, Feedback propietario, Aceptadas), más los propios de admin que ya existan en esas pantallas (sin cambiar su semántica).
+- En la barra de acciones por stage, ocultar "Publicar y Generar URL" cuando `owner_feedback_status === 'accepted'`. Mostrar en su lugar un texto/badge informativo: "Ciclo cerrado por el propietario" (sin acción), consistente con la vista ejecutiva.
+- Mantener "Republicar" disponible solo si `isPublished === true` (no se introduce cambio aquí, solo se evita el botón de primera publicación cuando ya fue aceptada).
 
-### Inspector (`InspectorDashboard.tsx`)
-- **Total asignadas**: "Todas tus inspecciones activas (asignadas + en progreso)."
-- **Por coordinar**: "Falta coordinar fecha o acceso con el propietario/inquilino."
-- **Por iniciar**: "Coordinadas y listas para arrancar el día de visita."
-- **En progreso**: "Ya iniciaste la captura en sitio. Continúa donde quedaste."
+### 4. (Opcional, consistencia) `src/pages/admin/AdminInspections.tsx`
+
+- Verificar que el KPI "Para publicar" ya excluye `owner_feedback_status === 'accepted'` (línea 365: ya lo hace). No requiere cambio.
+- En la tabla, si hay un CTA inline tipo "Publicar", aplicar la misma regla que en el ejecutivo.
 
 ## Fuera de alcance
-- No se cambian filtros, buckets, ni lógica de cálculo de KPIs.
-- No se modifican estilos generales ni se reordena nada fuera del dashboard del ejecutivo.
+
+- No se cambia el modelo de datos ni los enums.
+- No se modifican los KPIs ni los tooltips (ya están alineados).
+- No se toca la lógica de `ManualCloseOwnerFeedbackDialog` ni cómo se llega al estado aceptado.
+
+## Resultado esperado
+
+Una inspección aceptada por el propietario:
+- Aparece en **Seguimiento** (ejecutivo), no en "Requieren tu acción".
+- Su tarjeta muestra "Ver detalle" en lugar de "Publicar".
+- En el detalle (ejecutivo y admin) no se ofrece "Publicar"; solo lectura/republicación si ya estaba publicada.
+- El badge combinado "Aceptada por propietario" es el único estado visible.
