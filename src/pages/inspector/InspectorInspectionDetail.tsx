@@ -399,6 +399,10 @@ export default function InspectorInspectionDetail() {
       } else {
         toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
       }
+      // Slack notification to assigned executive — fire and forget
+      supabase.functions
+        .invoke('notify-executive-slack', { body: { inspection_id: inspection!.id, event_type: 'submitted' } })
+        .catch((e) => console.warn('slack notify failed', e));
       navigate('/inspector');
     }
   };
