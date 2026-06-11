@@ -22,17 +22,17 @@ import {
 } from '@/lib/inspector-operational';
 import { marketLabel } from '@/lib/markets';
 import AdminLayout from '@/components/AdminLayout';
-import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { FiltersBar, KpiCard } from '@/shared/ui';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
-  Calendar as CalendarIcon, FileText, ChevronDown, SlidersHorizontal,
-  LayoutGrid, Table2,
+  Calendar as CalendarIcon, FileText, LayoutGrid, Table2,
+  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +54,7 @@ const STATUS_OPTIONS = [
   { value: 'needs_changes', label: 'Requiere cambios' },
   { value: 'approved', label: 'Aprobada' },
   { value: 'published', label: 'Publicada' },
+  { value: 'accepted', label: 'Aceptada por propietario' },
   { value: 'sent', label: 'Entregada' },
 ];
 
@@ -67,6 +68,8 @@ const SORT_OPTIONS = [
   { value: 'schedule_asc', label: 'Recolección llaves ↑' },
   { value: 'schedule_desc', label: 'Recolección llaves ↓' },
 ];
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 // Quick-filter buckets
 type Bucket = 'all' | 'unassigned' | 'por_coordinar' | 'programadas' | 'in_progress';
