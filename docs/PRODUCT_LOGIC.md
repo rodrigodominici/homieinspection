@@ -88,12 +88,12 @@ Each inspection is composed of:
    `repairs.service.ts → rebindContractorPrices`.
 6. Outcomes (`modules/review/api/inspection-actions.service.ts`):
    - **Approve** → `status = approved`, all sections set to `reviewed`.
-   - **Request changes** → status `needs_changes`; selected sections set
-     to `needs_changes` with a `revision_request` comment each.
    - **Publish** → atomically inserts owner + tenant
      `inspection_report_versions` rows sharing `version_number` and
      `normalized_payload`, marks previous versions `is_latest = false`,
      stamps `published_at`.
+   - There is **no "request changes" flow**: once submitted, an inspection
+     advances linearly toward publication.
 
 ### Public report
 
@@ -175,7 +175,7 @@ Inspector Submits → inspection status: submitted
         ↓
 Executive Reviews (auto in_review) → edits, internal notes, photo visibility
         ↓
-Approve → approved      Request Changes → needs_changes (per-section)
+Approve → approved
         ↓
 Budget → repair items priced (client + contractor)
         ↓
@@ -208,7 +208,7 @@ Section completion criteria are pattern-based (see
 answered, photo gate satisfied.
 
 Statuses that do NOT count as completed: `not_started`, `assigned`,
-`in_progress`, `needs_changes`.
+`in_progress`.
 
 ---
 

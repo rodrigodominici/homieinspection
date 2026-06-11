@@ -12,7 +12,7 @@ import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucid
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
 
-const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'needs_changes', 'pending_assignment']);
+const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'pending_assignment']);
 const PAST_STATUSES = new Set(['submitted', 'in_review', 'approved', 'published', 'sent']);
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {

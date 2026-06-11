@@ -122,7 +122,7 @@ export default function InspectorInspectionDetail() {
   const displayState = getInspectorDisplayState(inspection, progress.completed, progress.total, inspection);
   const allCompleted = progress.completed === progress.total && progress.total > 0;
   const readOnly = isInspectorReadOnly(inspection.status);
-  const canSubmit = !readOnly && allCompleted && ['assigned', 'in_progress', 'needs_changes'].includes(inspection.status);
+  const canSubmit = !readOnly && allCompleted && ['assigned', 'in_progress'].includes(inspection.status);
 
   // Skip introduction and property_data sections (shown as briefing card / intro)
   const workSections = sections.filter(s =>

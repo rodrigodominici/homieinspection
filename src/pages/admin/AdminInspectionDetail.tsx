@@ -74,7 +74,7 @@ function stageIndex(s: WorkflowStage) {
 
 const ALL_STATUSES = [
   'pending_assignment', 'assigned', 'in_progress', 'submitted',
-  'in_review', 'needs_changes', 'approved', 'published',
+  'in_review', 'approved', 'published',
 ];
 
 interface AuditLogEntry {
@@ -152,12 +152,9 @@ export default function AdminInspectionDetail() {
   const [savingKeyDate, setSavingKeyDate] = useState(false);
   const [resendingKeyDate, setResendingKeyDate] = useState(false);
 
-  // Executive-aligned state (contractor, return-for-changes, quotation, discount)
+  // Executive-aligned state (contractor, quotation, discount)
   const [contractors, setContractors] = useState<Array<{ id: string; name: string; country: string; is_active: boolean; created_at: string }>>([]);
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
-  const [returnMode, setReturnMode] = useState(false);
-  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
-  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
   const [contractorQuotationOpen, setContractorQuotationOpen] = useState(false);
   const [workOrderDetailsOpen, setWorkOrderDetailsOpen] = useState(false);
@@ -742,40 +739,6 @@ export default function AdminInspectionDetail() {
     await fetchAll();
   }, [inspection, allRepairs, fetchAll, toast]);
 
-  const toggleReturnSection = useCallback((secId: string) => {
-    setSelectedReturnSections(prev => {
-      const next = new Set(prev);
-      if (next.has(secId)) next.delete(secId); else next.add(secId);
-      return next;
-    });
-  }, []);
-
-  const handleAdminReturnForChanges = useCallback(async () => {
-    if (!id) return;
-    const ids = Array.from(selectedReturnSections);
-    if (ids.length === 0) {
-      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
-      return;
-    }
-    setSaving(true);
-    try {
-      await inspectionActionsService.requestChanges({
-        inspectionId: id,
-        profileId: profile?.id,
-        selectedSectionIds: ids,
-        commentsBySection: returnComments,
-      });
-      toast({ title: 'Devuelta para cambios' });
-      setReturnMode(false);
-      setSelectedReturnSections(new Set());
-      setReturnComments({});
-      await fetchAll();
-    } catch (e: any) {
-      toast({ title: 'No se pudo devolver', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  }, [id, selectedReturnSections, returnComments, profile?.id, fetchAll, toast]);
 
   const handleAdminApprove = useCallback(async () => {
     if (!id) return;
@@ -1790,12 +1753,6 @@ export default function AdminInspectionDetail() {
                     signatureRecord={signatureRecord}
                     isPublished={isPublished}
                     submitting={saving || publishing}
-                    returnMode={returnMode}
-                    setReturnMode={setReturnMode}
-                    selectedReturnSectionsCount={selectedReturnSections.size}
-                    selectedReturnSections={selectedReturnSections}
-                    onReturnForChanges={handleAdminReturnForChanges}
-                    onToggleReturnSection={toggleReturnSection}
                     onApprove={handleAdminApprove}
                     onPublish={handleAdminPublish}
                     onOpenOwner={handleOpenOwner}

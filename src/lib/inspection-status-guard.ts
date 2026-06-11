@@ -13,7 +13,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const STALE_STATUSES = new Set(['pending', 'assigned', 'pending_assignment']);
-const ACTIVE_SECTION_STATUSES = new Set(['in_progress', 'completed', 'reviewed', 'needs_changes']);
+const ACTIVE_SECTION_STATUSES = new Set(['in_progress', 'completed', 'reviewed']);
 
 /**
  * Status set in which the inspector can no longer edit fields, photos,

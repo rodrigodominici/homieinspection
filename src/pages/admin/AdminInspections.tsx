@@ -51,7 +51,6 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'En progreso' },
   { value: 'submitted', label: 'Lista para revisión' },
   { value: 'in_review', label: 'En revisión' },
-  { value: 'needs_changes', label: 'Requiere cambios' },
   { value: 'approved', label: 'Aprobada' },
   { value: 'published', label: 'Publicada' },
   { value: 'accepted', label: 'Aceptada por propietario' },
@@ -336,7 +335,6 @@ export default function AdminInspections() {
     unassigned: bucketCounts.unassigned,
     inProgress: inspections.filter((i) => i.status === 'in_progress').length,
     forReview:  inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
-    needsChanges: inspections.filter((i) => i.status === 'needs_changes').length,
     toPublish:  inspections.filter((i) => i.status === 'approved').length,
     published:  inspections.filter((i) => i.status === 'published' || i.status === 'sent' || i.status === 'accepted').length,
   }), [inspections, bucketCounts]);
@@ -443,7 +441,7 @@ export default function AdminInspections() {
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
             {/* KPIs — clickable filter shortcuts */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <KpiCard
                 label="Sin asignar" value={kpis.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
@@ -461,12 +459,6 @@ export default function AdminInspections() {
                 icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                 active={statusFilter === 'submitted'}
                 onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
-              />
-              <KpiCard
-                label="En corrección" value={kpis.needsChanges}
-                icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="amber"
-                active={statusFilter === 'needs_changes'}
-                onClick={() => setStatusFilter(statusFilter === 'needs_changes' ? 'all' : 'needs_changes')}
               />
               <KpiCard
                 label="Para publicar" value={kpis.toPublish}

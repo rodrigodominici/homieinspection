@@ -9,7 +9,6 @@ export interface InspectorDisplayState {
     | 'in_progress'
     | 'ready_to_submit'
     | 'to_coordinate'
-    | 'needs_changes'
     | 'submitted'
     | 'in_review'
     | 'approved'
@@ -74,9 +73,7 @@ export function getInspectorDisplayState(
 ): InspectorDisplayState {
   const progressPercent = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
 
-  if (inspection.status === 'needs_changes') {
-    return { key: 'needs_changes', label: 'Requiere cambios', tone: 'warning' };
-  }
+
 
   if (inspection.status === 'submitted') return { key: 'submitted', label: 'Enviada', tone: 'good' };
   if (inspection.status === 'in_review') return { key: 'in_review', label: 'En revisión', tone: 'primary' };
@@ -117,9 +114,6 @@ export function matchesInspectorStateFilter(
 
   if (stateFilter === 'in_progress') return display.key === 'in_progress';
   if (stateFilter === 'assigned') return display.key === 'assigned';
-  if (stateFilter === 'assigned_or_needs_changes') {
-    return display.key === 'assigned' || display.key === 'needs_changes';
-  }
   if (stateFilter === 'to_coordinate') return display.key === 'to_coordinate';
   if (stateFilter === 'ready_to_send') return display.key === 'ready_to_submit';
 
@@ -155,7 +149,7 @@ export function isCompletedToday(inspection: Inspection, now = new Date()): bool
  *                         ALWAYS outranks date-based urgency.
  *   1  Por coordinar    — assigned but no fecha_recoleccion_llaves.
  *   2  Programada       — assigned + coordinated, not yet started.
- *   3  En progreso      — in_progress / submitted / in_review / needs_changes.
+ *   3  En progreso      — in_progress / submitted / in_review.
  *   5  Completada       — published / sent / approved.
  * ─────────────────────────────────────────────────────────────────────────── */
 
@@ -181,8 +175,7 @@ export function priorityBucket(
   if (
     insp.status === 'in_progress' ||
     insp.status === 'submitted' ||
-    insp.status === 'in_review' ||
-    insp.status === 'needs_changes'
+    insp.status === 'in_review'
   ) {
     return 3;
   }

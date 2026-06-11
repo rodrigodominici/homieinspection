@@ -3,12 +3,11 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
-  ArrowLeft, RotateCcw, Copy, AlertTriangle, ExternalLink, RefreshCw,
+  ArrowLeft, Copy, AlertTriangle, ExternalLink, RefreshCw,
   Wrench, ChevronDown, FileText, Send, Eye,
 } from 'lucide-react';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
-import { RequestChangesPanel } from './RequestChangesPanel';
 import { InspectorProgressCard } from './InspectorProgressCard';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
@@ -30,16 +29,12 @@ interface ReviewHeaderBarProps {
   progress: { completed: number; total: number };
   lastActiveRelative: string | null;
   isPublished: boolean;
-  returnMode: boolean;
-  setReturnMode: (v: boolean) => void;
-  selectedReturnSections: Set<string>;
   submitting: boolean;
   showObservationWarnings: boolean;
   missingSections: InspectionSection[];
   onBack: () => void;
   onApprove: () => Promise<void>;
   onPublish: (force?: boolean) => Promise<void>;
-  onReturnForChanges: () => void;
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
   onOpenContractorQuotation: () => void;
   onOpenWorkOrderDetails: () => void;
@@ -59,9 +54,9 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
     contractorTotal, clientTotal, selectedContractorId,
-    inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
-    setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
-    missingSections, onBack, onApprove, onPublish, onReturnForChanges,
+    inspectorProgressLabel, progress, lastActiveRelative, isPublished,
+    submitting, showObservationWarnings,
+    missingSections, onBack, onApprove, onPublish,
     onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails, onOpenRepairsDrawer,
     onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
   } = props;
@@ -98,17 +93,12 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
             />
           </div>
           <div className="hidden md:flex items-center gap-2">
-            {['submitted', 'in_review'].includes(inspection.status) && !returnMode && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
-                </Button>
-                <ApproveInspectionDialog
-                  operationalSections={operationalSections}
-                  disabled={submitting}
-                  onApprove={onApprove}
-                />
-              </>
+            {['submitted', 'in_review'].includes(inspection.status) && (
+              <ApproveInspectionDialog
+                operationalSections={operationalSections}
+                disabled={submitting}
+                onApprove={onApprove}
+              />
             )}
 
             {/* Ver reporte — single dropdown replacing Abrir + Copiar link */}
@@ -149,14 +139,6 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
           </div>
         </div>
 
-        {returnMode && (
-          <RequestChangesPanel
-            selectedCount={selectedReturnSections.size}
-            submitting={submitting}
-            onCancel={() => setReturnMode(false)}
-            onConfirm={onReturnForChanges}
-          />
-        )}
 
         {/* Row 2: Financial summary + secondary actions */}
         <div className="flex items-stretch gap-2 pb-3 pt-2 border-t overflow-x-auto">

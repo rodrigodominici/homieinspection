@@ -183,32 +183,6 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     }
   }, [inspection, id, refetch, toast]);
 
-  const handleReturnForChanges = useCallback(async (
-    selectedSectionIds: string[],
-    commentsBySection: Record<string, string>,
-  ) => {
-    if (!id) return;
-    if (selectedSectionIds.length === 0) {
-      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await inspectionActions.requestChanges({
-        inspectionId: id,
-        profileId,
-        selectedSectionIds,
-        commentsBySection,
-      });
-      toast({ title: 'Devuelta para cambios' });
-      navigate('/executive');
-    } catch (e: any) {
-      toast({ title: 'No se pudo devolver para cambios', description: e?.message, variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  }, [id, profileId, navigate, toast]);
-
   return {
     submitting,
     catalog: {
@@ -231,6 +205,5 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     handlePublish,
     handleApprove,
     handleStartReview,
-    handleReturnForChanges,
   };
 }

@@ -1,8 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy, RotateCcw } from 'lucide-react';
+import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
-import { RequestChangesPanel } from './RequestChangesPanel';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
@@ -16,13 +15,6 @@ interface PublishViewProps {
   signatureRecord: any | null;
   isPublished: boolean;
   submitting: boolean;
-
-  returnMode: boolean;
-  setReturnMode: (v: boolean) => void;
-  selectedReturnSectionsCount: number;
-  onReturnForChanges: () => void;
-  onToggleReturnSection: (sectionId: string) => void;
-  selectedReturnSections: Set<string>;
 
   onApprove: () => Promise<void>;
   onPublish: (force?: boolean) => Promise<void>;
@@ -49,8 +41,6 @@ export function PublishView(props: PublishViewProps) {
   const {
     inspection, operationalSections, missingSections, hasRepairs, hasContractor,
     signatureRecord, isPublished, submitting,
-    returnMode, setReturnMode, selectedReturnSectionsCount, onReturnForChanges,
-    onToggleReturnSection, selectedReturnSections,
     onApprove, onPublish, onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
     onGoToInspection, onGoToRepairs, onRefresh,
   } = props;
@@ -141,38 +131,7 @@ export function PublishView(props: PublishViewProps) {
               disabled={submitting}
               onApprove={onApprove}
             />
-            {!returnMode && (
-              <Button variant="outline" size="sm" onClick={() => setReturnMode(true)}>
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver para cambios
-              </Button>
-            )}
           </div>
-          {returnMode && (
-            <div className="space-y-2 pt-2 border-t">
-              <p className="text-xs text-muted-foreground">
-                Selecciona las secciones a devolver al inspector desde Inspección, luego confirma aquí.
-              </p>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {operationalSections.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-muted/40 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedReturnSections.has(s.id)}
-                      onChange={() => onToggleReturnSection(s.id)}
-                      className="rounded"
-                    />
-                    <span className="flex-1">{s.section_title}</span>
-                  </label>
-                ))}
-              </div>
-              <RequestChangesPanel
-                selectedCount={selectedReturnSectionsCount}
-                submitting={submitting}
-                onCancel={() => setReturnMode(false)}
-                onConfirm={onReturnForChanges}
-              />
-            </div>
-          )}
         </div>
       )}
 

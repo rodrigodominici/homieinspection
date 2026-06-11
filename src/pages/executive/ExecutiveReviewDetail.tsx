@@ -74,10 +74,7 @@ export default function ExecutiveReviewDetail() {
   const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
   const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
 
-  // Return mode
-  const [returnMode, setReturnMode] = useState(false);
-  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
-  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
+  // (Devolver para cambios eliminado — el flujo needs_changes ya no aplica)
 
   // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
@@ -251,20 +248,6 @@ export default function ExecutiveReviewDetail() {
   });
   const { submitting, catalog, publish } = actions;
 
-  const handleReturnForChanges = useCallback(
-    () => actions.handleReturnForChanges(Array.from(selectedReturnSections), returnComments),
-    [actions, selectedReturnSections, returnComments],
-  );
-
-
-
-  const toggleReturnSection = useCallback((secId: string) => {
-    setSelectedReturnSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(secId)) next.delete(secId); else next.add(secId);
-      return next;
-    });
-  }, []);
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -296,14 +279,6 @@ export default function ExecutiveReviewDetail() {
     setRepairsDrawerSectionId(sid);
   }, []);
 
-  const handleToggleReturn = useCallback(() => {
-    if (!activeSectionId) return;
-    toggleReturnSection(activeSectionId);
-  }, [activeSectionId, toggleReturnSection]);
-
-  const handleReturnCommentChange = useCallback((v: string) => {
-    setReturnComments(p => ({ ...p, [activeSectionId ?? '']: v }));
-  }, [activeSectionId]);
 
   // ─── Stable mode/dialog handlers ───────────────────────
   const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
@@ -497,11 +472,6 @@ export default function ExecutiveReviewDetail() {
                 onSaveFinalObsSilent={saveFinalObservationSilent}
                 onSaveNoteSilent={saveInternalNoteSilent}
                 onOpenRepairsDrawer={handleOpenRepairsDrawer}
-                returnMode={returnMode}
-                returnSelected={selectedReturnSections.has(activeSection.id)}
-                onToggleReturn={handleToggleReturn}
-                returnComment={returnComments[activeSection.id] ?? ''}
-                onReturnCommentChange={handleReturnCommentChange}
                 photosSlot={inlineRepairsOpen ? photosNode : undefined}
               />}
             </main>
@@ -596,12 +566,6 @@ export default function ExecutiveReviewDetail() {
             signatureRecord={signatureRecord}
             isPublished={isPublished}
             submitting={submitting}
-            returnMode={returnMode}
-            setReturnMode={setReturnMode}
-            selectedReturnSectionsCount={selectedReturnSections.size}
-            selectedReturnSections={selectedReturnSections}
-            onReturnForChanges={handleReturnForChanges}
-            onToggleReturnSection={toggleReturnSection}
             onApprove={actions.handleApprove}
             onPublish={actions.handlePublish}
             onOpenOwner={handleOpenOwner}
@@ -632,8 +596,6 @@ export default function ExecutiveReviewDetail() {
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         submitting={submitting}
-        returnMode={returnMode}
-        setReturnMode={setReturnMode}
         onOpenCatalog={actions.openCatalog}
         onOpenRepairsDrawer={handleOpenRepairsDrawerMobile}
         onPublish={actions.handlePublish}

@@ -137,7 +137,7 @@ export default function InspectorSectionComplete() {
     setValidationError(null);
     setUnansweredFields((prev) => { const n = new Set(prev); n.delete(fieldId); return n; });
     saveField(fieldId, value);
-    if (section?.status === 'not_started' || section?.status === 'needs_changes') {
+    if (section?.status === 'not_started') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
       setSection((prev) => prev ? { ...prev, status: 'in_progress' } : prev);
     }
@@ -721,22 +721,7 @@ export default function InspectorSectionComplete() {
             </CardContent>
           </Card>
         )}
-        {/* Revision requests */}
-        {reviews.length > 0 && section.status === 'needs_changes' && (
-          <Card className="border-0 ring-1 ring-status-bad/30 bg-status-bad-bg shadow-sm rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-status-bad mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-body font-medium text-status-bad">Cambios Requeridos</p>
-                  {reviews.map((r) => (
-                    <p key={r.id} className="text-caption text-foreground/80 mt-1">{r.comment}</p>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Revision requests UI removed — needs_changes flow eliminated */}
 
         {/* Section-type-specific content */}
         {sectionType === 'introduction' && renderIntroduction()}

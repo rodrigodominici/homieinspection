@@ -82,7 +82,7 @@ export default function InspectorCalendar() {
       const { data } = await supabase
         .from('inspections')
         .select('*')
-        .in('status', ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'])
+        .in('status', ['assigned', 'in_progress', 'pending_assignment'])
         .order('updated_at', { ascending: false });
 
       if (!data) { setLoading(false); return; }
@@ -270,9 +270,7 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
     ? 'Revisar'
     : displayState.key === 'assigned'
       ? 'Iniciar'
-      : displayState.key === 'needs_changes'
-        ? 'Corregir'
-        : 'Continuar';
+      : 'Continuar';
 
   return (
     <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl active:scale-[0.99] transition-all">
