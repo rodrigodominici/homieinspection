@@ -430,7 +430,7 @@ export default function AdminInspections() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-6xl space-y-6">
+      <div className="p-6 max-w-7xl space-y-6">
         <h1 className="text-h2">Inspecciones</h1>
 
         <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })}>
