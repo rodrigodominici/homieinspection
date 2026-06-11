@@ -1657,94 +1657,33 @@ export default function AdminInspectionDetail() {
               {/* Grand total card */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
-                  <span className="text-sm font-medium">Total Presupuesto</span>
-                  <span className="text-lg font-semibold text-primary font-mono">${budgetTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-medium">Total Presupuesto (visible al propietario)</span>
+                  <span className="text-lg font-semibold text-primary font-mono">${clientTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                 </CardContent>
               </Card>
 
-              {/* Per-section budget */}
-              {operationalSections.filter(s => s.section_type !== 'handover_meta').map(section => {
-                const sRepairs = repairsBySection[section.id] ?? [];
-                const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
-
-                return (
-                  <Card key={section.id} className="border-0 ring-1 ring-border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm">{section.section_title}</CardTitle>
-                        <Button size="sm" variant="outline" onClick={() => openCatalog(section.id)}>
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {sRepairs.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Sin reparaciones en esta sección.</p>
-                      )}
-                      {sRepairs.map((repair) => (
-                        <div key={repair.id} className={cn('rounded-lg border p-3 space-y-2', !repair.visible_to_owner && 'opacity-50 border-dashed')}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{repair.title_snapshot}</p>
-                              {repair.category_snapshot && <p className="text-[10px] text-muted-foreground">{repair.category_snapshot}</p>}
-                              <div className="flex flex-wrap items-center gap-1 mt-1">
-                                <span className="inline-flex items-center rounded-full border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                  {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
-                                </span>
-                                <span className={cn(
-                                  'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px]',
-                                  repair.payment_nature === 'optional'
-                                    ? 'border-muted-foreground/20 text-muted-foreground bg-muted/40'
-                                    : 'border-primary/20 text-primary bg-primary/5'
-                                )}>
-                                  {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => updateRepairItem(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
-                                className="p-1 rounded hover:bg-muted/50">
-                                {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                              </button>
-                              <button onClick={() => deleteRepairItem(repair.id)}
-                                className="p-1 rounded hover:bg-destructive/10 text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <Label className="text-[10px]">Cantidad</Label>
-                              <Input type="number" step="0.01" value={repair.quantity}
-                                onChange={(e) => updateRepairItem(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs" />
-                            </div>
-                            <div>
-                              <Label className="text-[10px]">Precio unit.</Label>
-                              <Input type="number" step="0.01" value={repair.unit_price}
-                                onChange={(e) => updateRepairItem(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs" />
-                            </div>
-                            <div>
-                              <Label className="text-[10px]">Subtotal</Label>
-                              <p className="h-8 flex items-center text-xs font-mono font-medium">
-                                ${Number(repair.subtotal ?? repair.quantity * repair.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          </div>
-                          <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
-                            onChange={(e) => updateRepairItem(repair.id, 'notes', e.target.value || null)} />
-                        </div>
-                      ))}
-                      {sectionSubtotal > 0 && (
-                        <div className="flex justify-end text-xs font-medium font-mono pt-1">
-                          Subtotal: ${sectionSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {/* Consolidated repairs table — same component used by the executive */}
+              <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+                <div className="min-h-[60vh]">
+                  <RepairsTableView
+                    sections={operationalSections}
+                    allRepairs={allRepairs}
+                    contractors={contractors}
+                    selectedContractorId={selectedContractorId}
+                    onContractorChange={handleContractorChange}
+                    contractorTotal={contractorTotal}
+                    clientTotal={clientTotal}
+                    utility={utility}
+                    budgetBreakdown={budgetBreakdown}
+                    warrantyDeposit={warrantyDeposit}
+                    depositDiff={depositDiff}
+                    onOpenCatalog={openCatalog}
+                    onUpdateRepair={updateRepairItem}
+                    onDeleteRepair={deleteRepairItem}
+                    feedbackByRepairId={ownerFeedback.feedbackByRepairId}
+                  />
+                </div>
+              </Card>
 
               {/* Published versions — grouped by version_number (one row per version, two audience links) */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -1806,7 +1745,73 @@ export default function AdminInspectionDetail() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* ── Cotización tab ── */}
+          <TabsContent value="quotation">
+            <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+              <div className="min-h-[60vh]">
+                <QuotationView
+                  budgetBreakdown={budgetBreakdown}
+                  discountBreakdown={discountBreakdown}
+                  activeDiscount={activeDiscountInput}
+                  discountReason={discountState.discount?.discount_reason ?? null}
+                  onOpenDiscount={handleOpenDiscount}
+                  onRemoveDiscount={handleRemoveDiscount}
+                  discountSaving={discountState.saving}
+                  clientTotal={clientTotal}
+                  contractorTotal={contractorTotal}
+                  utility={utility}
+                  warrantyDeposit={warrantyDeposit}
+                  depositDiff={depositDiff}
+                  hasRepairs={allRepairs.length > 0}
+                  onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
+                  onOpenContractorQuotation={() => setContractorQuotationOpen(true)}
+                  onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
+                  onGoToRepairs={() => setActiveTab('budget')}
+                  onGoToPublish={() => setActiveTab('publish')}
+                  ownerPendingFeedbackCount={ownerFeedback.pendingCount}
+                  ownerFeedbackVersionNumber={ownerFeedback.versionNumber}
+                />
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ── Publicación tab ── */}
+          <TabsContent value="publish">
+            <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+              <div className="min-h-[60vh]">
+                {inspection && (
+                  <PublishView
+                    inspection={inspection}
+                    operationalSections={operationalSections}
+                    missingSections={showObservationWarnings ? missingSections : []}
+                    hasRepairs={allRepairs.length > 0}
+                    hasContractor={!!selectedContractorId}
+                    signatureRecord={signatureRecord}
+                    isPublished={isPublished}
+                    submitting={saving || publishing}
+                    returnMode={returnMode}
+                    setReturnMode={setReturnMode}
+                    selectedReturnSectionsCount={selectedReturnSections.size}
+                    selectedReturnSections={selectedReturnSections}
+                    onReturnForChanges={handleAdminReturnForChanges}
+                    onToggleReturnSection={toggleReturnSection}
+                    onApprove={handleAdminApprove}
+                    onPublish={handleAdminPublish}
+                    onOpenOwner={handleOpenOwner}
+                    onOpenTenant={handleOpenTenant}
+                    onCopyOwner={handleCopyOwner}
+                    onCopyTenant={handleCopyTenant}
+                    onGoToInspection={handleJumpToInspectionSection}
+                    onGoToRepairs={() => setActiveTab('budget')}
+                    onRefresh={fetchAll}
+                  />
+                )}
+              </div>
+            </Card>
+          </TabsContent>
         </Tabs>
+
 
         {/* ─── Audit Log ─── */}
         <Collapsible>
