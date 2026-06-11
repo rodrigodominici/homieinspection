@@ -73,9 +73,7 @@ export function getInspectorDisplayState(
 ): InspectorDisplayState {
   const progressPercent = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
 
-  if (inspection.status === 'needs_changes') {
-    return { key: 'needs_changes', label: 'Requiere cambios', tone: 'warning' };
-  }
+
 
   if (inspection.status === 'submitted') return { key: 'submitted', label: 'Enviada', tone: 'good' };
   if (inspection.status === 'in_review') return { key: 'in_review', label: 'En revisión', tone: 'primary' };
