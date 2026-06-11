@@ -109,14 +109,12 @@ export default function ExecutiveReviewQueue() {
   const kpis = useMemo(() => ({
     forReview:    inspections.filter(i => i.status === 'submitted').length,
     inReview:     inspections.filter(i => i.status === 'in_review').length,
-    needsChanges: inspections.filter(i => i.status === 'needs_changes').length,
     toPublish:    inspections.filter(i => i.status === 'approved').length,
     published:    inspections.filter(i => ['published', 'sent'].includes(i.status)).length,
   }), [inspections]);
 
   // Per-bucket sorts. Action: oldest activity first (longest in state).
-  // En corrección: by contract end. Follow-up: most recently published.
-  // Pre-inspección: updated desc.
+  // Follow-up: most recently published. Pre-inspección: updated desc.
   const sortedFiltered = useMemo(() => {
     const arr = [...filtered];
     if (sortKey === 'updated') {
@@ -133,16 +131,11 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      action: [], in_correction: [], follow_up: [], pre_inspection: [],
+      action: [], follow_up: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
     // Apply per-bucket secondary sort (override the global sortKey).
     buckets.action.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-    buckets.in_correction.sort((a, b) => {
-      const dA = getEffectiveSnapshot(a)?.fecha_de_termino_real_de_contrato as string | undefined;
-      const dB = getEffectiveSnapshot(b)?.fecha_de_termino_real_de_contrato as string | undefined;
-      return (dA ? new Date(dA).getTime() : Infinity) - (dB ? new Date(dB).getTime() : Infinity);
-    });
     buckets.follow_up.sort((a, b) => {
       const dA = a.published_at ? new Date(a.published_at).getTime() : 0;
       const dB = b.published_at ? new Date(b.published_at).getTime() : 0;
