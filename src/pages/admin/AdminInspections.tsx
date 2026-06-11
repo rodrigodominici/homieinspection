@@ -313,31 +313,48 @@ export default function AdminInspections() {
 
   // Pre-compute priority bucket once per inspection (used by filters, sort, chips, KPIs).
   const bucketByInsp = useMemo(() => {
-    const m = new Map<string, 0 | 1 | 2 | 3 | 5>();
+    const m = new Map<string, 0 | 1 | 2 | 3 | 4 | 5>();
     for (const i of inspections) m.set(i.id, priorityBucket(i));
     return m;
   }, [inspections]);
 
   // Bucket counts in one pass (avoids 5x .filter inside the JSX).
   const bucketCounts = useMemo(() => {
-    const counts = { all: inspections.length, unassigned: 0, por_coordinar: 0, programadas: 0, in_progress: 0 };
+    const counts = {
+      all: inspections.length,
+      unassigned: 0,
+      por_coordinar: 0,
+      programadas: 0,
+      in_progress: 0,
+      owner_feedback: 0,
+      waiting_owner: 0,
+      accepted: 0,
+    };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
       if (b === 0) counts.unassigned++;
       else if (b === 1) counts.por_coordinar++;
       else if (b === 2) counts.programadas++;
       else if (b === 3) counts.in_progress++;
+      else if (b === 4) counts.owner_feedback++;
+      const fb = i.owner_feedback_status ?? 'none';
+      if ((i.status === 'published' || i.status === 'sent') && fb === 'none') counts.waiting_owner++;
+      if (fb === 'accepted') counts.accepted++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
 
   // KPIs aligned with executive view + admin-only signals.
+  // After publish, the lifecycle splits in 3 (waiting / feedback / accepted)
+  // to reflect the owner-feedback loop instead of a single "Publicadas" bucket.
   const kpis = useMemo(() => ({
-    unassigned: bucketCounts.unassigned,
-    inProgress: inspections.filter((i) => i.status === 'in_progress').length,
-    forReview:  inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
-    toPublish:  inspections.filter((i) => i.status === 'approved').length,
-    published:  inspections.filter((i) => i.status === 'published' || i.status === 'sent' || i.status === 'accepted').length,
+    unassigned:    bucketCounts.unassigned,
+    inProgress:    inspections.filter((i) => i.status === 'in_progress').length,
+    forReview:     inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
+    toPublish:     inspections.filter((i) => i.status === 'approved' && i.owner_feedback_status !== 'accepted').length,
+    waitingOwner:  bucketCounts.waiting_owner,
+    ownerFeedback: bucketCounts.owner_feedback,
+    accepted:      bucketCounts.accepted,
   }), [inspections, bucketCounts]);
 
   // Available markets (for the market dropdown).
