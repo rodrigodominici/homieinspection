@@ -441,125 +441,161 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* Controls — search + bucket chips + advanced filters */}
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardContent className="p-4 space-y-3">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar por dirección, ID de propiedad o nombre..."
-                    className="pl-9"
-                  />
-                </div>
+            {/* KPIs — clickable filter shortcuts */}
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+              <KpiCard
+                label="Sin asignar" value={kpis.unassigned}
+                icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
+                active={bucketFilter === 'unassigned'}
+                onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
+              />
+              <KpiCard
+                label="En progreso" value={kpis.inProgress}
+                icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'in_progress'}
+                onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
+              />
+              <KpiCard
+                label="Para revisar" value={kpis.forReview}
+                icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'submitted'}
+                onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
+              />
+              <KpiCard
+                label="En corrección" value={kpis.needsChanges}
+                icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="amber"
+                active={statusFilter === 'needs_changes'}
+                onClick={() => setStatusFilter(statusFilter === 'needs_changes' ? 'all' : 'needs_changes')}
+              />
+              <KpiCard
+                label="Para publicar" value={kpis.toPublish}
+                icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'approved'}
+                onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+              />
+              <KpiCard
+                label="Publicadas" value={kpis.published}
+                icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
+                active={statusFilter === 'published'}
+                onClick={() => setStatusFilter(statusFilter === 'published' ? 'all' : 'published')}
+              />
+            </div>
 
-                {/* Quick bucket filter chips (operational priority) */}
-                <div className="flex flex-wrap gap-2">
-                  {BUCKET_FILTERS.map((b) => {
-                    const active = bucketFilter === b.value;
-                    const count = b.value === 'all'
-                      ? inspections.length
-                      : inspections.filter((i) => {
-                          const pb = priorityBucket(i);
-                          if (b.value === 'unassigned') return pb === 0;
-                          if (b.value === 'por_coordinar') return pb === 1;
-                          if (b.value === 'programadas') return pb === 2;
-                          if (b.value === 'in_progress') return pb === 3;
-                          return true;
-                        }).length;
-                    return (
-                      <button
-                        key={b.value}
-                        onClick={() => setBucketFilter(b.value)}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
-                          active
-                            ? 'bg-primary text-primary-foreground ring-primary'
-                            : 'bg-background text-foreground ring-border hover:bg-muted'
-                        )}
-                      >
-                        {b.label}
-                        <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <div className="ml-auto">
-                    <ToggleGroup
-                      type="single"
-                      value={viewMode}
-                      onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <ToggleGroupItem value="cards" aria-label="Vista de tarjetas" title="Tarjetas">
-                        <LayoutGrid className="h-4 w-4" />
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="table" aria-label="Vista de tabla" title="Tabla">
-                        <Table2 className="h-4 w-4" />
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
-                </div>
+            {/* FiltersBar — search + selects + sort + view toggle */}
+            <FiltersBar>
+              <div className="relative flex-1 min-w-[220px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por dirección, ID o nombre..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9 rounded-lg bg-card"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {markets.length > 1 && (
+                <Select value={marketFilter} onValueChange={setMarketFilter}>
+                  <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card">
+                    <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                    <SelectValue placeholder="Mercado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los mercados</SelectItem>
+                    {markets.map((m) => <SelectItem key={m} value={m}>{marketLabel(m)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
+                <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los inspectores</SelectItem>
+                  {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
+                <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los ejecutivos</SelectItem>
+                  {executives.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={publishedFilter} onValueChange={setPublishedFilter}>
+                <SelectTrigger className="w-[160px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Publicación" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="published">Solo publicadas</SelectItem>
+                  <SelectItem value="not_published">Sin publicar</SelectItem>
+                </SelectContent>
+              </Select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5 text-caption rounded-lg bg-card">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    Ordenar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {SORT_OPTIONS.map((o) => (
+                    <DropdownMenuItem key={o.value} onClick={() => setSortBy(o.value)} className="gap-2">
+                      {sortBy === o.value
+                        ? <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                        : <span className="h-3.5 w-3.5 shrink-0" />}
+                      {o.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="ml-auto">
+                <ToggleGroup
+                  type="single"
+                  value={viewMode}
+                  onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+                  size="sm"
+                  variant="outline"
+                >
+                  <ToggleGroupItem value="cards" aria-label="Vista de tarjetas" title="Tarjetas">
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="table" aria-label="Vista de tabla" title="Tabla">
+                    <Table2 className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </FiltersBar>
 
-                <Separator />
-
-                {/* Advanced filters — lifecycle state + people + sort */}
-                <Collapsible defaultOpen={false}>
-                  <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      Filtros avanzados
+            {/* Sub-filter: priority buckets (operational lens) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {BUCKET_FILTERS.map((b) => {
+                const active = bucketFilter === b.value;
+                const count = bucketCounts[b.value];
+                return (
+                  <button
+                    key={b.value}
+                    onClick={() => setBucketFilter(b.value)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground ring-primary'
+                        : 'bg-background text-foreground ring-border hover:bg-muted'
+                    )}
+                  >
+                    {b.label}
+                    <span className={cn('rounded-full px-1.5 text-[10px]', active ? 'bg-primary-foreground/20' : 'bg-muted')}>
+                      {count}
                     </span>
-                    <span className="inline-flex items-center gap-2">
-                      <span>{filteredInspections.length} resultados</span>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger><SelectValue placeholder="Estado del workflow" /></SelectTrigger>
-                        <SelectContent position="popper" sideOffset={4}>
-                          {STATUS_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                        <SelectTrigger><SelectValue placeholder="Inspector" /></SelectTrigger>
-                        <SelectContent position="popper" sideOffset={4}>
-                          <SelectItem value="all">Todos los inspectores</SelectItem>
-                          {inspectors.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={executiveFilter} onValueChange={setExecutiveFilter}>
-                        <SelectTrigger><SelectValue placeholder="Ejecutivo" /></SelectTrigger>
-                        <SelectContent position="popper" sideOffset={4}>
-                          <SelectItem value="all">Todos los ejecutivos</SelectItem>
-                          {executives.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                        <SelectContent position="popper" sideOffset={4}>
-                          {SORT_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </CardContent>
-            </Card>
+                  </button>
+                );
+              })}
+              <span className="ml-auto text-tiny text-muted-foreground">
+                {totalResults} resultado{totalResults === 1 ? '' : 's'}
+              </span>
+            </div>
+
 
 
             {loading ? (
