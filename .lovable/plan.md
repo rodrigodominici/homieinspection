@@ -1,90 +1,87 @@
 ## Objetivo
 
-Alinear `AdminInspectionDetail.tsx` con `ExecutiveReviewDetail.tsx`: incorporar a los tabs actuales la **data agregada** (owner feedback, contractor pricing, márgenes, breakdown por payer × nature, depósito, descuentos, impuestos, timeline de versiones con feedback) y permitir al admin **ejecutar las mismas acciones del ejecutivo** (publicar moderno, devolver para cambios, aplicar descuento, cerrar feedback manualmente), **manteniendo intactos los poderes admin** (asignar, forzar estado, eliminar, editar fecha llaves con resend HubSpot, ver payload crudo, audit log).
+Unificar la experiencia de filtros/búsqueda del listado admin con la del ejecutivo, reemplazar el scroll infinito por paginación, y aplicar optimizaciones de performance transversales.
 
-Se reutilizan los componentes de `src/modules/review/components` y `src/pages/executive/review-detail/` para evitar duplicación.
+---
 
-## Estructura final de la página admin
+## 1. Filtros y búsqueda en `AdminInspections.tsx`
 
-```text
-[Header con back + status badge]
-[Top Summary Bar] (sin cambios — incluye edición de fecha llaves)
-[4-Stage Workflow Stepper] (sin cambios — mantiene "Completar X" admin)
-[Acciones Administrativas] (sin cambios — asignar/forzar/eliminar)
-[Property Briefing Card] (sin cambios)
-[Signature Status] (sin cambios)
+Reemplazar el bloque actual (search + chips de buckets + collapsible de filtros avanzados) por el mismo patrón visual del ejecutivo (`FiltersBar` de `@/shared/ui`), preservando lo que el admin tiene de más (buckets operativos, vista cards/tabla).
 
-[Tabs ampliados]
- ├─ Payload         (sin cambios — Source event + snapshot crudo)
- ├─ Inspección      (sin cambios — edición de campos chips/text/obs)
- ├─ Revisión        (AMPLIADO ↓)
- ├─ Presupuesto     (AMPLIADO ↓)
- ├─ Cotización      (NUEVO)
- └─ Publicación     (NUEVO)
+**KPIs clicables (arriba)** — mismo `KpiCard` que ejecutivo, pero adaptados al rol admin:
+- Sin asignar · Por coordinar · Programadas · En progreso · Para revisión (`submitted`+`in_review`) · Publicadas (`published`+`sent`)
+- Click sobre KPI = atajo al bucket/estado equivalente.
 
-[Audit Log] (sin cambios)
-```
+**FiltersBar (debajo de KPIs)** — alineada con ejecutivo:
+- Search (dirección / ID / nombre).
+- Select **Estado** completo, incluyendo los faltantes hoy: agregar `accepted` (existe en el enum pero no está en `STATUS_OPTIONS`).
+- Select **Mercado** (derivado de las inspecciones, igual que ejecutivo — hoy no existe en admin).
+- Select **Inspector** y **Ejecutivo** (admin ya los tiene, moverlos a la barra principal).
+- Select **Publicación** (`all` / `published` / `not_published`) — hoy no existe.
+- Dropdown **Ordenar** con las opciones actuales de admin (priority, latest, created, contract, schedule).
+- Mantener el `ToggleGroup` cards/tabla del admin alineado a la derecha.
 
-## Cambios por sección
+**Chips de buckets** se conservan (son la jerarquía operativa propia del admin), pero ahora viven inmediatamente debajo de la `FiltersBar` como sub-filtro contextual, no dentro de un Card aparte.
 
-### Tab "Revisión" — agregar
-- **`PendingDecisionsBanner`** (de `review-detail/`) arriba: secciones sin observación final.
-- **Modo "Devolver para cambios"** con checkbox por sección + comentario por sección + botón "Devolver al inspector" (reutilizar `useReviewActions.handleReturnForChanges`).
-- Cada tarjeta de sección suma: **subtotal de reparaciones** (ya hay datos), **conteo de owner feedback** decisiones (accepted/rejected/observed) cuando exista versión publicada.
+Eliminar el `Collapsible` "Filtros avanzados" — todo queda visible en la `FiltersBar`.
 
-### Tab "Presupuesto" — reemplazar contenido con
-- **`RepairsTableView`** (de `review-detail/`) que ya incluye:
-  - Selector de contratista
-  - Totales: cliente, contratista, utilidad/margen
-  - Breakdown por payer × nature (owner obligatoria/opcional, tenant obligatoria/opcional)
-  - Comparación con depósito (`warranty_deposit` vs owner-obligatoria)
-  - Tabla editable con catálogo, toggle visibilidad, payer/nature, contractor_unit_price
-  - Indicador inline de owner feedback (✓/✗/💬 por reparación)
-- Quitar el render manual actual (per-section repair cards) que ya está cubierto por `RepairsTableView`.
-- Mantener `Sheet` del catálogo del admin (o reusar el de `RepairCatalogSheet`).
+---
 
-### Tab "Cotización" — nuevo
-- **`QuotationView`** (de `review-detail/`) con:
-  - Subtotales owner/tenant
-  - Descuento activo (`useQuotationDiscount`) + botón "Aplicar/Editar descuento" → `QuotationDiscountSheet`
-  - Cálculo de impuestos según `market_tax_settings` (`fetchTaxConfig`)
-  - Botones "Cotización Propietario" / "Cotización Inquilino" (PDF/diálogo existente `QuotationDialog`)
-  - Botón "Cotización Contratista" (`ContractorQuotationDialog`)
-  - Botón "Work Order" (`WorkOrderDetailsDialog`)
+## 2. Paginación
 
-### Tab "Publicación" — nuevo
-- **`PublishView`** (de `review-detail/`) con:
-  - Estado de firma + warnings de observaciones faltantes (`MissingObservationsDialog`)
-  - Botón **Publicar v(N+1)** que usa el mismo path moderno (reemplaza el `handlePublish` admin actual o lo unifica; mantenemos el actual hasta confirmar que `useReviewActions.publish` cubre todo, incluyendo el sync HubSpot).
-  - **`PublishedVersionsTimeline`** (versiones agrupadas owner+tenant con tokens, decisiones owner feedback por versión).
-  - **`OwnerFeedbackPanel`** con resumen accepted/rejected/observed y comentarios.
-  - **`ManualCloseOwnerFeedbackDialog`** (botón "Cerrar feedback manualmente" — solo ejecutivo/admin, llama RPC `executive_force_close_owner_feedback`).
-  - `PublishedUrlsDialog` para copiar/abrir links owner/tenant.
+Reemplazar el render completo de `filteredInspections` por paginación cliente (los datos ya están en memoria).
 
-## Cambios técnicos
+- `pageSize = 25` (configurable vía select 25/50/100).
+- Estado `page` persistido en URL (`?page=2`), se resetea cuando cambian filtros/búsqueda/orden.
+- Componente `<Pagination>` de shadcn al pie de la lista/tabla: Anterior · 1 … N · Siguiente, más texto "Mostrando X–Y de Z".
+- Aplica a ambas vistas (cards y tabla).
 
-### 1. Reutilizar hooks de datos
-- Reemplazar el `fetchAll` artesanal del admin por **`useReviewDetail(id)`** (mismo hook que el ejecutivo). Agregar en paralelo las queries que el admin necesita y `useReviewDetail` no provee (audit log, source event, all profiles, report versions completas si faltan).
-- Agregar **`useOwnerFeedbackByRepair(id)`**, **`useQuotationDiscount(id, profileId)`**, **`fetchTaxConfig(market)`**.
-- Construir `actions = useReviewActions({...})` con los mismos parámetros que el ejecutivo (necesita `operationalSections`, `allRepairs`, `repairsBySection`, `photosBySection`, `finalObservations`, `missingSections`, `clientTotal`, `selectedContractorId`, `setSelectedContractorId`, `refetch`).
+---
 
-### 2. Computeds nuevos en el admin
-- `allRepairs`, `clientTotal`, `contractorTotal`, `utility`, `budgetBreakdown` (idéntico al ejecutivo).
-- `missingSections`, `operationalSections`, `metaSections`.
-- `discountState`, `discountBreakdown` con `applyQuotationDiscount`.
-- `depositDiff` vs `warranty_deposit`.
+## 3. Análisis y optimizaciones de performance
 
-### 3. Publicación
-- Decisión: **mantener `handlePublish` admin actual** (ya funciona y respeta sync HubSpot vía `syncCheckoutIfApplicable`) **y** además exponer la UI moderna de `PublishView`. El botón de `PublishView` puede delegar al mismo `handlePublish` admin para no duplicar la lógica de inserción de versiones. Validar antes que las shapes del payload coincidan.
+### Hallazgos principales
 
-### 4. Sin cambios en
-- Schema, RPCs, edge functions, RLS.
-- `ExecutiveReviewDetail.tsx`.
-- Componentes de `review-detail/` (se consumen tal cual).
+1. **Fetch sin límite en el listado admin** — `supabase.from('inspections').select('*, inspector(...), executive(...)')` trae todas las inspecciones con dos joins en cada carga del page; sin paginación server-side, esto crece linealmente con el negocio.
+2. **`useExecutiveQueue` agrava el problema** — además de inspecciones, dispara `useSectionsBulk(inspectionIds)` que pide secciones de **todas** las inspecciones a la vez (potencialmente miles de filas) solo para calcular progress en tarjetas.
+3. **`getEffectiveSnapshot` se ejecuta por fila en cada render** — hace merge profundo de `property_snapshot_json` + `property_overrides_json`. En el `useMemo` de filtrado del admin, se llama una vez al cargar, pero en KPIs y chips de conteo se itera repetidamente sobre todo el array.
+4. **`AdminInspectionDetail`** ya identificado: carga repairs/photos/signatures/audit/feedback en paralelo al montar, sin lazy por tab.
+5. **Bundle**: las páginas admin/ejecutivo se importan eager en el router (no `React.lazy`), incluyendo `RepairsTableView`, `QuotationView`, `PublishView`.
 
-## Notas
+### Acciones
 
-- Vista mantiene `max-w-6xl`; las nuevas vistas (RepairsTableView, QuotationView, PublishView) están diseñadas para ancho completo del workspace ejecutivo. Habrá que **ampliar el contenedor admin a `max-w-7xl`** o quitar el max-width en esos tabs específicos.
-- El tab "Inspección" del admin sigue siendo único en el sistema (edición directa de campos del inspector); no se toca.
-- Los componentes `MobileReviewView` del ejecutivo no se incorporan al admin (admin es desktop-first).
-- Tras el cambio el admin tendrá 6 tabs; si se vuelve denso, evaluar segmentar como dropdown en mobile.
+**Datos / red**
+- Listado admin: agregar `limit(500)` al query inicial y un banner "+N inspecciones antiguas — ver archivo" si se llega al tope; mediano plazo, mover a paginación server-side con `range()` por página.
+- Listado admin: reemplazar `select('*')` por columnas explícitas (omitir `property_snapshot_json`, `generated_structure_json`, `property_overrides_json` salvo los campos que usa `getEffectiveSnapshot` para fecha llaves / contrato — proyectar a `snapshot_meta` reducido vía RPC en una iteración posterior).
+- `useExecutiveQueue`: limitar `useSectionsBulk` a los IDs visibles tras filtrar/paginar, no a todos. Alternativa: derivar el progreso desde un nuevo campo materializado o pedir solo `status` por sección.
+- `AdminInspectionDetail`: lazy load por tab (cargar repairs solo al abrir "Presupuesto", quotation solo al abrir "Cotización", etc.).
+
+**Render**
+- Memoizar `priorityBucket(insp)` por inspection (calcular una sola vez en el `enriched` map, no en cada conteo de chip).
+- Pre-calcular conteos de buckets en un solo `useMemo` sobre `inspections`, en lugar de 5 `filter` separados dentro del JSX.
+- Tabla admin: aplicar `react-window` o paginación (cubierto arriba) para no montar >100 `TableRow` a la vez.
+
+**Bundle**
+- Convertir las rutas admin/ejecutivo a `React.lazy` + `Suspense` en el router.
+- Code-split `QuotationView`, `PublishView`, `RepairsTableView` dentro del detalle admin (dynamic import al activar el tab).
+
+**Cache**
+- Subir `staleTime` de `useInspections` a 30 s (hoy default) para evitar refetch al volver de detalle.
+
+---
+
+## 4. Alcance fuera del plan
+
+- No se cambian RPCs, RLS ni schema.
+- No se altera `ExecutiveReviewQueue.tsx` (es la referencia).
+- La paginación server-side queda como follow-up; este plan deja la base (límite + paginación cliente + columnas reducidas).
+
+---
+
+## Archivos a tocar
+
+- `src/pages/admin/AdminInspections.tsx` — refactor de filtros + paginación + memoización + limit/columnas.
+- `src/pages/admin/AdminInspectionDetail.tsx` — lazy por tab.
+- `src/modules/review/api/useExecutiveQueue.ts` — limitar `useSectionsBulk` a IDs visibles (requiere pasar filtros desde la página, o exponer un setter).
+- `src/App.tsx` / router — `React.lazy` para rutas pesadas.
+- (Opcional) nuevo `src/components/admin/AdminInspectionsFilters.tsx` para encapsular la `FiltersBar` admin si crece.
