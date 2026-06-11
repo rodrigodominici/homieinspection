@@ -268,7 +268,7 @@ export default function AdminDashboard() {
                       <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1.5 hover:bg-muted/30 rounded px-1 -mx-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                          <InspectionStatusBadge status={insp.status} />
+                          <StatusBadge inspection={insp} />
                         </div>
                       </Link>
                     ))
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
                           <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                           <p className="text-tiny text-muted-foreground truncate">{insp.address}</p>
                         </div>
-                        <InspectionStatusBadge status={insp.status} />
+                        <StatusBadge inspection={insp} />
                       </div>
                     </Link>
                   ))}
