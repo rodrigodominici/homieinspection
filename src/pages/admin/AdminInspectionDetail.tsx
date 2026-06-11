@@ -619,7 +619,7 @@ export default function AdminInspectionDetail() {
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
-  const operationalSections = sections.filter(s => s.section_type !== 'property_meta');
+  const operationalSections = useMemo(() => sections.filter(isRepairableSection), [sections]);
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
@@ -628,6 +628,230 @@ export default function AdminInspectionDetail() {
   const filteredCatalog = catalogItems.filter((i) =>
     !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
   );
+
+  /* ─── Executive-aligned derived data (budget breakdown, discount, owner feedback) ─── */
+  const allRepairs = repairItems;
+  const clientTotal = useMemo(
+    () => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0),
+    [allRepairs]
+  );
+  const contractorTotal = useMemo(
+    () => allRepairs.reduce((s, r) => s + (r.quantity * Number((r as any).contractor_unit_price ?? 0)), 0),
+    [allRepairs]
+  );
+
+  const budgetBreakdown = useMemo(() => {
+    const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    for (const r of allRepairs) {
+      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      if (r.payer_role === 'tenant') {
+        if (r.payment_nature === 'optional') acc.tenantOptional += amount;
+        else acc.tenantRequired += amount;
+      } else {
+        if (r.payment_nature === 'optional') acc.ownerOptional += amount;
+        else acc.ownerRequired += amount;
+      }
+    }
+    return {
+      ...acc,
+      ownerTotal: acc.ownerRequired + acc.ownerOptional,
+      tenantTotal: acc.tenantRequired + acc.tenantOptional,
+      grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
+    };
+  }, [allRepairs]);
+
+  const utility = budgetBreakdown.grandTotal - contractorTotal;
+
+  const missingSections = useMemo(
+    () => operationalSections.filter(s => requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim()),
+    [operationalSections, finalObservations]
+  );
+  const showObservationWarnings = !['approved', 'published'].includes(inspection?.status ?? '');
+
+  const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
+  const warrantyDeposit = typeof (effectiveSnapshot as any).warranty_deposit === 'number'
+    ? (effectiveSnapshot as any).warranty_deposit as number
+    : null;
+  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - budgetBreakdown.ownerRequired : null;
+
+  // Tax config per market
+  useEffect(() => {
+    if (!inspection?.market) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig).catch(() => setTaxConfig(null));
+  }, [inspection?.market]);
+
+  // Owner feedback (decisions by repair id)
+  const ownerFeedback = useOwnerFeedbackByRepair(id);
+
+  // Quotation discount
+  const discountState = useQuotationDiscount(id, profile?.id);
+  const activeDiscountInput: QuotationDiscountInput | null = useMemo(
+    () => discountState.discount
+      ? { type: discountState.discount.discount_type, value: Number(discountState.discount.discount_value), reason: discountState.discount.discount_reason }
+      : null,
+    [discountState.discount],
+  );
+  const discountBreakdown = useMemo(
+    () => applyQuotationDiscount({
+      subtotalOwner: budgetBreakdown.ownerTotal,
+      subtotalTenant: budgetBreakdown.tenantTotal,
+      discount: activeDiscountInput,
+      taxConfig,
+    }),
+    [budgetBreakdown.ownerTotal, budgetBreakdown.tenantTotal, activeDiscountInput, taxConfig],
+  );
+
+  const signatureRecord = signature
+    ? { signature_status: signature.signature_status, signer_name: signature.signer_name, skip_reason: signature.skip_reason }
+    : null;
+
+  const selectedContractorName = useMemo(
+    () => contractors.find(c => c.id === selectedContractorId)?.name ?? null,
+    [contractors, selectedContractorId],
+  );
+
+  /* ─── Executive-aligned action handlers ─── */
+  const handleContractorChange = useCallback(async (contractorId: string) => {
+    if (!inspection) return;
+    const newContractorId = contractorId === 'none' ? null : contractorId;
+    setSelectedContractorId(newContractorId);
+    await supabase.from('inspections').update({ contractor_id: newContractorId } as any).eq('id', inspection.id);
+    // Rebind contractor prices for all repairs in this inspection
+    if (newContractorId) {
+      const { data: priceRows } = await supabase
+        .from('repair_catalog_item_contractor_prices')
+        .select('repair_catalog_item_id, contractor_unit_price')
+        .eq('contractor_id', newContractorId);
+      const priceMap = new Map<string, number>();
+      for (const row of (priceRows ?? []) as any[]) {
+        priceMap.set(row.repair_catalog_item_id, Number(row.contractor_unit_price));
+      }
+      let updated = 0;
+      for (const r of allRepairs) {
+        const cp = r.repair_catalog_item_id ? priceMap.get(r.repair_catalog_item_id) ?? 0 : 0;
+        await supabase.from('inspection_repair_items').update({ contractor_unit_price: cp } as any).eq('id', r.id);
+        updated += 1;
+      }
+      toast({ title: 'Contratista actualizado', description: `${updated} precios recargados` });
+    } else {
+      for (const r of allRepairs) {
+        await supabase.from('inspection_repair_items').update({ contractor_unit_price: 0 } as any).eq('id', r.id);
+      }
+      toast({ title: 'Contratista actualizado', description: 'Precios de contratista puestos en 0' });
+    }
+    await fetchAll();
+  }, [inspection, allRepairs, fetchAll, toast]);
+
+  const toggleReturnSection = useCallback((secId: string) => {
+    setSelectedReturnSections(prev => {
+      const next = new Set(prev);
+      if (next.has(secId)) next.delete(secId); else next.add(secId);
+      return next;
+    });
+  }, []);
+
+  const handleAdminReturnForChanges = useCallback(async () => {
+    if (!id) return;
+    const ids = Array.from(selectedReturnSections);
+    if (ids.length === 0) {
+      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await inspectionActionsService.requestChanges({
+        inspectionId: id,
+        profileId: profile?.id,
+        selectedSectionIds: ids,
+        commentsBySection: returnComments,
+      });
+      toast({ title: 'Devuelta para cambios' });
+      setReturnMode(false);
+      setSelectedReturnSections(new Set());
+      setReturnComments({});
+      await fetchAll();
+    } catch (e: any) {
+      toast({ title: 'No se pudo devolver', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [id, selectedReturnSections, returnComments, profile?.id, fetchAll, toast]);
+
+  const handleAdminApprove = useCallback(async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await inspectionActionsService.approveInspection(id, profile?.id);
+      toast({ title: 'Inspección aprobada' });
+      await fetchAll();
+    } catch (e: any) {
+      toast({ title: 'No se pudo aprobar', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [id, profile?.id, fetchAll, toast]);
+
+  /** Admin publish wrapper for PublishView (signature: `(force?: boolean) => Promise<void>`). */
+  const handleAdminPublish = useCallback(async (_force?: boolean) => {
+    await handlePublish();
+  }, [/* handlePublish stable in this component */]);
+
+  const fetchPublishedUrls = useCallback(async () => {
+    if (!inspection) return null;
+    const { data } = await supabase
+      .from('inspection_report_versions')
+      .select('audience, public_token')
+      .eq('inspection_id', inspection.id)
+      .eq('is_latest', true);
+    if (!data || data.length === 0) return null;
+    const origin = window.location.origin;
+    const ownerRow = (data as any[]).find(r => r.audience === 'owner');
+    const tenantRow = (data as any[]).find(r => r.audience === 'tenant');
+    return {
+      owner: ownerRow ? `${origin}/reportes/${inspection.property_id}/${ownerRow.public_token}` : '',
+      tenant: tenantRow ? `${origin}/reportes/${inspection.property_id}/${tenantRow.public_token}` : '',
+    };
+  }, [inspection]);
+
+  const handleOpenOwner = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.owner) window.open(u.owner, '_blank');
+  }, [fetchPublishedUrls]);
+  const handleOpenTenant = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.tenant) window.open(u.tenant, '_blank');
+  }, [fetchPublishedUrls]);
+  const handleCopyOwner = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.owner) { navigator.clipboard.writeText(u.owner); toast({ title: 'Link propietario copiado' }); }
+  }, [fetchPublishedUrls, toast]);
+  const handleCopyTenant = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.tenant) { navigator.clipboard.writeText(u.tenant); toast({ title: 'Link inquilino copiado' }); }
+  }, [fetchPublishedUrls, toast]);
+
+  const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
+  const handleRemoveDiscount = useCallback(async () => {
+    try { await discountState.remove(); toast({ title: 'Descuento eliminado' }); }
+    catch (e: any) { toast({ title: 'No se pudo eliminar', description: e?.message, variant: 'destructive' }); }
+  }, [discountState, toast]);
+  const handleDiscountSubmit = useCallback(async (input: QuotationDiscountInput) => {
+    try { await discountState.apply(input); toast({ title: 'Descuento aplicado' }); }
+    catch (e: any) { toast({ title: 'No se pudo aplicar', description: e?.message, variant: 'destructive' }); }
+  }, [discountState, toast]);
+
+  const handleJumpToInspectionSection = useCallback((sectionId?: string) => {
+    setActiveTab('inspection');
+    if (sectionId) {
+      // Try to scroll the collapsed section into view
+      setTimeout(() => {
+        const el = document.getElementById(`admin-section-${sectionId}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, []);
+
+
 
   if (loading) {
     return (
