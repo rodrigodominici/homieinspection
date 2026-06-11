@@ -10,7 +10,6 @@ export interface InspectionKpis {
   unassigned: number;
   inProgress: number;
   forReview: number;
-  needsChanges: number;
   toPublish: number;
   published: number;
 }
@@ -29,13 +28,12 @@ export function bucketOf(insp: Inspection): PriorityBucket {
 export function computeInspectionKpis(inspections: Inspection[]): InspectionKpis {
   const k: InspectionKpis = {
     unassigned: 0, inProgress: 0, forReview: 0,
-    needsChanges: 0, toPublish: 0, published: 0,
+    toPublish: 0, published: 0,
   };
   for (const i of inspections) {
     if (bucketOf(i) === 0) k.unassigned++;
     if (i.status === "in_progress") k.inProgress++;
     if (i.status === "submitted" || i.status === "in_review") k.forReview++;
-    if (i.status === "needs_changes") k.needsChanges++;
     if (i.status === "approved") k.toPublish++;
     if (i.status === "published" || i.status === "sent" || i.status === "accepted") k.published++;
   }
