@@ -149,7 +149,7 @@ export function isCompletedToday(inspection: Inspection, now = new Date()): bool
  *                         ALWAYS outranks date-based urgency.
  *   1  Por coordinar    — assigned but no fecha_recoleccion_llaves.
  *   2  Programada       — assigned + coordinated, not yet started.
- *   3  En progreso      — in_progress / submitted / in_review / needs_changes.
+ *   3  En progreso      — in_progress / submitted / in_review.
  *   5  Completada       — published / sent / approved.
  * ─────────────────────────────────────────────────────────────────────────── */
 
