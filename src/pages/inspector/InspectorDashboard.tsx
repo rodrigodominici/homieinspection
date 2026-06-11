@@ -20,6 +20,7 @@ import {
   isToCoordinate,
 } from '@/lib/inspector-operational';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
