@@ -70,7 +70,7 @@ export default function AdminDashboard() {
     const byInsp = new Map<string, number>();
     const byExec = new Map<string, number>();
     for (const i of inspections) {
-      if (i.inspector_id && ['assigned', 'in_progress', 'needs_changes'].includes(i.status)) {
+      if (i.inspector_id && ['assigned', 'in_progress'].includes(i.status)) {
         byInsp.set(i.inspector_id, (byInsp.get(i.inspector_id) ?? 0) + 1);
       }
       if (i.executive_id && ['submitted', 'in_review'].includes(i.status)) {
