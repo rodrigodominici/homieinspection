@@ -3,12 +3,11 @@ import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
-  ArrowLeft, RotateCcw, Copy, AlertTriangle, ExternalLink, RefreshCw,
+  ArrowLeft, Copy, AlertTriangle, ExternalLink, RefreshCw,
   Wrench, ChevronDown, FileText, Send, Eye,
 } from 'lucide-react';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
-import { RequestChangesPanel } from './RequestChangesPanel';
 import { InspectorProgressCard } from './InspectorProgressCard';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
@@ -30,16 +29,12 @@ interface ReviewHeaderBarProps {
   progress: { completed: number; total: number };
   lastActiveRelative: string | null;
   isPublished: boolean;
-  returnMode: boolean;
-  setReturnMode: (v: boolean) => void;
-  selectedReturnSections: Set<string>;
   submitting: boolean;
   showObservationWarnings: boolean;
   missingSections: InspectionSection[];
   onBack: () => void;
   onApprove: () => Promise<void>;
   onPublish: (force?: boolean) => Promise<void>;
-  onReturnForChanges: () => void;
   onOpenQuotation: (payer: 'owner' | 'tenant') => void;
   onOpenContractorQuotation: () => void;
   onOpenWorkOrderDetails: () => void;
@@ -59,9 +54,9 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
     inspection, sections, operationalSections, activeSectionId, setActiveSectionId,
     repairsBySection, allRepairs, budgetBreakdown, warrantyDeposit, depositDiff,
     contractorTotal, clientTotal, selectedContractorId,
-    inspectorProgressLabel, progress, lastActiveRelative, isPublished, returnMode,
-    setReturnMode, selectedReturnSections, submitting, showObservationWarnings,
-    missingSections, onBack, onApprove, onPublish, onReturnForChanges,
+    inspectorProgressLabel, progress, lastActiveRelative, isPublished,
+    submitting, showObservationWarnings,
+    missingSections, onBack, onApprove, onPublish,
     onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails, onOpenRepairsDrawer,
     onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
   } = props;
