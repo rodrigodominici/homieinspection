@@ -480,42 +480,49 @@ export default function AdminInspections() {
               <KpiCard
                 label="Sin asignar" value={kpis.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
+                tooltip="Inspecciones creadas que aún no tienen inspector asignado."
                 active={bucketFilter === 'unassigned'}
                 onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
               />
               <KpiCard
                 label="En progreso" value={kpis.inProgress}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="El inspector ya inició la captura en sitio."
                 active={statusFilter === 'in_progress'}
                 onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
               />
               <KpiCard
                 label="Para revisar" value={kpis.forReview}
                 icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
                 active={statusFilter === 'submitted'}
                 onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
               />
               <KpiCard
                 label="Para publicar" value={kpis.toPublish}
                 icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Aprobadas internamente. Falta enviarlas al propietario."
                 active={statusFilter === 'approved'}
                 onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
               />
               <KpiCard
                 label="Esperando propietario" value={kpis.waitingOwner}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 active={bucketFilter === 'waiting_owner'}
                 onClick={() => setBucketFilter(bucketFilter === 'waiting_owner' ? 'all' : 'waiting_owner')}
               />
               <KpiCard
                 label="Feedback propietario" value={kpis.ownerFeedback}
                 icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red"
+                tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 active={bucketFilter === 'owner_feedback'}
                 onClick={() => setBucketFilter(bucketFilter === 'owner_feedback' ? 'all' : 'owner_feedback')}
               />
               <KpiCard
                 label="Aceptadas" value={kpis.accepted}
                 icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
+                tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 active={bucketFilter === 'accepted'}
                 onClick={() => setBucketFilter(bucketFilter === 'accepted' ? 'all' : 'accepted')}
               />

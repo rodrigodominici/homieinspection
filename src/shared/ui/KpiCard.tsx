@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface KpiCardProps {
   label: string;
@@ -17,6 +18,8 @@ interface KpiCardProps {
   onClick?: () => void;
   /** Highlight the card as the active filter. */
   active?: boolean;
+  /** Optional tooltip text explaining what this KPI counts. */
+  tooltip?: string;
 }
 
 const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
@@ -27,7 +30,7 @@ const ACCENT_CLASS: Record<NonNullable<KpiCardProps["accent"]>, string> = {
 };
 
 export function KpiCard({
-  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick, active,
+  label, value, trend, inverted = false, accent, icon, hint, trendSuffix = "%", onClick, active, tooltip,
 }: KpiCardProps) {
   const showTrend = typeof trend === "number";
   const goingUp = (trend ?? 0) > 0;
@@ -40,7 +43,7 @@ export function KpiCard({
         ? "bg-accent/15 text-accent"
         : "bg-destructive/15 text-destructive";
 
-  return (
+  const card = (
     <div
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -68,5 +71,18 @@ export function KpiCard({
       </div>
       {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
+  );
+
+  if (!tooltip) return card;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{card}</TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-snug">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

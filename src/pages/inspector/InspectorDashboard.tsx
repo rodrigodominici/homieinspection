@@ -20,6 +20,7 @@ import {
   isToCoordinate,
 } from '@/lib/inspector-operational';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InspectionWithProgress extends Inspection {
   totalSections: number;
@@ -180,10 +181,10 @@ export default function InspectorDashboard() {
 
             {/* Stats 2x2 — operational summary */}
             <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Total asignadas" value={assigned.length} icon={ClipboardList} to="/inspector/all?filter=active" accent />
-              <StatTile label="Por coordinar" value={toCoordinate.length} icon={PhoneCall} to="/inspector/all?filter=active&state=to_coordinate" />
-              <StatTile label="Por iniciar" value={toStart.length} icon={PlayCircle} to="/inspector/all?filter=active&state=assigned" />
-              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
+              <StatTile label="Total asignadas" value={assigned.length} icon={ClipboardList} to="/inspector/all?filter=active" accent tooltip="Todas tus inspecciones activas (asignadas + en progreso)." />
+              <StatTile label="Por coordinar" value={toCoordinate.length} icon={PhoneCall} to="/inspector/all?filter=active&state=to_coordinate" tooltip="Falta coordinar fecha o acceso con el propietario/inquilino." />
+              <StatTile label="Por iniciar" value={toStart.length} icon={PlayCircle} to="/inspector/all?filter=active&state=assigned" tooltip="Coordinadas y listas para arrancar el día de visita." />
+              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" tooltip="Ya iniciaste la captura en sitio. Continúa donde quedaste." />
             </div>
 
 
@@ -273,14 +274,16 @@ function StatTile({
   icon: Icon,
   to,
   accent,
+  tooltip,
 }: {
   label: string;
   value: number;
   icon: React.ElementType;
   to: string;
   accent?: boolean;
+  tooltip?: string;
 }) {
-  return (
+  const tile = (
     <Link to={to} className="block">
       <Card className={cn("border-0 shadow-sm rounded-2xl active:scale-[0.99] transition-transform", accent ? "bg-primary/5" : "bg-card")}>
         <CardContent className="p-4 min-h-[88px] flex flex-col items-center justify-center text-center gap-1">
@@ -291,7 +294,21 @@ function StatTile({
       </Card>
     </Link>
   );
+
+  if (!tooltip) return tile;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{tile}</TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[240px] text-xs leading-snug">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
+
 
 function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWithProgress; contextLabel: string }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;

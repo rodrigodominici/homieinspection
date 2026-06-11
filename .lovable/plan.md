@@ -1,89 +1,48 @@
+# Tooltips en KPIs de dashboards + orden correcto en ejecutivo
 
-# Plan: cerrar el ciclo post-publicación con claridad
+## Objetivo
+1. Que cada tarjeta KPI explique en un tooltip qué inspecciones cuenta y qué acción implica.
+2. Corregir el orden de la Bandeja de revisión del ejecutivo para que **Feedback propietario** quede después de **Esperando propietario**, respetando la secuencia real del flujo.
 
-## Problema
+## Cambio 1 — Reordenar KPIs del ejecutivo
+Archivo: `src/pages/executive/ExecutiveReviewQueue.tsx`
 
-Hoy `inspection.status` se queda en `published` y el ciclo real (propietario revisa → da feedback → ejecutivo ajusta → propietario acepta) vive escondido en `owner_feedback_status`. Resultado:
+Orden actual:
+`Feedback propietario · Para revisar · En revisión · Para publicar · Esperando propietario · Aceptadas`
 
-- El dashboard y la lista muestran "Publicada" tanto si el propietario aún no abrió el link, como si pidió cambios, como si ya aceptó.
-- El ejecutivo no se entera de que tiene que volver a una inspección publicada salvo que entre al detalle.
-- Las KPIs no reflejan el trabajo real pendiente después de publicar.
+Orden nuevo (sigue el ciclo de vida real):
+`Para revisar → En revisión → Para publicar → Esperando propietario → Feedback propietario → Aceptadas`
 
-## Decisión
+Se mantiene el acento rojo de "Feedback propietario" para que siga destacándose como el único que requiere acción del ejecutivo en la post-publicación.
 
-**No mover datos en la base.** Mantenemos `inspection.status` y `owner_feedback_status` como están (son dimensiones distintas: "el reporte está publicado" y "el propietario respondió"). En su lugar derivamos un **estado combinado** en frontend y lo usamos consistentemente en badges, filtros, KPIs y orden.
+## Cambio 2 — Soporte de tooltip en las tarjetas
+Archivo: `src/shared/ui/KpiCard.tsx`
+- Agregar prop opcional `tooltip?: string`.
+- Cuando esté presente, envolver la tarjeta con `Tooltip` (`@/components/ui/tooltip`) usando `TooltipProvider` + `TooltipTrigger asChild` + `TooltipContent` (max-w ~260px, texto pequeño).
+- No cambia layout, solo añade el envoltorio condicional.
 
-Esto evita migración de enum, no rompe el RPC `submit_owner_feedback` ni `executive_force_close_owner_feedback`, y es reversible.
+Archivo: `src/pages/inspector/InspectorDashboard.tsx`
+- Agregar la misma prop `tooltip` al `StatTile` local con el mismo patrón.
 
-## Estados combinados (nuevos, solo UI)
+## Cambio 3 — Textos de tooltip por KPI
 
-Reemplazan al badge "Publicada / Aprobada" en listas y dashboard:
+### Ejecutivo (`ExecutiveReviewQueue.tsx`)
+- **Para revisar**: "Inspecciones enviadas por el inspector que esperan tu revisión inicial."
+- **En revisión**: "Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios."
+- **Para publicar**: "Aprobadas internamente. Falta enviarlas al propietario."
+- **Esperando propietario**: "Publicadas y enviadas al propietario. Aguardando su respuesta."
+- **Feedback propietario**: "El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar."
+- **Aceptadas**: "El propietario aceptó la cotización. Ciclo cerrado."
 
-| Combinado | Condición | Tono | Significado |
-|---|---|---|---|
-| Publicada · esperando propietario | `status=published` + `owner_feedback_status` en (`none`, null) | published (azul) | Link enviado, sin respuesta |
-| Propietario pidió cambios | `status=published` + `owner_feedback_status='pending_executive_review'` | needs-changes (ámbar) | **Acción del ejecutivo** |
-| Aceptada por propietario | `status='approved'` + `owner_feedback_status='accepted'` | approved (verde) | Cierre real del ciclo |
-| Aprobada (cierre manual) | `status='approved'` sin loop de propietario | approved (verde tenue) | Ejecutivo cerró manualmente sin feedback |
+### Admin Dashboard (`src/pages/admin/AdminDashboard.tsx`) y Lista (`AdminInspections.tsx`)
+Mismos textos que los del ejecutivo para los KPIs equivalentes (Para revisar, Para publicar, Esperando propietario, Feedback propietario, Aceptadas), más los propios de admin que ya existan en esas pantallas (sin cambiar su semántica).
 
-Los estados anteriores (`pending_assignment` → `assigned` → `in_progress` → `submitted` → `in_review`) quedan igual.
-
-## Cambios concretos
-
-### 1. Nueva función derivadora
-`src/lib/inspection-combined-status.ts` (nuevo) — `getCombinedInspectionStatus(inspection)` devuelve `{ key, label, tone, requiresExecutiveAction }`. Único lugar donde se cruzan ambos campos.
-
-### 2. StatusBadge / registry
-Extender `src/shared/ui/status-registry.ts` con las 4 claves combinadas y un helper `getCombinedStatus()`. `StatusBadge` acepta `inspection` opcional para resolver automáticamente.
-
-### 3. KPIs (`src/lib/inspection-buckets.ts`)
-Reemplazar `published` por dos contadores y agregar uno nuevo:
-
-- **Esperando propietario** — published sin feedback
-- **Requiere tu revisión** — published + pending_executive_review (destacado)
-- **Aceptadas** — approved + accepted
-
-Aplica a `AdminDashboard`, `ExecutiveReviewQueue` y `AdminInspections`.
-
-### 4. Bucket de prioridad (`priorityBucket`)
-Agregar bucket nuevo "Feedback de propietario" entre "En progreso" y "Completada" para que estas inspecciones suban en la lista del ejecutivo y no queden mezcladas con las cerradas.
-
-### 5. Filtros de queue
-En `ExecutiveReviewQueue` y `AdminInspections` agregar opción "Feedback del propietario" en el filtro de estado, que mapea a la condición combinada.
-
-### 6. Dashboard del ejecutivo
-Card destacada arriba: "N inspecciones con feedback de propietario pendiente" con CTA directo al filtro.
-
-### 7. Detalle (ya existente)
-`OwnerFeedbackPanel` ya muestra el panel. Solo asegurar que el badge del header (`ReviewHeaderBar`) use `getCombinedInspectionStatus` en vez del status crudo.
-
-## Diagrama del flujo unificado (vista de usuario)
-
-```text
-Sin asignar → Asignada → En progreso → Lista para revisión → En revisión →
-   → Publicada · esperando propietario
-        ├─ (propietario acepta todo)        → Aceptada por propietario [FIN]
-        ├─ (propietario pide cambios)       → Propietario pidió cambios
-        │     → ejecutivo ajusta y republica → Publicada · esperando propietario (loop)
-        └─ (ejecutivo cierra manualmente)   → Aprobada (cierre manual)    [FIN]
-```
+### Inspector (`InspectorDashboard.tsx`)
+- **Total asignadas**: "Todas tus inspecciones activas (asignadas + en progreso)."
+- **Por coordinar**: "Falta coordinar fecha o acceso con el propietario/inquilino."
+- **Por iniciar**: "Coordinadas y listas para arrancar el día de visita."
+- **En progreso**: "Ya iniciaste la captura en sitio. Continúa donde quedaste."
 
 ## Fuera de alcance
-
-- Migración del enum `inspection_status` (no se toca DB).
-- Cambios en RPCs (`submit_owner_feedback`, `executive_force_close_owner_feedback`) — su lógica ya deja los campos correctos.
-- Notificaciones al ejecutivo cuando llega feedback (se puede hacer en una iteración posterior; este plan solo cierra el gap visual).
-
-## Detalles técnicos
-
-Archivos a tocar (solo frontend):
-
-- `src/lib/inspection-combined-status.ts` (nuevo)
-- `src/shared/ui/status-registry.ts`
-- `src/shared/ui/StatusBadge.tsx`
-- `src/lib/inspection-buckets.ts`
-- `src/lib/inspector-operational.ts` (extender `priorityBucket`)
-- `src/pages/admin/AdminDashboard.tsx`, `AdminInspections.tsx`
-- `src/pages/executive/ExecutiveReviewQueue.tsx`
-- `src/pages/executive/review-detail/ReviewHeaderBar.tsx`
-- Lugares que renderizan `StatusBadge` con `inspection.status` en listas (auditar con `rg`)
+- No se cambian filtros, buckets, ni lógica de cálculo de KPIs.
+- No se modifican estilos generales ni se reordena nada fuera del dashboard del ejecutivo.

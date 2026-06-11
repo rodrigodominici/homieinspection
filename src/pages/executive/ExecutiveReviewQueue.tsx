@@ -177,14 +177,14 @@ export default function ExecutiveReviewQueue() {
           <ErrorState onRetry={() => window.location.reload()} />
         ) : (
           <>
-            {/* KPIs — post-publish lifecycle separa esperando ↔ feedback ↔ aceptadas. */}
+            {/* KPIs — ordenados según el ciclo real: revisión → publicación → propietario → cierre. */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" />
-              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
-              <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
-              <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
-              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" />
-              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" />
+              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  tooltip="Inspecciones enviadas por el inspector que esperan tu revisión inicial." active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
+              <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  tooltip="Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios." active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
+              <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  tooltip="Aprobadas internamente. Falta enviarlas al propietario." active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
+              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta." />
+              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" tooltip="El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar." />
+              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" tooltip="El propietario aceptó la cotización. Ciclo cerrado." />
             </div>
 
             {/* Filters */}
