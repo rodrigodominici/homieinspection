@@ -139,14 +139,6 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
           </div>
         </div>
 
-        {returnMode && (
-          <RequestChangesPanel
-            selectedCount={selectedReturnSections.size}
-            submitting={submitting}
-            onCancel={() => setReturnMode(false)}
-            onConfirm={onReturnForChanges}
-          />
-        )}
 
         {/* Row 2: Financial summary + secondary actions */}
         <div className="flex items-stretch gap-2 pb-3 pt-2 border-t overflow-x-auto">
