@@ -137,7 +137,7 @@ export default function InspectorSectionComplete() {
     setValidationError(null);
     setUnansweredFields((prev) => { const n = new Set(prev); n.delete(fieldId); return n; });
     saveField(fieldId, value);
-    if (section?.status === 'not_started' || section?.status === 'needs_changes') {
+    if (section?.status === 'not_started') {
       supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
       setSection((prev) => prev ? { ...prev, status: 'in_progress' } : prev);
     }
