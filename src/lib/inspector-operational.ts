@@ -145,20 +145,23 @@ export function isCompletedToday(inspection: Inspection, now = new Date()): bool
  * AdminDashboard (KPI tiles, queues). Keep them aligned — never duplicate.
  *
  * Bucket precedence (lower = higher operational priority):
- *   0  Sin asignar      — missing inspector OR executive OR status pending_assignment.
- *                         ALWAYS outranks date-based urgency.
- *   1  Por coordinar    — assigned but no fecha_recoleccion_llaves.
- *   2  Programada       — assigned + coordinated, not yet started.
- *   3  En progreso      — in_progress / submitted / in_review.
- *   5  Completada       — published / sent / approved.
+ *   0  Sin asignar         — missing inspector OR executive OR status pending_assignment.
+ *                            ALWAYS outranks date-based urgency.
+ *   1  Por coordinar       — assigned but no fecha_recoleccion_llaves.
+ *   2  Programada          — assigned + coordinated, not yet started.
+ *   3  En progreso         — in_progress / submitted / in_review.
+ *   4  Feedback propietario — published/sent with owner_feedback_status = pending_executive_review.
+ *                            Requires the executive to revisit the report.
+ *   5  Completada          — approved / published / sent / accepted by owner.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-export type PriorityBucket = 0 | 1 | 2 | 3 | 5;
+export type PriorityBucket = 0 | 1 | 2 | 3 | 4 | 5;
 
 interface AdminInspectionLike {
   inspector_id: string | null;
   executive_id: string | null;
   status: string;
+  owner_feedback_status?: string | null;
 }
 
 export function priorityBucket(
@@ -168,6 +171,13 @@ export function priorityBucket(
   const missingAssign =
     !insp.inspector_id || !insp.executive_id || insp.status === 'pending_assignment';
   if (missingAssign) return 0;
+
+  const ownerFb = insp.owner_feedback_status ?? fullInspection?.owner_feedback_status ?? null;
+
+  // Owner sent feedback → executive must revisit, even if technically "terminal".
+  if ((insp.status === 'published' || insp.status === 'sent') && ownerFb === 'pending_executive_review') {
+    return 4;
+  }
 
   const terminal = ['published', 'sent', 'approved'].includes(insp.status);
   if (terminal) return 5;
@@ -201,6 +211,11 @@ export function priorityBucketLabel(b: PriorityBucket): { label: string; classNa
       return { label: 'Programada', className: 'bg-status-regular-bg text-status-regular' };
     case 3:
       return { label: 'En progreso', className: 'bg-primary/10 text-primary' };
+    case 4:
+      return {
+        label: 'Feedback propietario',
+        className: 'bg-[hsl(var(--status-needs-changes-bg))] text-[hsl(var(--status-needs-changes-fg))]',
+      };
     default:
       return { label: 'Completada', className: 'bg-status-good-bg text-status-good' };
   }
