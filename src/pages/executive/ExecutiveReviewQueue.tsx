@@ -464,11 +464,18 @@ function InspectionRow({
               </p>
               {/* Line 3: meta */}
               <div className="flex items-center gap-x-3 text-tiny text-muted-foreground flex-wrap">
+                {waitingLabel && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-status-bad/10 text-status-bad font-medium">
+                    <Clock className="h-3 w-3" />
+                    {waitingLabel}
+                  </span>
+                )}
                 <span>{insp.market} · {insp.inspection_type}</span>
                 <span className="flex items-center gap-1">
                   <Key className="h-3 w-3" />
                   {keyDateLabel ?? 'Sin fecha de recolección'}
                 </span>
+
                 {progressLabel && (
                   <span className="flex items-center gap-1.5">
                     {progressLabel}
