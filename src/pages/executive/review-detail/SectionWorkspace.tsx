@@ -26,11 +26,6 @@ interface SectionWorkspaceProps {
   onSaveFinalObsSilent: (sectionId: string, value: string) => Promise<void>;
   onSaveNoteSilent: (sectionId: string, value: string) => Promise<void>;
   onOpenRepairsDrawer: () => void;
-  returnMode: boolean;
-  returnSelected: boolean;
-  onToggleReturn: () => void;
-  returnComment: string;
-  onReturnCommentChange: (v: string) => void;
   /** Optional photos slot — rendered at the top when the right aside is
    *  replaced by the inline repairs panel. */
   photosSlot?: React.ReactNode;
@@ -47,7 +42,6 @@ export const SectionWorkspace = memo(function SectionWorkspace({
   section, fields, repairs, inspectorObs, finalObservation, internalNote,
   onFinalObsChange, onInternalNoteChange, onSaveFinalObsSilent, onSaveNoteSilent,
   onOpenRepairsDrawer,
-  returnMode, returnSelected, onToggleReturn, returnComment, onReturnCommentChange,
   photosSlot,
 }: SectionWorkspaceProps) {
   const statusFields = fields.filter((f) => f.group_key === 'status');
