@@ -110,11 +110,12 @@ interface EnrichedInspection extends Inspection {
  * Local helper: bucket lookup adapted for EnrichedInspection (which already has scheduleDatetime).
  * Delegates to the shared `priorityBucket` so AdminInspections and AdminDashboard never drift.
  */
-function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 5 {
+function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 4 | 5 {
   return sharedPriorityBucket({
     inspector_id: insp.inspector_id,
     executive_id: insp.executive_id,
     status: insp.status,
+    owner_feedback_status: insp.owner_feedback_status ?? null,
     scheduleDatetime: insp.scheduleDatetime,
   });
 }
