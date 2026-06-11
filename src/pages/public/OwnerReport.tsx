@@ -571,8 +571,17 @@ export default function OwnerReport() {
         ? 'El equipo recibió la confirmación de todas las reparaciones.'
         : 'El equipo revisará tus comentarios y te enviará una versión actualizada.',
     });
+    // Notify assigned executive on Slack when feedback requires action.
+    if (!(data as any)?.all_accepted) {
+      const inspectionId = (report as any)?.inspection_id;
+      if (inspectionId) {
+        supabase.functions
+          .invoke('notify-executive-slack', { body: { inspection_id: inspectionId, event_type: 'owner_feedback' } })
+          .catch((e) => console.warn('slack notify failed', e));
+      }
+    }
     await loadReport();
-  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport]);
+  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport, report]);
 
   if (loading) {
     return (
