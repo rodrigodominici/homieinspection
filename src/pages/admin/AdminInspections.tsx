@@ -630,8 +630,8 @@ export default function AdminInspections() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredInspections.map((insp) => {
-                        const bucket = priorityBucket(insp);
+                      {paginatedInspections.map((insp) => {
+                        const bucket = bucketByInsp.get(insp.id) ?? 5;
                         const bLabel = priorityBucketLabel(bucket);
                         const missing = missingAssignmentLabel(insp);
                         return (
