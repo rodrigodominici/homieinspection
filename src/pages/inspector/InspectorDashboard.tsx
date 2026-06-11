@@ -186,28 +186,6 @@ export default function InspectorDashboard() {
               <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" />
             </div>
 
-            {/* Needs attention */}
-            {needsAttention.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Requiere atención</h2>
-                <div className="space-y-3">
-                  {needsAttention.map((insp) => (
-                    <Link key={insp.id} to={`/inspector/inspection/${insp.id}`}>
-                      <Card className="border-0 ring-1 ring-status-bad/20 bg-status-bad-bg/30 shadow-sm rounded-2xl active:scale-[0.99] transition-transform">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <AlertTriangle className="h-5 w-5 text-status-bad shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
-                            <p className="text-xs text-muted-foreground">Cambios requeridos</p>
-                          </div>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
 
             {/* Por coordinar */}
             {toCoordinate.length > 0 && (
