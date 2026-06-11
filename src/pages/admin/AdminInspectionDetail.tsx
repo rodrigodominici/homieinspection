@@ -1319,12 +1319,14 @@ export default function AdminInspectionDetail() {
         )}
 
         {/* ─── Detail Tabs ─── */}
-        <Tabs defaultValue="inspection" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="payload" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Payload</TabsTrigger>
             <TabsTrigger value="inspection" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Inspección</TabsTrigger>
             <TabsTrigger value="review" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Revisión</TabsTrigger>
             <TabsTrigger value="budget" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Presupuesto</TabsTrigger>
+            <TabsTrigger value="quotation" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Cotización</TabsTrigger>
+            <TabsTrigger value="publish" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Publicación</TabsTrigger>
           </TabsList>
 
           {/* ── Payload tab ── */}
