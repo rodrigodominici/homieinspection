@@ -9,7 +9,6 @@ export interface InspectorDisplayState {
     | 'in_progress'
     | 'ready_to_submit'
     | 'to_coordinate'
-    | 'needs_changes'
     | 'submitted'
     | 'in_review'
     | 'approved'
