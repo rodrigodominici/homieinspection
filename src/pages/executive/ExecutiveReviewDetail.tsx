@@ -248,20 +248,6 @@ export default function ExecutiveReviewDetail() {
   });
   const { submitting, catalog, publish } = actions;
 
-  const handleReturnForChanges = useCallback(
-    () => actions.handleReturnForChanges(Array.from(selectedReturnSections), returnComments),
-    [actions, selectedReturnSections, returnComments],
-  );
-
-
-
-  const toggleReturnSection = useCallback((secId: string) => {
-    setSelectedReturnSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(secId)) next.delete(secId); else next.add(secId);
-      return next;
-    });
-  }, []);
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
