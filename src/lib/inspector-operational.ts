@@ -114,9 +114,6 @@ export function matchesInspectorStateFilter(
 
   if (stateFilter === 'in_progress') return display.key === 'in_progress';
   if (stateFilter === 'assigned') return display.key === 'assigned';
-  if (stateFilter === 'assigned_or_needs_changes') {
-    return display.key === 'assigned' || display.key === 'needs_changes';
-  }
   if (stateFilter === 'to_coordinate') return display.key === 'to_coordinate';
   if (stateFilter === 'ready_to_send') return display.key === 'ready_to_submit';
 
