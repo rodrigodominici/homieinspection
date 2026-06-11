@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { SectionStatusBadge } from '@/components/StatusBadge';
 import {
   MapPin, Clock, Wrench, PenLine, XCircle, AlertTriangle,
-  RotateCcw, Send, RefreshCw, Plus,
+  Send, RefreshCw, Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmtCurrency, statusLabel } from './helpers';
@@ -27,8 +27,6 @@ interface MobileReviewViewProps {
   inspectorProgressLabel: string;
   progress: { completed: number; total: number };
   submitting: boolean;
-  returnMode: boolean;
-  setReturnMode: (v: boolean) => void;
   onOpenCatalog: (sectionId: string) => void;
   onOpenRepairsDrawer: (sectionId: string) => void;
   onPublish: () => void;
@@ -38,7 +36,7 @@ export function MobileReviewView({
   inspection, operationalSections, fieldsBySection, photosBySection, repairsBySection,
   finalObservations, setFinalObservations, saveFinalObservationSilent, urlOf,
   signatureRecord, allRepairs, clientTotal, warrantyDeposit, inspectorProgressLabel,
-  progress, submitting, returnMode, setReturnMode, onOpenCatalog, onOpenRepairsDrawer,
+  progress, submitting, onOpenCatalog, onOpenRepairsDrawer,
   onPublish,
 }: MobileReviewViewProps) {
   return (
