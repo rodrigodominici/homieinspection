@@ -152,12 +152,26 @@ export default function AdminInspectionDetail() {
   const [savingKeyDate, setSavingKeyDate] = useState(false);
   const [resendingKeyDate, setResendingKeyDate] = useState(false);
 
+  // Executive-aligned state (contractor, return-for-changes, quotation, discount)
+  const [contractors, setContractors] = useState<Array<{ id: string; name: string; country: string; is_active: boolean; created_at: string }>>([]);
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+  const [returnMode, setReturnMode] = useState(false);
+  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
+  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
+  const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
+  const [contractorQuotationOpen, setContractorQuotationOpen] = useState(false);
+  const [workOrderDetailsOpen, setWorkOrderDetailsOpen] = useState(false);
+  const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('inspection');
+
   const fetchAll = useCallback(async () => {
     if (!id) return;
-    const [inspRes, secRes, profilesRes] = await Promise.all([
+    const [inspRes, secRes, profilesRes, contractorRes] = await Promise.all([
       supabase.from('inspections').select('*').eq('id', id).single(),
       supabase.from('inspection_sections').select('*').eq('inspection_id', id).order('sort_order'),
       supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
+      supabase.from('contractors').select('*').eq('is_active', true).order('name'),
     ]);
 
     const insp = inspRes.data as unknown as Inspection;
@@ -166,6 +180,8 @@ export default function AdminInspectionDetail() {
     setInspection(insp);
     setSections(secs);
     setAllProfiles(profs);
+    setContractors((contractorRes.data ?? []) as any);
+    setSelectedContractorId((insp as any)?.contractor_id ?? null);
 
     if (insp) {
       setEditInspector(insp.inspector_id ?? '');
