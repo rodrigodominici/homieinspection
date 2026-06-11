@@ -9,6 +9,7 @@ import {
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
 import { InspectorProgressCard } from './InspectorProgressCard';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 interface ReviewHeaderBarProps {
