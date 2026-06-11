@@ -40,7 +40,6 @@ export const INSPECTION_STATUS: Record<InspectionStatus, StatusEntry> = {
   in_progress:        { label: "En progreso",        tone: "in-progress" },
   submitted:          { label: "Lista para revisión", tone: "pending", actionable: true },
   in_review:          { label: "En revisión",        tone: "in-progress", actionable: true },
-  needs_changes:      { label: "Requiere cambios",   tone: "needs-changes", actionable: true },
   approved:           { label: "Aprobada",           tone: "approved" },
   published:          { label: "Publicada",          tone: "published" },
   accepted:           { label: "Aceptada",           tone: "approved" },
@@ -52,7 +51,6 @@ export const SECTION_STATUS: Record<SectionStatus, StatusEntry> = {
   not_started:    { label: "Pendiente",  tone: "neutral" },
   in_progress:    { label: "En progreso", tone: "in-progress" },
   completed:      { label: "Completada", tone: "approved" },
-  needs_changes:  { label: "Cambios",    tone: "needs-changes", actionable: true },
   reviewed:       { label: "Revisada",   tone: "published" },
 };
 
