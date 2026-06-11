@@ -1,76 +1,109 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
+import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
 import type { Inspection, Profile } from '@/lib/types';
-import { ClipboardList, Clock, FileSearch, AlertCircle, Plus, User, CalendarClock, AlertTriangle } from 'lucide-react';
+import {
+  Plus, User, CalendarClock, AlertTriangle,
+  UserCheck, Clock, FileSearch, AlertCircle, Send, CheckCircle2,
+} from 'lucide-react';
+
+/**
+ * Reduced inspection columns for the dashboard.
+ * We omit heavyweight JSON columns (`property_snapshot_json`,
+ * `generated_structure_json`) to keep the payload small — the dashboard
+ * only needs scheduling overrides + identification fields.
+ */
+const DASHBOARD_COLS =
+  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json';
+
+async function fetchDashboardInspections(): Promise<Inspection[]> {
+  const { data, error } = await supabase
+    .from('inspections')
+    .select(DASHBOARD_COLS)
+    .order('updated_at', { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return (data ?? []) as unknown as Inspection[];
+}
+
+async function fetchActiveProfiles(): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role')
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data ?? []) as unknown as Profile[];
+}
 
 export default function AdminDashboard() {
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetch = async () => {
-      const [inspRes, profilesRes] = await Promise.all([
-        supabase.from('inspections').select('*').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*').eq('is_active', true),
-      ]);
-      setInspections((inspRes.data ?? []) as unknown as Inspection[]);
-      setProfiles((profilesRes.data ?? []) as unknown as Profile[]);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
-
-  const profileMap = new Map(profiles.map(p => [p.id, p]));
-
-  const stats = {
-    total: inspections.length,
-    pendingAssignment: inspections.filter(i => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id).length,
-    inProgress: inspections.filter(i => ['in_progress', 'assigned'].includes(i.status)).length,
-    submitted: inspections.filter(i => ['submitted', 'in_review'].includes(i.status)).length,
-    approved: inspections.filter(i => ['approved', 'published', 'sent'].includes(i.status)).length,
-  };
-
-  // Pending by inspector
-  const pendingByInspector = new Map<string, number>();
-  inspections.filter(i => ['assigned', 'in_progress', 'needs_changes'].includes(i.status) && i.inspector_id).forEach(i => {
-    pendingByInspector.set(i.inspector_id!, (pendingByInspector.get(i.inspector_id!) ?? 0) + 1);
+  const inspQuery = useQuery({
+    queryKey: ['admin', 'dashboard', 'inspections'],
+    queryFn: fetchDashboardInspections,
+    staleTime: 30_000,
+  });
+  const profilesQuery = useQuery({
+    queryKey: ['admin', 'dashboard', 'active-profiles'],
+    queryFn: fetchActiveProfiles,
+    staleTime: 5 * 60_000,
   });
 
-  // Pending by executive
-  const pendingByExecutive = new Map<string, number>();
-  inspections.filter(i => ['submitted', 'in_review'].includes(i.status) && i.executive_id).forEach(i => {
-    pendingByExecutive.set(i.executive_id!, (pendingByExecutive.get(i.executive_id!) ?? 0) + 1);
-  });
+  const loading = inspQuery.isLoading || profilesQuery.isLoading;
+  const inspections = inspQuery.data ?? [];
+  const profiles = profilesQuery.data ?? [];
 
-  // Upcoming scheduled
-  const now = new Date();
-  const upcoming = inspections
-    .filter(i => {
-      const snap = getEffectiveSnapshot(i);
-      const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
-      if (!fecha) return false;
-      const dt = new Date(`${fecha}T${(snap?.hora_recoleccion_llaves as string) || '00:00'}`);
-      return !isNaN(dt.getTime()) && dt >= now;
-    })
-    .sort((a, b) => {
-      const snapA = getEffectiveSnapshot(a);
-      const snapB = getEffectiveSnapshot(b);
-      const dA = new Date(snapA?.fecha_recoleccion_llaves as string).getTime();
-      const dB = new Date(snapB?.fecha_recoleccion_llaves as string).getTime();
-      return dA - dB;
-    })
-    .slice(0, 5);
+  const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
-  // Unassigned
-  const unassigned = inspections.filter(i => !i.inspector_id || !i.executive_id).slice(0, 5);
+  // KPI counts (single pass) — same buckets as AdminInspections / ExecutiveReviewQueue.
+  const kpis = useMemo(() => computeInspectionKpis(inspections), [inspections]);
+
+  // Pending workload by inspector / executive.
+  const { pendingByInspector, pendingByExecutive } = useMemo(() => {
+    const byInsp = new Map<string, number>();
+    const byExec = new Map<string, number>();
+    for (const i of inspections) {
+      if (i.inspector_id && ['assigned', 'in_progress', 'needs_changes'].includes(i.status)) {
+        byInsp.set(i.inspector_id, (byInsp.get(i.inspector_id) ?? 0) + 1);
+      }
+      if (i.executive_id && ['submitted', 'in_review'].includes(i.status)) {
+        byExec.set(i.executive_id, (byExec.get(i.executive_id) ?? 0) + 1);
+      }
+    }
+    return { pendingByInspector: byInsp, pendingByExecutive: byExec };
+  }, [inspections]);
+
+  // Upcoming scheduled (next 5).
+  const upcoming = useMemo(() => {
+    const now = Date.now();
+    const withDate = inspections
+      .map((i) => {
+        const snap = getEffectiveSnapshot(i);
+        const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
+        if (!fecha) return null;
+        const hora = (snap?.hora_recoleccion_llaves as string) || '00:00';
+        const dt = new Date(`${fecha}T${hora}`).getTime();
+        if (isNaN(dt) || dt < now) return null;
+        return { insp: i, dt };
+      })
+      .filter((x): x is { insp: Inspection; dt: number } => x !== null)
+      .sort((a, b) => a.dt - b.dt)
+      .slice(0, 5);
+    return withDate.map((x) => x.insp);
+  }, [inspections]);
+
+  // Unassigned (top 5) — same definition as KPI bucket 0.
+  const unassigned = useMemo(
+    () => inspections.filter((i) => bucketOf(i) === 0).slice(0, 5),
+    [inspections],
+  );
 
   return (
     <AdminLayout>
@@ -83,18 +116,49 @@ export default function AdminDashboard() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
         ) : (
           <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <StatCard icon={ClipboardList} label="Total" value={stats.total} variant="primary" to="/admin/inspections" />
-              <StatCard icon={AlertCircle} label="Sin Asignar" value={stats.pendingAssignment} variant="danger" to="/admin/inspections?status=pending_assignment" />
-              <StatCard icon={Clock} label="En Curso" value={stats.inProgress} variant="warning" to="/admin/inspections?status=in_progress" />
-              <StatCard icon={FileSearch} label="En Revisión" value={stats.submitted} variant="primary" to="/admin/inspections?status=submitted" />
-              <StatCard icon={ClipboardList} label="Aprobadas" value={stats.approved} variant="success" to="/admin/inspections?status=approved" />
+            {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Link to="/admin/inspections?bucket=unassigned">
+                <KpiCard
+                  label="Sin asignar" value={kpis.unassigned}
+                  icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
+                />
+              </Link>
+              <Link to="/admin/inspections?status=in_progress">
+                <KpiCard
+                  label="En progreso" value={kpis.inProgress}
+                  icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                />
+              </Link>
+              <Link to="/admin/inspections?status=submitted">
+                <KpiCard
+                  label="Para revisar" value={kpis.forReview}
+                  icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
+                />
+              </Link>
+              <Link to="/admin/inspections?status=needs_changes">
+                <KpiCard
+                  label="En corrección" value={kpis.needsChanges}
+                  icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="amber"
+                />
+              </Link>
+              <Link to="/admin/inspections?status=approved">
+                <KpiCard
+                  label="Para publicar" value={kpis.toPublish}
+                  icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
+                />
+              </Link>
+              <Link to="/admin/inspections?status=published">
+                <KpiCard
+                  label="Publicadas" value={kpis.published}
+                  icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
+                />
+              </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -163,7 +227,7 @@ export default function AdminDashboard() {
                   {unassigned.length === 0 ? (
                     <p className="text-caption text-muted-foreground">Todo asignado ✓</p>
                   ) : (
-                    unassigned.map(insp => (
+                    unassigned.map((insp) => (
                       <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1 hover:bg-muted/30 rounded px-1 -mx-1">
                         <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                         <p className="text-tiny text-muted-foreground truncate">{insp.address}</p>
@@ -190,7 +254,7 @@ export default function AdminDashboard() {
                   {upcoming.length === 0 ? (
                     <p className="text-caption text-muted-foreground">Sin inspecciones próximas</p>
                   ) : (
-                    upcoming.map(insp => (
+                    upcoming.map((insp) => (
                       <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1.5 hover:bg-muted/30 rounded px-1 -mx-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
@@ -211,7 +275,7 @@ export default function AdminDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {inspections.slice(0, 5).map(insp => (
+                  {inspections.slice(0, 5).map((insp) => (
                     <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1.5 hover:bg-muted/30 rounded px-1 -mx-1">
                       <div className="flex items-center justify-between">
                         <div className="min-w-0 flex-1">
@@ -230,36 +294,4 @@ export default function AdminDashboard() {
       </div>
     </AdminLayout>
   );
-}
-
-function StatCard({ icon: Icon, label, value, variant, to }: {
-  icon: React.ElementType; label: string; value: number;
-  variant: 'danger' | 'warning' | 'primary' | 'success';
-  to?: string;
-}) {
-  const variantClasses = {
-    danger: 'bg-status-bad-bg text-status-bad',
-    warning: 'bg-status-regular-bg text-status-regular',
-    primary: 'bg-primary/10 text-primary',
-    success: 'bg-status-good-bg text-status-good',
-  };
-
-  const content = (
-    <Card className={`border-0 ring-1 ring-border shadow-sm transition-shadow${to ? ' hover:shadow-md hover:ring-primary/40 cursor-pointer' : ''}`}>
-      <CardContent className="pt-6">
-        <div className="flex items-center gap-3">
-          <div className={`rounded-xl p-2.5 ${variantClasses[variant]}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-caption text-muted-foreground">{label}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  if (to) return <Link to={to}>{content}</Link>;
-  return content;
 }
