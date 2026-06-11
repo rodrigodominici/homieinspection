@@ -1372,7 +1372,7 @@ export default function AdminInspectionDetail() {
                   const otherFields = secFields.filter(f => f.group_key !== 'status' && f.group_key !== 'observation' && f.group_key !== 'photo');
 
                   return (
-                    <Collapsible key={sec.id}>
+                    <Collapsible key={sec.id} id={`admin-section-${sec.id}`}>
                       <CollapsibleTrigger className="flex items-center gap-3 w-full py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
                         <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
                         <div className="flex-1 min-w-0">
