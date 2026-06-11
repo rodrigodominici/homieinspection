@@ -25,8 +25,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
-import { isSectionCompleted } from '@/lib/section-completion';
-import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
@@ -35,11 +35,28 @@ import type {
 import {
   ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
   AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
-  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
+  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send, Tag, Receipt,
 } from 'lucide-react';
 import { cn, groupBy } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Shared review/exec data hooks + components
+import { useOwnerFeedbackByRepair } from '@/modules/review/api/useOwnerFeedbackByRepair';
+import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
+import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
+import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
+import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
+import {
+  PendingDecisionsBanner,
+  RepairsTableView,
+  QuotationView,
+  QuotationDiscountSheet,
+  PublishView,
+} from '@/pages/executive/review-detail';
+import { QuotationDialog } from '@/components/QuotationDialog';
+import { ContractorQuotationDialog } from '@/components/ContractorQuotationDialog';
+import { WorkOrderDetailsDialog } from '@/components/WorkOrderDetailsDialog';
 
 /* ─── Workflow stages ─── */
 const WORKFLOW_STAGES: { key: WorkflowStage; label: string; icon: React.ElementType }[] = [
@@ -135,12 +152,26 @@ export default function AdminInspectionDetail() {
   const [savingKeyDate, setSavingKeyDate] = useState(false);
   const [resendingKeyDate, setResendingKeyDate] = useState(false);
 
+  // Executive-aligned state (contractor, return-for-changes, quotation, discount)
+  const [contractors, setContractors] = useState<Array<{ id: string; name: string; country: string; is_active: boolean; created_at: string }>>([]);
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+  const [returnMode, setReturnMode] = useState(false);
+  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
+  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
+  const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
+  const [contractorQuotationOpen, setContractorQuotationOpen] = useState(false);
+  const [workOrderDetailsOpen, setWorkOrderDetailsOpen] = useState(false);
+  const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
+  const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('inspection');
+
   const fetchAll = useCallback(async () => {
     if (!id) return;
-    const [inspRes, secRes, profilesRes] = await Promise.all([
+    const [inspRes, secRes, profilesRes, contractorRes] = await Promise.all([
       supabase.from('inspections').select('*').eq('id', id).single(),
       supabase.from('inspection_sections').select('*').eq('inspection_id', id).order('sort_order'),
       supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
+      supabase.from('contractors').select('*').eq('is_active', true).order('name'),
     ]);
 
     const insp = inspRes.data as unknown as Inspection;
@@ -149,6 +180,8 @@ export default function AdminInspectionDetail() {
     setInspection(insp);
     setSections(secs);
     setAllProfiles(profs);
+    setContractors((contractorRes.data ?? []) as any);
+    setSelectedContractorId((insp as any)?.contractor_id ?? null);
 
     if (insp) {
       setEditInspector(insp.inspector_id ?? '');
@@ -586,7 +619,7 @@ export default function AdminInspectionDetail() {
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
-  const operationalSections = sections.filter(s => s.section_type !== 'property_meta');
+  const operationalSections = useMemo(() => sections.filter(isRepairableSection), [sections]);
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
@@ -595,6 +628,228 @@ export default function AdminInspectionDetail() {
   const filteredCatalog = catalogItems.filter((i) =>
     !catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (i.owner_friendly_name ?? '').toLowerCase().includes(catalogSearch.toLowerCase())
   );
+
+  /* ─── Executive-aligned derived data (budget breakdown, discount, owner feedback) ─── */
+  const allRepairs = repairItems;
+  const clientTotal = useMemo(
+    () => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0),
+    [allRepairs]
+  );
+  const contractorTotal = useMemo(
+    () => allRepairs.reduce((s, r) => s + (r.quantity * Number((r as any).contractor_unit_price ?? 0)), 0),
+    [allRepairs]
+  );
+
+  const budgetBreakdown = useMemo(() => {
+    const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
+    for (const r of allRepairs) {
+      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      if (r.payer_role === 'tenant') {
+        if (r.payment_nature === 'optional') acc.tenantOptional += amount;
+        else acc.tenantRequired += amount;
+      } else {
+        if (r.payment_nature === 'optional') acc.ownerOptional += amount;
+        else acc.ownerRequired += amount;
+      }
+    }
+    return {
+      ...acc,
+      ownerTotal: acc.ownerRequired + acc.ownerOptional,
+      tenantTotal: acc.tenantRequired + acc.tenantOptional,
+      grandTotal: acc.ownerRequired + acc.ownerOptional + acc.tenantRequired + acc.tenantOptional,
+    };
+  }, [allRepairs]);
+
+  const utility = budgetBreakdown.grandTotal - contractorTotal;
+
+  const missingSections = useMemo(
+    () => operationalSections.filter(s => requiresFinalObservation(s.section_type) && !finalObservations[s.id]?.trim()),
+    [operationalSections, finalObservations]
+  );
+  const showObservationWarnings = !['approved', 'published'].includes(inspection?.status ?? '');
+
+  const effectiveSnapshot = inspection ? getEffectiveSnapshot(inspection) : {};
+  const warrantyDeposit = typeof (effectiveSnapshot as any).warranty_deposit === 'number'
+    ? (effectiveSnapshot as any).warranty_deposit as number
+    : null;
+  const depositDiff = warrantyDeposit !== null ? warrantyDeposit - budgetBreakdown.ownerRequired : null;
+
+  // Tax config per market
+  useEffect(() => {
+    if (!inspection?.market) return;
+    fetchTaxConfig(inspection.market).then(setTaxConfig).catch(() => setTaxConfig(null));
+  }, [inspection?.market]);
+
+  // Owner feedback (decisions by repair id)
+  const ownerFeedback = useOwnerFeedbackByRepair(id);
+
+  // Quotation discount
+  const discountState = useQuotationDiscount(id, profile?.id);
+  const activeDiscountInput: QuotationDiscountInput | null = useMemo(
+    () => discountState.discount
+      ? { type: discountState.discount.discount_type, value: Number(discountState.discount.discount_value), reason: discountState.discount.discount_reason }
+      : null,
+    [discountState.discount],
+  );
+  const discountBreakdown = useMemo(
+    () => applyQuotationDiscount({
+      subtotalOwner: budgetBreakdown.ownerTotal,
+      subtotalTenant: budgetBreakdown.tenantTotal,
+      discount: activeDiscountInput,
+      taxConfig,
+    }),
+    [budgetBreakdown.ownerTotal, budgetBreakdown.tenantTotal, activeDiscountInput, taxConfig],
+  );
+
+  const signatureRecord = signature
+    ? { signature_status: signature.signature_status, signer_name: signature.signer_name, skip_reason: signature.skip_reason }
+    : null;
+
+  const selectedContractorName = useMemo(
+    () => contractors.find(c => c.id === selectedContractorId)?.name ?? null,
+    [contractors, selectedContractorId],
+  );
+
+  /* ─── Executive-aligned action handlers ─── */
+  const handleContractorChange = useCallback(async (contractorId: string) => {
+    if (!inspection) return;
+    const newContractorId = contractorId === 'none' ? null : contractorId;
+    setSelectedContractorId(newContractorId);
+    await supabase.from('inspections').update({ contractor_id: newContractorId } as any).eq('id', inspection.id);
+    // Rebind contractor prices for all repairs in this inspection
+    if (newContractorId) {
+      const { data: priceRows } = await supabase
+        .from('repair_catalog_item_contractor_prices')
+        .select('repair_catalog_item_id, contractor_unit_price')
+        .eq('contractor_id', newContractorId);
+      const priceMap = new Map<string, number>();
+      for (const row of (priceRows ?? []) as any[]) {
+        priceMap.set(row.repair_catalog_item_id, Number(row.contractor_unit_price));
+      }
+      let updated = 0;
+      for (const r of allRepairs) {
+        const cp = r.repair_catalog_item_id ? priceMap.get(r.repair_catalog_item_id) ?? 0 : 0;
+        await supabase.from('inspection_repair_items').update({ contractor_unit_price: cp } as any).eq('id', r.id);
+        updated += 1;
+      }
+      toast({ title: 'Contratista actualizado', description: `${updated} precios recargados` });
+    } else {
+      for (const r of allRepairs) {
+        await supabase.from('inspection_repair_items').update({ contractor_unit_price: 0 } as any).eq('id', r.id);
+      }
+      toast({ title: 'Contratista actualizado', description: 'Precios de contratista puestos en 0' });
+    }
+    await fetchAll();
+  }, [inspection, allRepairs, fetchAll, toast]);
+
+  const toggleReturnSection = useCallback((secId: string) => {
+    setSelectedReturnSections(prev => {
+      const next = new Set(prev);
+      if (next.has(secId)) next.delete(secId); else next.add(secId);
+      return next;
+    });
+  }, []);
+
+  const handleAdminReturnForChanges = useCallback(async () => {
+    if (!id) return;
+    const ids = Array.from(selectedReturnSections);
+    if (ids.length === 0) {
+      toast({ title: 'Selecciona al menos una sección', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await inspectionActionsService.requestChanges({
+        inspectionId: id,
+        profileId: profile?.id,
+        selectedSectionIds: ids,
+        commentsBySection: returnComments,
+      });
+      toast({ title: 'Devuelta para cambios' });
+      setReturnMode(false);
+      setSelectedReturnSections(new Set());
+      setReturnComments({});
+      await fetchAll();
+    } catch (e: any) {
+      toast({ title: 'No se pudo devolver', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [id, selectedReturnSections, returnComments, profile?.id, fetchAll, toast]);
+
+  const handleAdminApprove = useCallback(async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await inspectionActionsService.approveInspection(id, profile?.id);
+      toast({ title: 'Inspección aprobada' });
+      await fetchAll();
+    } catch (e: any) {
+      toast({ title: 'No se pudo aprobar', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [id, profile?.id, fetchAll, toast]);
+
+  /** Admin publish wrapper for PublishView (signature: `(force?: boolean) => Promise<void>`). */
+  const handleAdminPublish = async (_force?: boolean) => { await handlePublish(); };
+
+  const fetchPublishedUrls = useCallback(async () => {
+    if (!inspection) return null;
+    const { data } = await supabase
+      .from('inspection_report_versions')
+      .select('audience, public_token')
+      .eq('inspection_id', inspection.id)
+      .eq('is_latest', true);
+    if (!data || data.length === 0) return null;
+    const origin = window.location.origin;
+    const ownerRow = (data as any[]).find(r => r.audience === 'owner');
+    const tenantRow = (data as any[]).find(r => r.audience === 'tenant');
+    return {
+      owner: ownerRow ? `${origin}/reportes/${inspection.property_id}/${ownerRow.public_token}` : '',
+      tenant: tenantRow ? `${origin}/reportes/${inspection.property_id}/${tenantRow.public_token}` : '',
+    };
+  }, [inspection]);
+
+  const handleOpenOwner = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.owner) window.open(u.owner, '_blank');
+  }, [fetchPublishedUrls]);
+  const handleOpenTenant = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.tenant) window.open(u.tenant, '_blank');
+  }, [fetchPublishedUrls]);
+  const handleCopyOwner = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.owner) { navigator.clipboard.writeText(u.owner); toast({ title: 'Link propietario copiado' }); }
+  }, [fetchPublishedUrls, toast]);
+  const handleCopyTenant = useCallback(async () => {
+    const u = await fetchPublishedUrls();
+    if (u?.tenant) { navigator.clipboard.writeText(u.tenant); toast({ title: 'Link inquilino copiado' }); }
+  }, [fetchPublishedUrls, toast]);
+
+  const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
+  const handleRemoveDiscount = useCallback(async () => {
+    try { await discountState.remove(); toast({ title: 'Descuento eliminado' }); }
+    catch (e: any) { toast({ title: 'No se pudo eliminar', description: e?.message, variant: 'destructive' }); }
+  }, [discountState, toast]);
+  const handleDiscountSubmit = useCallback(async (input: QuotationDiscountInput) => {
+    try { await discountState.apply(input); toast({ title: 'Descuento aplicado' }); }
+    catch (e: any) { toast({ title: 'No se pudo aplicar', description: e?.message, variant: 'destructive' }); }
+  }, [discountState, toast]);
+
+  const handleJumpToInspectionSection = useCallback((sectionId?: string) => {
+    setActiveTab('inspection');
+    if (sectionId) {
+      // Try to scroll the collapsed section into view
+      setTimeout(() => {
+        const el = document.getElementById(`admin-section-${sectionId}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, []);
+
+
 
   if (loading) {
     return (
@@ -1064,12 +1319,14 @@ export default function AdminInspectionDetail() {
         )}
 
         {/* ─── Detail Tabs ─── */}
-        <Tabs defaultValue="inspection" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="payload" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Payload</TabsTrigger>
             <TabsTrigger value="inspection" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Inspección</TabsTrigger>
             <TabsTrigger value="review" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Revisión</TabsTrigger>
             <TabsTrigger value="budget" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Presupuesto</TabsTrigger>
+            <TabsTrigger value="quotation" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Cotización</TabsTrigger>
+            <TabsTrigger value="publish" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Publicación</TabsTrigger>
           </TabsList>
 
           {/* ── Payload tab ── */}
@@ -1115,7 +1372,7 @@ export default function AdminInspectionDetail() {
                   const otherFields = secFields.filter(f => f.group_key !== 'status' && f.group_key !== 'observation' && f.group_key !== 'photo');
 
                   return (
-                    <Collapsible key={sec.id}>
+                    <div key={sec.id} id={`admin-section-${sec.id}`}><Collapsible>
                       <CollapsibleTrigger className="flex items-center gap-3 w-full py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
                         <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
                         <div className="flex-1 min-w-0">
@@ -1256,7 +1513,7 @@ export default function AdminInspectionDetail() {
                           </div>
                         )}
                       </CollapsibleContent>
-                    </Collapsible>
+                    </Collapsible></div>
                   );
                 })}
               </CardContent>
@@ -1266,6 +1523,12 @@ export default function AdminInspectionDetail() {
           {/* ── Review tab — full executive capabilities ── */}
           <TabsContent value="review">
             <div className="space-y-4">
+              {showObservationWarnings && missingSections.length > 0 && (
+                <PendingDecisionsBanner
+                  missingSections={missingSections}
+                  onJumpToSection={handleJumpToInspectionSection}
+                />
+              )}
               {operationalSections.length === 0 && (
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardContent className="p-4"><p className="text-sm text-muted-foreground">No hay secciones.</p></CardContent>
@@ -1394,94 +1657,33 @@ export default function AdminInspectionDetail() {
               {/* Grand total card */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
-                  <span className="text-sm font-medium">Total Presupuesto</span>
-                  <span className="text-lg font-semibold text-primary font-mono">${budgetTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-medium">Total Presupuesto (visible al propietario)</span>
+                  <span className="text-lg font-semibold text-primary font-mono">${clientTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                 </CardContent>
               </Card>
 
-              {/* Per-section budget */}
-              {operationalSections.filter(s => s.section_type !== 'handover_meta').map(section => {
-                const sRepairs = repairsBySection[section.id] ?? [];
-                const sectionSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + Number(r.subtotal ?? r.quantity * r.unit_price), 0);
-
-                return (
-                  <Card key={section.id} className="border-0 ring-1 ring-border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm">{section.section_title}</CardTitle>
-                        <Button size="sm" variant="outline" onClick={() => openCatalog(section.id)}>
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {sRepairs.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Sin reparaciones en esta sección.</p>
-                      )}
-                      {sRepairs.map((repair) => (
-                        <div key={repair.id} className={cn('rounded-lg border p-3 space-y-2', !repair.visible_to_owner && 'opacity-50 border-dashed')}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{repair.title_snapshot}</p>
-                              {repair.category_snapshot && <p className="text-[10px] text-muted-foreground">{repair.category_snapshot}</p>}
-                              <div className="flex flex-wrap items-center gap-1 mt-1">
-                                <span className="inline-flex items-center rounded-full border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                  {repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}
-                                </span>
-                                <span className={cn(
-                                  'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px]',
-                                  repair.payment_nature === 'optional'
-                                    ? 'border-muted-foreground/20 text-muted-foreground bg-muted/40'
-                                    : 'border-primary/20 text-primary bg-primary/5'
-                                )}>
-                                  {repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => updateRepairItem(repair.id, 'visible_to_owner', !repair.visible_to_owner)}
-                                className="p-1 rounded hover:bg-muted/50">
-                                {repair.visible_to_owner ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                              </button>
-                              <button onClick={() => deleteRepairItem(repair.id)}
-                                className="p-1 rounded hover:bg-destructive/10 text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <Label className="text-[10px]">Cantidad</Label>
-                              <Input type="number" step="0.01" value={repair.quantity}
-                                onChange={(e) => updateRepairItem(repair.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs" />
-                            </div>
-                            <div>
-                              <Label className="text-[10px]">Precio unit.</Label>
-                              <Input type="number" step="0.01" value={repair.unit_price}
-                                onChange={(e) => updateRepairItem(repair.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs" />
-                            </div>
-                            <div>
-                              <Label className="text-[10px]">Subtotal</Label>
-                              <p className="h-8 flex items-center text-xs font-mono font-medium">
-                                ${Number(repair.subtotal ?? repair.quantity * repair.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          </div>
-                          <Input placeholder="Notas..." value={repair.notes ?? ''} className="h-8 text-xs"
-                            onChange={(e) => updateRepairItem(repair.id, 'notes', e.target.value || null)} />
-                        </div>
-                      ))}
-                      {sectionSubtotal > 0 && (
-                        <div className="flex justify-end text-xs font-medium font-mono pt-1">
-                          Subtotal: ${sectionSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {/* Consolidated repairs table — same component used by the executive */}
+              <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+                <div className="min-h-[60vh]">
+                  <RepairsTableView
+                    sections={operationalSections}
+                    allRepairs={allRepairs}
+                    contractors={contractors}
+                    selectedContractorId={selectedContractorId}
+                    onContractorChange={handleContractorChange}
+                    contractorTotal={contractorTotal}
+                    clientTotal={clientTotal}
+                    utility={utility}
+                    budgetBreakdown={budgetBreakdown}
+                    warrantyDeposit={warrantyDeposit}
+                    depositDiff={depositDiff}
+                    onOpenCatalog={openCatalog}
+                    onUpdateRepair={updateRepairItem}
+                    onDeleteRepair={deleteRepairItem}
+                    feedbackByRepairId={ownerFeedback.feedbackByRepairId}
+                  />
+                </div>
+              </Card>
 
               {/* Published versions — grouped by version_number (one row per version, two audience links) */}
               <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -1543,7 +1745,73 @@ export default function AdminInspectionDetail() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* ── Cotización tab ── */}
+          <TabsContent value="quotation">
+            <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+              <div className="min-h-[60vh]">
+                <QuotationView
+                  budgetBreakdown={budgetBreakdown}
+                  discountBreakdown={discountBreakdown}
+                  activeDiscount={activeDiscountInput}
+                  discountReason={discountState.discount?.discount_reason ?? null}
+                  onOpenDiscount={handleOpenDiscount}
+                  onRemoveDiscount={handleRemoveDiscount}
+                  discountSaving={discountState.saving}
+                  clientTotal={clientTotal}
+                  contractorTotal={contractorTotal}
+                  utility={utility}
+                  warrantyDeposit={warrantyDeposit}
+                  depositDiff={depositDiff}
+                  hasRepairs={allRepairs.length > 0}
+                  onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
+                  onOpenContractorQuotation={() => setContractorQuotationOpen(true)}
+                  onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
+                  onGoToRepairs={() => setActiveTab('budget')}
+                  onGoToPublish={() => setActiveTab('publish')}
+                  ownerPendingFeedbackCount={ownerFeedback.pendingCount}
+                  ownerFeedbackVersionNumber={ownerFeedback.versionNumber}
+                />
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ── Publicación tab ── */}
+          <TabsContent value="publish">
+            <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
+              <div className="min-h-[60vh]">
+                {inspection && (
+                  <PublishView
+                    inspection={inspection}
+                    operationalSections={operationalSections}
+                    missingSections={showObservationWarnings ? missingSections : []}
+                    hasRepairs={allRepairs.length > 0}
+                    hasContractor={!!selectedContractorId}
+                    signatureRecord={signatureRecord}
+                    isPublished={isPublished}
+                    submitting={saving || publishing}
+                    returnMode={returnMode}
+                    setReturnMode={setReturnMode}
+                    selectedReturnSectionsCount={selectedReturnSections.size}
+                    selectedReturnSections={selectedReturnSections}
+                    onReturnForChanges={handleAdminReturnForChanges}
+                    onToggleReturnSection={toggleReturnSection}
+                    onApprove={handleAdminApprove}
+                    onPublish={handleAdminPublish}
+                    onOpenOwner={handleOpenOwner}
+                    onOpenTenant={handleOpenTenant}
+                    onCopyOwner={handleCopyOwner}
+                    onCopyTenant={handleCopyTenant}
+                    onGoToInspection={handleJumpToInspectionSection}
+                    onGoToRepairs={() => setActiveTab('budget')}
+                    onRefresh={fetchAll}
+                  />
+                )}
+              </div>
+            </Card>
+          </TabsContent>
         </Tabs>
+
 
         {/* ─── Audit Log ─── */}
         <Collapsible>
@@ -1628,6 +1896,47 @@ export default function AdminInspectionDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ─── Quotation dialogs (owner / tenant / contractor / work order) ─── */}
+      {inspection && (
+        <>
+          <QuotationDialog
+            open={quotationDialog.open}
+            onOpenChange={(open) => setQuotationDialog((q) => ({ ...q, open }))}
+            payer={quotationDialog.payer}
+            inspection={inspection}
+            repairs={allRepairs}
+            operationalSections={operationalSections}
+          />
+          <ContractorQuotationDialog
+            open={contractorQuotationOpen}
+            onOpenChange={setContractorQuotationOpen}
+            inspection={inspection}
+            operationalSections={operationalSections}
+            allRepairs={allRepairs}
+            contractorName={selectedContractorName}
+          />
+          <WorkOrderDetailsDialog
+            open={workOrderDetailsOpen}
+            onOpenChange={setWorkOrderDetailsOpen}
+            inspection={inspection}
+            allRepairs={allRepairs}
+            contractorName={selectedContractorName}
+          />
+        </>
+      )}
+
+      {/* ─── Quotation discount sheet ─── */}
+      <QuotationDiscountSheet
+        open={discountSheetOpen}
+        onOpenChange={setDiscountSheetOpen}
+        subtotalOwner={budgetBreakdown.ownerTotal}
+        subtotalTenant={budgetBreakdown.tenantTotal}
+        taxConfig={taxConfig}
+        initial={activeDiscountInput}
+        saving={discountState.saving}
+        onSubmit={handleDiscountSubmit}
+      />
     </AdminLayout>
   );
 }
