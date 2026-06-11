@@ -34,41 +34,6 @@ export async function approveInspection(inspectionId: string, profileId: string 
   if (e2) throw e2;
 }
 
-export interface RequestChangesArgs {
-  inspectionId: string;
-  profileId: string | undefined;
-  selectedSectionIds: string[];
-  commentsBySection: Record<string, string>;
-}
-
-export async function requestChanges(args: RequestChangesArgs): Promise<void> {
-  const { inspectionId, profileId, selectedSectionIds, commentsBySection } = args;
-
-  // Batch insert all review comments in a single round-trip
-  const reviewRows = selectedSectionIds
-    .filter((secId) => commentsBySection[secId]?.trim())
-    .map((secId) => ({
-      inspection_id: inspectionId,
-      inspection_section_id: secId,
-      comment_type: 'revision_request',
-      comment: commentsBySection[secId].trim(),
-      created_by: profileId,
-    }));
-  if (reviewRows.length > 0) {
-    await supabase.from('inspection_reviews').insert(reviewRows);
-  }
-
-  // Update all sections and the inspection status in parallel
-  const [, { error }] = await Promise.all([
-    Promise.all(
-      selectedSectionIds.map((secId) =>
-        supabase.from('inspection_sections').update({ status: 'needs_changes' }).eq('id', secId),
-      ),
-    ),
-    supabase.from('inspections').update({ status: 'needs_changes' }).eq('id', inspectionId),
-  ]);
-  if (error) throw error;
-}
 
 export interface PublishArgs {
   inspection: Inspection;
