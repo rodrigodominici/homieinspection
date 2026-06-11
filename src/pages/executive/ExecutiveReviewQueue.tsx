@@ -254,16 +254,6 @@ export default function ExecutiveReviewQueue() {
                   )}
                 </div>
 
-                {grouped.in_correction.length > 0 && (
-                  <div className="space-y-3">
-                    <GroupHeader tone="amber" label="En corrección" total={grouped.in_correction.length} />
-                    <p className="text-caption text-muted-foreground ml-5 -mt-1">
-                      Esperando que el inspector realice las correcciones solicitadas.
-                    </p>
-                    <BucketSection inspections={grouped.in_correction} bucket="in_correction"
-                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
-                  </div>
-                )}
 
                 {grouped.follow_up.length > 0 && (
                   <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3}>
