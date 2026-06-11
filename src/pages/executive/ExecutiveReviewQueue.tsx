@@ -68,6 +68,10 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
   if (bucket === 'owner_feedback') {
     return { label: 'Revisar feedback', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
   }
+  // Ciclo cerrado por aceptación del propietario: solo lectura.
+  if (isAcceptedByOwner(insp)) {
+    return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+  }
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
     case 'in_review':         return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
