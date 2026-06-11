@@ -792,9 +792,7 @@ export default function AdminInspectionDetail() {
   }, [id, profile?.id, fetchAll, toast]);
 
   /** Admin publish wrapper for PublishView (signature: `(force?: boolean) => Promise<void>`). */
-  const handleAdminPublish = useCallback(async (_force?: boolean) => {
-    await handlePublish();
-  }, [/* handlePublish stable in this component */]);
+  const handleAdminPublish = async (_force?: boolean) => { await handlePublish(); };
 
   const fetchPublishedUrls = useCallback(async () => {
     if (!inspection) return null;
