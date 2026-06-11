@@ -1523,6 +1523,12 @@ export default function AdminInspectionDetail() {
           {/* ── Review tab — full executive capabilities ── */}
           <TabsContent value="review">
             <div className="space-y-4">
+              {showObservationWarnings && missingSections.length > 0 && (
+                <PendingDecisionsBanner
+                  missingSections={missingSections}
+                  onJumpToSection={handleJumpToInspectionSection}
+                />
+              )}
               {operationalSections.length === 0 && (
                 <Card className="border-0 ring-1 ring-border shadow-sm">
                   <CardContent className="p-4"><p className="text-sm text-muted-foreground">No hay secciones.</p></CardContent>
