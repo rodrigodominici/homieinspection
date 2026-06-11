@@ -1754,7 +1754,6 @@ export default function AdminInspectionDetail() {
                     isPublished={isPublished}
                     submitting={saving || publishing}
                     onApprove={handleAdminApprove}
-                    onApprove={handleAdminApprove}
                     onPublish={handleAdminPublish}
                     onOpenOwner={handleOpenOwner}
                     onOpenTenant={handleOpenTenant}
