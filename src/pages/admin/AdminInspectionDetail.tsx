@@ -1513,7 +1513,7 @@ export default function AdminInspectionDetail() {
                           </div>
                         )}
                       </CollapsibleContent>
-                    </Collapsible>
+                    </Collapsible></div>
                   );
                 })}
               </CardContent>
