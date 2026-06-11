@@ -74,10 +74,7 @@ export default function ExecutiveReviewDetail() {
   const [internalNotes, setInternalNotes] = useState<Record<string, string>>({});
   const [finalObservations, setFinalObservations] = useState<Record<string, string>>({});
 
-  // Return mode
-  const [returnMode, setReturnMode] = useState(false);
-  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
-  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
+  // (Devolver para cambios eliminado — el flujo needs_changes ya no aplica)
 
   // Quotation dialog
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
