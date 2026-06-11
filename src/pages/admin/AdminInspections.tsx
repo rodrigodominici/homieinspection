@@ -335,7 +335,6 @@ export default function AdminInspections() {
     unassigned: bucketCounts.unassigned,
     inProgress: inspections.filter((i) => i.status === 'in_progress').length,
     forReview:  inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
-    needsChanges: inspections.filter((i) => i.status === 'needs_changes').length,
     toPublish:  inspections.filter((i) => i.status === 'approved').length,
     published:  inspections.filter((i) => i.status === 'published' || i.status === 'sent' || i.status === 'accepted').length,
   }), [inspections, bucketCounts]);
