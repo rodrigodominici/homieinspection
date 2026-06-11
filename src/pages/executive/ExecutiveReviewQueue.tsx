@@ -32,13 +32,11 @@ import { useExecutiveQueue } from '@/modules/review/api';
 // ─── Bucketing (job-to-be-done) ────────────────────
 type ExecutiveBucket =
   | 'action'        // submitted, in_review, approved
-  | 'in_correction' // needs_changes
   | 'follow_up'     // published, sent
   | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
-  if (insp.status === 'needs_changes') return 'in_correction';
   if (['published', 'sent'].includes(insp.status)) return 'follow_up';
   return 'pre_inspection';
 }
@@ -62,7 +60,6 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
     case 'in_review':         return { label: 'Continuar revisión', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
-    case 'needs_changes':     return { label: 'Ver correcciones',   icon: <Eye        className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
     case 'approved':          return { label: 'Publicar',           icon: <Send       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
     case 'published':         return { label: 'Abrir reporte',      icon: <ExternalLink className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
     case 'sent':              return { label: 'Abrir reporte',      icon: <ExternalLink className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
