@@ -273,14 +273,16 @@ function StatTile({
   icon: Icon,
   to,
   accent,
+  tooltip,
 }: {
   label: string;
   value: number;
   icon: React.ElementType;
   to: string;
   accent?: boolean;
+  tooltip?: string;
 }) {
-  return (
+  const tile = (
     <Link to={to} className="block">
       <Card className={cn("border-0 shadow-sm rounded-2xl active:scale-[0.99] transition-transform", accent ? "bg-primary/5" : "bg-card")}>
         <CardContent className="p-4 min-h-[88px] flex flex-col items-center justify-center text-center gap-1">
@@ -291,7 +293,21 @@ function StatTile({
       </Card>
     </Link>
   );
+
+  if (!tooltip) return tile;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{tile}</TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[240px] text-xs leading-snug">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
+
 
 function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWithProgress; contextLabel: string }) {
   const progress = insp.totalSections > 0 ? Math.round((insp.completedSections / insp.totalSections) * 100) : 0;
