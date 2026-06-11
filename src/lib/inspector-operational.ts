@@ -175,8 +175,7 @@ export function priorityBucket(
   if (
     insp.status === 'in_progress' ||
     insp.status === 'submitted' ||
-    insp.status === 'in_review' ||
-    insp.status === 'needs_changes'
+    insp.status === 'in_review'
   ) {
     return 3;
   }
