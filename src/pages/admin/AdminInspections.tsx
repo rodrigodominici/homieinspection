@@ -686,8 +686,8 @@ export default function AdminInspections() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {filteredInspections.map((insp) => {
-                  const bucket = priorityBucket(insp);
+                {paginatedInspections.map((insp) => {
+                  const bucket = bucketByInsp.get(insp.id) ?? 5;
                   const bLabel = priorityBucketLabel(bucket);
                   const missing = missingAssignmentLabel(insp);
                   return (
