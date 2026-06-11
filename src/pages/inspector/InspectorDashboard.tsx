@@ -301,9 +301,7 @@ function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWi
     ? 'Revisar y enviar'
     : displayState.key === 'assigned' || displayState.key === 'to_coordinate'
       ? 'Iniciar'
-      : displayState.key === 'needs_changes'
-        ? 'Corregir'
-        : 'Continuar';
+      : 'Continuar';
 
   return (
     <Card className="border-0 shadow-md rounded-3xl overflow-hidden bg-card">
