@@ -208,7 +208,7 @@ Section completion criteria are pattern-based (see
 answered, photo gate satisfied.
 
 Statuses that do NOT count as completed: `not_started`, `assigned`,
-`in_progress`, `needs_changes`.
+`in_progress`.
 
 ---
 
