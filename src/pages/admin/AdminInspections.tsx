@@ -215,7 +215,8 @@ export default function AdminInspections() {
         supabase
           .from('inspections')
           .select('*, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)')
-          .order('updated_at', { ascending: false }),
+          .order('updated_at', { ascending: false })
+          .limit(500),
         supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
       ]);
 
