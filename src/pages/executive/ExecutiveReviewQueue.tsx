@@ -27,6 +27,7 @@ import {
   ErrorState,
 } from '@/shared/ui';
 import { useExecutiveQueue } from '@/modules/review/api';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 
 
 // ─── Bucketing (job-to-be-done) ────────────────────
