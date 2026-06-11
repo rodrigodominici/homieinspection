@@ -27,6 +27,7 @@ import {
   ErrorState,
 } from '@/shared/ui';
 import { useExecutiveQueue } from '@/modules/review/api';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 
 
 // ─── Bucketing (job-to-be-done) ────────────────────
@@ -41,6 +42,8 @@ function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
       && insp.owner_feedback_status === 'pending_executive_review') {
     return 'owner_feedback';
   }
+  // Aceptada por propietario = ciclo cerrado, no es acción pendiente.
+  if (isAcceptedByOwner(insp)) return 'follow_up';
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
   if (['published', 'sent'].includes(insp.status)) return 'follow_up';
   return 'pre_inspection';
@@ -64,6 +67,10 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
   }
   if (bucket === 'owner_feedback') {
     return { label: 'Revisar feedback', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
+  }
+  // Ciclo cerrado por aceptación del propietario: solo lectura.
+  if (isAcceptedByOwner(insp)) {
+    return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
   }
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };

@@ -27,6 +27,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
@@ -1087,10 +1088,16 @@ export default function AdminInspectionDetail() {
                   <CheckCircle2 className="h-4 w-4" /> Completar Presupuesto
                 </Button>
               )}
-              {currentStage === 'share' && !isPublished && (
+              {currentStage === 'share' && !isPublished && !isAcceptedByOwner(inspection) && (
                 <Button onClick={handlePublish} disabled={publishing} className="gap-2">
                   <ExternalLink className="h-4 w-4" /> {publishing ? 'Publicando...' : 'Publicar y Generar URL'}
                 </Button>
+              )}
+              {currentStage === 'share' && !isPublished && isAcceptedByOwner(inspection) && (
+                <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-status-good" />
+                  Ciclo cerrado por el propietario
+                </div>
               )}
               {isPublished && ownerUrl && (
                 <div className="flex items-center gap-2 flex-wrap">

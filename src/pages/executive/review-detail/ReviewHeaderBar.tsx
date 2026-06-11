@@ -9,6 +9,7 @@ import {
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { BudgetSummaryBar, type BudgetBreakdown } from './BudgetSummaryBar';
 import { InspectorProgressCard } from './InspectorProgressCard';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 
 interface ReviewHeaderBarProps {
@@ -127,7 +128,7 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
               </DropdownMenu>
             )}
 
-            {inspection.status === 'published' || inspection.status === 'sent' ? (
+            {isAcceptedByOwner(inspection) ? null : (inspection.status === 'published' || inspection.status === 'sent') ? (
               <Button size="sm" variant="outline" onClick={() => onPublish()} disabled={submitting}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Republicar
               </Button>
