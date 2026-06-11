@@ -515,35 +515,6 @@ export default function AdminInspections() {
                 onClick={() => setBucketFilter(bucketFilter === 'accepted' ? 'all' : 'accepted')}
               />
             </div>
-                icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
-                active={bucketFilter === 'unassigned'}
-                onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
-              />
-              <KpiCard
-                label="En progreso" value={kpis.inProgress}
-                icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
-                active={statusFilter === 'in_progress'}
-                onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
-              />
-              <KpiCard
-                label="Para revisar" value={kpis.forReview}
-                icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
-                active={statusFilter === 'submitted'}
-                onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
-              />
-              <KpiCard
-                label="Para publicar" value={kpis.toPublish}
-                icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
-                active={statusFilter === 'approved'}
-                onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
-              />
-              <KpiCard
-                label="Publicadas" value={kpis.published}
-                icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
-                active={statusFilter === 'published'}
-                onClick={() => setStatusFilter(statusFilter === 'published' ? 'all' : 'published')}
-              />
-            </div>
 
             {/* FiltersBar — search + selects + sort + view toggle */}
             <FiltersBar>
