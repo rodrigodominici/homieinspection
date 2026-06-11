@@ -152,12 +152,9 @@ export default function AdminInspectionDetail() {
   const [savingKeyDate, setSavingKeyDate] = useState(false);
   const [resendingKeyDate, setResendingKeyDate] = useState(false);
 
-  // Executive-aligned state (contractor, return-for-changes, quotation, discount)
+  // Executive-aligned state (contractor, quotation, discount)
   const [contractors, setContractors] = useState<Array<{ id: string; name: string; country: string; is_active: boolean; created_at: string }>>([]);
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
-  const [returnMode, setReturnMode] = useState(false);
-  const [selectedReturnSections, setSelectedReturnSections] = useState<Set<string>>(new Set());
-  const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [quotationDialog, setQuotationDialog] = useState<{ open: boolean; payer: 'owner' | 'tenant' }>({ open: false, payer: 'owner' });
   const [contractorQuotationOpen, setContractorQuotationOpen] = useState(false);
   const [workOrderDetailsOpen, setWorkOrderDetailsOpen] = useState(false);
