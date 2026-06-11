@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { InspectionStatusBadge } from '@/components/StatusBadge';
+import { StatusBadge } from '@/shared/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft, Copy, AlertTriangle, ExternalLink, RefreshCw,
@@ -83,7 +83,7 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
-              <InspectionStatusBadge status={inspection.status} />
+              <StatusBadge inspection={inspection} />
             </div>
             <InspectorProgressCard
               inspectorProgressLabel={inspectorProgressLabel}
