@@ -148,9 +148,19 @@ export default function AdminInspections() {
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all');
   const [inspectorFilter, setInspectorFilter] = useState<string>(searchParams.get('inspector') ?? 'all');
   const [executiveFilter, setExecutiveFilter] = useState<string>(searchParams.get('executive') ?? 'all');
+  const [marketFilter, setMarketFilter] = useState<string>(searchParams.get('market') ?? 'all');
+  const [publishedFilter, setPublishedFilter] = useState<string>(searchParams.get('published') ?? 'all');
   const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('priority');
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') ?? 'priority');
+  const [page, setPage] = useState<number>(() => {
+    const p = parseInt(searchParams.get('page') ?? '1', 10);
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  });
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const ps = parseInt(searchParams.get('pageSize') ?? '25', 10);
+    return PAGE_SIZE_OPTIONS.includes(ps) ? ps : 25;
+  });
 
   // Keep URL in sync with filter selections so the state is shareable.
   useEffect(() => {
@@ -162,12 +172,24 @@ export default function AdminInspections() {
     setOrDelete('inspector', inspectorFilter);
     setOrDelete('executive', executiveFilter);
     setOrDelete('status', statusFilter);
+    setOrDelete('market', marketFilter);
+    setOrDelete('published', publishedFilter);
     setOrDelete('bucket', bucketFilter);
+    setOrDelete('sort', sortBy, 'priority');
+    if (page > 1) next.set('page', String(page)); else next.delete('page');
+    if (pageSize !== 25) next.set('pageSize', String(pageSize)); else next.delete('pageSize');
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectorFilter, executiveFilter, statusFilter, bucketFilter]);
+  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, sortBy, page, pageSize]);
+
+  // Reset to first page whenever filters / search / sort change.
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+
   const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
   const setViewMode = (v: 'cards' | 'table') => {
     const next = new URLSearchParams(searchParams);
