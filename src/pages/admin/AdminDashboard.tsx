@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { InspectionStatusBadge } from '@/components/StatusBadge';
+import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { KpiCard } from '@/shared/ui';
@@ -14,16 +14,18 @@ import type { Inspection, Profile } from '@/lib/types';
 import {
   Plus, User, CalendarClock, AlertTriangle,
   UserCheck, Clock, FileSearch, AlertCircle, Send, CheckCircle2,
+  MessageSquareWarning, Hourglass,
 } from 'lucide-react';
 
 /**
  * Reduced inspection columns for the dashboard.
  * We omit heavyweight JSON columns (`property_snapshot_json`,
  * `generated_structure_json`) to keep the payload small — the dashboard
- * only needs scheduling overrides + identification fields.
+ * only needs scheduling overrides + identification fields + owner-feedback
+ * status so KPIs can split the post-publish lifecycle correctly.
  */
 const DASHBOARD_COLS =
-  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json';
+  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json, owner_feedback_status, owner_feedback_last_submitted_at';
 
 async function fetchDashboardInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
@@ -121,8 +123,10 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue.
+                After publishing, the lifecycle splits in 3 to reflect the
+                owner-feedback loop (esperando ↔ requiere acción ↔ aceptada). */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
               <Link to="/admin/inspections?bucket=unassigned">
                 <KpiCard
                   label="Sin asignar" value={kpis.unassigned}
@@ -147,9 +151,21 @@ export default function AdminDashboard() {
                   icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
                 />
               </Link>
-              <Link to="/admin/inspections?status=published">
+              <Link to="/admin/inspections?bucket=waiting_owner">
                 <KpiCard
-                  label="Publicadas" value={kpis.published}
+                  label="Esperando propietario" value={kpis.waitingOwner}
+                  icon={<Hourglass className="h-5 w-5 text-primary" />} accent="blue"
+                />
+              </Link>
+              <Link to="/admin/inspections?bucket=owner_feedback">
+                <KpiCard
+                  label="Feedback propietario" value={kpis.ownerFeedback}
+                  icon={<MessageSquareWarning className="h-5 w-5 text-status-bad" />} accent="red"
+                />
+              </Link>
+              <Link to="/admin/inspections?bucket=accepted">
+                <KpiCard
+                  label="Aceptadas" value={kpis.accepted}
                   icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                 />
               </Link>
@@ -252,7 +268,7 @@ export default function AdminDashboard() {
                       <Link key={insp.id} to={`/admin/inspections/${insp.id}`} className="block py-1.5 hover:bg-muted/30 rounded px-1 -mx-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
-                          <InspectionStatusBadge status={insp.status} />
+                          <StatusBadge inspection={insp} />
                         </div>
                       </Link>
                     ))
@@ -276,7 +292,7 @@ export default function AdminDashboard() {
                           <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                           <p className="text-tiny text-muted-foreground truncate">{insp.address}</p>
                         </div>
-                        <InspectionStatusBadge status={insp.status} />
+                        <StatusBadge inspection={insp} />
                       </div>
                     </Link>
                   ))}

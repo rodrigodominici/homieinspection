@@ -10,7 +10,7 @@ import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
-  ArrowUpDown, Key, Check, ChevronRight,
+  ArrowUpDown, Key, Check, ChevronRight, AlertCircle,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
@@ -31,17 +31,22 @@ import { useExecutiveQueue } from '@/modules/review/api';
 
 // ─── Bucketing (job-to-be-done) ────────────────────
 type ExecutiveBucket =
-  | 'action'        // submitted, in_review, approved
-  | 'follow_up'     // published, sent
+  | 'owner_feedback'  // published + owner pidió cambios → máxima prioridad
+  | 'action'          // submitted, in_review, approved
+  | 'follow_up'       // published, sent (sin feedback) y aceptadas
   | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
+  if ((insp.status === 'published' || insp.status === 'sent')
+      && insp.owner_feedback_status === 'pending_executive_review') {
+    return 'owner_feedback';
+  }
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
   if (['published', 'sent'].includes(insp.status)) return 'follow_up';
   return 'pre_inspection';
 }
 
-const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['action'];
+const ACTIONABLE_BUCKETS: ExecutiveBucket[] = ['action', 'owner_feedback'];
 
 type SortKey = 'updated' | 'keys-asc' | 'keys-desc';
 const SORT_LABELS: Record<SortKey, string> = {
@@ -56,6 +61,9 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
   // Pre-inspección: informativo únicamente, el ejecutivo no asigna inspectores
   if (bucket === 'pre_inspection') {
     return { label: 'Ver detalle', icon: <Eye className="mr-1 h-3.5 w-3.5" />, variant: 'outline' };
+  }
+  if (bucket === 'owner_feedback') {
+    return { label: 'Revisar feedback', icon: <FileSearch className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
   }
   switch (insp.status) {
     case 'submitted':         return { label: 'Iniciar revisión',   icon: <Play       className="mr-1 h-3.5 w-3.5" />, variant: 'default' };
@@ -107,10 +115,16 @@ export default function ExecutiveReviewQueue() {
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
 
   const kpis = useMemo(() => ({
+    ownerFeedback:inspections.filter(i =>
+      (i.status === 'published' || i.status === 'sent')
+      && i.owner_feedback_status === 'pending_executive_review').length,
     forReview:    inspections.filter(i => i.status === 'submitted').length,
     inReview:     inspections.filter(i => i.status === 'in_review').length,
-    toPublish:    inspections.filter(i => i.status === 'approved').length,
-    published:    inspections.filter(i => ['published', 'sent'].includes(i.status)).length,
+    toPublish:    inspections.filter(i => i.status === 'approved' && i.owner_feedback_status !== 'accepted').length,
+    waitingOwner: inspections.filter(i =>
+      (i.status === 'published' || i.status === 'sent')
+      && (i.owner_feedback_status ?? 'none') === 'none').length,
+    accepted:     inspections.filter(i => i.owner_feedback_status === 'accepted').length,
   }), [inspections]);
 
   // Per-bucket sorts. Action: oldest activity first (longest in state).
@@ -131,10 +145,15 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      action: [], follow_up: [], pre_inspection: [],
+      owner_feedback: [], action: [], follow_up: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
     // Apply per-bucket secondary sort (override the global sortKey).
+    buckets.owner_feedback.sort((a, b) => {
+      const dA = a.owner_feedback_last_submitted_at ? new Date(a.owner_feedback_last_submitted_at).getTime() : 0;
+      const dB = b.owner_feedback_last_submitted_at ? new Date(b.owner_feedback_last_submitted_at).getTime() : 0;
+      return dB - dA;
+    });
     buckets.action.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
     buckets.follow_up.sort((a, b) => {
       const dA = a.published_at ? new Date(a.published_at).getTime() : 0;
@@ -158,12 +177,14 @@ export default function ExecutiveReviewQueue() {
           <ErrorState onRetry={() => window.location.reload()} />
         ) : (
           <>
-            {/* KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPIs — post-publish lifecycle separa esperando ↔ feedback ↔ aceptadas. */}
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" />
               <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
               <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
               <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
-              <KpiCard label="Publicadas"    value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" active={statusFilter === 'published'}      onClick={() => setStatusFilter(statusFilter === 'published'      ? 'all' : 'published')} />
+              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" />
+              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" />
             </div>
 
             {/* Filters */}
@@ -244,6 +265,14 @@ export default function ExecutiveReviewQueue() {
               />
             ) : (
               <div className="space-y-6">
+                {grouped.owner_feedback.length > 0 && (
+                  <div className="space-y-3">
+                    <GroupHeader tone="amber" label="Feedback del propietario" total={grouped.owner_feedback.length} />
+                    <BucketSection inspections={grouped.owner_feedback} bucket="owner_feedback"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   <GroupHeader tone="primary" label="Requieren tu acción" total={grouped.action.length} />
                   {grouped.action.length === 0 ? (
@@ -411,7 +440,7 @@ function InspectionRow({
               {/* Line 1: name + status */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold leading-tight truncate">{insp.property_name ?? insp.property_id}</p>
-                <StatusBadge status={insp.status} />
+                <StatusBadge inspection={insp} />
               </div>
               {/* Line 2: address · inspector */}
               <p className="text-caption text-muted-foreground truncate">
