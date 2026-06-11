@@ -27,6 +27,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
+import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
