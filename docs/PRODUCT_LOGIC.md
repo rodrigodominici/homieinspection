@@ -175,7 +175,7 @@ Inspector Submits → inspection status: submitted
         ↓
 Executive Reviews (auto in_review) → edits, internal notes, photo visibility
         ↓
-Approve → approved      Request Changes → needs_changes (per-section)
+Approve → approved
         ↓
 Budget → repair items priced (client + contractor)
         ↓
