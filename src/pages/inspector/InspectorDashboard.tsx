@@ -88,11 +88,11 @@ export default function InspectorDashboard() {
   // "Total asignadas" excludes pending_assignment — that status is not yet
   // actionable for the inspector (no formal assignment).
   const assigned = inspections.filter((i) =>
-    ['assigned', 'in_progress', 'needs_changes'].includes(i.status)
+    ['assigned', 'in_progress'].includes(i.status)
   );
   // Broader "active" set used internally (includes pending_assignment for to_coordinate detection).
   const active = inspections.filter((i) =>
-    ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'].includes(i.status)
+    ['assigned', 'in_progress', 'pending_assignment'].includes(i.status)
   );
 
   const todayInspections = assigned.filter(
@@ -106,7 +106,6 @@ export default function InspectorDashboard() {
     getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'assigned'
   );
   const completedToday = inspections.filter((i) => isCompletedToday(i));
-  const needsAttention = assigned.filter((i) => getInspectorDisplayState(i, i.completedSections, i.totalSections, i).key === 'needs_changes');
   const toCoordinate = active.filter((i) => isToCoordinate(i));
 
   const readyToSend = active.filter((i) =>
