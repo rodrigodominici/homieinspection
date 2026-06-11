@@ -35,6 +35,7 @@ function formatMoney(value: number, market?: string | null): string {
 
 export default function PropertyBriefingCard({ inspection }: Props) {
   const snapshot = getEffectiveSnapshot(inspection);
+  const contactPersonLabel = inspection.inspection_type === 'captacion' ? 'Propietario' : 'Inquilino';
   const address = inspection.address ?? (snapshot?.address as string) ?? null;
   const propertyType = inspection.property_type ?? (snapshot?.property_type as string) ?? null;
   const tower = (snapshot?.tower as string) ?? null;
@@ -161,7 +162,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
                   <User className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Inquilino</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{contactPersonLabel}</p>
                   <p className="text-body font-medium truncate">{tenantName}</p>
                 </div>
                 {tenantWhatsapp && (
