@@ -1596,6 +1596,53 @@ export type Database = {
           },
         ]
       }
+      slack_notifications_log: {
+        Row: {
+          error_message: string | null
+          event_type: string
+          id: string
+          inspection_id: string
+          recipient_email: string | null
+          recipient_slack_user_id: string | null
+          sent_at: string
+          slack_channel: string | null
+          slack_message_ts: string | null
+          status: string
+        }
+        Insert: {
+          error_message?: string | null
+          event_type: string
+          id?: string
+          inspection_id: string
+          recipient_email?: string | null
+          recipient_slack_user_id?: string | null
+          sent_at?: string
+          slack_channel?: string | null
+          slack_message_ts?: string | null
+          status?: string
+        }
+        Update: {
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          inspection_id?: string
+          recipient_email?: string | null
+          recipient_slack_user_id?: string | null
+          sent_at?: string
+          slack_channel?: string | null
+          slack_message_ts?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_notifications_log_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
