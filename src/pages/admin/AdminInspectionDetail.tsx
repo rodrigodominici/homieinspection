@@ -1896,6 +1896,47 @@ export default function AdminInspectionDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ─── Quotation dialogs (owner / tenant / contractor / work order) ─── */}
+      {inspection && (
+        <>
+          <QuotationDialog
+            open={quotationDialog.open}
+            onOpenChange={(open) => setQuotationDialog((q) => ({ ...q, open }))}
+            payer={quotationDialog.payer}
+            inspection={inspection}
+            repairs={allRepairs}
+            operationalSections={operationalSections}
+          />
+          <ContractorQuotationDialog
+            open={contractorQuotationOpen}
+            onOpenChange={setContractorQuotationOpen}
+            inspection={inspection}
+            operationalSections={operationalSections}
+            allRepairs={allRepairs}
+            contractorName={selectedContractorName}
+          />
+          <WorkOrderDetailsDialog
+            open={workOrderDetailsOpen}
+            onOpenChange={setWorkOrderDetailsOpen}
+            inspection={inspection}
+            allRepairs={allRepairs}
+            contractorName={selectedContractorName}
+          />
+        </>
+      )}
+
+      {/* ─── Quotation discount sheet ─── */}
+      <QuotationDiscountSheet
+        open={discountSheetOpen}
+        onOpenChange={setDiscountSheetOpen}
+        subtotalOwner={budgetBreakdown.ownerTotal}
+        subtotalTenant={budgetBreakdown.tenantTotal}
+        taxConfig={taxConfig}
+        initial={activeDiscountInput}
+        saving={discountState.saving}
+        onSubmit={handleDiscountSubmit}
+      />
     </AdminLayout>
   );
 }
