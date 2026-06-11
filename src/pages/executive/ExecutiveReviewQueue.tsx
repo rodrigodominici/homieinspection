@@ -159,10 +159,9 @@ export default function ExecutiveReviewQueue() {
         ) : (
           <>
             {/* KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
               <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
-              <KpiCard label="En corrección" value={kpis.needsChanges} icon={<Clock className="h-5 w-5 text-status-bad" />}        accent="amber" active={statusFilter === 'needs_changes'}  onClick={() => setStatusFilter(statusFilter === 'needs_changes'  ? 'all' : 'needs_changes')} />
               <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
               <KpiCard label="Publicadas"    value={kpis.published}    icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" active={statusFilter === 'published'}      onClick={() => setStatusFilter(statusFilter === 'published'      ? 'all' : 'published')} />
             </div>
