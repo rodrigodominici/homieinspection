@@ -71,13 +71,24 @@ const SORT_OPTIONS = [
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 // Quick-filter buckets
-type Bucket = 'all' | 'unassigned' | 'por_coordinar' | 'programadas' | 'in_progress';
+type Bucket =
+  | 'all'
+  | 'unassigned'
+  | 'por_coordinar'
+  | 'programadas'
+  | 'in_progress'
+  | 'waiting_owner'
+  | 'owner_feedback'
+  | 'accepted';
 const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
   { value: 'por_coordinar', label: 'Por coordinar' },
   { value: 'programadas', label: 'Programadas' },
   { value: 'in_progress', label: 'En progreso' },
+  { value: 'waiting_owner', label: 'Esperando propietario' },
+  { value: 'owner_feedback', label: 'Feedback propietario' },
+  { value: 'accepted', label: 'Aceptadas' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
@@ -458,10 +469,52 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* KPIs — clickable filter shortcuts */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {/* KPIs — clickable filter shortcuts. Post-publish lifecycle
+                splits in 3 (esperando ↔ feedback ↔ aceptadas). */}
+            <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
               <KpiCard
                 label="Sin asignar" value={kpis.unassigned}
+                icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
+                active={bucketFilter === 'unassigned'}
+                onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
+              />
+              <KpiCard
+                label="En progreso" value={kpis.inProgress}
+                icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'in_progress'}
+                onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
+              />
+              <KpiCard
+                label="Para revisar" value={kpis.forReview}
+                icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'submitted'}
+                onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
+              />
+              <KpiCard
+                label="Para publicar" value={kpis.toPublish}
+                icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
+                active={statusFilter === 'approved'}
+                onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+              />
+              <KpiCard
+                label="Esperando propietario" value={kpis.waitingOwner}
+                icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                active={bucketFilter === 'waiting_owner'}
+                onClick={() => setBucketFilter(bucketFilter === 'waiting_owner' ? 'all' : 'waiting_owner')}
+              />
+              <KpiCard
+                label="Feedback propietario" value={kpis.ownerFeedback}
+                icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red"
+                active={bucketFilter === 'owner_feedback'}
+                onClick={() => setBucketFilter(bucketFilter === 'owner_feedback' ? 'all' : 'owner_feedback')}
+              />
+              <KpiCard
+                label="Aceptadas" value={kpis.accepted}
+                icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
+                active={bucketFilter === 'accepted'}
+                onClick={() => setBucketFilter(bucketFilter === 'accepted' ? 'all' : 'accepted')}
+              />
+            </div>
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
                 active={bucketFilter === 'unassigned'}
                 onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
