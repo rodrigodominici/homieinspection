@@ -122,7 +122,7 @@ export default function AdminDashboard() {
         ) : (
           <>
             {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <Link to="/admin/inspections?bucket=unassigned">
                 <KpiCard
                   label="Sin asignar" value={kpis.unassigned}
@@ -139,12 +139,6 @@ export default function AdminDashboard() {
                 <KpiCard
                   label="Para revisar" value={kpis.forReview}
                   icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
-                />
-              </Link>
-              <Link to="/admin/inspections?status=needs_changes">
-                <KpiCard
-                  label="En corrección" value={kpis.needsChanges}
-                  icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="amber"
                 />
               </Link>
               <Link to="/admin/inspections?status=approved">
