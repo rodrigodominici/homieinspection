@@ -10,7 +10,7 @@ import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
-  ArrowUpDown, Key, Check, ChevronRight,
+  ArrowUpDown, Key, Check, ChevronRight, AlertCircle,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
