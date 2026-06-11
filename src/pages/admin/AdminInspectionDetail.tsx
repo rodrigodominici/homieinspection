@@ -1753,12 +1753,7 @@ export default function AdminInspectionDetail() {
                     signatureRecord={signatureRecord}
                     isPublished={isPublished}
                     submitting={saving || publishing}
-                    returnMode={returnMode}
-                    setReturnMode={setReturnMode}
-                    selectedReturnSectionsCount={selectedReturnSections.size}
-                    selectedReturnSections={selectedReturnSections}
-                    onReturnForChanges={handleAdminReturnForChanges}
-                    onToggleReturnSection={toggleReturnSection}
+                    onApprove={handleAdminApprove}
                     onApprove={handleAdminApprove}
                     onPublish={handleAdminPublish}
                     onOpenOwner={handleOpenOwner}
