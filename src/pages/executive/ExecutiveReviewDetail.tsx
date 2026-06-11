@@ -596,8 +596,6 @@ export default function ExecutiveReviewDetail() {
         inspectorProgressLabel={inspectorProgressLabel}
         progress={progress}
         submitting={submitting}
-        returnMode={returnMode}
-        setReturnMode={setReturnMode}
         onOpenCatalog={actions.openCatalog}
         onOpenRepairsDrawer={handleOpenRepairsDrawerMobile}
         onPublish={actions.handlePublish}
