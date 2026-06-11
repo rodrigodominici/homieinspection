@@ -1,8 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy, RotateCcw } from 'lucide-react';
+import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
-import { RequestChangesPanel } from './RequestChangesPanel';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
@@ -16,13 +15,6 @@ interface PublishViewProps {
   signatureRecord: any | null;
   isPublished: boolean;
   submitting: boolean;
-
-  returnMode: boolean;
-  setReturnMode: (v: boolean) => void;
-  selectedReturnSectionsCount: number;
-  onReturnForChanges: () => void;
-  onToggleReturnSection: (sectionId: string) => void;
-  selectedReturnSections: Set<string>;
 
   onApprove: () => Promise<void>;
   onPublish: (force?: boolean) => Promise<void>;
@@ -49,8 +41,6 @@ export function PublishView(props: PublishViewProps) {
   const {
     inspection, operationalSections, missingSections, hasRepairs, hasContractor,
     signatureRecord, isPublished, submitting,
-    returnMode, setReturnMode, selectedReturnSectionsCount, onReturnForChanges,
-    onToggleReturnSection, selectedReturnSections,
     onApprove, onPublish, onOpenOwner, onOpenTenant, onCopyOwner, onCopyTenant,
     onGoToInspection, onGoToRepairs, onRefresh,
   } = props;
