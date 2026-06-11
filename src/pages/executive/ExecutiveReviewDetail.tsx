@@ -279,14 +279,6 @@ export default function ExecutiveReviewDetail() {
     setRepairsDrawerSectionId(sid);
   }, []);
 
-  const handleToggleReturn = useCallback(() => {
-    if (!activeSectionId) return;
-    toggleReturnSection(activeSectionId);
-  }, [activeSectionId, toggleReturnSection]);
-
-  const handleReturnCommentChange = useCallback((v: string) => {
-    setReturnComments(p => ({ ...p, [activeSectionId ?? '']: v }));
-  }, [activeSectionId]);
 
   // ─── Stable mode/dialog handlers ───────────────────────
   const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
