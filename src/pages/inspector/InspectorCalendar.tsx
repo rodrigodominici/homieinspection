@@ -82,7 +82,7 @@ export default function InspectorCalendar() {
       const { data } = await supabase
         .from('inspections')
         .select('*')
-        .in('status', ['assigned', 'in_progress', 'needs_changes', 'pending_assignment'])
+        .in('status', ['assigned', 'in_progress', 'pending_assignment'])
         .order('updated_at', { ascending: false });
 
       if (!data) { setLoading(false); return; }
