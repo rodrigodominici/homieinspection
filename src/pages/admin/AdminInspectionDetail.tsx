@@ -74,7 +74,7 @@ function stageIndex(s: WorkflowStage) {
 
 const ALL_STATUSES = [
   'pending_assignment', 'assigned', 'in_progress', 'submitted',
-  'in_review', 'needs_changes', 'approved', 'published',
+  'in_review', 'approved', 'published',
 ];
 
 interface AuditLogEntry {
