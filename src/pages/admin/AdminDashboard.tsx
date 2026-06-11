@@ -131,42 +131,49 @@ export default function AdminDashboard() {
                 <KpiCard
                   label="Sin asignar" value={kpis.unassigned}
                   icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
+                  tooltip="Inspecciones creadas que aún no tienen inspector asignado."
                 />
               </Link>
               <Link to="/admin/inspections?status=in_progress">
                 <KpiCard
                   label="En progreso" value={kpis.inProgress}
                   icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
+                  tooltip="El inspector ya inició la captura en sitio."
                 />
               </Link>
               <Link to="/admin/inspections?status=submitted">
                 <KpiCard
                   label="Para revisar" value={kpis.forReview}
                   icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
+                  tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
                 />
               </Link>
               <Link to="/admin/inspections?status=approved">
                 <KpiCard
                   label="Para publicar" value={kpis.toPublish}
                   icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
+                  tooltip="Aprobadas internamente. Falta enviarlas al propietario."
                 />
               </Link>
               <Link to="/admin/inspections?bucket=waiting_owner">
                 <KpiCard
                   label="Esperando propietario" value={kpis.waitingOwner}
                   icon={<Hourglass className="h-5 w-5 text-primary" />} accent="blue"
+                  tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 />
               </Link>
               <Link to="/admin/inspections?bucket=owner_feedback">
                 <KpiCard
                   label="Feedback propietario" value={kpis.ownerFeedback}
                   icon={<MessageSquareWarning className="h-5 w-5 text-status-bad" />} accent="red"
+                  tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 />
               </Link>
               <Link to="/admin/inspections?bucket=accepted">
                 <KpiCard
                   label="Aceptadas" value={kpis.accepted}
                   icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
+                  tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 />
               </Link>
             </div>
