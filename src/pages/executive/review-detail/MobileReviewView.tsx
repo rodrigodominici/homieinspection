@@ -195,14 +195,9 @@ export function MobileReviewView({
         })}
       </div>
 
-      {['in_review', 'approved', 'published', 'sent'].includes(inspection.status) && (
+      {['approved', 'published', 'sent'].includes(inspection.status) && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-sm border-t">
           <div className="flex gap-2">
-            {inspection.status === 'in_review' && (
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnMode(!returnMode)}>
-                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Devolver
-              </Button>
-            )}
             {inspection.status === 'approved' && (
               <Button size="sm" className="flex-1" onClick={onPublish} disabled={submitting}>
                 <Send className="mr-1 h-3.5 w-3.5" /> Publicar
