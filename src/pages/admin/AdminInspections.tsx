@@ -310,21 +310,60 @@ export default function AdminInspections() {
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
 
+  // Pre-compute priority bucket once per inspection (used by filters, sort, chips, KPIs).
+  const bucketByInsp = useMemo(() => {
+    const m = new Map<string, 0 | 1 | 2 | 3 | 5>();
+    for (const i of inspections) m.set(i.id, priorityBucket(i));
+    return m;
+  }, [inspections]);
+
+  // Bucket counts in one pass (avoids 5x .filter inside the JSX).
+  const bucketCounts = useMemo(() => {
+    const counts = { all: inspections.length, unassigned: 0, por_coordinar: 0, programadas: 0, in_progress: 0 };
+    for (const i of inspections) {
+      const b = bucketByInsp.get(i.id);
+      if (b === 0) counts.unassigned++;
+      else if (b === 1) counts.por_coordinar++;
+      else if (b === 2) counts.programadas++;
+      else if (b === 3) counts.in_progress++;
+    }
+    return counts;
+  }, [inspections, bucketByInsp]);
+
+  // KPIs aligned with executive view + admin-only signals.
+  const kpis = useMemo(() => ({
+    unassigned: bucketCounts.unassigned,
+    inProgress: inspections.filter((i) => i.status === 'in_progress').length,
+    forReview:  inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
+    needsChanges: inspections.filter((i) => i.status === 'needs_changes').length,
+    toPublish:  inspections.filter((i) => i.status === 'approved').length,
+    published:  inspections.filter((i) => i.status === 'published' || i.status === 'sent' || i.status === 'accepted').length,
+  }), [inspections, bucketCounts]);
+
+  // Available markets (for the market dropdown).
+  const markets = useMemo(
+    () => [...new Set(inspections.map((i) => i.market).filter(Boolean) as string[])],
+    [inspections]
+  );
+
   // Apply all filters + sorting
   const filteredInspections = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     const result = inspections.filter((i) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
       if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
       if (executiveFilter !== 'all' && i.executive_id !== executiveFilter) return false;
+      if (marketFilter !== 'all' && i.market !== marketFilter) return false;
+      if (publishedFilter === 'published' && !i.published_at) return false;
+      if (publishedFilter === 'not_published' && !!i.published_at) return false;
       if (bucketFilter !== 'all') {
-        const b = priorityBucket(i);
+        const b = bucketByInsp.get(i.id);
         if (bucketFilter === 'unassigned' && b !== 0) return false;
         if (bucketFilter === 'por_coordinar' && b !== 1) return false;
         if (bucketFilter === 'programadas' && b !== 2) return false;
         if (bucketFilter === 'in_progress' && b !== 3) return false;
       }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+      if (q) {
         const matchAddr = (i.address ?? '').toLowerCase().includes(q);
         const matchPropId = i.property_id.toLowerCase().includes(q);
         const matchName = (i.property_name ?? '').toLowerCase().includes(q);
@@ -359,10 +398,9 @@ export default function AdminInspections() {
       case 'priority':
       default:
         sorted.sort((a, b) => {
-          const pa = priorityBucket(a);
-          const pb = priorityBucket(b);
+          const pa = bucketByInsp.get(a.id) ?? 5;
+          const pb = bucketByInsp.get(b.id) ?? 5;
           if (pa !== pb) return pa - pb;
-          // Within bucket: por coordinar → contract end asc; programadas → schedule asc; else updated desc
           if (pa === 1) return nullSafeSort(a.contractEndDate, b.contractEndDate, true);
           if (pa === 2) return nullSafeSort(a.scheduleDatetime, b.scheduleDatetime, true);
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
@@ -370,7 +408,19 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, statusFilter, inspectorFilter, executiveFilter, bucketFilter, searchQuery, sortBy]);
+  }, [inspections, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+
+  // Client-side pagination over filtered results.
+  const totalResults = filteredInspections.length;
+  const pageCount = Math.max(1, Math.ceil(totalResults / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const paginatedInspections = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredInspections.slice(start, start + pageSize);
+  }, [filteredInspections, safePage, pageSize]);
+  const firstShown = totalResults === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const lastShown = Math.min(totalResults, safePage * pageSize);
+
 
   // Workload moved to AdminDashboard (single source of truth for assignment decisions).
 
