@@ -440,7 +440,7 @@ function InspectionRow({
               {/* Line 1: name + status */}
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold leading-tight truncate">{insp.property_name ?? insp.property_id}</p>
-                <StatusBadge status={insp.status} />
+                <StatusBadge inspection={insp} />
               </div>
               {/* Line 2: address · inspector */}
               <p className="text-caption text-muted-foreground truncate">
