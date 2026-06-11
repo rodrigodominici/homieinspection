@@ -88,12 +88,12 @@ Each inspection is composed of:
    `repairs.service.ts → rebindContractorPrices`.
 6. Outcomes (`modules/review/api/inspection-actions.service.ts`):
    - **Approve** → `status = approved`, all sections set to `reviewed`.
-   - **Request changes** → status `needs_changes`; selected sections set
-     to `needs_changes` with a `revision_request` comment each.
    - **Publish** → atomically inserts owner + tenant
      `inspection_report_versions` rows sharing `version_number` and
      `normalized_payload`, marks previous versions `is_latest = false`,
      stamps `published_at`.
+   - There is **no "request changes" flow**: once submitted, an inspection
+     advances linearly toward publication.
 
 ### Public report
 
