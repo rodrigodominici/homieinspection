@@ -25,8 +25,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
-import { isSectionCompleted } from '@/lib/section-completion';
-import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
@@ -35,11 +35,28 @@ import type {
 import {
   ArrowLeft, MapPin, Save, Check, Clock, ChevronDown, Copy,
   AlertTriangle, Package, Eye, EyeOff, History, FileText, Shield, DollarSign,
-  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send,
+  ExternalLink, Share2, CheckCircle2, Link2, Trash2, Plus, Search, CalendarIcon, Send, Tag, Receipt,
 } from 'lucide-react';
 import { cn, groupBy } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Shared review/exec data hooks + components
+import { useOwnerFeedbackByRepair } from '@/modules/review/api/useOwnerFeedbackByRepair';
+import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
+import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
+import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
+import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
+import {
+  PendingDecisionsBanner,
+  RepairsTableView,
+  QuotationView,
+  QuotationDiscountSheet,
+  PublishView,
+} from '@/pages/executive/review-detail';
+import { QuotationDialog } from '@/components/QuotationDialog';
+import { ContractorQuotationDialog } from '@/components/ContractorQuotationDialog';
+import { WorkOrderDetailsDialog } from '@/components/WorkOrderDetailsDialog';
 
 /* ─── Workflow stages ─── */
 const WORKFLOW_STAGES: { key: WorkflowStage; label: string; icon: React.ElementType }[] = [
