@@ -171,6 +171,8 @@ Deno.serve(async (req) => {
 
     const slackRes = await slackCall("chat.postMessage", {
       channel: SLACK_CHANNEL,
+      username: "Homie Inspection",
+      icon_emoji: ":house:",
       text,
       blocks,
       unfurl_links: false,
