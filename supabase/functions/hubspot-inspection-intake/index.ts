@@ -364,8 +364,12 @@ Deno.serve(async (req: Request) => {
           // Persist external reference (decoupled — inspections table stays HubSpot-agnostic)
           try {
             const provider = 'hubspot';
-            const externalObjectType = 'lease_contract';
-            const externalObjectTypeId = '2-47492934';
+            // El tipo de objeto externo depende del tipo de inspección:
+            // check_out → Contrato Arriendo (custom 2-47492934)
+            // captacion → Deal estándar (0-3, pipeline Publicaciones CL)
+            const isCaptacion = body.inspection_type === 'captacion';
+            const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
+            const externalObjectTypeId = isCaptacion ? '0-3' : '2-47492934';
             const objectIdStr = String(body.external_object_id);
             const inspectionIdStr = row.inspection_id as string;
 
