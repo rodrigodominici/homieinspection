@@ -214,7 +214,7 @@ export default function InspectorDashboard() {
                           {contractEnd && (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
                               <Clock className="h-3.5 w-3.5 shrink-0" />
-                              <span>Término de contrato: {contractEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                              <span>{getContractDateShortLabel(insp.inspection_type)}: {contractEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                             </div>
                           )}
                           <div className="flex gap-2">
