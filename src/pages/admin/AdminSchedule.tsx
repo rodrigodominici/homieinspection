@@ -182,8 +182,8 @@ export default function AdminSchedule() {
           </div>
         </div>
 
-        {/* Filter pills */}
-        <div className="flex items-center gap-2">
+        {/* Filter pills: estado + tipo */}
+        <div className="flex items-center gap-2 flex-wrap">
           {([
             { value: 'all' as const, label: 'Todas' },
             { value: 'programmed' as const, label: 'Programadas' },
@@ -199,6 +199,27 @@ export default function AdminSchedule() {
               {pill.label}
             </Button>
           ))}
+          <span className="text-muted-foreground/40 mx-1">|</span>
+          {([
+            { value: 'all' as const, label: 'Todos los tipos' },
+            { value: 'check_out' as const, label: 'Check-out' },
+            { value: 'captacion' as const, label: 'Captación' },
+          ]).map(pill => (
+            <Button
+              key={pill.value}
+              variant={typeFilter === pill.value ? 'default' : 'outline'}
+              size="sm"
+              className="rounded-full h-8 px-4 text-xs"
+              onClick={() => setTypeFilter(pill.value)}
+            >
+              {pill.label}
+            </Button>
+          ))}
+          {terminalCount > 0 && (
+            <span className="ml-auto text-tiny text-muted-foreground">
+              {terminalCount} fuera de agenda (publicadas/aprobadas)
+            </span>
+          )}
         </div>
 
         {/* Week navigation */}
@@ -258,21 +279,24 @@ export default function AdminSchedule() {
                             day.toDateString() === today && "bg-amber-50/50"
                           )}
                         >
-                          {items.map(insp => (
-                            <a
-                              key={insp.id}
-                              href={`/admin/inspections/${insp.id}`}
-                              className="block rounded-md border border-dashed border-amber-300 bg-amber-50 text-amber-800 px-1.5 py-1 text-[10px] leading-tight hover:bg-amber-100 transition-colors mb-0.5"
-                              title={`${insp.property_name ?? insp.property_id} — Por coordinar`}
-                            >
-                              <span className="font-semibold">Por coordinar</span>
-                              <span className="block truncate font-medium">{insp.property_name ?? insp.property_id}</span>
-                              <span className="block truncate text-amber-600">
-                                {getContractDateMicroLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
-                              </span>
-                              {insp.inspectorName && <span className="block text-amber-500 truncate">{insp.inspectorName}</span>}
-                            </a>
-                          ))}
+                          {items.map(insp => {
+                            const tokens = getTypeVisualTokens(insp.inspection_type);
+                            return (
+                              <a
+                                key={insp.id}
+                                href={`/admin/inspections/${insp.id}`}
+                                className={tokens.bannerItemClass}
+                                title={`${insp.property_name ?? insp.property_id} — Por coordinar (${getInspectionTypeLabel(insp.inspection_type)})`}
+                              >
+                                <span className="font-semibold">Por coordinar · {getInspectionTypeLabel(insp.inspection_type)}</span>
+                                <span className="block truncate font-medium">{insp.property_name ?? insp.property_id}</span>
+                                <span className={tokens.bannerSubtextClass}>
+                                  {getContractDateMicroLabel(insp.inspection_type)}: {formatScheduleDate(insp.contractEndDate!, insp.inspection_type, { day: 'numeric', month: 'short' })}
+                                </span>
+                                {insp.inspectorName && <span className={tokens.bannerInspectorClass}>{insp.inspectorName}</span>}
+                              </a>
+                            );
+                          })}
                         </div>
                       );
                     })}
@@ -315,40 +339,50 @@ export default function AdminSchedule() {
               </div>
             </div>
 
-            {/* Por coordinar bottom */}
-            {scheduleFilter !== 'programmed' && toCoordinateBottom.length > 0 && (
-              <section>
-                <h2 className="text-caption font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Por coordinar ({toCoordinateBottom.length})
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {toCoordinateBottom.map((insp) => (
-                    <a key={insp.id} href={`/admin/inspections/${insp.id}`}>
-                      <Card className="border-0 ring-1 ring-amber-200 shadow-sm hover:shadow-md transition-shadow border-dashed">
-                        <CardContent className="py-3">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">
-                              Por coordinar
-                            </span>
-                          </div>
-                          <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
-                          <div className="flex items-center gap-1 text-tiny text-muted-foreground mt-1">
-                            <MapPin className="h-3 w-3" /> <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-tiny text-amber-700 mt-1">
-                            <FileText className="h-3 w-3" />
-                            <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                          </div>
-                          {insp.inspectorName && (
-                            <span className="text-tiny text-muted-foreground flex items-center gap-1 mt-1">
-                              <User className="h-3 w-3" /> {insp.inspectorName}
-                            </span>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </a>
-                  ))}
-                </div>
+            {/* Por coordinar bottom — agrupado por proximidad */}
+            {scheduleFilter !== 'programmed' && toCoordinateBottomRaw.length > 0 && (
+              <section className="space-y-5">
+                {(['overdue', 'this_week', 'upcoming'] as const).map(bucket => {
+                  const items = toCoordinateGroups[bucket];
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={bucket}>
+                      <h2 className="text-caption font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                        Por coordinar · {PROXIMITY_LABELS[bucket]} ({items.length})
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {items.map((insp) => {
+                          const tokens = getTypeVisualTokens(insp.inspection_type);
+                          return (
+                            <a key={insp.id} href={`/admin/inspections/${insp.id}`}>
+                              <Card className={tokens.cardRingClass}>
+                                <CardContent className="py-3">
+                                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                    <span className={tokens.chipClass}>Por coordinar</span>
+                                    <span className={tokens.chipClass}>{getInspectionTypeLabel(insp.inspection_type)}</span>
+                                  </div>
+                                  <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                                  <div className="flex items-center gap-1 text-tiny text-muted-foreground mt-1">
+                                    <MapPin className="h-3 w-3" /> <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
+                                  </div>
+                                  <div className={tokens.dateLineClass}>
+                                    <FileText className="h-3 w-3" />
+                                    <span>{getContractDateShortLabel(insp.inspection_type)}: {formatScheduleDate(insp.contractEndDate!, insp.inspection_type)}</span>
+                                  </div>
+                                  {insp.inspectorName && (
+                                    <span className="text-tiny text-muted-foreground flex items-center gap-1 mt-1">
+                                      <User className="h-3 w-3" /> {insp.inspectorName}
+                                    </span>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </section>
             )}
 
