@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { fmtCurrency } from './helpers';
+import { getPrimaryContactLabel } from '@/lib/inspection-type-labels';
 import type { Inspection } from '@/lib/types';
 
 interface PropertyContextBarProps {
