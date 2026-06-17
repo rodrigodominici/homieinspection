@@ -29,6 +29,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { getContractDateMicroLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -534,7 +535,7 @@ export default function InspectorInspectionDetail() {
                     return (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span>Contrato termina: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>{getContractDateMicroLabel(inspection?.inspection_type)}: {dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       </div>
                     );
                   })()}
@@ -613,11 +614,11 @@ export default function InspectorInspectionDetail() {
                   </span>
                 ) : signatureRecord.signature_status === 'refused' ? (
                   <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-bad-bg text-status-bad">
-                    Inquilino se negó a firmar
+                    {getPrimaryContactLabel(inspection?.inspection_type)} se negó a firmar
                   </span>
                 ) : (
                   <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                    Inquilino no disponible
+                    {getPrimaryContactLabel(inspection?.inspection_type)} no disponible
                   </span>
                 )}
               </div>

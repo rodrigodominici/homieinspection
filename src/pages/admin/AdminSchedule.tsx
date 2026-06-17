@@ -7,6 +7,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { getContractDateMicroLabel, getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import type { Inspection, Profile } from '@/lib/types';
 import { ChevronLeft, ChevronRight, MapPin, User, CalendarClock, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -233,7 +234,7 @@ export default function AdminSchedule() {
                               <span className="font-semibold">Por coordinar</span>
                               <span className="block truncate font-medium">{insp.property_name ?? insp.property_id}</span>
                               <span className="block truncate text-amber-600">
-                                Término: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                                {getContractDateMicroLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                               </span>
                               {insp.inspectorName && <span className="block text-amber-500 truncate">{insp.inspectorName}</span>}
                             </a>
@@ -302,7 +303,7 @@ export default function AdminSchedule() {
                           </div>
                           <div className="flex items-center gap-1 text-tiny text-amber-700 mt-1">
                             <FileText className="h-3 w-3" />
-                            <span>Término de contrato: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                           </div>
                           {insp.inspectorName && (
                             <span className="text-tiny text-muted-foreground flex items-center gap-1 mt-1">

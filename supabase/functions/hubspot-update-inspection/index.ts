@@ -16,7 +16,8 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const HUBSPOT_PRIVATE_APP_TOKEN = Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN');
 
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
-const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación
+const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación (check_out)
+const DEAL_OBJECT_TYPE_ID = '0-3';            // Deal estándar (captacion → pipeline Publicaciones CL)
 
 type Action = 'key_collection_date' | 'checkout_received';
 
@@ -33,9 +34,14 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function deriveNumericId(raw: string | null | undefined): string | null {
+/**
+ * Extrae el ID numérico del external_object_id quitando el prefijo según el tipo
+ * de inspección. check_out → "hs_contrato_<id>"; captacion → "hs_deal_<id>".
+ */
+function deriveNumericId(raw: string | null | undefined, inspectionType: string | null | undefined): string | null {
   if (!raw) return null;
-  const stripped = raw.replace(/^hs_contrato_/i, '');
+  const prefix = inspectionType === 'captacion' ? /^hs_deal_/i : /^hs_contrato_/i;
+  const stripped = raw.replace(prefix, '');
   if (!/^\d+$/.test(stripped)) return null;
   return stripped;
 }
@@ -174,7 +180,7 @@ Deno.serve(async (req: Request) => {
   // ── Load inspection ──
   const { data: inspection, error: inspErr } = await admin
     .from('inspections')
-    .select('id, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
+    .select('id, inspection_type, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
     .eq('id', inspectionId)
     .maybeSingle();
   if (inspErr || !inspection) {
@@ -227,13 +233,16 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── Resolve external reference ──
+  // ── Resolve external reference (tipo depende de la inspección) ──
+  const isCaptacion = inspection.inspection_type === 'captacion';
+  const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
+
   const { data: ref, error: refErr } = await admin
     .from('inspection_external_references')
     .select('id, external_object_id, external_object_type_id')
     .eq('inspection_id', inspectionId)
     .eq('provider', 'hubspot')
-    .eq('external_object_type', 'lease_contract')
+    .eq('external_object_type', externalObjectType)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -255,13 +264,14 @@ Deno.serve(async (req: Request) => {
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
-      error_message: 'no_active_external_reference',
+      error_message: `no_active_external_reference:${externalObjectType}`,
       retried_from_log_id: triggeredRetryFrom,
     });
   }
 
-  const numericId = deriveNumericId(ref.external_object_id);
-  const objectTypeId = ref.external_object_type_id ?? DEFAULT_OBJECT_TYPE_ID;
+  const numericId = deriveNumericId(ref.external_object_id, inspection.inspection_type);
+  const objectTypeId =
+    ref.external_object_type_id ?? (isCaptacion ? DEAL_OBJECT_TYPE_ID : DEFAULT_OBJECT_TYPE_ID);
 
   if (!numericId) {
     return logAndRespond(400, { ok: false, error: 'invalid_external_object_id' }, {
@@ -279,9 +289,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── PATCH HubSpot directly ──
+  // captacion → endpoint /deals/{id} (URL-friendly alias para object type 0-3);
+  // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
   const propertyName = HUBSPOT_PROPERTY_MAP[action];
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
-  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
+  const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
+  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
 
   let responseStatus: number | null = null;
   let responseBody: unknown = null;

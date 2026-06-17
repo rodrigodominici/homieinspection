@@ -244,25 +244,54 @@ export default function AdminIntegrationHubSpot() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="rounded border p-3 space-y-1">
-              <div className="font-medium">
-                <code className="text-xs">fecha_recoleccion_llaves</code>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Se envía al contrato cuando el inspector guarda la fecha de recolección de llaves.
-              </p>
-            </div>
-            <div className="rounded border p-3 space-y-1">
-              <div className="font-medium">
-                <code className="text-xs">fecha_recepcion_checkout</code>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Se envía al contrato cuando la inspección pasa a estado <code>submitted</code>.
-              </p>
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Tipo</th>
+                    <th className="text-left px-3 py-2 font-medium">Evento en Homie</th>
+                    <th className="text-left px-3 py-2 font-medium">Campo HubSpot</th>
+                    <th className="text-left px-3 py-2 font-medium">Objeto destino</th>
+                    <th className="text-left px-3 py-2 font-medium">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  <tr>
+                    <td className="px-3 py-2"><code>check_out</code></td>
+                    <td className="px-3 py-2">Inspector guarda fecha recolección</td>
+                    <td className="px-3 py-2"><code>fecha_de_recoleccion_de_llaves</code></td>
+                    <td className="px-3 py-2">Contrato Arriendo (<code>2-47492934</code>)</td>
+                    <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2"><code>check_out</code></td>
+                    <td className="px-3 py-2">Inspector envía inspección</td>
+                    <td className="px-3 py-2"><code>fecha_de_recepcion_del_checkout</code></td>
+                    <td className="px-3 py-2">Contrato Arriendo (<code>2-47492934</code>)</td>
+                    <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2"><code>captacion</code></td>
+                    <td className="px-3 py-2">Inspector guarda fecha recolección</td>
+                    <td className="px-3 py-2"><code>fecha_de_recoleccion_de_llaves</code></td>
+                    <td className="px-3 py-2">Deal — Publicaciones CL (<code>648473866</code>)</td>
+                    <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2"><code>captacion</code></td>
+                    <td className="px-3 py-2">Inspector envía inspección</td>
+                    <td className="px-3 py-2"><code>fecha_de_recepcion_del_checkout</code></td>
+                    <td className="px-3 py-2">Deal — Publicaciones CL (<code>648473866</code>)</td>
+                    <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              Object type id: <code>2-47492934</code> (Contrato de Locación). El contrato destino se resuelve
-              vía <code>inspection_external_references</code> — el modelo de inspecciones permanece desacoplado de HubSpot.
+              El objeto destino se resuelve vía <code>inspection_external_references</code> según el{' '}
+              <code>inspection_type</code> — el modelo de inspecciones permanece desacoplado de HubSpot.
+              Prefijo de <code>external_object_id</code>: <code>hs_contrato_</code> para check_out,{' '}
+              <code>hs_deal_</code> para captación.
             </p>
             <p className="text-xs text-muted-foreground">
               Transporte: PATCH directo a <code>https://api.hubapi.com</code> autenticado con el secreto{' '}

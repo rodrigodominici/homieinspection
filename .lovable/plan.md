@@ -1,59 +1,110 @@
-# Limpieza de inspecciones + fotos del bucket
+# Soporte para inspecciones tipo `captacion`
 
-## Inspecciones a conservar (7)
+## Contexto y reglas
 
-| Propiedad | ID |
-|---|---|
-| Doctor johw 995 D 1219 | `cb5cc308-09ec-4d69-b433-87c937563764` |
-| Constantino 141 D 1205 | `f778e3d5-b245-4fc3-9fc4-8a88cd239985` |
-| Radal 0102 D 1612 | `9d33f306-e3f9-47cb-9c57-55f6c3092a2d` |
-| Coronel Godoy 149 D 2104 | `59973a45-3ea7-4e3f-9859-f454e0c80b1f` |
-| General Mackenna 1555 D 813 | `9682e699-0aa5-43f5-a9ff-3a60143b88ad` |
-| Carlos Pezoa Véliz 190 D 212 | `383b04cf-9f0e-47af-9eb3-b8a9a05d51ce` |
-| Matucana 1161 D 603 | `57f656ef-6612-4eb6-9c1d-5745d8716c1a` |
+- El campo en BD `fecha_de_termino_real_de_contrato` **no cambia** — sólo cambia el label visible según `inspection_type`.
+- No se toca la creación de inspecciones ni el formulario del inspector — sólo labels y la sincronización saliente a HubSpot.
+- Mapeo por tipo:
+  - `check_out` → Contrato Arriendo (custom `2-47492934`), prefijo `hs_contrato_`, contacto = Inquilino, label fecha = "Fecha de término de contrato".
+  - `captacion` → Deal estándar (pipeline Publicaciones CL `648473866`), prefijo `hs_deal_`, contacto = Propietario, label fecha = "Fecha Tentativa de Recepción".
 
-## Inspecciones a eliminar
+> **Deuda técnica registrada:** el key `fecha_de_termino_real_de_contrato` (dentro de `property_snapshot_json` / `property_overrides_json` y en el payload del intake de HubSpot) queda con nombre semánticamente sesgado a `check_out`. Renombrarlo a algo neutro (`fecha_operacion_principal` o similar) implica coordinar el contrato del webhook entrante, migrar datos JSONB existentes y actualizar ~15 sitios. Se difiere a un refactor aislado posterior con doble escritura + migración + deprecación del key viejo.
 
-Las **106 restantes** (de 113 totales) con todos sus datos asociados.
+---
 
-## Pasos de ejecución
+## CAMBIO 1 — Helpers compartidos para labels dinámicos
 
-### 1. Borrar fotos físicas del bucket `inspection-photos`
+Crear `src/lib/inspection-type-labels.ts`:
 
-Script que:
-- Consulta `inspection_photos.storage_path` (o equivalente) de todas las inspecciones que NO están en la lista de 7.
-- Borra esos objetos del bucket `inspection-photos` en lotes vía Storage API.
-- Reporta cuántos archivos se eliminaron.
+```ts
+export type InspectionType = 'check_out' | 'captacion' | string | null | undefined;
 
-### 2. Borrar registros de base de datos (transacción única)
+export const getContractDateLabel = (t: InspectionType) =>
+  t === 'captacion' ? 'Fecha Tentativa de Recepción' : 'Fecha de término de contrato';
 
-Borra de tablas hijas filtrando por `inspection_id NOT IN (los 7 IDs)` en orden seguro:
-- `inspection_photos`
-- `inspection_field_values`
-- `inspection_repair_items`
-- `inspection_signatures`
-- `inspection_reviews`
-- `inspection_owner_feedback`
-- `inspection_owner_feedback_submissions`
-- `inspection_report_versions`
-- `inspection_quotation_discounts`
-- `inspection_external_references`
-- `inspection_audit_log`
-- `inspection_sections`
-- `communication_deliveries` (donde aplique)
-- `slack_notifications_log` (donde aplique)
-- `hubspot_sync_log` (donde aplique)
+export const getContractDateShortLabel = (t: InspectionType) =>
+  t === 'captacion' ? 'Recepción tentativa' : 'Término de contrato';
 
-Luego:
-- `DELETE FROM inspections WHERE id NOT IN (los 7)`
-- `DELETE FROM inspection_source_events` huérfanos (sin `inspection_id` válido)
+export const getPrimaryContactLabel = (t: InspectionType) =>
+  t === 'captacion' ? 'Propietario' : 'Inquilino';
 
-### 3. Verificación final
+export const getInspectionTypeLabel = (t: InspectionType) =>
+  t === 'captacion' ? 'Captación' : 'Check-out';
+```
 
-- `SELECT count(*) FROM inspections` → debe dar 7.
-- Listar bucket `inspection-photos` y confirmar que solo quedan fotos de los 7 IDs conservados.
+Aplicar en todos los sitios donde aparece el label hardcodeado de fecha de término o "Inquilino" **como contacto principal de la inspección** (NO en labels de roles de pago `payer_role='tenant'`, ni en "Cotización Inquilino", ni en "Firma del Inquilino" — son conceptos distintos).
 
-## Notas
+**Sitios de fecha (cambio "Término de contrato" → label dinámico):**
+- `src/components/PropertyBriefingCard.tsx` (línea ~128)
+- `src/pages/inspector/InspectorAllInspections.tsx` (línea ~194)
+- `src/pages/inspector/InspectorDashboard.tsx` (línea ~216)
+- `src/pages/inspector/InspectorCalendar.tsx` (línea ~351)
+- `src/pages/inspector/InspectorInspectionDetail.tsx` (~línea 530)
+- `src/pages/admin/AdminInspections.tsx` (línea ~782)
+- `src/pages/admin/AdminSchedule.tsx` (líneas ~236, ~305)
+- `src/pages/executive/ExecutiveSchedule.tsx` (líneas ~274, ~345)
+- `src/pages/executive/ExecutiveReviewQueue.tsx` (~línea 426-434)
+- `src/pages/executive/review-detail/PropertyContextBar.tsx`
+- `src/pages/admin/AdminInspectionDetail.tsx` (~línea 998)
 
-- **Irreversible**. El orden es: primero fotos del bucket, luego registros DB.
-- Antes de ejecutar el DELETE, te muestro el conteo de filas afectadas por tabla y el conteo de fotos a borrar del bucket para que confirmes.
+**Sitios de contacto principal (cambio "Inquilino" → label dinámico):**
+- `src/components/PropertyBriefingCard.tsx` ya lo hace (línea 38) — migrar al helper.
+- `src/pages/executive/review-detail/PropertyContextBar.tsx` (líneas 65, 80).
+- `src/pages/inspector/InspectorInspectionDetail.tsx` (líneas 616, 620: "Inquilino se negó a firmar", "Inquilino no disponible").
+
+**Sitios que NO se tocan** (roles de pago / conceptos distintos):
+- `RepairsTableView`, `BudgetSummaryBar`, `SectionRepairsPanel`, `QuotationView`, `QuotationDialog`, `PublishedUrlsDialog`, `OwnerReport.tsx` (audienceLabel), firma del inquilino como sección del formulario, `AdminSettings.tsx` tabla descriptiva del template.
+
+---
+
+## CAMBIO 2 — Sincronización saliente HubSpot por tipo
+
+**`supabase/functions/hubspot-update-inspection/index.ts`:**
+
+1. Incluir `inspection_type` en el SELECT de inspecciones (línea 177).
+2. `deriveNumericId(raw, inspectionType)`:
+   ```ts
+   const prefix = inspectionType === 'captacion' ? /^hs_deal_/i : /^hs_contrato_/i;
+   ```
+3. Resolver tipo de objeto externo y URL según tipo:
+   ```ts
+   const isCaptacion = inspection.inspection_type === 'captacion';
+   const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
+   const objectTypeForUrl = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
+   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectTypeForUrl}/${numericId}`;
+   ```
+4. Ajustar el filtro `.eq('external_object_type', externalObjectType)` en la query a `inspection_external_references`.
+5. Mantener los HubSpot property names actuales (`fecha_de_recoleccion_de_llaves`, `fecha_de_recepcion_del_checkout`) — **pendiente confirmar** que los Deals de Publicaciones CL exponen esos mismos internal names; si no, agregar mapeo por tipo.
+
+**`supabase/functions/hubspot-inspection-intake/index.ts` (líneas 360-420):**
+
+Al persistir `inspection_external_references`, detectar tipo:
+
+```ts
+const isCaptacion = body.inspection_type === 'captacion';
+const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
+const externalObjectTypeId = isCaptacion ? '0-3' : '2-47492934';
+```
+
+Redeploy: `hubspot-update-inspection`, `hubspot-inspection-intake`.
+
+---
+
+## CAMBIO 3 — Documentación en pantalla Configuración
+
+Reemplazar la sección "Sincronización HubSpot saliente" en `src/pages/admin/AdminIntegrationHubSpot.tsx` (líneas 226-273) por una tabla con 4 filas (check_out × 2 eventos + captacion × 2 eventos) con Tipo / Evento / Campo HubSpot / Objeto destino / Estado.
+
+---
+
+## Verificación
+
+1. Build limpio.
+2. Inspección visual de vistas clave con una `check_out` y una `captacion`.
+3. Disparar `hubspot-update-inspection` con una captación de prueba y revisar `hubspot_sync_log` (status `success`, `hubspot_object_type_id='0-3'`).
+
+---
+
+## Preguntas abiertas
+
+1. ¿Los campos del Deal Publicaciones CL se llaman exactamente `fecha_de_recoleccion_de_llaves` y `fecha_de_recepcion_del_checkout`? Si difieren, necesito los internal names.
+2. ¿Hay captaciones ya cargadas en BD con `inspection_external_references.external_object_type='lease_contract'` por error? Si sí, agregar `UPDATE` puntual al rollout.

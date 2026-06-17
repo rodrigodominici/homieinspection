@@ -11,6 +11,7 @@ import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
+import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 
 const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'pending_assignment']);
 const PAST_STATUSES = new Set(['submitted', 'in_review', 'approved', 'published', 'sent']);
@@ -191,7 +192,7 @@ export default function InspectorAllInspections() {
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-amber-700">
                         <FileText className="h-3 w-3 shrink-0" />
-                        <span>Término de contrato: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       </div>
                     </CardContent>
                   </Card>

@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
+import { getContractDateShortLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
 import {
   MapPin, Building, Home, Landmark, CalendarClock, Navigation,
   Hash, MessageCircle, User, Phone, FileText, Warehouse, Car,
@@ -35,7 +36,7 @@ function formatMoney(value: number, market?: string | null): string {
 
 export default function PropertyBriefingCard({ inspection }: Props) {
   const snapshot = getEffectiveSnapshot(inspection);
-  const contactPersonLabel = inspection.inspection_type === 'captacion' ? 'Propietario' : 'Inquilino';
+  const contactPersonLabel = getPrimaryContactLabel(inspection.inspection_type);
   const address = inspection.address ?? (snapshot?.address as string) ?? null;
   const propertyType = inspection.property_type ?? (snapshot?.property_type as string) ?? null;
   const tower = (snapshot?.tower as string) ?? null;
@@ -125,7 +126,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Término de contrato</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{getContractDateShortLabel(inspection.inspection_type)}</p>
                   <p className="text-body font-medium">{contractEndDate}</p>
                 </div>
               </div>

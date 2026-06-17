@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { fmtCurrency } from './helpers';
+import { getPrimaryContactLabel } from '@/lib/inspection-type-labels';
 import type { Inspection } from '@/lib/types';
 
 interface PropertyContextBarProps {
@@ -53,6 +54,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
   const deposit = typeof snap.warranty_deposit === 'number' ? fmtCurrency(snap.warranty_deposit) : null;
 
   const sigStatus = signatureRecord?.signature_status as 'signed' | 'refused' | 'unavailable' | undefined;
+  const contactLabel = getPrimaryContactLabel(inspection.inspection_type);
   const SigIcon = sigStatus === 'signed' ? PenLine : sigStatus === 'refused' ? XCircle : AlertTriangle;
   const sigColor =
     sigStatus === 'signed' ? 'text-[hsl(var(--status-good))]'
@@ -61,8 +63,8 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
   const sigLabel =
     sigStatus === 'signed'
       ? `Firmado${signatureRecord?.signer_name ? ` · ${signatureRecord.signer_name}` : ''}`
-      : sigStatus === 'refused' ? 'Rechazada por el inquilino'
-      : sigStatus === 'unavailable' ? 'Inquilino no disponible'
+      : sigStatus === 'refused' ? `Rechazada por ${contactLabel.toLowerCase()}`
+      : sigStatus === 'unavailable' ? `${contactLabel} no disponible`
       : 'Sin registro';
 
   return (
@@ -77,7 +79,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
         <Item icon={KeyRound} label="Entrega de llaves" value={keyLine} />
         <Item
           icon={Phone}
-          label="Inquilino"
+          label={contactLabel}
           value={
             tenant ? (
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
@@ -87,14 +89,14 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
             ) : tenantPhone
           }
         />
-        <Item icon={Mail} label="Propietario" value={ownerEmail} />
+        <Item icon={Mail} label="Email contacto" value={ownerEmail} />
         {deposit && (
           <Item icon={Wallet} label="Garantía" value={deposit} />
         )}
         <div className="flex items-start gap-2 min-w-0">
           <SigIcon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${sigColor}`} />
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">Firma inquilino</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">Firma {contactLabel.toLowerCase()}</p>
             <p className={`text-xs leading-tight truncate ${sigColor}`}>{sigLabel}</p>
             {signatureRecord?.skip_reason && (
               <p className="text-[10px] text-muted-foreground italic truncate">{signatureRecord.skip_reason}</p>
