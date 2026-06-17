@@ -614,11 +614,11 @@ export default function InspectorInspectionDetail() {
                   </span>
                 ) : signatureRecord.signature_status === 'refused' ? (
                   <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-bad-bg text-status-bad">
-                    Inquilino se negó a firmar
+                    {getPrimaryContactLabel(inspection?.inspection_type)} se negó a firmar
                   </span>
                 ) : (
                   <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                    Inquilino no disponible
+                    {getPrimaryContactLabel(inspection?.inspection_type)} no disponible
                   </span>
                 )}
               </div>
