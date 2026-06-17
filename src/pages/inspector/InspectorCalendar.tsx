@@ -349,7 +349,7 @@ function CoordinationCard({ inspection: insp }: { inspection: AgendaInspection }
         {insp.contractEndDate && (
           <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 border border-dashed border-amber-200">
             <FileText className="h-3.5 w-3.5 shrink-0" />
-            <span>Término de contrato: {insp.contractEndDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
           </div>
         )}
 
