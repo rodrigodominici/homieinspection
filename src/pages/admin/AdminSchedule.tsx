@@ -100,9 +100,18 @@ export default function AdminSchedule() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date().toDateString();
 
-  const filtered = filterInspector === 'all'
-    ? inspections
-    : inspections.filter(i => i.inspector_id === filterInspector);
+  // A) Excluir estados terminales del calendario operativo.
+  const operational = inspections.filter(i => !isTerminalScheduleStatus(i.status));
+  const terminalCount = inspections.length - operational.length;
+
+  const filtered = operational.filter(i => {
+    if (filterInspector !== 'all' && i.inspector_id !== filterInspector) return false;
+    if (typeFilter !== 'all') {
+      const t = i.inspection_type === 'captacion' ? 'captacion' : 'check_out';
+      if (t !== typeFilter) return false;
+    }
+    return true;
+  });
 
   // Categorize
   const programmed = filtered.filter(i => i.scheduleDatetime);
@@ -138,11 +147,22 @@ export default function AdminSchedule() {
 
   const hasCoordinationRow = weekDays.some(d => (coordinationByDay.get(d.toDateString()) ?? []).length > 0);
 
-  // Bottom sections: items not visible in current week
+  // Bottom sections: items not visible in current week, agrupados por proximidad.
   const weekDayStrings = new Set(weekDays.map(d => d.toDateString()));
-  const toCoordinateBottom = toCoordinate
+  const toCoordinateBottomRaw = toCoordinate
     .filter(i => !weekDayStrings.has(i.contractEndDate!.toDateString()))
     .sort((a, b) => (a.contractEndDate!.getTime()) - (b.contractEndDate!.getTime()));
+
+  const toCoordinateGroups = useMemo(() => {
+    const groups: Record<ProximityBucket, ScheduledInspection[]> = {
+      overdue: [], this_week: [], upcoming: [],
+    };
+    for (const insp of toCoordinateBottomRaw) {
+      const bucket = getProximityBucket(insp.contractEndDate!, weekStart);
+      groups[bucket].push(insp);
+    }
+    return groups;
+  }, [toCoordinateBottomRaw, weekStart]);
 
   return (
     <AdminLayout>
