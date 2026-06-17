@@ -503,7 +503,6 @@ export default function OwnerReport() {
     return decidableRepairs.every((r) => {
       const s = decisions[r.id!];
       if (!s?.decision) return false;
-      if ((s.decision === 'observed' || s.decision === 'rejected') && !s.comment.trim()) return false;
       return true;
     });
   }, [decidableRepairs, decisions]);
