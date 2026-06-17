@@ -289,9 +289,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── PATCH HubSpot directly ──
+  // captacion → endpoint /deals/{id} (URL-friendly alias para object type 0-3);
+  // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
   const propertyName = HUBSPOT_PROPERTY_MAP[action];
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
-  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${encodeURIComponent(objectTypeId)}/${encodeURIComponent(numericId)}`;
+  const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
+  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
 
   let responseStatus: number | null = null;
   let responseBody: unknown = null;
