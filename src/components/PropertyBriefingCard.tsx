@@ -126,7 +126,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Término de contrato</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{getContractDateShortLabel(inspection.inspection_type)}</p>
                   <p className="text-body font-medium">{contractEndDate}</p>
                 </div>
               </div>
