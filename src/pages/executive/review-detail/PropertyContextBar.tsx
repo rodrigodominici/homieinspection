@@ -54,6 +54,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
   const deposit = typeof snap.warranty_deposit === 'number' ? fmtCurrency(snap.warranty_deposit) : null;
 
   const sigStatus = signatureRecord?.signature_status as 'signed' | 'refused' | 'unavailable' | undefined;
+  const contactLabel = getPrimaryContactLabel(inspection.inspection_type);
   const SigIcon = sigStatus === 'signed' ? PenLine : sigStatus === 'refused' ? XCircle : AlertTriangle;
   const sigColor =
     sigStatus === 'signed' ? 'text-[hsl(var(--status-good))]'
@@ -62,8 +63,8 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
   const sigLabel =
     sigStatus === 'signed'
       ? `Firmado${signatureRecord?.signer_name ? ` · ${signatureRecord.signer_name}` : ''}`
-      : sigStatus === 'refused' ? 'Rechazada por el inquilino'
-      : sigStatus === 'unavailable' ? 'Inquilino no disponible'
+      : sigStatus === 'refused' ? `Rechazada por ${contactLabel.toLowerCase()}`
+      : sigStatus === 'unavailable' ? `${contactLabel} no disponible`
       : 'Sin registro';
 
   return (
