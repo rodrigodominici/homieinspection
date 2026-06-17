@@ -8,6 +8,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { getContractDateMicroLabel, getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import type { Inspection, Profile } from '@/lib/types';
 import { ChevronLeft, ChevronRight, MapPin, User, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
