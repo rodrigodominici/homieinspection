@@ -79,7 +79,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
         <Item icon={KeyRound} label="Entrega de llaves" value={keyLine} />
         <Item
           icon={Phone}
-          label="Inquilino"
+          label={contactLabel}
           value={
             tenant ? (
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
@@ -89,7 +89,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
             ) : tenantPhone
           }
         />
-        <Item icon={Mail} label="Propietario" value={ownerEmail} />
+        <Item icon={Mail} label="Email contacto" value={ownerEmail} />
         {deposit && (
           <Item icon={Wallet} label="Garantía" value={deposit} />
         )}
