@@ -8,7 +8,20 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { getContractDateMicroLabel, getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import {
+  getContractDateMicroLabel,
+  getContractDateShortLabel,
+  getInspectionTypeLabel,
+} from '@/lib/inspection-type-labels';
+import {
+  isTerminalScheduleStatus,
+  getTypeVisualTokens,
+  formatScheduleDate,
+  getProximityBucket,
+  PROXIMITY_LABELS,
+  type ScheduleTypeFilter,
+  type ProximityBucket,
+} from '@/lib/schedule-helpers';
 import type { Inspection, Profile } from '@/lib/types';
 import { ChevronLeft, ChevronRight, MapPin, User, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -59,6 +72,7 @@ export default function ExecutiveSchedule() {
     setSearchParams(next, { replace: true });
   };
   const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<ScheduleTypeFilter>('all');
 
   useEffect(() => {
     const load = async () => {
