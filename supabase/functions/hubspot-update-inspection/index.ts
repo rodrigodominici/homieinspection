@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
   // ── Load inspection ──
   const { data: inspection, error: inspErr } = await admin
     .from('inspections')
-    .select('id, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
+    .select('id, inspection_type, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
     .eq('id', inspectionId)
     .maybeSingle();
   if (inspErr || !inspection) {
