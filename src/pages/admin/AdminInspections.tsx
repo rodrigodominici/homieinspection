@@ -780,7 +780,7 @@ export default function AdminInspections() {
                             ) : insp.contractEndDate ? (
                               <div className="flex items-center gap-1.5 text-xs text-amber-700">
                                 <FileText className="h-3 w-3 shrink-0" />
-                                <span>Término de contrato: {formatDate(insp.contractEndDate)}</span>
+                                <span>{getContractDateShortLabel(insp.inspection_type)}: {formatDate(insp.contractEndDate)}</span>
                               </div>
                             ) : null}
 
