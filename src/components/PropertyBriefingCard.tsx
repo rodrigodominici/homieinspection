@@ -36,7 +36,7 @@ function formatMoney(value: number, market?: string | null): string {
 
 export default function PropertyBriefingCard({ inspection }: Props) {
   const snapshot = getEffectiveSnapshot(inspection);
-  const contactPersonLabel = inspection.inspection_type === 'captacion' ? 'Propietario' : 'Inquilino';
+  const contactPersonLabel = getPrimaryContactLabel(inspection.inspection_type);
   const address = inspection.address ?? (snapshot?.address as string) ?? null;
   const propertyType = inspection.property_type ?? (snapshot?.property_type as string) ?? null;
   const tower = (snapshot?.tower as string) ?? null;
