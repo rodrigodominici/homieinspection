@@ -395,13 +395,32 @@ export default function AdminInspectionDetail() {
         await supabase.storage.from('inspection-photos').remove(storagePaths);
       }
       await supabase.from('inspection_photos').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_owner_feedback').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_owner_feedback_submissions').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_quotation_discounts').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_signatures').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_external_references').delete().eq('inspection_id', inspection.id);
+      await supabase.from('communication_deliveries').delete().eq('inspection_id', inspection.id);
+      await supabase.from('hubspot_sync_log').delete().eq('inspection_id', inspection.id);
+      await supabase.from('slack_notifications_log').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_reviews').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_repair_items').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_report_versions').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_audit_log').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_sections').delete().eq('inspection_id', inspection.id);
+
+      // Capture source_event_id BEFORE deleting the inspection so we can clean
+      // it up afterwards. Without this, the intake dedupes future HubSpot
+      // webhooks against an orphan event and refuses to recreate the inspection.
+      const sourceEventId = inspection.source_event_id ?? null;
+
       const { error } = await supabase.from('inspections').delete().eq('id', inspection.id);
       if (error) throw error;
+
+      if (sourceEventId) {
+        await supabase.from('inspection_source_events').delete().eq('id', sourceEventId);
+      }
+
       toast({ title: 'Inspección eliminada' });
       navigate('/admin/inspections');
     } catch (err: any) {
@@ -409,6 +428,7 @@ export default function AdminInspectionDetail() {
     }
     setDeleting(false);
   };
+
 
   /* ─── Publish ─── */
   // Note: publishing does NOT trigger checkout_received. That outbound sync fires earlier,
