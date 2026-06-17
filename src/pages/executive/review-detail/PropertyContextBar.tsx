@@ -96,7 +96,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
         <div className="flex items-start gap-2 min-w-0">
           <SigIcon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${sigColor}`} />
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">Firma inquilino</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">Firma {contactLabel.toLowerCase()}</p>
             <p className={`text-xs leading-tight truncate ${sigColor}`}>{sigLabel}</p>
             {signatureRecord?.skip_reason && (
               <p className="text-[10px] text-muted-foreground italic truncate">{signatureRecord.skip_reason}</p>
