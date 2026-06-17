@@ -21,6 +21,7 @@ import {
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
 import { marketLabel } from '@/lib/markets';
+import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
