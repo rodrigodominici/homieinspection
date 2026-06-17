@@ -997,7 +997,7 @@ export default function AdminInspectionDetail() {
               {(() => {
                 const snap = getEffectiveSnapshot(inspection);
                 const terminoContrato = (snap?.fecha_de_termino_real_de_contrato as string) ?? null;
-                return <SummaryItem label="Término contrato (ref.)" value={terminoContrato ?? 'No disponible'} muted={!terminoContrato} />;
+                return <SummaryItem label={`${getContractDateShortLabel(inspection.inspection_type)} (ref.)`} value={terminoContrato ?? 'No disponible'} muted={!terminoContrato} />;
               })()}
             </div>
           </CardContent>
