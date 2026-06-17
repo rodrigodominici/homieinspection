@@ -16,7 +16,8 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const HUBSPOT_PRIVATE_APP_TOKEN = Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN');
 
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
-const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación
+const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación (check_out)
+const DEAL_OBJECT_TYPE_ID = '0-3';            // Deal estándar (captacion → pipeline Publicaciones CL)
 
 type Action = 'key_collection_date' | 'checkout_received';
 
@@ -33,9 +34,14 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function deriveNumericId(raw: string | null | undefined): string | null {
+/**
+ * Extrae el ID numérico del external_object_id quitando el prefijo según el tipo
+ * de inspección. check_out → "hs_contrato_<id>"; captacion → "hs_deal_<id>".
+ */
+function deriveNumericId(raw: string | null | undefined, inspectionType: string | null | undefined): string | null {
   if (!raw) return null;
-  const stripped = raw.replace(/^hs_contrato_/i, '');
+  const prefix = inspectionType === 'captacion' ? /^hs_deal_/i : /^hs_contrato_/i;
+  const stripped = raw.replace(prefix, '');
   if (!/^\d+$/.test(stripped)) return null;
   return stripped;
 }
