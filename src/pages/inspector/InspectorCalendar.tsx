@@ -13,6 +13,7 @@ import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, Clock, ArrowRight, CalendarDays, Navigation, MessageCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, getScheduleDatetime, getContractEndDate } from '@/lib/inspector-operational';
+import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 
 interface AgendaInspection extends Inspection {
   totalSections: number;
