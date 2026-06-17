@@ -192,7 +192,7 @@ export default function InspectorAllInspections() {
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-amber-700">
                         <FileText className="h-3 w-3 shrink-0" />
-                        <span>Término de contrato: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       </div>
                     </CardContent>
                   </Card>
