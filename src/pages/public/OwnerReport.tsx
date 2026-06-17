@@ -308,7 +308,7 @@ function RepairDecisionControl({
         <Textarea
           value={state.comment}
           onChange={(e) => onChange({ ...state, comment: e.target.value })}
-          placeholder={state.decision === 'observed' ? 'Tu observación (requerida)' : 'Motivo del rechazo (requerido)'}
+          placeholder={state.decision === 'observed' ? 'Tu observación (opcional)' : 'Motivo del rechazo (opcional)'}
           className="min-h-[60px] text-caption"
         />
       )}
