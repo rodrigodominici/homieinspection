@@ -11,6 +11,7 @@ import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInspectorDisplayState, isCompletedToday, matchesInspectorStateFilter } from '@/lib/inspector-operational';
+import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 
 const ACTIVE_STATUSES = new Set(['assigned', 'in_progress', 'pending_assignment']);
 const PAST_STATUSES = new Set(['submitted', 'in_review', 'approved', 'published', 'sent']);
