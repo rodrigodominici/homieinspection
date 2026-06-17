@@ -7,7 +7,20 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { getContractDateMicroLabel, getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import {
+  getContractDateMicroLabel,
+  getContractDateShortLabel,
+  getInspectionTypeLabel,
+} from '@/lib/inspection-type-labels';
+import {
+  isTerminalScheduleStatus,
+  getTypeVisualTokens,
+  formatScheduleDate,
+  getProximityBucket,
+  PROXIMITY_LABELS,
+  type ScheduleTypeFilter,
+  type ProximityBucket,
+} from '@/lib/schedule-helpers';
 import type { Inspection, Profile } from '@/lib/types';
 import { ChevronLeft, ChevronRight, MapPin, User, CalendarClock, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,6 +59,7 @@ export default function AdminSchedule() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [filterInspector, setFilterInspector] = useState('all');
   const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<ScheduleTypeFilter>('all');
 
   useEffect(() => {
     const fetch = async () => {
