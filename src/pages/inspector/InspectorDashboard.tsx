@@ -19,6 +19,7 @@ import {
   isCompletedToday,
   isToCoordinate,
 } from '@/lib/inspector-operational';
+import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
