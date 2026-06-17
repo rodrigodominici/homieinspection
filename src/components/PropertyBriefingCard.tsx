@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
+import { getContractDateShortLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
 import {
   MapPin, Building, Home, Landmark, CalendarClock, Navigation,
   Hash, MessageCircle, User, Phone, FileText, Warehouse, Car,
