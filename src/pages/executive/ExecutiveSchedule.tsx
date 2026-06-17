@@ -343,7 +343,7 @@ export default function ExecutiveSchedule() {
                           </div>
                           <div className="flex items-center gap-1 text-tiny text-amber-700 mt-1">
                             <FileText className="h-3 w-3" />
-                            <span>Término de contrato: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            <span>{getContractDateShortLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                           </div>
                           {insp.inspectorName && (
                             <span className="text-tiny text-muted-foreground flex items-center gap-1 mt-1">
