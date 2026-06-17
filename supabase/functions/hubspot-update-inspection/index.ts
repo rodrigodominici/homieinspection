@@ -233,13 +233,16 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── Resolve external reference ──
+  // ── Resolve external reference (tipo depende de la inspección) ──
+  const isCaptacion = inspection.inspection_type === 'captacion';
+  const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
+
   const { data: ref, error: refErr } = await admin
     .from('inspection_external_references')
     .select('id, external_object_id, external_object_type_id')
     .eq('inspection_id', inspectionId)
     .eq('provider', 'hubspot')
-    .eq('external_object_type', 'lease_contract')
+    .eq('external_object_type', externalObjectType)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -261,13 +264,14 @@ Deno.serve(async (req: Request) => {
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
       event_time: eventTimeIso,
-      error_message: 'no_active_external_reference',
+      error_message: `no_active_external_reference:${externalObjectType}`,
       retried_from_log_id: triggeredRetryFrom,
     });
   }
 
-  const numericId = deriveNumericId(ref.external_object_id);
-  const objectTypeId = ref.external_object_type_id ?? DEFAULT_OBJECT_TYPE_ID;
+  const numericId = deriveNumericId(ref.external_object_id, inspection.inspection_type);
+  const objectTypeId =
+    ref.external_object_type_id ?? (isCaptacion ? DEAL_OBJECT_TYPE_ID : DEFAULT_OBJECT_TYPE_ID);
 
   if (!numericId) {
     return logAndRespond(400, { ok: false, error: 'invalid_external_object_id' }, {
