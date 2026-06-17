@@ -272,7 +272,7 @@ export default function ExecutiveSchedule() {
                               <span className="font-semibold">Por coordinar</span>
                               <span className="block truncate font-medium">{insp.property_name ?? insp.property_id}</span>
                               <span className="block truncate text-amber-600">
-                                Término: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                                {getContractDateMicroLabel(insp.inspection_type)}: {insp.contractEndDate!.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                               </span>
                               {insp.inspectorName && <span className="block text-amber-500 truncate">{insp.inspectorName}</span>}
                             </a>
