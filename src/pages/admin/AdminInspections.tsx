@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   priorityBucket as sharedPriorityBucket,
   priorityBucketLabel,
@@ -226,7 +227,7 @@ export default function AdminInspections() {
       const [inspRes, profilesRes] = await Promise.all([
         supabase
           .from('inspections')
-          .select('*, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)')
+          .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`)
           .order('updated_at', { ascending: false })
           .limit(500),
         supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),

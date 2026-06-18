@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, Clock, ArrowRight, CalendarDays, Navigation, MessageCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -82,28 +83,37 @@ export default function InspectorCalendar() {
     const load = async () => {
       const { data } = await supabase
         .from('inspections')
-        .select('*')
+        .select(INSPECTION_LIST_COLUMNS)
         .in('status', ['assigned', 'in_progress', 'pending_assignment'])
         .order('updated_at', { ascending: false });
 
       if (!data) { setLoading(false); return; }
 
-      const withProgress = await Promise.all(
-        (data as unknown as Inspection[]).map(async (insp) => {
-          const { data: sections } = await supabase
+      // Batch-load ALL sections in a single query — avoids per-inspection N+1.
+      const inspectionIds = (data as unknown as Inspection[]).map((i) => i.id);
+      const { data: allSections } = inspectionIds.length
+        ? await supabase
             .from('inspection_sections')
-            .select('id, status, is_visible, section_type')
-            .eq('inspection_id', insp.id);
-          const progress = calculateProgress((sections ?? []) as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]);
-          return {
-            ...insp,
-            totalSections: progress.total,
-            completedSections: progress.completed,
-            scheduleDatetime: getScheduleDatetime(insp),
-            contractEndDate: getContractEndDate(insp),
-          };
-        })
-      );
+            .select('id, inspection_id, status, is_visible, section_type')
+            .in('inspection_id', inspectionIds)
+        : { data: [] as Array<{ inspection_id: string; status: string; is_visible: boolean; section_type: string }> };
+
+      const sectionsByInspection = ((allSections ?? []) as unknown as (Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'> & { inspection_id: string })[])
+        .reduce<Record<string, Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]>>(
+          (acc, s) => { (acc[s.inspection_id] ??= []).push(s); return acc; },
+          {},
+        );
+
+      const withProgress = (data as unknown as Inspection[]).map((insp) => {
+        const progress = calculateProgress(sectionsByInspection[insp.id] ?? []);
+        return {
+          ...insp,
+          totalSections: progress.total,
+          completedSections: progress.completed,
+          scheduleDatetime: getScheduleDatetime(insp),
+          contractEndDate: getContractEndDate(insp),
+        };
+      });
 
       setInspections(withProgress);
       setLoading(false);

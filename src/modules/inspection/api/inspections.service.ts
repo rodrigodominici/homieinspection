@@ -5,6 +5,7 @@
  * cache + invalidation.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { INSPECTION_LIST_COLUMNS } from "@/lib/inspection-columns";
 import type { Inspection, InspectionSection, Profile } from "@/lib/types";
 
 export interface SectionMeta {
@@ -18,7 +19,7 @@ export interface SectionMeta {
 export async function listInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from("inspections")
-    .select("*")
+    .select(INSPECTION_LIST_COLUMNS)
     .order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as Inspection[];

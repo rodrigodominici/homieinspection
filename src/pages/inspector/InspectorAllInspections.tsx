@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,7 +54,7 @@ export default function InspectorAllInspections() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('inspections').select('*').order('updated_at', { ascending: false });
+      const { data } = await supabase.from('inspections').select(INSPECTION_LIST_COLUMNS).order('updated_at', { ascending: false });
       if (!data) { setLoading(false); return; }
       // Batch-load ALL sections for ALL inspections in ONE query (avoids N+1)
       const inspectionIds = (data as unknown as Inspection[]).map((i) => i.id);

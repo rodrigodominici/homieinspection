@@ -6,6 +6,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection } from '@/lib/types';
 import { MapPin, Clock, History } from 'lucide-react';
 
@@ -16,7 +17,7 @@ export default function InspectorPastInspections() {
   useEffect(() => {
     supabase
       .from('inspections')
-      .select('*')
+      .select(INSPECTION_LIST_COLUMNS)
       .in('status', ['submitted', 'in_review', 'approved', 'published', 'sent'])
       .order('completed_at', { ascending: false })
       .then(({ data }) => {
