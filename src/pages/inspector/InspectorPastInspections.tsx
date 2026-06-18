@@ -17,7 +17,7 @@ export default function InspectorPastInspections() {
   useEffect(() => {
     supabase
       .from('inspections')
-      .select('*')
+      .select(INSPECTION_LIST_COLUMNS)
       .in('status', ['submitted', 'in_review', 'approved', 'published', 'sent'])
       .order('completed_at', { ascending: false })
       .then(({ data }) => {
