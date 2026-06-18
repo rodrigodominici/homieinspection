@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   priorityBucket as sharedPriorityBucket,
   priorityBucketLabel,
