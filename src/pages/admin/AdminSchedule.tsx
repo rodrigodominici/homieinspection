@@ -7,6 +7,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
