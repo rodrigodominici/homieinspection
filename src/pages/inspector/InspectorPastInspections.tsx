@@ -6,6 +6,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection } from '@/lib/types';
 import { MapPin, Clock, History } from 'lucide-react';
 
