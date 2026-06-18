@@ -67,7 +67,7 @@ export default function AdminSchedule() {
       const [inspRes, profilesRes] = await Promise.all([
         supabase
           .from('inspections')
-          .select('*, inspector:profiles!inspections_inspector_id_fkey(full_name)')
+          .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name)`)
           .order('updated_at', { ascending: false }),
         supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
       ]);
