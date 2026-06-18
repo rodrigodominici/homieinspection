@@ -54,7 +54,7 @@ export default function InspectorAllInspections() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('inspections').select('*').order('updated_at', { ascending: false });
+      const { data } = await supabase.from('inspections').select(INSPECTION_LIST_COLUMNS).order('updated_at', { ascending: false });
       if (!data) { setLoading(false); return; }
       // Batch-load ALL sections for ALL inspections in ONE query (avoids N+1)
       const inspectionIds = (data as unknown as Inspection[]).map((i) => i.id);
