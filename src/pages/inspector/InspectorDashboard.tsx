@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { ensureInspectionStatusConsistency } from '@/lib/inspection-status-guard';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ArrowRight, Navigation, Clock, AlertTriangle, CheckCircle2, Loader2, MessageCircle, PhoneCall, ClipboardList, PlayCircle } from 'lucide-react';
@@ -29,6 +29,9 @@ interface InspectionWithProgress extends Inspection {
   scheduleDatetime: Date | null;
 }
 
+const STALE_STATUSES = new Set(['pending', 'assigned', 'pending_assignment']);
+const ACTIVE_SECTION_STATUSES = new Set(['in_progress', 'completed', 'reviewed']);
+
 export default function InspectorDashboard() {
   const { profile } = useAuth();
   const [inspections, setInspections] = useState<InspectionWithProgress[]>([]);
@@ -38,7 +41,7 @@ export default function InspectorDashboard() {
     const load = async () => {
       const { data: inspData } = await supabase
         .from('inspections')
-        .select('*')
+        .select(INSPECTION_LIST_COLUMNS)
         .order('updated_at', { ascending: false });
 
       if (!inspData) { setLoading(false); return; }
@@ -57,32 +60,58 @@ export default function InspectorDashboard() {
           {},
         );
 
-      const withProgress = await Promise.all(
-        (inspData as unknown as Inspection[]).map(async (insp) => {
-          const secs = sectionsByInspection[insp.id] ?? [];
-          const progress = calculateProgress(secs);
+      // Compute progress + collect inspections that need a stale-status fix.
+      // We previously called `ensureInspectionStatusConsistency` per inspection
+      // (1 SELECT + 1 SELECT + maybe 1 UPDATE round-trip each → N+1 storm on dashboards).
+      // We already have all sections in memory; resolve locally and issue a single
+      // batched UPDATE for the ids that actually need to move to `in_progress`.
+      const nowIso = new Date().toISOString();
+      const toTransition: string[] = [];
+      const withProgress: InspectionWithProgress[] = (inspData as unknown as Inspection[]).map((insp) => {
+        const secs = sectionsByInspection[insp.id] ?? [];
+        const progress = calculateProgress(secs);
 
-          if (progress.completed > 0 && ['pending', 'assigned', 'pending_assignment'].includes(insp.status)) {
-            const newStatus = await ensureInspectionStatusConsistency(insp.id);
-            if (newStatus && newStatus !== insp.status) {
-              insp = { ...insp, status: newStatus as Inspection['status'] };
-            }
-          }
+        let nextStatus = insp.status;
+        const visibleSecs = secs.filter((s) => s.is_visible);
+        const hasActive = visibleSecs.some((s) => ACTIVE_SECTION_STATUSES.has(s.status));
+        if (STALE_STATUSES.has(insp.status) && visibleSecs.length > 0 && hasActive) {
+          nextStatus = 'in_progress' as Inspection['status'];
+          toTransition.push(insp.id);
+        }
 
-          return {
-            ...insp,
-            totalSections: progress.total,
-            completedSections: progress.completed,
-            scheduleDatetime: getScheduleDatetime(insp),
-          };
-        })
-      );
+        return {
+          ...insp,
+          status: nextStatus,
+          totalSections: progress.total,
+          completedSections: progress.completed,
+          scheduleDatetime: getScheduleDatetime({ ...insp, status: nextStatus }),
+        };
+      });
 
       setInspections(withProgress);
       setLoading(false);
+
+      // Fire-and-forget persistence of the stale → in_progress transition.
+      // The UI already reflects the new status; no need to block render on it.
+      if (toTransition.length > 0) {
+        supabase
+          .from('inspections')
+          .update({ status: 'in_progress', started_at: nowIso })
+          .in('id', toTransition)
+          .is('started_at', null)
+          .then(() => undefined, () => undefined);
+        // Best-effort second update without the `started_at` guard for inspections
+        // that already had a `started_at` — keeps them transitioning to in_progress.
+        supabase
+          .from('inspections')
+          .update({ status: 'in_progress' })
+          .in('id', toTransition)
+          .then(() => undefined, () => undefined);
+      }
     };
     load();
   }, []);
+
 
   const now = new Date();
   const todayStr = now.toDateString();

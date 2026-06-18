@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile, UserRole } from '@/lib/types';
@@ -24,11 +24,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     setProfileLoading(true);
     try {
-      // Retry up to 3 times with small delay — the trigger may not have
-      // committed the profile row yet on fresh signups.
+      // Retry up to 3 times — first attempt is immediate, subsequent
+      // attempts back off in case the signup trigger has not committed yet.
       let attempts = 0;
       let data: Profile | null = null;
       while (attempts < 3) {
@@ -42,21 +42,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           break;
         }
         attempts++;
-        if (attempts < 3) await new Promise((r) => setTimeout(r, 1000));
+        if (attempts < 3) await new Promise((r) => setTimeout(r, 500 * attempts));
       }
       setProfile(data);
     } finally {
       setProfileLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchProfile(session.user.id), 0);
+      (_event, nextSession) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        if (nextSession?.user) {
+          setTimeout(() => fetchProfile(nextSession.user.id), 0);
         } else {
           setProfile(null);
         }
@@ -64,24 +64,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+      if (initialSession?.user) {
+        fetchProfile(initialSession.user.id);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -90,30 +90,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (error) throw error;
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        profile,
-        role: profile?.role ?? null,
-        loading,
-        profileLoading,
-        signIn,
-        signUp,
-        signOut,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const role = profile?.role ?? null;
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      session,
+      user,
+      profile,
+      role,
+      loading,
+      profileLoading,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [session, user, profile, role, loading, profileLoading, signIn, signUp, signOut],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
