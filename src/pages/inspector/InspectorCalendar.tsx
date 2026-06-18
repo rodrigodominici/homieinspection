@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, Clock, ArrowRight, CalendarDays, Navigation, MessageCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
