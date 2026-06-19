@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { useInspectorInspections } from '@/modules/inspection/api/useInspectorInspections';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
