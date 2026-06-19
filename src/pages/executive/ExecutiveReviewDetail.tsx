@@ -59,7 +59,7 @@ export default function ExecutiveReviewDetail() {
   const {
     inspection, sections, fieldsBySection, photosBySection,
     reviewsBySection, repairsBySection, signatureRecord, contractors,
-    initialInternalNotes, loading, refetch,
+    initialInternalNotes, loading, refetch, invalidate,
   } = useReviewDetail(id);
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
@@ -245,6 +245,11 @@ export default function ExecutiveReviewDetail() {
     id, profileId: profile?.id, inspection, operationalSections, allRepairs,
     repairsBySection, photosBySection, finalObservations, missingSections,
     clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+    invalidate: {
+      photos: invalidate.photos,
+      repairs: invalidate.repairs,
+      inspection: invalidate.inspection,
+    },
   });
   const { submitting, catalog, publish } = actions;
 

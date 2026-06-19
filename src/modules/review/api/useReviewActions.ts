@@ -22,14 +22,33 @@ interface UseReviewActionsArgs {
   selectedContractorId: string | null;
   setSelectedContractorId: (id: string | null) => void;
   refetch: () => Promise<void> | void;
+  /** Optional granular invalidators — used to avoid refetching the whole bundle when only one slice changed. */
+  invalidate?: {
+    photos?: () => Promise<unknown> | unknown;
+    repairs?: () => Promise<unknown> | unknown;
+    inspection?: () => Promise<unknown> | unknown;
+  };
 }
 
 export function useReviewActions(args: UseReviewActionsArgs) {
   const {
     id, profileId, inspection, operationalSections, allRepairs,
     repairsBySection, photosBySection, finalObservations, missingSections,
-    clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+    clientTotal, selectedContractorId, setSelectedContractorId, refetch, invalidate,
   } = args;
+
+  const invalidatePhotos = useCallback(
+    async () => { invalidate?.photos ? await invalidate.photos() : await refetch(); },
+    [invalidate, refetch],
+  );
+  const invalidateRepairs = useCallback(
+    async () => { invalidate?.repairs ? await invalidate.repairs() : await refetch(); },
+    [invalidate, refetch],
+  );
+  const invalidateInspection = useCallback(
+    async () => { invalidate?.inspection ? await invalidate.inspection() : await refetch(); },
+    [invalidate, refetch],
+  );
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,11 +70,11 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     const current = (photo as any).visible_to_owner ?? true;
     try {
       await inspectionActions.togglePhotoVisibility(photo.id, current);
-      await refetch();
+      await invalidatePhotos();
     } catch (e: any) {
       toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
     }
-  }, [refetch, toast]);
+  }, [invalidatePhotos, toast]);
 
   const openCatalog = useCallback(async (sectionId: string) => {
     setCatalogSectionId(sectionId);
@@ -82,7 +101,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
         profileId,
       });
       setCatalogOpen(false);
-      await refetch();
+      await invalidateRepairs();
       toast({
         title: 'Reparación agregada',
         description: priceSource === 'catalog'
@@ -92,40 +111,40 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     } catch (e: any) {
       toast({ title: 'No se pudo agregar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [catalogSectionId, id, repairsBySection, selectedContractorId, profileId, refetch, toast]);
+  }, [catalogSectionId, id, repairsBySection, selectedContractorId, profileId, invalidateRepairs, toast]);
 
   const updateRepairItem = useCallback(async (repairId: string, field: string, value: any) => {
     try {
       await repairsService.updateRepairItem(repairId, field, value, profileId);
-      await refetch();
+      await invalidateRepairs();
     } catch (e: any) {
       toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [profileId, refetch, toast]);
+  }, [profileId, invalidateRepairs, toast]);
 
   const deleteRepairItem = useCallback(async (repairId: string) => {
     try {
       await repairsService.deleteRepairItem(repairId);
-      await refetch();
+      await invalidateRepairs();
       toast({ title: 'Reparación eliminada' });
     } catch (e: any) {
       toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [refetch, toast]);
+  }, [invalidateRepairs, toast]);
 
   const handleContractorChange = useCallback(async (contractorId: string) => {
     if (!id) return;
     const newContractorId = contractorId === 'none' ? null : contractorId;
     setSelectedContractorId(newContractorId);
     const updatedCount = await repairsService.rebindContractorPrices(id, newContractorId, allRepairs);
-    if (updatedCount > 0) await refetch();
+    if (updatedCount > 0) await invalidateRepairs();
     toast({
       title: 'Contratista actualizado',
       description: newContractorId
         ? `${updatedCount} ${updatedCount === 1 ? 'precio recargado' : 'precios recargados'} desde la matriz`
         : 'Precios de contratista puestos en 0',
     });
-  }, [id, allRepairs, setSelectedContractorId, refetch, toast]);
+  }, [id, allRepairs, setSelectedContractorId, invalidateRepairs, toast]);
 
   const handlePublish = useCallback(async (force = false) => {
     if (!inspection) return;
@@ -147,13 +166,13 @@ export function useReviewActions(args: UseReviewActionsArgs) {
       setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
       setPublishDialogOpen(true);
       toast({ title: `Reporte v${result.versionNumber} publicado` });
-      await refetch();
+      await invalidateInspection();
     } catch (e: any) {
       toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, refetch, toast]);
+  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, invalidateInspection, toast]);
 
   const handleApprove = useCallback(async () => {
     if (!id) return;
@@ -175,13 +194,13 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     try {
       await inspectionActions.startReview(id);
       toast({ title: 'Revisión iniciada' });
-      await refetch();
+      await invalidateInspection();
     } catch (e: any) {
       toast({ title: 'No se pudo iniciar la revisión', description: e?.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [inspection, id, refetch, toast]);
+  }, [inspection, id, invalidateInspection, toast]);
 
   return {
     submitting,
