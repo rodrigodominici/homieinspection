@@ -200,7 +200,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     } finally {
       setSubmitting(false);
     }
-  }, [inspection, id, refetch, toast]);
+  }, [inspection, id, invalidateInspection, toast]);
 
   return {
     submitting,
