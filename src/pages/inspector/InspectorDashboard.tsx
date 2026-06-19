@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { useInspectorInspections } from '@/modules/inspection/api/useInspectorInspections';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ArrowRight, Navigation, Clock, AlertTriangle, CheckCircle2, Loader2, MessageCircle, PhoneCall, ClipboardList, PlayCircle } from 'lucide-react';
