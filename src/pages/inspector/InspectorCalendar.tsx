@@ -39,8 +39,9 @@ type CalendarFilter = 'all' | 'programmed' | 'to_coordinate';
 export default function InspectorCalendar() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile } = useAuth();
-  const [inspections, setInspections] = useState<AgendaInspection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { inspections: raw, sectionsByInspection, loading } = useInspectorInspections({
+    statuses: ['assigned', 'in_progress', 'pending_assignment'],
+  });
   const [calendarFilter, setCalendarFilter] = useState<CalendarFilter>('all');
   const [selectedDate, setSelectedDate] = useState(() => {
     const dateParam = searchParams.get('date');
