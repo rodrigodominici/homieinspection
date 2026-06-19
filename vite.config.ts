@@ -36,15 +36,18 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        // Pre-cache all Vite-generated JS/CSS/HTML (including hashed filenames)
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Pre-cache the app shell only. Icons / large images are runtime-cached.
+        globPatterns: ["**/*.{js,css,html,woff2}", "favicon.ico", "pwa-192x192.png"],
         runtimeCaching: [
           {
-            // Supabase API — always try network first, fallback to cache
-            urlPattern: /^https:\/\/.*\.supabase\.co\//,
+            // Supabase Edge Functions + storage — network first, offline fallback.
+            // PostgREST (rest/v1) is intentionally NOT cached here because React
+            // Query already manages it and stale SW responses can mask writes
+            // across tabs.
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(functions|storage)\//,
             handler: "NetworkFirst" as const,
             options: {
-              cacheName: "supabase-api",
+              cacheName: "supabase-edge",
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
             },
