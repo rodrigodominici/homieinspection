@@ -59,7 +59,7 @@ export default function ExecutiveReviewDetail() {
   const {
     inspection, sections, fieldsBySection, photosBySection,
     reviewsBySection, repairsBySection, signatureRecord, contractors,
-    initialInternalNotes, loading, refetch,
+    initialInternalNotes, loading, refetch, invalidate,
   } = useReviewDetail(id);
   const allPhotos = useMemo(() => Object.values(photosBySection).flat(), [photosBySection]);
   const urlOf = useSignedPhotoUrls(allPhotos);
