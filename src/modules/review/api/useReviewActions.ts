@@ -22,6 +22,12 @@ interface UseReviewActionsArgs {
   selectedContractorId: string | null;
   setSelectedContractorId: (id: string | null) => void;
   refetch: () => Promise<void> | void;
+  /** Optional granular invalidators — used to avoid refetching the whole bundle when only one slice changed. */
+  invalidate?: {
+    photos?: () => Promise<unknown> | unknown;
+    repairs?: () => Promise<unknown> | unknown;
+    inspection?: () => Promise<unknown> | unknown;
+  };
 }
 
 export function useReviewActions(args: UseReviewActionsArgs) {
