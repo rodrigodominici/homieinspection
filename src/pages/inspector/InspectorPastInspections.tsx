@@ -1,30 +1,20 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
-import type { Inspection } from '@/lib/types';
+import { useInspectorInspections } from '@/modules/inspection/api/useInspectorInspections';
 import { MapPin, Clock, History } from 'lucide-react';
 
-export default function InspectorPastInspections() {
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [loading, setLoading] = useState(true);
+const PAST_STATUSES = ['submitted', 'in_review', 'approved', 'published', 'sent'];
 
-  useEffect(() => {
-    supabase
-      .from('inspections')
-      .select(INSPECTION_LIST_COLUMNS)
-      .in('status', ['submitted', 'in_review', 'approved', 'published', 'sent'])
-      .order('completed_at', { ascending: false })
-      .then(({ data }) => {
-        setInspections((data ?? []) as unknown as Inspection[]);
-        setLoading(false);
-      });
-  }, []);
+export default function InspectorPastInspections() {
+  const { inspections, loading } = useInspectorInspections({
+    statuses: PAST_STATUSES,
+    orderBy: 'completed_at',
+    includeSections: false,
+  });
 
   return (
     <div className="min-h-screen bg-background pb-24">
