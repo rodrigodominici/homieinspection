@@ -245,6 +245,11 @@ export default function ExecutiveReviewDetail() {
     id, profileId: profile?.id, inspection, operationalSections, allRepairs,
     repairsBySection, photosBySection, finalObservations, missingSections,
     clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+    invalidate: {
+      photos: invalidate.photos,
+      repairs: invalidate.repairs,
+      inspection: invalidate.inspection,
+    },
   });
   const { submitting, catalog, publish } = actions;
 
