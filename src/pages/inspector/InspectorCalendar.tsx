@@ -1,7 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
@@ -9,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { useInspectorInspections } from '@/modules/inspection/api/useInspectorInspections';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, Clock, ArrowRight, CalendarDays, Navigation, MessageCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
