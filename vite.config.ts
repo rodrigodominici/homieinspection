@@ -36,15 +36,18 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        // Pre-cache all Vite-generated JS/CSS/HTML (including hashed filenames)
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Pre-cache the app shell only. Icons / large images are runtime-cached.
+        globPatterns: ["**/*.{js,css,html,woff2}", "favicon.ico", "pwa-192x192.png"],
         runtimeCaching: [
           {
-            // Supabase API — always try network first, fallback to cache
-            urlPattern: /^https:\/\/.*\.supabase\.co\//,
+            // Supabase Edge Functions + storage — network first, offline fallback.
+            // PostgREST (rest/v1) is intentionally NOT cached here because React
+            // Query already manages it and stale SW responses can mask writes
+            // across tabs.
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(functions|storage)\//,
             handler: "NetworkFirst" as const,
             options: {
-              cacheName: "supabase-api",
+              cacheName: "supabase-edge",
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
             },
@@ -75,9 +78,6 @@ export default defineConfig(({ mode }) => ({
         // Split heavy vendor libraries into separate cacheable chunks.
         // Rolldown (Vite 8) requires manualChunks to be a function.
         manualChunks(id: string) {
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-") || id.includes("node_modules/victory-")) {
-            return "vendor-recharts";
-          }
           if (id.includes("node_modules/@radix-ui/")) {
             return "vendor-radix";
           }
@@ -95,14 +95,18 @@ export default defineConfig(({ mode }) => ({
           ) {
             return "vendor-react";
           }
+          if (id.includes("node_modules/lucide-react/")) {
+            return "vendor-icons";
+          }
           if (
-            id.includes("node_modules/date-fns/") ||
-            id.includes("node_modules/lucide-react/") ||
-            id.includes("node_modules/zod/") ||
             id.includes("node_modules/react-hook-form/") ||
-            id.includes("node_modules/@hookform/")
+            id.includes("node_modules/@hookform/") ||
+            id.includes("node_modules/zod/")
           ) {
-            return "vendor-misc";
+            return "vendor-forms";
+          }
+          if (id.includes("node_modules/date-fns/")) {
+            return "vendor-dates";
           }
         },
       },

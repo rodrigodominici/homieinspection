@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { useInspectorInspections } from '@/modules/inspection/api/useInspectorInspections';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { MapPin, ClipboardList, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,45 +44,26 @@ interface InspectionWithProgress extends Inspection {
 
 export default function InspectorAllInspections() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [inspections, setInspections] = useState<InspectionWithProgress[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { inspections: raw, sectionsByInspection, loading } = useInspectorInspections();
   const [filter, setFilter] = useState<'active' | 'past'>(() => {
     const fromUrl = searchParams.get('filter');
     return fromUrl === 'past' ? 'past' : 'active';
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from('inspections').select(INSPECTION_LIST_COLUMNS).order('updated_at', { ascending: false });
-      if (!data) { setLoading(false); return; }
-      // Batch-load ALL sections for ALL inspections in ONE query (avoids N+1)
-      const inspectionIds = (data as unknown as Inspection[]).map((i) => i.id);
-      const { data: allSections } = await supabase
-        .from('inspection_sections')
-        .select('id, inspection_id, status, is_visible, section_type')
-        .in('inspection_id', inspectionIds);
-      const sectionsByInspection = ((allSections ?? []) as unknown as (Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'> & { inspection_id: string })[])
-        .reduce<Record<string, Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]>>(
-          (acc, s) => { (acc[s.inspection_id] ??= []).push(s); return acc; },
-          {},
-        );
+  const inspections = useMemo<InspectionWithProgress[]>(() => {
+    return raw.map((insp) => {
+      const sections = sectionsByInspection[insp.id] ?? [];
+      const progress = calculateProgress(sections as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]);
+      const snapshot = getEffectiveSnapshot(insp);
+      const scheduleDatetime = parseDateTimeField(
+        snapshot?.fecha_recoleccion_llaves,
+        snapshot?.hora_recoleccion_llaves
+      );
+      const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
+      return { ...insp, totalSections: progress.total, completedSections: progress.completed, scheduleDatetime, contractEndDate };
+    });
+  }, [raw, sectionsByInspection]);
 
-      const withProgress = (data as unknown as Inspection[]).map((insp) => {
-          const sections = sectionsByInspection[insp.id] ?? [];
-          const progress = calculateProgress(sections as unknown as Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'>[]);
-          const snapshot = getEffectiveSnapshot(insp);
-          const scheduleDatetime = parseDateTimeField(
-            snapshot?.fecha_recoleccion_llaves,
-            snapshot?.hora_recoleccion_llaves
-          );
-          const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
-          return { ...insp, totalSections: progress.total, completedSections: progress.completed, scheduleDatetime, contractEndDate };
-        });
-      setInspections(withProgress);
-      setLoading(false);
-    };
-    load();
-  }, []);
 
   useEffect(() => {
     const fromUrl = searchParams.get('filter');
