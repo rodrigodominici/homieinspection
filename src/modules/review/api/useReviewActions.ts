@@ -34,8 +34,21 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   const {
     id, profileId, inspection, operationalSections, allRepairs,
     repairsBySection, photosBySection, finalObservations, missingSections,
-    clientTotal, selectedContractorId, setSelectedContractorId, refetch,
+    clientTotal, selectedContractorId, setSelectedContractorId, refetch, invalidate,
   } = args;
+
+  const invalidatePhotos = useCallback(
+    async () => { invalidate?.photos ? await invalidate.photos() : await refetch(); },
+    [invalidate, refetch],
+  );
+  const invalidateRepairs = useCallback(
+    async () => { invalidate?.repairs ? await invalidate.repairs() : await refetch(); },
+    [invalidate, refetch],
+  );
+  const invalidateInspection = useCallback(
+    async () => { invalidate?.inspection ? await invalidate.inspection() : await refetch(); },
+    [invalidate, refetch],
+  );
 
   const navigate = useNavigate();
   const { toast } = useToast();
