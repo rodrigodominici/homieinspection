@@ -194,7 +194,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     try {
       await inspectionActions.startReview(id);
       toast({ title: 'Revisión iniciada' });
-      await refetch();
+      await invalidateInspection();
     } catch (e: any) {
       toast({ title: 'No se pudo iniciar la revisión', description: e?.message, variant: 'destructive' });
     } finally {
