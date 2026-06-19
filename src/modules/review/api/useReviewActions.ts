@@ -166,13 +166,13 @@ export function useReviewActions(args: UseReviewActionsArgs) {
       setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
       setPublishDialogOpen(true);
       toast({ title: `Reporte v${result.versionNumber} publicado` });
-      await refetch();
+      await invalidateInspection();
     } catch (e: any) {
       toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, refetch, toast]);
+  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, invalidateInspection, toast]);
 
   const handleApprove = useCallback(async () => {
     if (!id) return;
