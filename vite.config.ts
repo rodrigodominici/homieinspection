@@ -78,9 +78,6 @@ export default defineConfig(({ mode }) => ({
         // Split heavy vendor libraries into separate cacheable chunks.
         // Rolldown (Vite 8) requires manualChunks to be a function.
         manualChunks(id: string) {
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-") || id.includes("node_modules/victory-")) {
-            return "vendor-recharts";
-          }
           if (id.includes("node_modules/@radix-ui/")) {
             return "vendor-radix";
           }
@@ -98,14 +95,18 @@ export default defineConfig(({ mode }) => ({
           ) {
             return "vendor-react";
           }
+          if (id.includes("node_modules/lucide-react/")) {
+            return "vendor-icons";
+          }
           if (
-            id.includes("node_modules/date-fns/") ||
-            id.includes("node_modules/lucide-react/") ||
-            id.includes("node_modules/zod/") ||
             id.includes("node_modules/react-hook-form/") ||
-            id.includes("node_modules/@hookform/")
+            id.includes("node_modules/@hookform/") ||
+            id.includes("node_modules/zod/")
           ) {
-            return "vendor-misc";
+            return "vendor-forms";
+          }
+          if (id.includes("node_modules/date-fns/")) {
+            return "vendor-dates";
           }
         },
       },
