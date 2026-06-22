@@ -16,7 +16,7 @@ export async function compressImage(file: File): Promise<Blob> {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX = 1920;
+      const MAX = 1600;
       let { width, height } = img;
       if (width > MAX || height > MAX) {
         if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
@@ -26,7 +26,7 @@ export async function compressImage(file: File): Promise<Blob> {
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.8);
+      canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.75);
     };
     img.onerror = () => resolve(file);
     img.src = URL.createObjectURL(file);
@@ -43,13 +43,22 @@ export interface UploadInspectionPhotosOpts {
   fieldKey?: string | null;
 }
 
+const UPLOAD_CONCURRENCY = 3;
+
+/**
+ * Uploads files in parallel with bounded concurrency (3 simultaneous) to keep
+ * the network pipe saturated without overwhelming mobile uplinks. Preserves
+ * the original file order via stable sort_order assignment up front.
+ */
 export async function uploadInspectionPhotos(
   opts: UploadInspectionPhotosOpts,
 ): Promise<InspectionPhoto[]> {
   const { inspectionId, sectionId, sectionKey, files, uploadedBy, startingSortOrder = 0, fieldKey = null } = opts;
-  const out: InspectionPhoto[] = [];
-  let sort = startingSortOrder;
-  for (const file of Array.from(files)) {
+  const fileList = Array.from(files);
+  const items = fileList.map((file, idx) => ({ file, sortOrder: startingSortOrder + idx }));
+  const results: InspectionPhoto[] = new Array(items.length);
+
+  const uploadOne = async (file: File, sortOrder: number): Promise<InspectionPhoto> => {
     const fileId = crypto.randomUUID();
     const compressed = await compressImage(file);
     const path = `inspections/${inspectionId}/${sectionKey}/${fileId}.jpg`;
@@ -67,14 +76,25 @@ export async function uploadInspectionPhotos(
         storage_bucket: 'inspection-photos',
         storage_path: path,
         uploaded_by: uploadedBy ?? null,
-        sort_order: sort++,
+        sort_order: sortOrder,
       })
       .select()
       .single();
     if (error) throw error;
-    out.push(data as unknown as InspectionPhoto);
-  }
-  return out;
+    return data as unknown as InspectionPhoto;
+  };
+
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(UPLOAD_CONCURRENCY, items.length) }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) break;
+      const { file, sortOrder } = items[idx];
+      results[idx] = await uploadOne(file, sortOrder);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 export async function deleteInspectionPhoto(photo: InspectionPhoto): Promise<void> {
@@ -83,3 +103,4 @@ export async function deleteInspectionPhoto(photo: InspectionPhoto): Promise<voi
   }
   await supabase.from('inspection_photos').delete().eq('id', photo.id);
 }
+
