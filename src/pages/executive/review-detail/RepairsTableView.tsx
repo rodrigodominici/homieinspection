@@ -279,7 +279,8 @@ export const RepairsTableView = memo(function RepairsTableView({
 
     </div>
   );
-}
+});
+
 
 function KPI({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
