@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -37,7 +37,7 @@ type NatureFilter = 'all' | 'required' | 'optional';
 
 type FeedbackFilter = 'all' | 'pending';
 
-export function RepairsTableView({
+export const RepairsTableView = memo(function RepairsTableView({
   sections, allRepairs, contractors, selectedContractorId, onContractorChange,
   contractorTotal, clientTotal, utility, budgetBreakdown, warrantyDeposit, depositDiff,
   onOpenCatalog, onUpdateRepair, onDeleteRepair, feedbackByRepairId,
@@ -279,7 +279,8 @@ export function RepairsTableView({
 
     </div>
   );
-}
+});
+
 
 function KPI({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (

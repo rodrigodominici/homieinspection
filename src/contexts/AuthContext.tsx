@@ -34,9 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       while (attempts < 3) {
         const res = await supabase
           .from('profiles')
-          .select('*')
+          .select('id,email,full_name,role,is_active,approval_status,market,country_code,phone,created_at,updated_at')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
         if (res.data) {
           data = res.data as Profile;
           break;

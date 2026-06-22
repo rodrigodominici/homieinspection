@@ -91,10 +91,23 @@ export function useSignedPhotoUrls<T extends { id: string; storage_path: string 
   useEffect(() => {
     if (!photos.length) { setUrls({}); return; }
     let cancelled = false;
-    getSignedPhotoUrlMap(photos).then((m) => { if (!cancelled) setUrls(m); });
-    return () => { cancelled = true; };
+
+    const refresh = () => {
+      getSignedPhotoUrlMap(photos).then((m) => { if (!cancelled) setUrls(m); });
+    };
+
+    refresh();
+
+    // Auto-refresh every 50 min — covers long inspector/executive sessions
+    // (>55 min) where the initial 1h-TTL URLs would otherwise expire mid-use.
+    // getSignedPhotoUrl internally reuses cached URLs that still have >5 min
+    // of life left, so this is cheap when nothing actually needs re-signing.
+    const interval = window.setInterval(refresh, 50 * 60 * 1000);
+
+    return () => { cancelled = true; window.clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   return (id: string) => urls[id] ?? '';
 }
+
