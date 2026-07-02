@@ -168,8 +168,9 @@ export function priorityBucket(
   insp: AdminInspectionLike & { scheduleDatetime?: Date | null },
   fullInspection?: Inspection,
 ): PriorityBucket {
-  const missingAssign =
-    !insp.inspector_id || !insp.executive_id || insp.status === 'pending_assignment';
+  // IDs son la fuente de verdad. Un status legacy 'pending_assignment'
+  // con ambos IDs asignados NO es "Sin asignar".
+  const missingAssign = !insp.inspector_id || !insp.executive_id;
   if (missingAssign) return 0;
 
   const ownerFb = insp.owner_feedback_status ?? fullInspection?.owner_feedback_status ?? null;
