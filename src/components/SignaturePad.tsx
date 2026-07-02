@@ -131,6 +131,15 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
         <CardContent className="p-4 space-y-4">
           <h3 className="text-body-lg font-semibold">Firma del Inquilino</h3>
 
+          {hasExistingSignature && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p className="text-caption">
+                Ya hay una firma guardada. Confirmar reemplazará la anterior.
+              </p>
+            </div>
+          )}
+
           {/* Mode toggle */}
           <div className="flex gap-2">
             <Button variant={mode === 'sign' ? 'default' : 'outline'} size="sm" onClick={() => setMode('sign')}>
