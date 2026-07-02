@@ -203,15 +203,15 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
       </Card>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl">
+        <Button variant="outline" onClick={onCancel} disabled={submitting} className="flex-1 h-12 rounded-xl">
           <X className="mr-2 h-4 w-4" /> Cancelar
         </Button>
         <Button
           onClick={handleConfirm}
           className="flex-1 h-12 rounded-xl"
-          disabled={mode === 'sign' ? (!hasDrawn || !signerName.trim()) : !skipReason.trim()}
+          disabled={submitting || (mode === 'sign' ? (!hasDrawn || !signerName.trim()) : !skipReason.trim())}
         >
-          <Check className="mr-2 h-4 w-4" /> Confirmar
+          <Check className="mr-2 h-4 w-4" /> {submitting ? 'Guardando…' : 'Confirmar'}
         </Button>
       </div>
     </div>
