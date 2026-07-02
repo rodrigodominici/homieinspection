@@ -339,15 +339,30 @@ export default function InspectorInspectionDetail() {
     signer_name: string;
     skip_reason: string | null;
   }) => {
-    await supabase.from('inspection_signatures').delete().eq('inspection_id', inspection!.id);
-    await supabase.from('inspection_signatures').insert({
-      inspection_id: inspection!.id,
-      signer_name: data.signer_name || null,
-      signature_data: data.signature_data,
-      signature_status: data.signature_status,
-      skip_reason: data.skip_reason,
-      created_by: profile?.id,
-    });
+    // Atomic upsert — a network drop between delete+insert used to wipe the signature.
+    const { error } = await supabase
+      .from('inspection_signatures')
+      .upsert(
+        {
+          inspection_id: inspection!.id,
+          signer_type: 'tenant',
+          signer_name: data.signer_name || null,
+          signature_data: data.signature_data,
+          signature_status: data.signature_status,
+          skip_reason: data.skip_reason,
+          signed_at: new Date().toISOString(),
+          created_by: profile?.id,
+        },
+        { onConflict: 'inspection_id' },
+      );
+    if (error) {
+      toast({
+        title: 'No se pudo guardar la firma',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
     setShowSignature(false);
     setSignatureResolved(true);
     setSignatureRecord({
@@ -448,6 +463,7 @@ export default function InspectorInspectionDetail() {
               <SignaturePad
                 onConfirm={handleSignatureConfirm}
                 onCancel={() => setShowSignature(false)}
+                hasExistingSignature={!!signatureRecord?.signature_data}
               />
             </div>
           </div>

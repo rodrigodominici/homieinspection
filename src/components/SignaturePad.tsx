@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eraser, Check, X } from 'lucide-react';
+import { Eraser, Check, X, AlertTriangle } from 'lucide-react';
 
 interface SignaturePadProps {
   onConfirm: (data: {
@@ -13,11 +13,13 @@ interface SignaturePadProps {
     signature_status: 'signed' | 'refused' | 'unavailable';
     signer_name: string;
     skip_reason: string | null;
-  }) => void;
+  }) => void | Promise<void>;
   onCancel: () => void;
+  /** When true, shows a warning that confirming will overwrite the existing signature. */
+  hasExistingSignature?: boolean;
 }
 
-export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps) {
+export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature = false }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -25,6 +27,7 @@ export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps)
   const [mode, setMode] = useState<'sign' | 'skip'>('sign');
   const [skipStatus, setSkipStatus] = useState<'refused' | 'unavailable'>('refused');
   const [skipReason, setSkipReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const getCtx = useCallback(() => {
     const canvas = canvasRef.current;
@@ -91,26 +94,34 @@ export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps)
     setHasDrawn(false);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (submitting) return;
+    let payload;
     if (mode === 'sign') {
       if (!hasDrawn || !signerName.trim()) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const dataUrl = canvas.toDataURL('image/png');
-      onConfirm({
+      payload = {
         signature_data: dataUrl,
-        signature_status: 'signed',
+        signature_status: 'signed' as const,
         signer_name: signerName.trim(),
         skip_reason: null,
-      });
+      };
     } else {
       if (!skipReason.trim()) return;
-      onConfirm({
+      payload = {
         signature_data: null,
         signature_status: skipStatus,
         signer_name: signerName.trim() || '',
         skip_reason: skipReason.trim(),
-      });
+      };
+    }
+    setSubmitting(true);
+    try {
+      await onConfirm(payload);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -119,6 +130,15 @@ export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps)
       <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
         <CardContent className="p-4 space-y-4">
           <h3 className="text-body-lg font-semibold">Firma del Inquilino</h3>
+
+          {hasExistingSignature && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p className="text-caption">
+                Ya hay una firma guardada. Confirmar reemplazará la anterior.
+              </p>
+            </div>
+          )}
 
           {/* Mode toggle */}
           <div className="flex gap-2">
@@ -183,15 +203,15 @@ export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps)
       </Card>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl">
+        <Button variant="outline" onClick={onCancel} disabled={submitting} className="flex-1 h-12 rounded-xl">
           <X className="mr-2 h-4 w-4" /> Cancelar
         </Button>
         <Button
           onClick={handleConfirm}
           className="flex-1 h-12 rounded-xl"
-          disabled={mode === 'sign' ? (!hasDrawn || !signerName.trim()) : !skipReason.trim()}
+          disabled={submitting || (mode === 'sign' ? (!hasDrawn || !signerName.trim()) : !skipReason.trim())}
         >
-          <Check className="mr-2 h-4 w-4" /> Confirmar
+          <Check className="mr-2 h-4 w-4" /> {submitting ? 'Guardando…' : 'Confirmar'}
         </Button>
       </div>
     </div>

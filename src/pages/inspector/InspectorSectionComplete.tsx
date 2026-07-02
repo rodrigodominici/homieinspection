@@ -582,16 +582,30 @@ export default function InspectorSectionComplete() {
       signer_name: string;
       skip_reason: string | null;
     }) => {
-      await supabase.from('inspection_signatures').delete().eq('inspection_id', inspectionId!);
-      await supabase.from('inspection_signatures').insert({
-        inspection_id: inspectionId!,
-        signer_name: data.signer_name || null,
-        signature_data: data.signature_data,
-        signature_status: data.signature_status,
-        skip_reason: data.skip_reason,
-        created_by: profile?.id,
-      });
-      // Persist locally so card re-renders immediately without refetch
+      // Atomic upsert — never delete before we know the new row lands.
+      const { error } = await supabase
+        .from('inspection_signatures')
+        .upsert(
+          {
+            inspection_id: inspectionId!,
+            signer_type: 'tenant',
+            signer_name: data.signer_name || null,
+            signature_data: data.signature_data,
+            signature_status: data.signature_status,
+            skip_reason: data.skip_reason,
+            signed_at: new Date().toISOString(),
+            created_by: profile?.id,
+          },
+          { onConflict: 'inspection_id' },
+        );
+      if (error) {
+        toast({
+          title: 'No se pudo guardar la firma',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
       setPersistedSignature({
         signature_data: data.signature_data,
         signature_status: data.signature_status,
@@ -624,6 +638,7 @@ export default function InspectorSectionComplete() {
               <SignaturePad
                 onConfirm={handleSigConfirm}
                 onCancel={() => setShowSigPad(false)}
+                hasExistingSignature={!!persistedSignature?.signature_data}
               />
             ) : !readOnly ? (
               <Button onClick={() => setShowSigPad(true)} className="w-full h-11 rounded-xl">
