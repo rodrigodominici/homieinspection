@@ -312,10 +312,17 @@ export default function AdminInspectionDetail() {
   const handleSave = async () => {
     if (!inspection) return;
     setSaving(true);
+    const nextInspector = editInspector || null;
+    const nextExecutive = editExecutive || null;
     const updates: Record<string, unknown> = {
-      inspector_id: editInspector || null,
-      executive_id: editExecutive || null,
+      inspector_id: nextInspector,
+      executive_id: nextExecutive,
     };
+    // Auto-heal: si ambos IDs quedan asignados y el status sigue en
+    // 'pending_assignment' (legacy), transicionar a 'assigned'.
+    if (nextInspector && nextExecutive && inspection.status === 'pending_assignment') {
+      updates.status = 'assigned';
+    }
     const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
