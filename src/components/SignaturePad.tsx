@@ -94,26 +94,34 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
     setHasDrawn(false);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (submitting) return;
+    let payload;
     if (mode === 'sign') {
       if (!hasDrawn || !signerName.trim()) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const dataUrl = canvas.toDataURL('image/png');
-      onConfirm({
+      payload = {
         signature_data: dataUrl,
-        signature_status: 'signed',
+        signature_status: 'signed' as const,
         signer_name: signerName.trim(),
         skip_reason: null,
-      });
+      };
     } else {
       if (!skipReason.trim()) return;
-      onConfirm({
+      payload = {
         signature_data: null,
         signature_status: skipStatus,
         signer_name: signerName.trim() || '',
         skip_reason: skipReason.trim(),
-      });
+      };
+    }
+    setSubmitting(true);
+    try {
+      await onConfirm(payload);
+    } finally {
+      setSubmitting(false);
     }
   };
 
