@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eraser, Check, X } from 'lucide-react';
+import { Eraser, Check, X, AlertTriangle } from 'lucide-react';
 
 interface SignaturePadProps {
   onConfirm: (data: {
@@ -13,11 +13,13 @@ interface SignaturePadProps {
     signature_status: 'signed' | 'refused' | 'unavailable';
     signer_name: string;
     skip_reason: string | null;
-  }) => void;
+  }) => void | Promise<void>;
   onCancel: () => void;
+  /** When true, shows a warning that confirming will overwrite the existing signature. */
+  hasExistingSignature?: boolean;
 }
 
-export default function SignaturePad({ onConfirm, onCancel }: SignaturePadProps) {
+export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature = false }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
