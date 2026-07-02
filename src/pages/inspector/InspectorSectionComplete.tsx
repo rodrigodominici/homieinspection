@@ -638,6 +638,7 @@ export default function InspectorSectionComplete() {
               <SignaturePad
                 onConfirm={handleSigConfirm}
                 onCancel={() => setShowSigPad(false)}
+                hasExistingSignature={!!persistedSignature?.signature_data}
               />
             ) : !readOnly ? (
               <Button onClick={() => setShowSigPad(true)} className="w-full h-11 rounded-xl">
