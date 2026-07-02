@@ -27,6 +27,7 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
   const [mode, setMode] = useState<'sign' | 'skip'>('sign');
   const [skipStatus, setSkipStatus] = useState<'refused' | 'unavailable'>('refused');
   const [skipReason, setSkipReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const getCtx = useCallback(() => {
     const canvas = canvasRef.current;
