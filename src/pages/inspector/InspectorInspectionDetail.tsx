@@ -463,6 +463,7 @@ export default function InspectorInspectionDetail() {
               <SignaturePad
                 onConfirm={handleSignatureConfirm}
                 onCancel={() => setShowSignature(false)}
+                hasExistingSignature={!!signatureRecord?.signature_data}
               />
             </div>
           </div>
