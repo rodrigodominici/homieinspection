@@ -943,6 +943,7 @@ export type Database = {
           signer_name: string | null
           signer_type: string
           skip_reason: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -955,6 +956,7 @@ export type Database = {
           signer_name?: string | null
           signer_type?: string
           skip_reason?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -967,12 +969,13 @@ export type Database = {
           signer_name?: string | null
           signer_type?: string
           skip_reason?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "inspection_signatures_inspection_id_fkey"
             columns: ["inspection_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "inspections"
             referencedColumns: ["id"]
           },
