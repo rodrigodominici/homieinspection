@@ -89,7 +89,7 @@ export async function logPhotoUploadFailure(params: {
         ...(isPUE ? (err as PhotoUploadError).context ?? {} : {}),
       } as Record<string, unknown>,
     };
-    await supabase.from('client_error_log').insert(payload);
+    await supabase.from('client_error_log').insert([payload]);
   } catch {
     // Diagnostic logging must never break the user flow.
   }
