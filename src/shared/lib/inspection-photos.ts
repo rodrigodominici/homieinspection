@@ -73,14 +73,14 @@ export async function logPhotoUploadFailure(params: {
     const { err, inspectionId, sectionKey, file } = params;
     const isPUE = err instanceof PhotoUploadError;
     const { data: sessionData } = await supabase.auth.getSession();
-    await supabase.from('client_error_log').insert({
-      user_id: sessionData?.session?.user?.id ?? null,
+    const payload = {
+      user_id: sessionData?.session?.user?.id ?? undefined,
       inspection_id: inspectionId,
-      section_key: sectionKey ?? null,
+      section_key: sectionKey ?? undefined,
       error_kind: isPUE ? (err as PhotoUploadError).kind : 'unknown',
-      message: (err as { message?: string })?.message ?? String(err),
-      status_code: isPUE ? (err as PhotoUploadError).statusCode ?? null : null,
-      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      message: ((err as { message?: string })?.message ?? String(err)).slice(0, 500),
+      status_code: isPUE ? (err as PhotoUploadError).statusCode ?? undefined : undefined,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
       context: {
         file_type: file?.type ?? null,
         file_size: file?.size ?? null,
@@ -88,7 +88,8 @@ export async function logPhotoUploadFailure(params: {
         online: typeof navigator !== 'undefined' ? navigator.onLine : null,
         ...(isPUE ? (err as PhotoUploadError).context ?? {} : {}),
       } as Record<string, unknown>,
-    });
+    };
+    await supabase.from('client_error_log').insert(payload);
   } catch {
     // Diagnostic logging must never break the user flow.
   }
