@@ -81,13 +81,13 @@ export async function logPhotoUploadFailure(params: {
       message: ((err as { message?: string })?.message ?? String(err)).slice(0, 500),
       status_code: isPUE ? (err as PhotoUploadError).statusCode ?? undefined : undefined,
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-      context: {
+      context: JSON.parse(JSON.stringify({
         file_type: file?.type ?? null,
         file_size: file?.size ?? null,
         file_name: file?.name ?? null,
         online: typeof navigator !== 'undefined' ? navigator.onLine : null,
         ...(isPUE ? (err as PhotoUploadError).context ?? {} : {}),
-      } as Record<string, unknown>,
+      })),
     };
     await supabase.from('client_error_log').insert([payload]);
   } catch {
