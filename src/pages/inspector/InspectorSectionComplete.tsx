@@ -28,7 +28,7 @@ import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/in
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
-import { compressImage } from '@/shared/lib/inspection-photos';
+import { compressImage, uploadInspectionPhotos, photoUploadErrorLabel } from '@/shared/lib/inspection-photos';
 
 // ─── Group labels ────────────────────────────────────────────────────────
 const PROPERTY_GROUP_LABELS: Record<string, string> = {
@@ -159,51 +159,32 @@ export default function InspectorSectionComplete() {
 
   const handlePhotoUpload = async (files: FileList | null, fieldKey?: string | null) => {
     if (!files || !inspectionId || !sectionId || !section) return;
+    // Snapshot file list before touching the input — the browser can clear
+    // `files` on next render, breaking the loop.
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
 
-    if (!navigator.onLine) {
-      toast({ title: 'Sin conexión', description: 'Foto no subida. Intenta de nuevo cuando tengas conexión.', variant: 'destructive' });
-      return;
-    }
+    const batchId = crypto.randomUUID();
+    setUploading((prev) => new Set(prev).add(batchId));
 
-    for (const file of Array.from(files)) {
-      const fileId = crypto.randomUUID();
-      setUploading((prev) => new Set(prev).add(fileId));
-
-      try {
-        const compressed = await compressImage(file);
-        const path = `inspections/${inspectionId}/${section.section_key}/${fileId}.jpg`;
-        const { error: uploadError } = await supabase.storage.from('inspection-photos').upload(path, compressed, { contentType: 'image/jpeg' });
-        if (uploadError) {
-          if (!navigator.onLine) {
-            toast({ title: 'Sin conexión', description: 'Foto no subida. Intenta de nuevo cuando tengas conexión.', variant: 'destructive' });
-          } else {
-            toast({ title: 'Error subiendo foto', description: uploadError.message, variant: 'destructive' });
-          }
-          setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
-          continue;
-        }
-        const { data: photoData, error: photoError } = await supabase
-          .from('inspection_photos')
-          .insert({
-            inspection_id: inspectionId,
-            inspection_section_id: sectionId,
-            field_key: fieldKey ?? null,
-            group_key: 'photo',
-            storage_bucket: 'inspection-photos',
-            storage_path: path,
-            uploaded_by: profile?.id,
-            sort_order: photos.length,
-          })
-          .select()
-          .single();
-        setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
-        if (!photoError && photoData) {
-          setPhotos((prev) => [...prev, photoData as unknown as InspectionPhoto]);
-        }
-      } catch {
-        toast({ title: 'Error de red', description: 'Foto no subida. Verifica tu conexión e intenta de nuevo.', variant: 'destructive' });
-        setUploading((prev) => { const n = new Set(prev); n.delete(fileId); return n; });
+    try {
+      const inserted = await uploadInspectionPhotos({
+        inspectionId,
+        sectionId,
+        sectionKey: section.section_key,
+        files: fileArray,
+        uploadedBy: profile?.id,
+        startingSortOrder: photos.length,
+        fieldKey: fieldKey ?? null,
+      });
+      if (inserted.length > 0) {
+        setPhotos((prev) => [...prev, ...(inserted as InspectionPhoto[])]);
       }
+    } catch (e) {
+      const { title, description } = photoUploadErrorLabel(e);
+      toast({ title, description, variant: 'destructive' });
+    } finally {
+      setUploading((prev) => { const n = new Set(prev); n.delete(batchId); return n; });
     }
   };
 
