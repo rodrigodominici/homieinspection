@@ -1,69 +1,45 @@
+## Diagnóstico — San Isidro 96 D 1712
 
-## Diagnóstico
+**Inspección:** `87e186be-5ce1-4c14-bd0b-3eefd3ff1403` — status `published` desde `2026-07-01 16:20:16`. Última foto en BD: `2026-06-30 04:04:38`. Cero fotos insertadas después del intento reportado.
 
-Reviewed `inspection_signatures` para `5adefafc…` (Carvajal 0330 D 901): existe **una única fila con `signature_status = 'unavailable'` y `signature_data = NULL`**, creada el 2026-07-02 01:11 por el inspector. Es decir, la firma "desapareció" y quedó registrada como no firmada.
+### Qué encontré
 
-Al leer el código de guardado (`InspectorSectionComplete.tsx` L579-602, `InspectorInspectionDetail.tsx` L336-359 y `AdminInspectionDetail` L408), encuentro el patrón peligroso que explica el síntoma:
+1. **El mensaje "HTTP 400 error" es genérico del SDK de Storage.** El cliente supabase-js lo devuelve cuando la respuesta 400 del bucket viene con cuerpo vacío o no-JSON. **No es el error real** — el mensaje útil se pierde antes de llegar al toast del inspector.
 
-```ts
-await supabase.from('inspection_signatures').delete().eq('inspection_id', id);
-await supabase.from('inspection_signatures').insert({ ... });
-```
+2. **Las causas más probables de un 400 "opaco" en móvil**, por orden de frecuencia:
+   - **JWT expirado / sesión caduca** durante una sesión larga en móvil (WhatsApp abre el link, la app queda en background, el token no refresca a tiempo). Storage rechaza con 400 y cuerpo vacío.
+   - **HEIC de iPhone**: `compressImage` intenta cargar el archivo en `<img>`; si Safari no decodifica, cae al `onerror` y **sube el archivo HEIC original** con `contentType: 'image/jpeg'`. El bucket rechaza el mismatch.
+   - **Blob vacío**: `canvas.toBlob` retorna `null` (fotos muy grandes / poca memoria RAM en el device) y se sube el `File` original — si es HEIC vuelve al punto anterior.
+   - **RLS de Storage**: descartado. Las políticas de `inspection-photos` e `inspection_photos` **no filtran por status**, así que el `published` no bloquea el upload por sí solo.
+   - **Bucket size/mime limit**: descartado. El bucket no tiene límites configurados.
 
-Problemas concretos:
+3. **RLS status-gap:** aunque no causa el 400 de hoy, hay un hueco: un inspector puede insertar fotos en una inspección `published` a nivel de storage/DB. La UI lo esconde con `isInspectorReadOnly`, pero el backend no.
 
-1. **No es transaccional**: si el `delete` corre y el `insert` falla (pérdida de red mid-save, payload PNG grande, RLS, timeout, tab en background, etc.), la firma anterior queda borrada y no se reemplaza. El usuario ve "guardado" porque el UI local (`setPersistedSignature`) se actualiza sin esperar confirmación de éxito.
-2. **Sin manejo de error**: ningún `if (error)` ni toast; el fallo del `insert` es silencioso.
-3. **No hay `UNIQUE (inspection_id)`**: permite filas duplicadas y obliga al patrón delete+insert en vez de un upsert atómico.
-4. **Dos escritores** (`InspectorSectionComplete` y `InspectorInspectionDetail`) pueden pisar la firma del otro si el inspector navega entre pantallas: el `delete` de uno borra la firma que el otro acaba de guardar.
-5. **Sobrescritura por "No puede firmar"**: si tras firmar el inspector abre la hoja y por error toca "unavailable"/"refused" sin firmar, `handleSigConfirm` borra la firma y guarda estado vacío. Este parece ser exactamente el caso observado (fila con `unavailable`, sin data).
+### Qué haría el fix
 
-## Cambios propuestos
+**A. Diagnóstico real (obligatorio).** Sin esto seguiremos a ciegas:
+- Envolver el error del SDK y **loggear a `slack_notifications_log`** (o una tabla nueva `client_error_log`) con: `inspection_id`, `section_key`, `user_id`, `file.type`, `file.size`, `navigator.userAgent`, `error.message`, `error.statusCode`. Un solo campo `context jsonb` alcanza.
+- Mostrar en el toast el `statusCode` y el `message` del `StorageError` (no solo `.message`), para que el inspector pueda mandar captura útil.
 
-### 1. Base de datos (migración)
-- Añadir `UNIQUE (inspection_id)` sobre `inspection_signatures` (previa deduplicación si hubiese duplicados; hoy 0 casos).
-- Añadir `CHECK` que exija `signature_data IS NOT NULL` cuando `signature_status = 'signed'`.
-- Añadir `updated_at` + trigger `update_updated_at_column` para poder auditar reemplazos.
+**B. Robustez del upload (previene el 90 % de los 400 reales):**
+- **Refresh explícito del JWT** justo antes de subir: `supabase.auth.getSession()` → si `expires_at` está a <60 s, `refreshSession()`. Si falla el refresh, decir "Sesión expirada, vuelve a iniciar" en lugar de 400 opaco.
+- **Reintento con backoff** (2 intentos, 1 s / 3 s) para 400/5xx/network.
+- **Fallback HEIC → JPEG**: si `img.onerror` dispara en `compressImage`, **abortar** el upload en vez de subir el archivo original con content-type mentido. Toast: "Formato de foto no soportado en tu navegador. Toma la foto de nuevo con la cámara."
+- **Validar blob no-vacío** antes del `.upload()`. Si `blob.size === 0`, abortar con mensaje claro.
+- Centralizar toda esta lógica en `uploadInspectionPhotos` para que el flujo del inspector (`InspectorSectionComplete`) y el del ejecutivo (`PhotoPanel`) la compartan. Hoy el inspector tiene su propia copia en `handlePhotoUpload`.
 
-### 2. Frontend — guardado atómico
-Reemplazar `delete + insert` por **upsert transaccional** en los 2 puntos de escritura:
+**C. Cerrar el hueco de RLS (opcional pero recomendado):**
+- Añadir en las políticas de INSERT de `storage.objects` e `inspection_photos` la condición `i.status NOT IN ('published','sent','approved')` para inspectores. Así, si por algún bug la UI expone el botón en read-only, el backend lo rechaza con mensaje claro en lugar de un 400 genérico.
 
-```ts
-const { error } = await supabase
-  .from('inspection_signatures')
-  .upsert({
-    inspection_id,
-    signer_name: ...,
-    signature_data,
-    signature_status,
-    skip_reason,
-    signed_at: new Date().toISOString(),
-    created_by: profile?.id,
-  }, { onConflict: 'inspection_id' });
+### Alcance sugerido de esta iteración
 
-if (error) {
-  toast({ title: 'No se pudo guardar la firma', description: error.message, variant: 'destructive' });
-  return; // NO limpiar estado local, NO cerrar el pad
-}
-// solo entonces: setPersistedSignature(...), cerrar pad, marcar handled
-```
+Propongo **A + B** en un solo cambio (diagnóstico + robustez). **C** lo dejamos para una migración aparte porque toca políticas y quiero probar A/B primero con el logging para confirmar la causa raíz en los próximos casos reales.
 
-Esto elimina la ventana entre delete e insert y garantiza que un fallo no destruya la firma previa.
+### Archivos que tocaría
 
-### 3. UX de la hoja de firma (`SignaturePad`)
-- Al abrir el pad cuando ya existe una firma válida (`signature_status='signed'` con data), mostrar aviso claro: *"Ya hay una firma guardada. Confirmar reemplazará la anterior."* y precargar el modo "Firmar" (no "No puede firmar").
-- Deshabilitar el botón "Confirmar" mientras el `upsert` está en vuelo para evitar doble click.
+- `src/shared/lib/inspection-photos.ts` — refresh JWT, reintento, validación blob, HEIC guard, error enriquecido.
+- `src/pages/inspector/InspectorSectionComplete.tsx` — reemplazar `handlePhotoUpload` local por `uploadInspectionPhotos`.
+- `src/pages/executive/review-detail/PhotoPanel.tsx` — surface `statusCode` en toast.
+- Migración nueva: tabla `client_error_log` (o reutilizar `inspection_audit_log` con `action='photo_upload_failed'`).
 
-### 4. Higiene del registro actual de Carvajal 0330 D 901
-- No revertir automáticamente: la fila `unavailable` es lo que quedó y no tenemos la firma real. Documentar en el plan que el inspector debe re-firmar desde la app; con el upsert ya no se perderá.
-
-## Archivos a modificar
-
-- `supabase/migrations/…_signature_unique_and_check.sql` (nueva)
-- `src/pages/inspector/InspectorSectionComplete.tsx` (`handleSigConfirm`)
-- `src/pages/inspector/InspectorInspectionDetail.tsx` (`handleSignatureConfirm`)
-- `src/components/SignaturePad.tsx` (aviso reemplazo + guard doble-submit)
-
-## Fuera de scope
-- Cambiar el flujo del `AdminInspectionDetail` (solo lee; el delete que tiene es dentro de `handleDelete` de la inspección completa, correcto).
-- Compresión del PNG de firma (evaluar si vuelven a reportarse fallos por tamaño tras el fix).
+¿Avanzo con A+B, o prefieres que primero solo agregue el logging (A) para capturar el error real del próximo caso antes de tocar la lógica de upload?

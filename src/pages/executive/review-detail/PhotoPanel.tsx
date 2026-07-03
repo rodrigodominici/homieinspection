@@ -47,8 +47,10 @@ export const PhotoPanel = memo(function PhotoPanel({
         startingSortOrder: photos.length,
       });
       onPhotosChanged([...photos, ...inserted]);
-    } catch (e: any) {
-      toast({ title: 'Error subiendo foto', description: e?.message ?? '', variant: 'destructive' });
+    } catch (e) {
+      const { photoUploadErrorLabel } = await import('@/shared/lib/inspection-photos');
+      const { title, description } = photoUploadErrorLabel(e);
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
