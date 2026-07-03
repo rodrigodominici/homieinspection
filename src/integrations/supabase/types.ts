@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_error_log: {
+        Row: {
+          context: Json | null
+          created_at: string
+          error_kind: string
+          id: string
+          inspection_id: string | null
+          message: string | null
+          section_key: string | null
+          status_code: number | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          error_kind: string
+          id?: string
+          inspection_id?: string | null
+          message?: string | null
+          section_key?: string | null
+          status_code?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          error_kind?: string
+          id?: string
+          inspection_id?: string | null
+          message?: string | null
+          section_key?: string | null
+          status_code?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       communication_deliveries: {
         Row: {
           channel: string
