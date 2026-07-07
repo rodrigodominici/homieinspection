@@ -24,7 +24,7 @@ export async function approveInspection(inspectionId: string, profileId: string 
   const now = new Date().toISOString();
   const { error: e1 } = await supabase
     .from('inspections')
-    .update({ status: 'approved', approved_at: now, approved_by: profileId })
+    .update({ status: 'approved', current_stage: 'share', approved_at: now, approved_by: profileId })
     .eq('id', inspectionId);
   if (e1) throw e1;
   const { error: e2 } = await supabase
