@@ -180,6 +180,7 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   const now = new Date().toISOString();
   await supabase.from('inspections').update({
     status: 'published',
+    current_stage: 'share',
     published_at: now,
     owner_url_generated_at: now,
     approved_at: now,
