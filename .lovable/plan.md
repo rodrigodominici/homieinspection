@@ -1,62 +1,52 @@
 ## Diagnóstico
 
-Los ejecutivos aprueban la inspección desde Cotización → llegan al paso 4 "Publicación" con toda la lista de verificación en verde, pero **no aparece el botón "Publicar reporte"**.
+El cierre manual (botón "Cerrar manualmente" del panel de feedback del propietario) llama al RPC `executive_force_close_owner_feedback`. Ese RPC intenta escribir en `inspection_audit_log` así:
 
-### Causa raíz
-
-El botón está condicionado en dos lugares (`PublishView.tsx:77` y `ReviewHeaderBar.tsx:135`) a:
-
-```ts
-inspection.current_stage === 'share' && inspection.status === 'approved'
+```sql
+INSERT INTO inspection_audit_log (inspection_id, actor_id, action, payload) VALUES (...)
 ```
 
-La acción `approveInspection` (`src/modules/review/api/inspection-actions.service.ts`) solo actualiza `status = 'approved'` pero **nunca avanza `current_stage`** de `'budget'` a `'share'`. Resultado: la inspección queda `status='approved'` + `current_stage='budget'` y el botón nunca se renderiza.
+Pero la tabla real tiene otro esquema:
 
-Confirmado en la BD para la inspección visible en pantalla (`df64ca15…` — Nicasio Retamales 054 D 1103):
+| Columna en RPC | Columna real          |
+|----------------|------------------------|
+| `actor_id`     | `performed_by`         |
+| `payload`      | `note` (texto, no jsonb) |
 
-| status   | current_stage | published_at |
-|----------|---------------|--------------|
-| approved | budget        | null         |
+Además, la tabla tiene columnas `previous_status` / `new_status` que el RPC no está aprovechando. Resultado: al confirmar el cierre manual sale el error `column "actor_id" of relation "inspection_audit_log" does not exist` y la transacción hace rollback — la inspección queda sin cerrar.
 
-Otras aprobadas quedaron atascadas en el mismo estado. Las que sí se publicaron en el pasado (`f32a2e14`, `64b5ad0f`) tienen `current_stage='share'` — probablemente se avanzaron manualmente vía el flujo admin (`AdminInspectionDetail` sí actualiza `current_stage`).
-
-Las políticas RLS de `inspection_report_versions` e `inspections` son correctas — no bloquean al ejecutivo asignado. Es puramente un bug de UI/estado.
+Esto afecta a Zañartu 980 y a cualquier otra inspección donde el ejecutivo intente el cierre manual del feedback.
 
 ## Cambios propuestos
 
-### 1. Corregir la acción de aprobar (código)
-
-`src/modules/review/api/inspection-actions.service.ts` — en `approveInspection`, incluir `current_stage: 'share'` en el UPDATE:
-
-```ts
-.update({
-  status: 'approved',
-  current_stage: 'share',
-  approved_at: now,
-  approved_by: profileId,
-})
-```
-
-Esto asegura que toda inspección recién aprobada pase automáticamente a la etapa "share" y muestre el botón "Publicar reporte".
-
-### 2. Backfill de inspecciones ya aprobadas (migración)
-
-Migración one-shot para desatascar las inspecciones que quedaron aprobadas sin poder publicarse:
+Migración one-shot para reemplazar el RPC `executive_force_close_owner_feedback` con la única línea de INSERT corregida (todo lo demás del RPC queda igual: validaciones, submission sintética, update de la inspección):
 
 ```sql
-UPDATE public.inspections
-SET current_stage = 'share'
-WHERE status = 'approved'
-  AND current_stage <> 'share'
-  AND published_at IS NULL;
+INSERT INTO inspection_audit_log (
+  inspection_id, performed_by, action, previous_status, new_status, note
+) VALUES (
+  p_inspection_id,
+  v_uid,
+  'owner_feedback_manual_closure',
+  v_old_status,
+  'approved',
+  -- Serializamos el detalle (motivo + nota + estado anterior de feedback) como texto legible
+  format('reason=%s; owner_feedback: %s -> accepted%s',
+         p_reason,
+         v_old_feedback_status,
+         CASE WHEN NULLIF(trim(coalesce(p_note,'')), '') IS NOT NULL
+              THEN '; note=' || trim(p_note) ELSE '' END)
+);
 ```
+
+No se toca ningún otro comportamiento (submission sintética, `status='approved'`, `current_stage='share'`, `owner_feedback_status='accepted'`, `approved_at/by`).
 
 ## Verificación
 
-- Abrir la inspección `df64ca15` (Nicasio Retamales 054 D 1103) como el ejecutivo asignado (David Chávez) → debe aparecer el botón "Publicar reporte" en el paso 4.
-- Aprobar una inspección nueva desde Cotización → al llegar a Publicación el botón debe estar disponible.
-- Verificar en BD: `SELECT status, current_stage FROM inspections WHERE id = '…'` → `approved / share`.
+- Abrir Zañartu 980 → botón "Cerrar manualmente" → elegir "Aprobado fuera de la plataforma" con la nota "Aprobado vía correo" → debe cerrarse sin error y quedar `status=approved`, `current_stage=share`, `owner_feedback_status=accepted`.
+- Revisar `inspection_audit_log` para esa inspección → debe existir una fila con `action='owner_feedback_manual_closure'`, `performed_by = ejecutivo`, `previous_status='published'`, `new_status='approved'`, `note` con el motivo y la nota.
+- Los cierres manuales que ya se hicieron antes no se ven afectados (esto es puramente el bug de escritura del log).
 
 ## Nota
 
-Este cambio NO altera lógica de reparaciones ni RLS ni notificaciones Slack. Solo asegura que el avance de etapa `budget → share` ocurra automáticamente al aprobar, tal como ya ocurre en el flujo admin.
+No se cambia lógica de aprobación, ni RLS, ni notificaciones. Solo se alinean los nombres de columna del INSERT con el esquema real de `inspection_audit_log`.
