@@ -89,7 +89,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
             <div class="repair-name">${esc(r.title_snapshot)}</div>
             ${r.description_snapshot ? `<div class="repair-desc">${esc(r.description_snapshot)}</div>` : ''}
             <span class="badge ${r.payment_nature === 'required' ? 'badge-required' : 'badge-optional'}">
-              ${r.payment_nature === 'required' ? 'Obligatoria' : 'Opcional'}
+              ${r.payment_nature === 'required' ? 'Recomendada' : 'Opcional'}
             </span>
           </td>
           <td class="r">${r.quantity}</td>
