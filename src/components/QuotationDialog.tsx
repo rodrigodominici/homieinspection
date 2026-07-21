@@ -152,9 +152,8 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
     if (!win) return;
     const summary = `
       <div class="totals">
-        <div class="totals-row"><span class="totals-label">Subtotal obligatorias</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
-        <div class="totals-row"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
-        <div class="totals-row"><span class="totals-label">Subtotal</span><span class="totals-value">${fmtCurrency(subtotal)}</span></div>
+        <div class="totals-row"><span class="totals-label">Subtotal recomendadas</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
+        <div class="totals-row optional"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
         ${vat.enabled ? `<div class="totals-row"><span class="totals-label">${esc(vat.label)} ${vat.percentage}%</span><span class="totals-value">${fmtCurrency(vat.vatAmount)}</span></div>` : ''}
         <div class="totals-row grand-line"><span class="totals-label">Total</span><span class="totals-value">${fmtCurrency(total)}</span></div>
       </div>`;
