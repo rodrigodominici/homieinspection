@@ -241,7 +241,7 @@ export const RepairsTableView = memo(function RepairsTableView({
                     onChange={(e) => onUpdateRepair(r.id, 'payment_nature', e.target.value)}
                     className="h-7 rounded-md border bg-background px-2 text-xs hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="required">Obligatoria</option>
+                    <option value="required">Recomendada</option>
                     <option value="optional">Opcional</option>
                   </select>
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
