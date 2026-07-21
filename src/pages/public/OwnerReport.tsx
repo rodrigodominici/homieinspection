@@ -403,8 +403,11 @@ function RepairRow({
             variant={r.payment_nature === 'optional' ? 'outline' : 'secondary'}
             className="mt-1.5 text-[10px] px-1.5 py-0 font-medium"
           >
-            {r.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}
+            {r.payment_nature === 'optional' ? 'Opcional' : 'Recomendada'}
           </Badge>
+          <p className={`text-tiny font-mono tabular-nums text-muted-foreground mt-1 ${isRejected ? 'line-through' : ''}`}>
+            {r.quantity} × {fmt(Number(r.unit_price))} = {fmt(subtotal)}
+          </p>
         </div>
         <div className="sm:text-right shrink-0">
           <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
