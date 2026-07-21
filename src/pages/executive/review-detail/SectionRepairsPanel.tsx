@@ -248,7 +248,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                         value="required"
                         className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
                       >
-                        Obligatoria
+                        Recomendada
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         value="optional"
