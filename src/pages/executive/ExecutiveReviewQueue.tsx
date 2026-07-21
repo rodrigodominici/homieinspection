@@ -93,10 +93,20 @@ export default function ExecutiveReviewQueue() {
   const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
+  const [ownerFeedbackFilter, setOwnerFeedbackFilter] = useState<'all' | 'waiting' | 'pending_review' | 'accepted'>('all');
   const [sortKey, setSortKey] = useState<SortKey>(
     () => (localStorage.getItem('executive-queue-sort') as SortKey) || 'updated'
   );
   const persistSortKey = (s: SortKey) => { setSortKey(s); localStorage.setItem('executive-queue-sort', s); };
+
+  const setStatusExclusive = (next: string) => {
+    setStatusFilter(next);
+    if (next !== 'all') setOwnerFeedbackFilter('all');
+  };
+  const setOwnerFeedbackExclusive = (next: 'all' | 'waiting' | 'pending_review' | 'accepted') => {
+    setOwnerFeedbackFilter(next);
+    if (next !== 'all') setStatusFilter('all');
+  };
 
   const markets = useMemo(() => [...new Set(inspections.map(i => i.market).filter(Boolean))], [inspections]);
   const inspectors = useMemo(() => {
@@ -118,8 +128,15 @@ export default function ExecutiveReviewQueue() {
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
     if (publishedFilter === 'published' && !i.published_at) return false;
     if (publishedFilter === 'not_published' && !!i.published_at) return false;
+    if (ownerFeedbackFilter !== 'all') {
+      const fb = i.owner_feedback_status ?? 'none';
+      const isPub = i.status === 'published' || i.status === 'sent';
+      if (ownerFeedbackFilter === 'waiting' && !(isPub && fb === 'none')) return false;
+      if (ownerFeedbackFilter === 'pending_review' && !(isPub && fb === 'pending_executive_review')) return false;
+      if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
+    }
     return true;
-  }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
+  }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
@@ -186,12 +203,12 @@ export default function ExecutiveReviewQueue() {
           <>
             {/* KPIs — ordenados según el ciclo real: revisión → publicación → propietario → cierre. */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  tooltip="Inspecciones enviadas por el inspector que esperan tu revisión inicial." active={statusFilter === 'submitted'}     onClick={() => setStatusFilter(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
-              <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  tooltip="Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios." active={statusFilter === 'in_review'}      onClick={() => setStatusFilter(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
-              <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  tooltip="Aprobadas internamente. Falta enviarlas al propietario." active={statusFilter === 'approved'}       onClick={() => setStatusFilter(statusFilter === 'approved'       ? 'all' : 'approved')} />
-              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta." />
-              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" tooltip="El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar." />
-              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" tooltip="El propietario aceptó la cotización. Ciclo cerrado." />
+              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  tooltip="Inspecciones enviadas por el inspector que esperan tu revisión inicial." active={statusFilter === 'submitted'}     onClick={() => setStatusExclusive(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
+              <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  tooltip="Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios." active={statusFilter === 'in_review'}      onClick={() => setStatusExclusive(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
+              <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  tooltip="Aprobadas internamente. Falta enviarlas al propietario." active={statusFilter === 'approved'}       onClick={() => setStatusExclusive(statusFilter === 'approved'       ? 'all' : 'approved')} />
+              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta." active={ownerFeedbackFilter === 'waiting'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'waiting' ? 'all' : 'waiting')} />
+              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" tooltip="El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar." active={ownerFeedbackFilter === 'pending_review'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'pending_review' ? 'all' : 'pending_review')} />
+              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" tooltip="El propietario aceptó la cotización. Ciclo cerrado." active={ownerFeedbackFilter === 'accepted'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'accepted' ? 'all' : 'accepted')} />
             </div>
 
             {/* Filters */}
