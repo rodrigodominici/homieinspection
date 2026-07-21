@@ -128,8 +128,15 @@ export default function ExecutiveReviewQueue() {
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
     if (publishedFilter === 'published' && !i.published_at) return false;
     if (publishedFilter === 'not_published' && !!i.published_at) return false;
+    if (ownerFeedbackFilter !== 'all') {
+      const fb = i.owner_feedback_status ?? 'none';
+      const isPub = i.status === 'published' || i.status === 'sent';
+      if (ownerFeedbackFilter === 'waiting' && !(isPub && fb === 'none')) return false;
+      if (ownerFeedbackFilter === 'pending_review' && !(isPub && fb === 'pending_executive_review')) return false;
+      if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
+    }
     return true;
-  }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter]);
+  }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
