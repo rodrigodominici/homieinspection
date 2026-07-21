@@ -178,15 +178,14 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
     for (const g of groups) {
       lines.push(g.section.section_title.toUpperCase());
       g.items.forEach(r => {
-        const tag = r.payment_nature === 'required' ? '[Obligatoria]' : '[Opcional]';
+        const tag = r.payment_nature === 'required' ? '[Recomendada]' : '[Opcional]';
         lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${fmtCurrency(r.unit_price)} = ${fmtCurrency(r.quantity * r.unit_price)}`);
       });
       lines.push(`Subtotal sección: ${fmtCurrency(g.subtotal)}`);
       lines.push('');
     }
-    lines.push(`Subtotal obligatorias: ${fmtCurrency(requiredTotal)}`);
+    lines.push(`Subtotal recomendadas: ${fmtCurrency(requiredTotal)}`);
     lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
-    lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
     if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
