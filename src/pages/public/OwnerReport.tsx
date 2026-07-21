@@ -564,7 +564,10 @@ export default function OwnerReport() {
   );
 
   const sectionGroups = useMemo(
-    () => report ? groupSectionsByPayer(report.sections) : { owner: [], tenant: [] },
+    () => report ? groupSectionsByPayer(report.sections) : {
+      owner: [], tenant: [],
+      ownerRequired: [], ownerOptional: [], tenantRequired: [], tenantOptional: [],
+    },
     [report]
   );
 
