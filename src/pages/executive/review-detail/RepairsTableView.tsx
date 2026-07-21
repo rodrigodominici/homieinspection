@@ -148,7 +148,7 @@ export const RepairsTableView = memo(function RepairsTableView({
         <ToggleGroup type="single" value={natureFilter} onValueChange={(v) => v && setNatureFilter(v as NatureFilter)}
           className="h-9 rounded-md border bg-muted/30 p-0.5">
           <ToggleGroupItem value="all" className="h-7 px-3 text-xs">Todas</ToggleGroupItem>
-          <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Obligatorias</ToggleGroupItem>
+          <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Recomendadas</ToggleGroupItem>
           <ToggleGroupItem value="optional" className="h-7 px-3 text-xs">Opcionales</ToggleGroupItem>
         </ToggleGroup>
         {pendingFeedbackCount > 0 && (
