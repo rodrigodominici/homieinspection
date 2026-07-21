@@ -148,7 +148,7 @@ export const RepairsTableView = memo(function RepairsTableView({
         <ToggleGroup type="single" value={natureFilter} onValueChange={(v) => v && setNatureFilter(v as NatureFilter)}
           className="h-9 rounded-md border bg-muted/30 p-0.5">
           <ToggleGroupItem value="all" className="h-7 px-3 text-xs">Todas</ToggleGroupItem>
-          <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Obligatorias</ToggleGroupItem>
+          <ToggleGroupItem value="required" className="h-7 px-3 text-xs">Recomendadas</ToggleGroupItem>
           <ToggleGroupItem value="optional" className="h-7 px-3 text-xs">Opcionales</ToggleGroupItem>
         </ToggleGroup>
         {pendingFeedbackCount > 0 && (
@@ -241,7 +241,7 @@ export const RepairsTableView = memo(function RepairsTableView({
                     onChange={(e) => onUpdateRepair(r.id, 'payment_nature', e.target.value)}
                     className="h-7 rounded-md border bg-background px-2 text-xs hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="required">Obligatoria</option>
+                    <option value="required">Recomendada</option>
                     <option value="optional">Opcional</option>
                   </select>
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">

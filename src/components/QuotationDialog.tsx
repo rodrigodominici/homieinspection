@@ -89,7 +89,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
             <div class="repair-name">${esc(r.title_snapshot)}</div>
             ${r.description_snapshot ? `<div class="repair-desc">${esc(r.description_snapshot)}</div>` : ''}
             <span class="badge ${r.payment_nature === 'required' ? 'badge-required' : 'badge-optional'}">
-              ${r.payment_nature === 'required' ? 'Obligatoria' : 'Opcional'}
+              ${r.payment_nature === 'required' ? 'Recomendada' : 'Opcional'}
             </span>
           </td>
           <td class="r">${r.quantity}</td>
@@ -141,6 +141,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       .badge-optional { background: #fff; color: #666; border: 1px solid #d1d5db; }
       .totals { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; }
       .totals-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+      .totals-row.optional { font-style: italic; color: #666; }
       .totals-label { color: #555; }
       .totals-value { font-variant-numeric: tabular-nums; font-weight: 600; }
       .grand-line { border-top: 2px solid #111; margin-top: 6px; padding-top: 6px; }
@@ -151,9 +152,8 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
     if (!win) return;
     const summary = `
       <div class="totals">
-        <div class="totals-row"><span class="totals-label">Subtotal obligatorias</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
-        <div class="totals-row"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
-        <div class="totals-row"><span class="totals-label">Subtotal</span><span class="totals-value">${fmtCurrency(subtotal)}</span></div>
+        <div class="totals-row"><span class="totals-label">Subtotal recomendadas</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
+        <div class="totals-row optional"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
         ${vat.enabled ? `<div class="totals-row"><span class="totals-label">${esc(vat.label)} ${vat.percentage}%</span><span class="totals-value">${fmtCurrency(vat.vatAmount)}</span></div>` : ''}
         <div class="totals-row grand-line"><span class="totals-label">Total</span><span class="totals-value">${fmtCurrency(total)}</span></div>
       </div>`;
@@ -178,15 +178,14 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
     for (const g of groups) {
       lines.push(g.section.section_title.toUpperCase());
       g.items.forEach(r => {
-        const tag = r.payment_nature === 'required' ? '[Obligatoria]' : '[Opcional]';
+        const tag = r.payment_nature === 'required' ? '[Recomendada]' : '[Opcional]';
         lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${fmtCurrency(r.unit_price)} = ${fmtCurrency(r.quantity * r.unit_price)}`);
       });
       lines.push(`Subtotal sección: ${fmtCurrency(g.subtotal)}`);
       lines.push('');
     }
-    lines.push(`Subtotal obligatorias: ${fmtCurrency(requiredTotal)}`);
+    lines.push(`Subtotal recomendadas: ${fmtCurrency(requiredTotal)}`);
     lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
-    lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
     if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
@@ -237,7 +236,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
                               variant={r.payment_nature === 'required' ? 'secondary' : 'outline'}
                               className="mt-1 text-[10px] px-1.5 py-0"
                             >
-                              {r.payment_nature === 'required' ? 'Obligatoria' : 'Opcional'}
+                              {r.payment_nature === 'required' ? 'Recomendada' : 'Opcional'}
                             </Badge>
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
@@ -258,11 +257,11 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
 
               <div className="totals border-t border-border/70 pt-3 space-y-1.5 text-caption">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal obligatorias</span>
+                  <span className="text-muted-foreground">Subtotal recomendadas</span>
                   <MoneyDisplay value={requiredTotal} market={inspection.market} />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal opcionales</span>
+                <div className="flex justify-between italic text-muted-foreground">
+                  <span>Subtotal opcionales</span>
                   <MoneyDisplay value={optionalTotal} market={inspection.market} />
                 </div>
                 <TaxBreakdown

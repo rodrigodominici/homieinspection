@@ -127,7 +127,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                   <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span>{repair.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'}</span>
                     <span className="opacity-50">·</span>
-                    <span>{repair.payment_nature === 'optional' ? 'Opcional' : 'Obligatoria'}</span>
+                    <span>{repair.payment_nature === 'optional' ? 'Opcional' : 'Recomendada'}</span>
                   </div>
                 </div>
                 <span className="text-xs font-mono font-medium shrink-0">{fmtCurrency(itemSubtotal)}</span>
@@ -248,7 +248,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                         value="required"
                         className="h-8 px-3 text-xs font-medium rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
                       >
-                        Obligatoria
+                        Recomendada
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         value="optional"

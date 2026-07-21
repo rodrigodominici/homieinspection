@@ -68,6 +68,21 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   const visiblePhotos = Object.values(photosBySection).flat().filter((p: any) => p.visible_to_owner !== false);
   const taxConfig = await fetchTaxConfig(inspection.market);
   const activeDiscount = await fetchActiveDiscount(inspection.id);
+
+  // Load the tenant signature (if any) so the published report can render it.
+  const { data: signatureRow } = await supabase
+    .from('inspection_signatures')
+    .select('signer_name, signature_data, signed_at, signature_status')
+    .eq('inspection_id', inspection.id)
+    .maybeSingle();
+  const signaturePayload = signatureRow && (signatureRow as any).signature_status === 'signed' && (signatureRow as any).signature_data
+    ? {
+        signer_name: (signatureRow as any).signer_name ?? null,
+        signature_data: (signatureRow as any).signature_data as string,
+        signed_at: (signatureRow as any).signed_at as string | null,
+      }
+    : null;
+
   const discountInput: QuotationDiscountInput | null = activeDiscount
     ? { type: activeDiscount.discount_type, value: Number(activeDiscount.discount_value), reason: activeDiscount.discount_reason }
     : null;
@@ -144,6 +159,7 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
     // fecha_recoleccion_llaves lives in property_overrides_json / property_snapshot_json,
     // not in the direct inspections column. Read it via getEffectiveSnapshot.
     fecha_recoleccion_llaves: (getEffectiveSnapshot(inspection)?.fecha_recoleccion_llaves as string | undefined) ?? null,
+    signature: signaturePayload,
   };
 
   const { data: existing } = await supabase
