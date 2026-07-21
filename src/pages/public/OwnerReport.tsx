@@ -219,20 +219,43 @@ interface SectionPayerGroup {
 function groupSectionsByPayer(sections: PayloadSection[]): {
   owner: SectionPayerGroup[];
   tenant: SectionPayerGroup[];
+  ownerRequired: SectionPayerGroup[];
+  ownerOptional: SectionPayerGroup[];
+  tenantRequired: SectionPayerGroup[];
+  tenantOptional: SectionPayerGroup[];
 } {
   const owner: SectionPayerGroup[] = [];
   const tenant: SectionPayerGroup[] = [];
+  const ownerRequired: SectionPayerGroup[] = [];
+  const ownerOptional: SectionPayerGroup[] = [];
+  const tenantRequired: SectionPayerGroup[] = [];
+  const tenantOptional: SectionPayerGroup[] = [];
   for (const s of sections) {
     const o: PayloadRepair[] = [];
     const t: PayloadRepair[] = [];
+    const oReq: PayloadRepair[] = [];
+    const oOpt: PayloadRepair[] = [];
+    const tReq: PayloadRepair[] = [];
+    const tOpt: PayloadRepair[] = [];
     for (const r of s.repairs) {
       const payer: PayerRole = r.payer_role === 'tenant' ? 'tenant' : 'owner';
-      (payer === 'tenant' ? t : o).push(r);
+      const nature: PaymentNature = r.payment_nature === 'optional' ? 'optional' : 'required';
+      if (payer === 'tenant') {
+        t.push(r);
+        (nature === 'optional' ? tOpt : tReq).push(r);
+      } else {
+        o.push(r);
+        (nature === 'optional' ? oOpt : oReq).push(r);
+      }
     }
     if (o.length > 0) owner.push({ sectionId: s.id, sectionTitle: s.title, items: o });
     if (t.length > 0) tenant.push({ sectionId: s.id, sectionTitle: s.title, items: t });
+    if (oReq.length > 0) ownerRequired.push({ sectionId: s.id, sectionTitle: s.title, items: oReq });
+    if (oOpt.length > 0) ownerOptional.push({ sectionId: s.id, sectionTitle: s.title, items: oOpt });
+    if (tReq.length > 0) tenantRequired.push({ sectionId: s.id, sectionTitle: s.title, items: tReq });
+    if (tOpt.length > 0) tenantOptional.push({ sectionId: s.id, sectionTitle: s.title, items: tOpt });
   }
-  return { owner, tenant };
+  return { owner, tenant, ownerRequired, ownerOptional, tenantRequired, tenantOptional };
 }
 
 const repairAmount = (r: PayloadRepair) =>
