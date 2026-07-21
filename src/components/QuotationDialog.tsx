@@ -257,11 +257,11 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
 
               <div className="totals border-t border-border/70 pt-3 space-y-1.5 text-caption">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal obligatorias</span>
+                  <span className="text-muted-foreground">Subtotal recomendadas</span>
                   <MoneyDisplay value={requiredTotal} market={inspection.market} />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal opcionales</span>
+                <div className="flex justify-between italic text-muted-foreground">
+                  <span>Subtotal opcionales</span>
                   <MoneyDisplay value={optionalTotal} market={inspection.market} />
                 </div>
                 <TaxBreakdown
