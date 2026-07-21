@@ -897,6 +897,27 @@ export default function OwnerReport() {
                 </Card>
               ))
             )}
+
+            {report?.signature?.signature_data && (
+              <Card className="border-0 ring-1 ring-border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-body-lg">Firma del inquilino</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="rounded-md border bg-background p-3 flex items-center justify-center">
+                    <img
+                      src={report.signature.signature_data}
+                      alt="Firma del inquilino"
+                      className="max-h-48 object-contain"
+                    />
+                  </div>
+                  <div className="text-caption text-muted-foreground">
+                    {report.signature.signer_name && <p><span className="font-medium text-foreground">Firmado por:</span> {report.signature.signer_name}</p>}
+                    {report.signature.signed_at && <p>{new Date(report.signature.signed_at).toLocaleString('es-CL')}</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ── Budget Tab ── */}
