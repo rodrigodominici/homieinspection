@@ -299,13 +299,14 @@ function PayerCard({
   );
 }
 
-function Row({ label, value, muted, strong, divider, accent }: {
-  label: string; value: string; muted?: boolean; strong?: boolean; divider?: boolean; accent?: boolean;
+function Row({ label, value, muted, strong, divider, accent, italic }: {
+  label: string; value: string; muted?: boolean; strong?: boolean; divider?: boolean; accent?: boolean; italic?: boolean;
 }) {
   return (
     <div className={cn(
       'flex justify-between',
       divider && 'pt-1 border-t border-border/60',
+      italic && 'italic',
     )}>
       <span className={cn(muted && 'text-muted-foreground', strong && 'font-medium')}>{label}</span>
       <span className={cn(
