@@ -99,6 +99,14 @@ interface PayloadDiscount {
   reason?: string | null;
 }
 
+interface PayloadSignature {
+  status: 'signed' | 'unavailable' | 'skipped' | string;
+  signer_name: string | null;
+  signature_data: string | null;
+  skip_reason: string | null;
+  signed_at: string | null;
+}
+
 interface ReportPayload {
   property: {
     property_id: string;
@@ -113,6 +121,7 @@ interface ReportPayload {
   budget_total: number;
   tax_config?: PayloadTaxConfig | null;
   discount?: PayloadDiscount | null;
+  signature?: PayloadSignature | null;
   published_at: string;
   fecha_recoleccion_llaves?: string | null;
   /** Set by `get_published_report` based on which token resolved the row. */
