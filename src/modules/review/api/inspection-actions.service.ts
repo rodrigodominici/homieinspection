@@ -159,6 +159,7 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
     // fecha_recoleccion_llaves lives in property_overrides_json / property_snapshot_json,
     // not in the direct inspections column. Read it via getEffectiveSnapshot.
     fecha_recoleccion_llaves: (getEffectiveSnapshot(inspection)?.fecha_recoleccion_llaves as string | undefined) ?? null,
+    signature: signaturePayload,
   };
 
   const { data: existing } = await supabase
