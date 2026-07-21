@@ -141,6 +141,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       .badge-optional { background: #fff; color: #666; border: 1px solid #d1d5db; }
       .totals { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; }
       .totals-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+      .totals-row.optional { font-style: italic; color: #666; }
       .totals-label { color: #555; }
       .totals-value { font-variant-numeric: tabular-nums; font-weight: 600; }
       .grand-line { border-top: 2px solid #111; margin-top: 6px; padding-top: 6px; }
