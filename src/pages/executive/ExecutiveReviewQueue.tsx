@@ -93,10 +93,20 @@ export default function ExecutiveReviewQueue() {
   const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
+  const [ownerFeedbackFilter, setOwnerFeedbackFilter] = useState<'all' | 'waiting' | 'pending_review' | 'accepted'>('all');
   const [sortKey, setSortKey] = useState<SortKey>(
     () => (localStorage.getItem('executive-queue-sort') as SortKey) || 'updated'
   );
   const persistSortKey = (s: SortKey) => { setSortKey(s); localStorage.setItem('executive-queue-sort', s); };
+
+  const setStatusExclusive = (next: string) => {
+    setStatusFilter(next);
+    if (next !== 'all') setOwnerFeedbackFilter('all');
+  };
+  const setOwnerFeedbackExclusive = (next: 'all' | 'waiting' | 'pending_review' | 'accepted') => {
+    setOwnerFeedbackFilter(next);
+    if (next !== 'all') setStatusFilter('all');
+  };
 
   const markets = useMemo(() => [...new Set(inspections.map(i => i.market).filter(Boolean))], [inspections]);
   const inspectors = useMemo(() => {
