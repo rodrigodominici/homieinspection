@@ -279,12 +279,11 @@ function PayerCard({
         <span className="font-mono font-semibold text-lg">{fmtCurrency(total)}</span>
       </div>
       <div className="space-y-1 text-sm">
-        <Row label="Obligatorio" value={fmtCurrency(required)} muted />
-        <Row label="Opcional" value={fmtCurrency(optional)} muted />
-        <Row label="Subtotal" value={fmtCurrency(subtotal)} divider />
+        <Row label="Recomendado" value={fmtCurrency(required)} muted />
+        <Row label="Opcional" value={fmtCurrency(optional)} muted italic />
         {hasDiscount && (
           <>
-            <Row label="Descuento" value={`−${fmtCurrency(discount)}`} accent />
+            <Row label="Descuento" value={`−${fmtCurrency(discount)}`} accent divider />
             <Row label="Base" value={fmtCurrency(base)} muted />
           </>
         )}
