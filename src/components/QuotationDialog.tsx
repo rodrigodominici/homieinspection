@@ -236,7 +236,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
                               variant={r.payment_nature === 'required' ? 'secondary' : 'outline'}
                               className="mt-1 text-[10px] px-1.5 py-0"
                             >
-                              {r.payment_nature === 'required' ? 'Obligatoria' : 'Opcional'}
+                              {r.payment_nature === 'required' ? 'Recomendada' : 'Opcional'}
                             </Badge>
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
