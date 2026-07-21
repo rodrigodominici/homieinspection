@@ -72,10 +72,10 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   // Load the tenant signature (if any) so the published report can render it.
   const { data: signatureRow } = await supabase
     .from('inspection_signatures')
-    .select('signer_name, signature_data, signed_at, status')
+    .select('signer_name, signature_data, signed_at, signature_status')
     .eq('inspection_id', inspection.id)
     .maybeSingle();
-  const signaturePayload = signatureRow && signatureRow.status === 'signed' && signatureRow.signature_data
+  const signaturePayload = signatureRow && (signatureRow as any).signature_status === 'signed' && (signatureRow as any).signature_data
     ? {
         signer_name: (signatureRow as any).signer_name ?? null,
         signature_data: (signatureRow as any).signature_data as string,
