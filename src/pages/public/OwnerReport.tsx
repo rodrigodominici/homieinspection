@@ -486,6 +486,59 @@ function RepairGroup({
   );
 }
 
+/** Budget block: 4-way split (owner/tenant × required/optional). */
+function BudgetBlock({
+  icon, title, variant, groups, interactive, decisions, onDecisionChange, lockedMap,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  variant: 'required' | 'optional';
+  groups: SectionPayerGroup[];
+  interactive?: boolean;
+  decisions?: DecisionState;
+  onDecisionChange?: (id: string, next: { decision: Decision | null; comment: string }) => void;
+  lockedMap?: Map<string, OwnerDecision>;
+}) {
+  if (groups.length === 0) return null;
+  const items = groups.flatMap(g => g.items);
+  const { projected, rejected } = projectedSum(items, decisions, !!interactive);
+  const full = sumRepairs(items);
+  const showProjected = !!interactive && rejected > 0;
+  const optional = variant === 'optional';
+  return (
+    <Card className={`border-0 ring-1 shadow-sm ${optional ? 'ring-border/60 bg-muted/20' : 'ring-border'}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className={`text-body-lg flex items-center gap-2 ${optional ? 'italic text-muted-foreground font-medium' : ''}`}>
+          {icon} {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {groups.map((g) => (
+          <RepairGroup
+            key={g.sectionId}
+            title={g.sectionTitle}
+            items={g.items}
+            interactive={interactive}
+            decisionState={decisions}
+            onDecisionChange={onDecisionChange}
+            lockedDecisions={lockedMap}
+          />
+        ))}
+        <div className="flex items-center justify-between border-t pt-3">
+          <span className={`text-body ${optional ? 'italic text-muted-foreground font-medium' : 'font-semibold'}`}>Subtotal</span>
+          <div className="flex items-baseline gap-2 whitespace-nowrap">
+            {showProjected && (
+              <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(full)}</span>
+            )}
+            <span className={`text-body font-mono tabular-nums ${optional ? 'italic text-muted-foreground' : 'font-semibold'}`}>{fmt(projected)}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export default function OwnerReport() {
   const { propertyId, token } = useParams<{ propertyId: string; token: string }>();
   const { toast } = useToast();
