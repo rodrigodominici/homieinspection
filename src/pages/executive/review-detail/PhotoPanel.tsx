@@ -1,14 +1,18 @@
-import { memo, useState, useRef } from 'react';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Camera, ChevronLeft, ChevronRight, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Eye, EyeOff, Plus, Trash2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { InspectionPhoto } from '@/lib/types';
+
+const MIN_SCALE = 1;
+const MAX_SCALE = 5;
+const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
 interface PhotoPanelProps {
   photos: InspectionPhoto[];
