@@ -44,6 +44,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import {
   MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download,
