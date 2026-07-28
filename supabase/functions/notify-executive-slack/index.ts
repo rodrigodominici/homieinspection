@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     const who = mention(slackUid, execName);
 
     const propertyLine = `${insp.property_name ?? "Propiedad sin nombre"}${insp.address ? ` — ${insp.address}` : ""}`;
-    const link = `${APP_BASE_URL}/executive/review/${insp.id}`;
+    const link = `${APP_BASE_URL}/inspections/${insp.id}`;
 
     let text: string;
     const blocks: any[] = [];
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           { type: "mrkdwn", text: `*Inspector:*\n${inspectorName}` },
         ]},
         { type: "actions", elements: [
-          { type: "button", text: { type: "plain_text", text: "Revisar inspección" }, url: link, style: "primary" },
+          { type: "button", text: { type: "plain_text", text: "Abrir inspección" }, url: link, style: "primary" },
         ]},
       );
     } else {
