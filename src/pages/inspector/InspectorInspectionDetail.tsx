@@ -436,6 +436,7 @@ export default function InspectorInspectionDetail() {
           </Button>
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
+            <InspectionTypeChip type={inspection.inspection_type} />
             <InspectorStatusBadge state={displayState} />
           </div>
           {tenantWhatsapp && (

@@ -259,7 +259,10 @@ function AgendaCard({ inspection: insp }: { inspection: AgendaInspection }) {
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-sm font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
+              <InspectionTypeChip type={insp.inspection_type} />
+            </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{address}{comuna ? ` · ${comuna}` : ''}</span>
@@ -318,7 +321,10 @@ function CoordinationCard({ inspection: insp }: { inspection: AgendaInspection }
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-sm font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-sm font-semibold truncate">{insp.property_name ?? insp.property_id}</p>
+              <InspectionTypeChip type={insp.inspection_type} />
+            </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
