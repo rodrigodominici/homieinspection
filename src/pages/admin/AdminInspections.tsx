@@ -73,13 +73,17 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
-// Quick-filter buckets
+// Quick-filter buckets — SINGLE axis for KPI cards + chip row.
+// Every value here maps to exactly one predicate below, and clicking any
+// KPI/chip resets `statusFilter` so counters and results always agree.
 type Bucket =
   | 'all'
   | 'unassigned'
   | 'por_coordinar'
   | 'programadas'
   | 'in_progress'
+  | 'for_review'
+  | 'to_publish'
   | 'waiting_owner'
   | 'owner_feedback'
   | 'accepted';
@@ -89,6 +93,8 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'por_coordinar', label: 'Por coordinar' },
   { value: 'programadas', label: 'Programadas' },
   { value: 'in_progress', label: 'En progreso' },
+  { value: 'for_review', label: 'Para revisar' },
+  { value: 'to_publish', label: 'Para publicar' },
   { value: 'waiting_owner', label: 'Esperando propietario' },
   { value: 'owner_feedback', label: 'Feedback propietario' },
   { value: 'accepted', label: 'Aceptadas' },
