@@ -28,6 +28,7 @@ import {
 } from '@/shared/ui';
 import { useExecutiveQueue } from '@/modules/review/api';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
+import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 
 
 // ─── Bucketing (job-to-be-done) ────────────────────
