@@ -357,15 +357,17 @@ function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted' | 'ambe
 
 // ─── Collapsible group wrapper ─────────────────────────
 function CollapsibleGroup({
-  label, total, defaultOpen = true, description, children,
+  label, total, defaultOpen = true, forceOpen = false, description, children,
 }: {
   label: string;
   total: number;
   defaultOpen?: boolean;
+  forceOpen?: boolean;
   description?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = forceOpen || open;
   return (
     <div className="space-y-3">
       <button
@@ -379,9 +381,9 @@ function CollapsibleGroup({
         </h2>
         <span className="text-xs text-muted-foreground">· {total}</span>
         <div className="flex-1 border-t border-border/60" />
-        <span className="text-xs text-muted-foreground">{open ? '▾' : '▸'}</span>
+        <span className="text-xs text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
       </button>
-      {open && (
+      {isOpen && (
         <>
           {description && <p className="text-caption text-muted-foreground ml-5 -mt-1">{description}</p>}
           {children}
