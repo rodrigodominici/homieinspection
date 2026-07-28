@@ -489,10 +489,26 @@ function RepairGroup({
   );
 }
 
-/** Budget block: 4-way split (owner/tenant × required/optional). */
-function BudgetBlock({
-  icon, title, variant, groups, interactive, decisions, onDecisionChange, lockedMap,
+/**
+ * Independent quotation as a collapsible accordion item.
+ * Collapsed header shows: title, quick stats, total (VAT-included).
+ * Expanded body shows: per-section groups, subtotal, discount, VAT, total.
+ */
+function BudgetQuotationAccordion({
+  id,
+  icon,
+  title,
+  variant,
+  groups,
+  interactive,
+  decisions,
+  onDecisionChange,
+  lockedMap,
+  discountAmount,
+  discount,
+  taxConfig,
 }: {
+  id: string;
   icon: React.ReactNode;
   title: string;
   variant: 'required' | 'optional';
@@ -501,6 +517,9 @@ function BudgetBlock({
   decisions?: DecisionState;
   onDecisionChange?: (id: string, next: { decision: Decision | null; comment: string }) => void;
   lockedMap?: Map<string, OwnerDecision>;
+  discountAmount: number;
+  discount?: PayloadDiscount | null;
+  taxConfig?: PayloadTaxConfig | null;
 }) {
   if (groups.length === 0) return null;
   const items = groups.flatMap(g => g.items);
@@ -508,36 +527,102 @@ function BudgetBlock({
   const full = sumRepairs(items);
   const showProjected = !!interactive && rejected > 0;
   const optional = variant === 'optional';
+
+  const vatEnabled = !!taxConfig?.enabled && Number(taxConfig?.percentage) > 0;
+  const vatPct = Number(taxConfig?.percentage ?? 0);
+  const vatLabel = taxConfig?.label || 'IVA';
+  const base = Math.max(0, projected - discountAmount);
+  const vat = vatEnabled ? Math.round((base * vatPct) / 100) : 0;
+  const total = base + vat;
+
+  const repCount = items.length;
+  const secCount = groups.length;
+
   return (
-    <Card className={`border-0 ring-1 shadow-sm ${optional ? 'ring-border/60 bg-muted/20' : 'ring-border'}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className={`text-body-lg flex items-center gap-2 ${optional ? 'italic text-muted-foreground font-medium' : ''}`}>
-          {icon} {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {groups.map((g) => (
-          <RepairGroup
-            key={g.sectionId}
-            title={g.sectionTitle}
-            items={g.items}
-            interactive={interactive}
-            decisionState={decisions}
-            onDecisionChange={onDecisionChange}
-            lockedDecisions={lockedMap}
-          />
-        ))}
-        <div className="flex items-center justify-between border-t pt-3">
-          <span className={`text-body ${optional ? 'italic text-muted-foreground font-medium' : 'font-semibold'}`}>Subtotal</span>
-          <div className="flex items-baseline gap-2 whitespace-nowrap">
-            {showProjected && (
-              <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(full)}</span>
-            )}
-            <span className={`text-body font-mono tabular-nums ${optional ? 'italic text-muted-foreground' : 'font-semibold'}`}>{fmt(projected)}</span>
+    <AccordionItem
+      value={id}
+      className={`border-0 rounded-2xl ring-1 shadow-sm overflow-hidden ${
+        optional ? 'ring-border/60 bg-muted/20' : 'ring-border bg-card'
+      }`}
+    >
+      <AccordionTrigger className="hover:no-underline px-4 sm:px-5 py-4 gap-3 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground">
+        <div className="flex items-start gap-3 flex-1 min-w-0 text-left">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            optional ? 'bg-muted text-muted-foreground' : 'bg-primary-soft text-primary'
+          }`}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-body font-semibold leading-tight ${optional ? 'italic text-muted-foreground' : 'text-foreground'}`}>
+              {title}
+            </p>
+            <p className="text-tiny text-muted-foreground mt-1 leading-snug">
+              {repCount} {repCount === 1 ? 'reparación' : 'reparaciones'} · {secCount} {secCount === 1 ? 'sección' : 'secciones'}
+              {vatEnabled ? ' · IVA incluido' : ''}
+            </p>
+          </div>
+          <div className="shrink-0 text-right pr-2">
+            <p className="text-tiny text-muted-foreground uppercase tracking-wide">Total</p>
+            <div className="flex items-baseline gap-1.5 justify-end">
+              {showProjected && (
+                <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(full)}</span>
+              )}
+              <span className={`text-body-lg font-bold font-mono tabular-nums ${
+                optional ? 'italic text-muted-foreground' : 'text-primary'
+              }`}>
+                {fmt(total)}
+              </span>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 sm:px-5 pb-5">
+        <div className="space-y-4 pt-1">
+          {groups.map((g) => (
+            <RepairGroup
+              key={g.sectionId}
+              title={g.sectionTitle}
+              items={g.items}
+              interactive={interactive}
+              decisionState={decisions}
+              onDecisionChange={onDecisionChange}
+              lockedDecisions={lockedMap}
+            />
+          ))}
+          <div className="border-t pt-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-caption text-muted-foreground">Subtotal</span>
+              <span className="text-body font-mono tabular-nums">{fmt(projected)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-caption text-primary font-medium">
+                  Descuento comercial
+                  {discount && (
+                    <span className="ml-1 text-muted-foreground font-normal">
+                      ({discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo'})
+                    </span>
+                  )}
+                </span>
+                <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmount)}</span>
+              </div>
+            )}
+            {vatEnabled && (
+              <div className="flex items-center justify-between">
+                <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
+                <span className="text-body font-mono tabular-nums">{fmt(vat)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className={`text-body ${optional ? 'italic text-muted-foreground font-medium' : 'font-semibold'}`}>Total cotización</span>
+              <span className={`text-h3 font-bold font-mono tabular-nums ${optional ? 'italic text-muted-foreground' : 'text-primary'}`}>
+                {fmt(total)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
