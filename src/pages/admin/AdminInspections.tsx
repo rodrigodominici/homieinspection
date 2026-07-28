@@ -667,7 +667,7 @@ export default function AdminInspections() {
                 return (
                   <button
                     key={b.value}
-                    onClick={() => setBucketFilter(b.value)}
+                    onClick={() => applyQuickFilter(b.value)}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
                       active
