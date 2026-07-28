@@ -308,14 +308,14 @@ export default function ExecutiveReviewQueue() {
 
 
                 {grouped.follow_up.length > 0 && (
-                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3}>
+                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3} forceOpen={hasActiveFilter}>
                     <BucketSection inspections={grouped.follow_up} bucket="follow_up"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   </CollapsibleGroup>
                 )}
 
                 {grouped.pre_inspection.length > 0 && (
-                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false}
+                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false} forceOpen={hasActiveFilter}
                     description="Inspecciones en etapas previas a la revisión ejecutiva.">
                     <BucketSection inspections={grouped.pre_inspection} bucket="pre_inspection"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
