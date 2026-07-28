@@ -8,6 +8,7 @@ import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import ExecutiveLoadChart from './dashboard/ExecutiveLoadChart';
+import OwnerAgingPanel from './dashboard/OwnerAgingPanel';
 import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
@@ -26,7 +27,7 @@ import {
  * status so KPIs can split the post-publish lifecycle correctly.
  */
 const DASHBOARD_COLS =
-  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json, owner_feedback_status, owner_feedback_last_submitted_at';
+  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json, owner_feedback_status, owner_feedback_last_submitted_at, published_at, owner_url_generated_at, inspection_type';
 
 async function fetchDashboardInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
@@ -179,6 +180,7 @@ export default function AdminDashboard() {
               </Link>
             </div>
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
+            <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Pending by Inspector */}
