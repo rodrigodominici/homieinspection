@@ -331,51 +331,60 @@ export default function AdminInspections() {
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
 
-  // Pre-compute priority bucket once per inspection (used by filters, sort, chips, KPIs).
-  const bucketByInsp = useMemo(() => {
-    const m = new Map<string, 0 | 1 | 2 | 3 | 4 | 5>();
-    for (const i of inspections) m.set(i.id, priorityBucket(i));
-    return m;
-  }, [inspections]);
+  // Per-inspection predicate helpers — the SAME predicates power counts and filtering.
+  const matchesBucket = (i: EnrichedInspection, target: Bucket): boolean => {
+    if (target === 'all') return true;
+    const b = bucketByInsp.get(i.id);
+    const fb = i.owner_feedback_status ?? 'none';
+    switch (target) {
+      case 'unassigned':      return b === 0;
+      case 'por_coordinar':   return b === 1;
+      case 'programadas':     return b === 2;
+      case 'in_progress':     return i.status === 'in_progress';
+      case 'for_review':      return i.status === 'submitted' || i.status === 'in_review';
+      case 'to_publish':      return i.status === 'approved' && fb !== 'accepted';
+      case 'waiting_owner':   return (i.status === 'published' || i.status === 'sent') && fb === 'none';
+      case 'owner_feedback':  return fb === 'pending_executive_review';
+      case 'accepted':        return fb === 'accepted';
+    }
+  };
 
-  // Bucket counts in one pass (avoids 5x .filter inside the JSX).
+  // Bucket counts in one pass (avoids repeated .filter inside JSX).
   const bucketCounts = useMemo(() => {
-    const counts = {
+    const counts: Record<Bucket, number> = {
       all: inspections.length,
-      unassigned: 0,
-      por_coordinar: 0,
-      programadas: 0,
-      in_progress: 0,
-      owner_feedback: 0,
-      waiting_owner: 0,
-      accepted: 0,
+      unassigned: 0, por_coordinar: 0, programadas: 0,
+      in_progress: 0, for_review: 0, to_publish: 0,
+      waiting_owner: 0, owner_feedback: 0, accepted: 0,
     };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
+      const fb = i.owner_feedback_status ?? 'none';
       if (b === 0) counts.unassigned++;
       else if (b === 1) counts.por_coordinar++;
       else if (b === 2) counts.programadas++;
-      else if (b === 3) counts.in_progress++;
-      else if (b === 4) counts.owner_feedback++;
-      const fb = i.owner_feedback_status ?? 'none';
+      if (i.status === 'in_progress') counts.in_progress++;
+      if (i.status === 'submitted' || i.status === 'in_review') counts.for_review++;
+      if (i.status === 'approved' && fb !== 'accepted') counts.to_publish++;
       if ((i.status === 'published' || i.status === 'sent') && fb === 'none') counts.waiting_owner++;
+      if (fb === 'pending_executive_review') counts.owner_feedback++;
       if (fb === 'accepted') counts.accepted++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
 
-  // KPIs aligned with executive view + admin-only signals.
-  // After publish, the lifecycle splits in 3 (waiting / feedback / accepted)
-  // to reflect the owner-feedback loop instead of a single "Publicadas" bucket.
-  const kpis = useMemo(() => ({
-    unassigned:    bucketCounts.unassigned,
-    inProgress:    inspections.filter((i) => i.status === 'in_progress').length,
-    forReview:     inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
-    toPublish:     inspections.filter((i) => i.status === 'approved' && i.owner_feedback_status !== 'accepted').length,
-    waitingOwner:  bucketCounts.waiting_owner,
-    ownerFeedback: bucketCounts.owner_feedback,
-    accepted:      bucketCounts.accepted,
-  }), [inspections, bucketCounts]);
+  // Exclusive quick-filter selector — resets `statusFilter` so counts and
+  // results always match (a second click on the same target clears it).
+  const applyQuickFilter = (target: Bucket) => {
+    setStatusFilter('all');
+    setBucketFilter((prev) => (prev === target ? 'all' : target));
+  };
+  // Selecting a granular state from the dropdown clears the quick-filter axis.
+  const applyStatusFilter = (value: string) => {
+    setBucketFilter('all');
+    setStatusFilter(value);
+  };
+
 
   // Available markets (for the market dropdown).
   const markets = useMemo(
