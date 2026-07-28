@@ -377,9 +377,26 @@ export default function AdminInspections() {
     [inspections]
   );
 
+  // Precompute normalized haystacks per inspection so tokenized search across
+  // address, tenant, inspector name, executive name, etc. is O(n) per keystroke.
+  const haystackByInsp = useMemo(() => {
+    const inspectorById = new Map(inspectors.map((p) => [p.id, p]));
+    const executiveById = new Map(executives.map((p) => [p.id, p]));
+    const map = new Map<string, string>();
+    for (const i of inspections) {
+      const insName = i.inspector_id
+        ? inspectorById.get(i.inspector_id)?.full_name ?? inspectorById.get(i.inspector_id)?.email ?? null
+        : null;
+      const exName = i.executive_id
+        ? executiveById.get(i.executive_id)?.full_name ?? executiveById.get(i.executive_id)?.email ?? null
+        : null;
+      map.set(i.id, buildInspectionHaystack(i, { inspectorName: insName, executiveName: exName }));
+    }
+    return map;
+  }, [inspections, inspectors, executives]);
+
   // Apply all filters + sorting
   const filteredInspections = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     const result = inspections.filter((i) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
       if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
@@ -399,12 +416,7 @@ export default function AdminInspections() {
           && !((i.status === 'published' || i.status === 'sent') && fb === 'none')) return false;
         if (bucketFilter === 'accepted' && fb !== 'accepted') return false;
       }
-      if (q) {
-        const matchAddr = (i.address ?? '').toLowerCase().includes(q);
-        const matchPropId = i.property_id.toLowerCase().includes(q);
-        const matchName = (i.property_name ?? '').toLowerCase().includes(q);
-        if (!matchAddr && !matchPropId && !matchName) return false;
-      }
+      if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', searchQuery)) return false;
       return true;
     });
 
