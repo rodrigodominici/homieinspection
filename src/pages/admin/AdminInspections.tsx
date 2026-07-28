@@ -426,18 +426,7 @@ export default function AdminInspections() {
       if (marketFilter !== 'all' && i.market !== marketFilter) return false;
       if (publishedFilter === 'published' && !i.published_at) return false;
       if (publishedFilter === 'not_published' && !!i.published_at) return false;
-      if (bucketFilter !== 'all') {
-        const b = bucketByInsp.get(i.id);
-        const fb = i.owner_feedback_status ?? 'none';
-        if (bucketFilter === 'unassigned' && b !== 0) return false;
-        if (bucketFilter === 'por_coordinar' && b !== 1) return false;
-        if (bucketFilter === 'programadas' && b !== 2) return false;
-        if (bucketFilter === 'in_progress' && b !== 3) return false;
-        if (bucketFilter === 'owner_feedback' && b !== 4) return false;
-        if (bucketFilter === 'waiting_owner'
-          && !((i.status === 'published' || i.status === 'sent') && fb === 'none')) return false;
-        if (bucketFilter === 'accepted' && fb !== 'accepted') return false;
-      }
+      if (!matchesBucket(i, bucketFilter)) return false;
       if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', searchQuery)) return false;
       return true;
     });
