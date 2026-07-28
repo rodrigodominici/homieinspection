@@ -583,7 +583,7 @@ export default function AdminInspections() {
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={applyStatusFilter}>
                 <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
