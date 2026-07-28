@@ -215,6 +215,7 @@ export default function AdminUsers() {
       admin: 'bg-primary/10 text-primary',
       inspector: 'bg-status-regular-bg text-status-regular',
       executive: 'bg-status-good-bg text-status-good',
+      comercial: 'bg-accent/40 text-accent-foreground',
       pending: 'bg-muted text-muted-foreground',
     };
     return (
