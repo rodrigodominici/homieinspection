@@ -43,6 +43,9 @@ const ExecutiveRepairCatalog = lazy(() => import("./pages/executive/ExecutiveRep
 // ── Lazy — Public ─────────────────────────────────────────────────────────────
 const OwnerReport = lazy(() => import("./pages/public/OwnerReport"));
 
+// ── Lazy — Shared ─────────────────────────────────────────────────────────────
+const InspectionRoleRedirect = lazy(() => import("./pages/InspectionRoleRedirect"));
+
 // ── QueryClient with sensible cache defaults ──────────────────────────────────
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +106,9 @@ const App = () => (
               <Route path="/executive/schedule" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveSchedule /></ProtectedRoute>} />
               <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
               <Route path="/executive/catalog" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveRepairCatalog /></ProtectedRoute>} />
+
+              {/* Shared role-aware entry point (used by Slack links, etc.) */}
+              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector']}><InspectionRoleRedirect /></ProtectedRoute>} />
 
               {/* Public routes */}
               <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />
