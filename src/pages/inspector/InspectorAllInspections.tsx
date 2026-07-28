@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';

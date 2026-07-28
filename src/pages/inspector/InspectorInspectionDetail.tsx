@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SectionStatusBadge } from '@/components/StatusBadge';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
