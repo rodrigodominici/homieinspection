@@ -511,59 +511,77 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* KPIs — clickable filter shortcuts. Post-publish lifecycle
-                splits in 3 (esperando ↔ feedback ↔ aceptadas). */}
-            <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
+            {/* KPI cards — 9 clickable shortcuts. Admin sees the full operational
+                lifecycle (Por coordinar + Programadas are admin-only vs the
+                executive queue, which only sees post-assignment stages). All
+                cards share ONE selection axis (`bucketFilter`) so counter and
+                results are always consistent. */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
               <KpiCard
-                label="Sin asignar" value={kpis.unassigned}
+                label="Sin asignar" value={bucketCounts.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
-                tooltip="Inspecciones creadas que aún no tienen inspector asignado."
+                tooltip="Inspecciones creadas que aún no tienen inspector o ejecutivo asignado."
                 active={bucketFilter === 'unassigned'}
-                onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
+                onClick={() => applyQuickFilter('unassigned')}
               />
               <KpiCard
-                label="En progreso" value={kpis.inProgress}
+                label="Por coordinar" value={bucketCounts.por_coordinar}
+                icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Asignadas pero sin fecha/hora de recolección de llaves (admin-only)."
+                active={bucketFilter === 'por_coordinar'}
+                onClick={() => applyQuickFilter('por_coordinar')}
+              />
+              <KpiCard
+                label="Programadas" value={bucketCounts.programadas}
+                icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Con inspector, ejecutivo y fecha de llaves confirmada (admin-only)."
+                active={bucketFilter === 'programadas'}
+                onClick={() => applyQuickFilter('programadas')}
+              />
+              <KpiCard
+                label="En progreso" value={bucketCounts.in_progress}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="El inspector ya inició la captura en sitio."
-                active={statusFilter === 'in_progress'}
-                onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
+                active={bucketFilter === 'in_progress'}
+                onClick={() => applyQuickFilter('in_progress')}
               />
               <KpiCard
-                label="Para revisar" value={kpis.forReview}
+                label="Para revisar" value={bucketCounts.for_review}
                 icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
-                active={statusFilter === 'submitted'}
-                onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
+                active={bucketFilter === 'for_review'}
+                onClick={() => applyQuickFilter('for_review')}
               />
               <KpiCard
-                label="Para publicar" value={kpis.toPublish}
+                label="Para publicar" value={bucketCounts.to_publish}
                 icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Aprobadas internamente. Falta enviarlas al propietario."
-                active={statusFilter === 'approved'}
-                onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+                active={bucketFilter === 'to_publish'}
+                onClick={() => applyQuickFilter('to_publish')}
               />
               <KpiCard
-                label="Esperando propietario" value={kpis.waitingOwner}
+                label="Esperando propietario" value={bucketCounts.waiting_owner}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 active={bucketFilter === 'waiting_owner'}
-                onClick={() => setBucketFilter(bucketFilter === 'waiting_owner' ? 'all' : 'waiting_owner')}
+                onClick={() => applyQuickFilter('waiting_owner')}
               />
               <KpiCard
-                label="Feedback propietario" value={kpis.ownerFeedback}
+                label="Feedback propietario" value={bucketCounts.owner_feedback}
                 icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red"
                 tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 active={bucketFilter === 'owner_feedback'}
-                onClick={() => setBucketFilter(bucketFilter === 'owner_feedback' ? 'all' : 'owner_feedback')}
+                onClick={() => applyQuickFilter('owner_feedback')}
               />
               <KpiCard
-                label="Aceptadas" value={kpis.accepted}
+                label="Aceptadas" value={bucketCounts.accepted}
                 icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                 tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 active={bucketFilter === 'accepted'}
-                onClick={() => setBucketFilter(bucketFilter === 'accepted' ? 'all' : 'accepted')}
+                onClick={() => applyQuickFilter('accepted')}
               />
             </div>
+
 
             {/* FiltersBar — search + selects + sort + view toggle */}
             <FiltersBar>
