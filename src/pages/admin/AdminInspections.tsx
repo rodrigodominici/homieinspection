@@ -331,6 +331,13 @@ export default function AdminInspections() {
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
 
+  // Pre-compute priority bucket once per inspection (used by filters, sort, chips, KPIs).
+  const bucketByInsp = useMemo(() => {
+    const m = new Map<string, 0 | 1 | 2 | 3 | 4 | 5>();
+    for (const i of inspections) m.set(i.id, priorityBucket(i));
+    return m;
+  }, [inspections]);
+
   // Per-inspection predicate helpers — the SAME predicates power counts and filtering.
   const matchesBucket = (i: EnrichedInspection, target: Bucket): boolean => {
     if (target === 'all') return true;
