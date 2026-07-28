@@ -178,6 +178,7 @@ export default function AdminDashboard() {
                 />
               </Link>
             </div>
+            <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Pending by Inspector */}
