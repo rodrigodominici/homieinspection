@@ -456,7 +456,7 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
 
   // Client-side pagination over filtered results.
   const totalResults = filteredInspections.length;
