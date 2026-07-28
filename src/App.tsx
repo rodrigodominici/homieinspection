@@ -43,6 +43,10 @@ const ExecutiveRepairCatalog = lazy(() => import("./pages/executive/ExecutiveRep
 // ── Lazy — Public ─────────────────────────────────────────────────────────────
 const OwnerReport = lazy(() => import("./pages/public/OwnerReport"));
 
+// ── Lazy — Comercial (solo lectura) ───────────────────────────────────────────
+const ComercialCheckOutList = lazy(() => import("./pages/comercial/ComercialCheckOutList"));
+const ComercialCheckOutDetail = lazy(() => import("./pages/comercial/ComercialCheckOutDetail"));
+
 // ── Lazy — Shared ─────────────────────────────────────────────────────────────
 const InspectionRoleRedirect = lazy(() => import("./pages/InspectionRoleRedirect"));
 
@@ -107,8 +111,12 @@ const App = () => (
               <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
               <Route path="/executive/catalog" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveRepairCatalog /></ProtectedRoute>} />
 
+              {/* Comercial (solo lectura) routes */}
+              <Route path="/comercial" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutList /></ProtectedRoute>} />
+              <Route path="/comercial/check-out/:id" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutDetail /></ProtectedRoute>} />
+
               {/* Shared role-aware entry point (used by Slack links, etc.) */}
-              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector']}><InspectionRoleRedirect /></ProtectedRoute>} />
+              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','comercial']}><InspectionRoleRedirect /></ProtectedRoute>} />
 
               {/* Public routes */}
               <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />
