@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   priorityBucket as sharedPriorityBucket,
@@ -376,9 +377,26 @@ export default function AdminInspections() {
     [inspections]
   );
 
+  // Precompute normalized haystacks per inspection so tokenized search across
+  // address, tenant, inspector name, executive name, etc. is O(n) per keystroke.
+  const haystackByInsp = useMemo(() => {
+    const inspectorById = new Map(inspectors.map((p) => [p.id, p]));
+    const executiveById = new Map(executives.map((p) => [p.id, p]));
+    const map = new Map<string, string>();
+    for (const i of inspections) {
+      const insName = i.inspector_id
+        ? inspectorById.get(i.inspector_id)?.full_name ?? inspectorById.get(i.inspector_id)?.email ?? null
+        : null;
+      const exName = i.executive_id
+        ? executiveById.get(i.executive_id)?.full_name ?? executiveById.get(i.executive_id)?.email ?? null
+        : null;
+      map.set(i.id, buildInspectionHaystack(i, { inspectorName: insName, executiveName: exName }));
+    }
+    return map;
+  }, [inspections, inspectors, executives]);
+
   // Apply all filters + sorting
   const filteredInspections = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     const result = inspections.filter((i) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
       if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
@@ -398,12 +416,7 @@ export default function AdminInspections() {
           && !((i.status === 'published' || i.status === 'sent') && fb === 'none')) return false;
         if (bucketFilter === 'accepted' && fb !== 'accepted') return false;
       }
-      if (q) {
-        const matchAddr = (i.address ?? '').toLowerCase().includes(q);
-        const matchPropId = i.property_id.toLowerCase().includes(q);
-        const matchName = (i.property_name ?? '').toLowerCase().includes(q);
-        if (!matchAddr && !matchPropId && !matchName) return false;
-      }
+      if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', searchQuery)) return false;
       return true;
     });
 
@@ -443,7 +456,7 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
 
   // Client-side pagination over filtered results.
   const totalResults = filteredInspections.length;
@@ -535,7 +548,7 @@ export default function AdminInspections() {
               <div className="relative flex-1 min-w-[220px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por dirección, ID o nombre..."
+                  placeholder="Dirección, unidad, inspector, propietario…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9 rounded-lg bg-card"
