@@ -548,7 +548,7 @@ export default function AdminInspections() {
               <div className="relative flex-1 min-w-[220px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por dirección, ID o nombre..."
+                  placeholder="Dirección, unidad, inspector, propietario…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9 rounded-lg bg-card"
