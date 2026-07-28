@@ -12,8 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, FileText, ChevronRight } from 'lucide-react';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
-import { StatusBadge } from '@/components/StatusBadge';
-import { InspectionTypeChip } from '@/components/inspector/InspectionTypeChip';
+import { InspectionStatusBadge } from '@/components/StatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { cn } from '@/lib/utils';
 
 const VISIBLE_STATUSES = ['submitted', 'in_review', 'approved', 'published', 'accepted', 'sent'] as const;
