@@ -26,7 +26,7 @@ import {
  * status so KPIs can split the post-publish lifecycle correctly.
  */
 const DASHBOARD_COLS =
-  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json, owner_feedback_status, owner_feedback_last_submitted_at';
+  'id, property_id, property_name, address, status, inspector_id, executive_id, created_at, updated_at, scheduled_at, market, property_overrides_json, owner_feedback_status, owner_feedback_last_submitted_at, published_at, owner_url_generated_at, inspection_type';
 
 async function fetchDashboardInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
