@@ -26,7 +26,7 @@ export default function InspectionTypeChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full font-semibold shrink-0 border',
+        'inline-flex items-center rounded-full font-semibold shrink-0 border whitespace-nowrap',
         size === 'xs' ? 'text-[10px] px-1.5 py-0' : 'text-[10px] px-2 py-0.5',
         captacion
           ? 'bg-[hsl(var(--status-good))]/10 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/20'

@@ -214,10 +214,10 @@ export default function ComercialCheckOutList() {
                             )}
                           </Link>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <InspectionTypeChip type={i.inspection_type} />
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <InspectionStatusBadge status={i.status} />
                         </td>
                         <td className="py-3 px-4 text-muted-foreground text-caption">
