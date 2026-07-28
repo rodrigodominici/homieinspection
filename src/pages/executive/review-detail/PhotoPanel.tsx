@@ -181,8 +181,7 @@ export const PhotoPanel = memo(function PhotoPanel({
         </DialogContent>
       </Dialog>
 
-        </DialogContent>
-      </Dialog>
+
 
       <AlertDialog open={confirmDeleteId !== null} onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}>
         <AlertDialogContent>
