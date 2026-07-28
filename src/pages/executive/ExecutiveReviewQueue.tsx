@@ -118,12 +118,19 @@ export default function ExecutiveReviewQueue() {
     }));
   }, [inspections, inspectorProfiles]);
 
-  const filtered = useMemo(() => inspections.filter(i => {
-    if (search) {
-      const q = search.toLowerCase();
-      const match = [i.address, i.property_name, i.property_id].some(v => v?.toLowerCase().includes(q));
-      if (!match) return false;
+  const haystackByInsp = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const i of inspections) {
+      const insName = i.inspector_id
+        ? inspectorProfiles[i.inspector_id]?.full_name ?? inspectorProfiles[i.inspector_id]?.email ?? null
+        : null;
+      map.set(i.id, buildInspectionHaystack(i, { inspectorName: insName }));
     }
+    return map;
+  }, [inspections, inspectorProfiles]);
+
+  const filtered = useMemo(() => inspections.filter(i => {
+    if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', search)) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
     if (marketFilter !== 'all' && i.market !== marketFilter) return false;
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
@@ -137,7 +144,7 @@ export default function ExecutiveReviewQueue() {
       if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
     }
     return true;
-  }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
+  }), [inspections, haystackByInsp, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const hasActiveFilter =
     search.trim() !== '' ||
