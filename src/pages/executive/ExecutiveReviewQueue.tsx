@@ -138,6 +138,14 @@ export default function ExecutiveReviewQueue() {
     return true;
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
+  const hasActiveFilter =
+    search.trim() !== '' ||
+    statusFilter !== 'all' ||
+    marketFilter !== 'all' ||
+    inspectorFilter !== 'all' ||
+    publishedFilter !== 'all' ||
+    ownerFeedbackFilter !== 'all';
+
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
       (i.status === 'published' || i.status === 'sent')
@@ -308,14 +316,14 @@ export default function ExecutiveReviewQueue() {
 
 
                 {grouped.follow_up.length > 0 && (
-                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3}>
+                  <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3} forceOpen={hasActiveFilter}>
                     <BucketSection inspections={grouped.follow_up} bucket="follow_up"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   </CollapsibleGroup>
                 )}
 
                 {grouped.pre_inspection.length > 0 && (
-                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false}
+                  <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false} forceOpen={hasActiveFilter}
                     description="Inspecciones en etapas previas a la revisión ejecutiva.">
                     <BucketSection inspections={grouped.pre_inspection} bucket="pre_inspection"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
@@ -349,15 +357,17 @@ function GroupHeader({ tone, label, total }: { tone: 'primary' | 'muted' | 'ambe
 
 // ─── Collapsible group wrapper ─────────────────────────
 function CollapsibleGroup({
-  label, total, defaultOpen = true, description, children,
+  label, total, defaultOpen = true, forceOpen = false, description, children,
 }: {
   label: string;
   total: number;
   defaultOpen?: boolean;
+  forceOpen?: boolean;
   description?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = forceOpen || open;
   return (
     <div className="space-y-3">
       <button
@@ -371,9 +381,9 @@ function CollapsibleGroup({
         </h2>
         <span className="text-xs text-muted-foreground">· {total}</span>
         <div className="flex-1 border-t border-border/60" />
-        <span className="text-xs text-muted-foreground">{open ? '▾' : '▸'}</span>
+        <span className="text-xs text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
       </button>
-      {open && (
+      {isOpen && (
         <>
           {description && <p className="text-caption text-muted-foreground ml-5 -mt-1">{description}</p>}
           {children}
