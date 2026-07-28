@@ -1,0 +1,1 @@
+DELETE FROM slack_notifications_log WHERE inspection_id = '660873af-9071-4d4c-9d90-e14cc3217aef';
