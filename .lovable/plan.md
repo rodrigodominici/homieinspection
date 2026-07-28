@@ -1,32 +1,51 @@
-## Objetivo
+# Vista de seguimiento por ejecutivo
 
-Que el inspector distinga a simple vista si una inspección asignada es **Captación** o **Check-out**, en todas las vistas donde hoy solo ve "una inspección asignada" sin tipo.
+Nueva sección en el Dashboard del Admin (`/admin`) que muestra, en un gráfico de barras apiladas, la carga de cada ejecutivo desglosada por etapa del proceso, separando **Captación** y **Check-out (Recolocaciones)**. Al hacer clic en un segmento se abre un panel lateral con las propiedades de ese ejecutivo en esa etapa.
 
-## Alcance (UI del rol Inspector)
+## Ubicación
+- Solo visible para rol `admin` (ya lo garantiza `AdminLayout` + `ProtectedRoute`).
+- Nueva tarjeta debajo de los KPIs actuales en `src/pages/admin/AdminDashboard.tsx`, antes del bloque "Pendientes por Inspector / Ejecutivo / Sin asignar".
 
-Agregar un chip/badge de tipo de inspección junto al título/dirección en:
+## Diseño visual
+- Card con título "Carga por ejecutivo" y un toggle de tipo: **Todas · Captación · Check-out** (segmented control usando `Tabs`).
+- Gráfico de **barras horizontales apiladas**, una fila por ejecutivo, ordenadas por total descendente.
+- Segmentos = etapas del proceso, con los mismos colores/tokens que los KPIs actuales:
+  - Sin asignar (rojo)
+  - En progreso (azul)
+  - Para revisar (azul)
+  - Para publicar (azul)
+  - Esperando propietario (azul suave)
+  - Feedback propietario (rojo)
+  - Aceptadas (verde)
+- Total numérico al final de cada barra.
+- Leyenda clickeable arriba (filtra segmentos on/off).
+- Empty state si no hay ejecutivos activos con inspecciones.
 
-1. **Dashboard** (`src/pages/inspector/InspectorDashboard.tsx`) — cards de las secciones "Por coordinar", "Por iniciar" y "En progreso".
-2. **Listado completo** (`src/pages/inspector/InspectorAllInspections.tsx`) — cada card de la lista.
-3. **Calendario** (`src/pages/inspector/InspectorCalendar.tsx`) — items agendados del día/semana.
-4. **Detalle de inspección** (`src/pages/inspector/InspectorInspectionDetail.tsx`) — header, junto al nombre de la propiedad.
+## Interacción (drill-down)
+- Click en un segmento → abre `DetailSheet` (side="right", size="lg") con:
+  - Header: nombre del ejecutivo + etapa + tipo activo.
+  - Lista de propiedades (property_name, address, StatusBadge, tipo chip).
+  - Cada item enlaza a `/admin/inspections/{id}`.
+- Click en el nombre del ejecutivo (label de la barra) → navega a `/admin/inspections?executive={id}` (ya funciona).
 
-## Diseño del chip
+## Datos
+Reutiliza `inspQuery` y `profilesQuery` que ya carga `AdminDashboard`. No requiere nuevas queries ni migraciones.
 
-- Texto: `Captación` o `Check-out` (usando `getInspectionTypeLabel` que ya existe en `src/lib/inspection-type-labels.ts`).
-- Tokens semánticos del design system (nada hardcoded):
-  - Captación → tono `status-good` suave (fondo `bg-status-good/10`, texto `text-status-good`).
-  - Check-out → tono neutro (fondo `bg-muted`, texto `text-foreground`).
-- Tamaño consistente con badges existentes (`text-[10px]`/`text-xs`, `rounded-full`, `px-2 py-0.5`).
-- Se ubica al lado del título de la propiedad (mobile-first, no rompe el layout de dos columnas título + estado).
+Cálculo en cliente con `useMemo`:
+1. Filtrar `inspections` por `inspection_type` según el toggle (`captacion` / `check_out` / ambos).
+2. Agrupar por `executive_id` (ignorar null o mostrarlo como grupo "Sin ejecutivo" solo si hay inspecciones asignadas a inspector pero no a ejecutivo).
+3. Para cada ejecutivo, contar por etapa usando la misma lógica de `computeInspectionKpis` / `bucketOf` (fuente única de verdad — no duplicar reglas).
 
-## Implementación técnica
+## Cambios técnicos
+- **Nuevo componente** `src/pages/admin/dashboard/ExecutiveLoadChart.tsx`:
+  - Props: `inspections`, `profileMap`.
+  - Estado interno: `typeFilter`, `hiddenStages`, `drilldown {execId, stage} | null`.
+  - Extiende `inspection-buckets.ts` con un helper `stageOf(insp): StageKey` que devuelve la etapa canónica (misma lógica que `computeInspectionKpis`, pero por inspección) para poder agrupar.
+- **`src/lib/inspection-buckets.ts`**: exponer `stageOf` y un `STAGE_META` (label, color token, orden) para que el gráfico y el drilldown compartan definición.
+- **`src/pages/admin/AdminDashboard.tsx`**: montar `<ExecutiveLoadChart />` después del grid de KPIs.
+- Sin librería de charts nueva — se dibuja con divs + Tailwind (barras apiladas horizontales), consistente con el resto del admin. Recharts ya está en el bundle si se prefiere, pero mantener CSS puro es más liviano y estiliza mejor con los tokens semánticos.
 
-- Crear un componente pequeño reutilizable `InspectionTypeChip` en `src/components/inspector/InspectionTypeChip.tsx` que recibe `type: InspectionType` y usa los helpers existentes.
-- Insertarlo en los 4 archivos listados. Sin cambios de negocio, sin tocar queries ni edge functions (el campo `inspection_type` ya viene en el payload usado por estas vistas).
-- Sin cambios en BD.
-
-## Fuera de alcance
-
-- No se toca la vista Admin/Ejecutivo (ya muestran el tipo).
-- No se cambia lógica de filtrado ni ordenamiento por tipo (se puede evaluar en un siguiente paso si lo piden).
+## Notas
+- No modifica lógica de negocio ni backend.
+- No duplica el filtrado: usa exactamente la misma clasificación por etapa que ya alimenta los KPIs, para que los totales cuadren pixel a pixel con las tarjetas de arriba.
+- Respeta memoria `mem://ui/executive-desktop-patterns` (sticky, side-by-side) y tokens de `mem://style/visual-identity`.

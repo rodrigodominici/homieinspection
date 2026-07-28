@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
+import ExecutiveLoadChart from './dashboard/ExecutiveLoadChart';
 import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
                 />
               </Link>
             </div>
+            <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Pending by Inspector */}
