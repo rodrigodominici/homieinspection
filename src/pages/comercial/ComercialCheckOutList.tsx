@@ -218,7 +218,7 @@ export default function ComercialCheckOutList() {
                           <InspectionTypeChip type={i.inspection_type} />
                         </td>
                         <td className="py-3 px-4">
-                          <StatusBadge status={i.status} />
+                          <InspectionStatusBadge status={i.status} />
                         </td>
                         <td className="py-3 px-4 text-muted-foreground text-caption">
                           {formatDateTime(i.inspection_completed_at ?? i.completed_at ?? i.updated_at)}
