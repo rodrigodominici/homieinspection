@@ -55,6 +55,8 @@ export default function Index() {
       return <Navigate to="/inspector" replace />;
     case 'executive':
       return <Navigate to="/executive" replace />;
+    case 'comercial':
+      return <Navigate to="/comercial" replace />;
     default:
       return <Navigate to="/auth" replace />;
   }

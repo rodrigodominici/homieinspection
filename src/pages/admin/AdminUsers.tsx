@@ -28,6 +28,7 @@ const BUSINESS_ROLES: { value: string; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'inspector', label: 'Inspector' },
   { value: 'executive', label: 'Executive' },
+  { value: 'comercial', label: 'Comercial' },
 ];
 
 export default function AdminUsers() {
@@ -53,7 +54,7 @@ export default function AdminUsers() {
   const [cuEmail, setCuEmail] = useState('');
   const [cuPassword, setCuPassword] = useState('');
   const [cuShowPassword, setCuShowPassword] = useState(false);
-  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive'>('inspector');
+  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial'>('inspector');
   const [cuMarket, setCuMarket] = useState<'CL' | 'MX'>('CL');
   const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
   const [cuPhone, setCuPhone] = useState<string>('');
@@ -214,6 +215,7 @@ export default function AdminUsers() {
       admin: 'bg-primary/10 text-primary',
       inspector: 'bg-status-regular-bg text-status-regular',
       executive: 'bg-status-good-bg text-status-good',
+      comercial: 'bg-accent/40 text-accent-foreground',
       pending: 'bg-muted text-muted-foreground',
     };
     return (

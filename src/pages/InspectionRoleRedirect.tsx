@@ -23,6 +23,7 @@ export default function InspectionRoleRedirect() {
   if (role === "admin") return <Navigate to={`/admin/inspections/${id}`} replace />;
   if (role === "executive") return <Navigate to={`/executive/inspection/${id}`} replace />;
   if (role === "inspector") return <Navigate to={`/inspector/inspection/${id}`} replace />;
+  if (role === "comercial") return <Navigate to={`/comercial/check-out/${id}`} replace />;
 
   return <Navigate to="/" replace />;
 }

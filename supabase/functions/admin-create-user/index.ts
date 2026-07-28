@@ -14,7 +14,7 @@ interface CreateUserBody {
   email: string;
   password: string;
   full_name: string;
-  role: 'admin' | 'inspector' | 'executive';
+  role: 'admin' | 'inspector' | 'executive' | 'comercial';
   market: 'CL' | 'MX';
   country_code: string;
   phone: string;
@@ -41,7 +41,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'invalid_email' };
   if (password.length < 8) return { ok: false, error: 'weak_password' };
   if (!full_name || full_name.length > 120) return { ok: false, error: 'invalid_full_name' };
-  if (!['admin', 'inspector', 'executive'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
+  if (!['admin', 'inspector', 'executive', 'comercial'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
   if (!['CL', 'MX'].includes(market ?? '')) return { ok: false, error: 'invalid_market' };
   if (!/^\+\d{1,4}$/.test(country_code)) return { ok: false, error: 'invalid_country_code' };
   if (!/^\d{6,15}$/.test(phone)) return { ok: false, error: 'invalid_phone' };

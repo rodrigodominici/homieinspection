@@ -1708,6 +1708,10 @@ export type Database = {
       }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      is_visible_checkout_for_comercial: {
+        Args: { _inspection_id: string }
+        Returns: boolean
+      }
       submit_owner_feedback: {
         Args: {
           p_decisions: Json
