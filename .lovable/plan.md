@@ -1,57 +1,42 @@
 ## Objetivo
+Permitir a los ejecutivos hacer zoom sobre las fotos directamente dentro del lightbox del workstation de revisión, sin descargar la imagen.
 
-Rediseñar el tab **Presupuesto** del reporte público como **cotizaciones independientes en tarjetas desplegables** (accordion). Cada bloque colapsado muestra solo su total; al expandir se ve el detalle con Subtotal → IVA → Total. Sin mezclar categorías, sin sumar totales globales.
+## Alcance
+Solo se modifica el visor de fotos ejecutivo: `src/pages/executive/review-detail/PhotoPanel.tsx` (el `Dialog` lightbox que ya existe).
 
-Previsualización aprobada en `/tmp/browser/budget/mock2_collapsed.png` (colapsado) y `mock2_open.png` (expandido) con datos reales de "Carlos Pezoa Véliz 190 D 212".
+No se toca el visor del inspector, el reporte público del propietario, ni la lógica de carga/almacenamiento de fotos.
 
-## Cambios en `src/pages/public/OwnerReport.tsx`
+## Comportamiento
 
-1. **Reemplazar `BudgetBlock` por `BudgetQuotationAccordion`** usando `<Accordion type="multiple">` de shadcn (`@/components/ui/accordion`, ya presente en el sistema). Props:
-   - `id`, `title`, `variant: 'required' | 'optional'`, `icon`.
-   - `groups: SectionPayerGroup[]`.
-   - `subtotalAllForProration: number`, `discountAmount: number`, `discount`, `taxConfig`, `formatMoney`.
-   - `interactive`, `decisions`, `onDecisionChange`, `lockedMap`.
+Dentro del lightbox de una foto:
 
-2. **Header colapsado del accordion** (siempre visible):
-   - Icono redondeado (fondo `primary-soft` para recomendadas, `muted` para opcionales).
-   - Título ("Inquilino · Recomendadas", etc.) — cursiva/muted cuando `optional`.
-   - Subtítulo con chips separados por punto: `N reparaciones · M secciones · IVA incluido`.
-   - A la derecha: label "TOTAL" + monto grande en `font-mono tabular-nums`, color `primary` (recomendadas) o `muted italic` (opcionales).
-   - Chevron shadcn con rotación.
+- **Zoom con rueda del mouse**: scroll adelante = acerca, scroll atrás = aleja. Zoom centrado en la posición del cursor.
+- **Doble click**: alterna entre 1x y 2.5x en el punto donde se hizo click.
+- **Arrastrar (drag)** cuando la escala es > 1x: mueve la imagen (pan). El cursor cambia a `grab` / `grabbing`.
+- **Controles visibles** en la esquina inferior derecha del lightbox:
+  - Botón `−` (alejar)
+  - Indicador de escala actual (ej. "150%")
+  - Botón `+` (acercar)
+  - Botón "Reset" (vuelve a 100% y centrado)
+- **Atajos de teclado** dentro del lightbox:
+  - `+` / `=` acerca
+  - `−` acerca al revés
+  - `0` reset
+  - Flechas ← / → siguen navegando entre fotos (se preserva el comportamiento existente).
+- **Límites**: escala mínima 1x, máxima 5x. Al navegar a otra foto (prev/next) se resetea la escala a 1x.
+- **Botones de navegación** prev/next solo se muestran cuando la escala es 1x, para que el drag de pan no compita con ellos.
 
-3. **Body del accordion**:
-   - Grupos por sección con subheader tenue (`uppercase`, `text-[11px]`, tracking amplio) y monto de sección a la derecha.
-   - Items con nombre, descripción opcional, badge Recomendada/Opcional, y línea `cantidad × precio unitario = subtotal`.
-   - En modo interactivo (owner), radios Aceptar/Observar/Rechazar como hoy, con `projectedSum` afectando el total del header en vivo.
-   - Bloque de totales al pie: `Subtotal`, `Descuento comercial` (si aplica, prorrateado), `IVA {label} {pct}%`, `Total cotización` destacado.
+## Detalles técnicos
 
-4. **Estado inicial de expansión**:
-   - `defaultValue`: los IDs de las cotizaciones **Recomendadas** con al menos 1 ítem. Las opcionales arrancan cerradas.
-   - Vacías no se renderizan.
+En `PhotoPanel.tsx`:
 
-5. **Callout arriba del tab**: pill `primary-soft` — `"{N} cotizaciones independientes. Toca cada una para ver el detalle. No se suman entre sí."`
-
-6. **Resumen mínimo al pie** (reemplaza tarjeta combinada actual, líneas 983-1059):
-   - `Total recomendadas` (owner-req + tenant-req, cada uno ya con descuento+IVA prorrateados).
-   - `Total opcionales` en cursiva/muted.
-   - Nota: "Cada cotización se decide y factura por separado — los totales no se suman."
-
-7. **Rama `tenant`** (líneas 1061-1120): mismo componente, con las 2 cotizaciones del inquilino.
-
-8. **Prorrateo del descuento e IVA por bloque**:
-   - Calcular `subOwnerReq/Opt`, `subTenantReq/Opt` una vez en `OwnerReport` (usando `projectedSum` en owner interactivo, `sumRepairs` en el resto).
-   - `subAll = suma de los 4`.
-   - Descuento por bloque = `round(discountAmount * subBloque / subAll)`.
-   - IVA por bloque = `round((subBloque - descuentoBloque) * pct / 100)` cuando `taxConfig.enabled`.
-
-## Fuera de scope
-
-- No se toca `publishInspection`, `get_published_report`, tab Reporte, firma, lógica de submit ni RPC.
-- No se agregan sub-tabs; el accordion vive dentro del tab Presupuesto actual.
-- Aplica automáticamente a reportes ya publicados (solo cambia el render en cliente).
+1. Añadir estado local dentro del `Dialog`: `{ scale, offsetX, offsetY, dragging }`. Envolver el `<img>` del lightbox en un contenedor con `overflow-hidden` y aplicar `transform: translate(x,y) scale(s)` sobre el `<img>`.
+2. Handlers en el contenedor: `onWheel` (con `e.preventDefault` + zoom hacia el cursor recalculando offsets), `onDoubleClick`, `onPointerDown` / `onPointerMove` / `onPointerUp` para pan (usar `setPointerCapture`).
+3. `useEffect` que resetea `{scale:1, offsetX:0, offsetY:0}` cuando cambia `lightboxIdx` o cuando el diálogo se cierra.
+4. Listener de teclado (solo activo mientras el lightbox está abierto) para `+`, `-`, `0`. Las flechas siguen manejadas por los botones existentes.
+5. Ocultar los botones `ChevronLeft`/`ChevronRight` cuando `scale > 1` para evitar que interfieran con el pan.
+6. Sin dependencias nuevas — todo se resuelve con estado local y CSS transforms.
 
 ## Verificación
-
-- Reporte `RE0004350 / 49db9cc9-…` en móvil: colapsado debe verse como `mock2_collapsed.png`; expandido como `mock2_open.png` (Total cotización = $179.158 y $48.917).
-- Reporte con descuento activo: confirmar prorrateo por bloque.
-- Vista `audience=tenant`: dos cotizaciones de inquilino, sin las de propietario.
+- Typecheck (`tsgo`) limpio.
+- Prueba manual en el workstation ejecutivo: abrir una foto, hacer scroll para zoom, arrastrar para pan, doble click, botones +/−/reset, navegar entre fotos y confirmar reset.
