@@ -1,58 +1,46 @@
-## Contexto
+# Slack link accesible para admin y ejecutivo
 
-Búsquedas revisadas:
+## Contexto verificado
 
-- **Admin** — `AdminInspections.tsx` líneas 401-406: `q = searchQuery.trim().toLowerCase()`, luego `address.includes(q) || property_id.includes(q) || property_name.includes(q)`.
-- **Ejecutivo** — `ExecutiveReviewQueue.tsx` líneas 121-125: idéntico patrón sobre `[address, property_name, property_id]`.
+- El edge function `notify-executive-slack` genera el link como `${APP_BASE_URL}/executive/review/${insp.id}` (línea 124).
+- En `src/App.tsx` **no existe** la ruta `/executive/review/:id`. Las rutas reales son:
+  - `/executive/inspection/:id` → `ProtectedRoute allowedRoles={['executive']}`
+  - `/admin/inspections/:id` → `ProtectedRoute allowedRoles={['admin']}`
+- Por eso hoy el botón "Revisar inspección" en Slack **no funciona ni para ejecutivo ni para admin** (URL rota), y aunque apuntara al workstation ejecutivo, un admin sería rechazado por `ProtectedRoute`.
 
-## Diagnóstico
+## Solución propuesta
 
-Tres limitaciones que producen falsos negativos:
+Introducir una **ruta puente compartida** que decida el destino según el rol del usuario autenticado, y usarla como URL única en las notificaciones de Slack.
 
-1. **Substring contiguo.** La query debe aparecer como una sola cadena. Ej.: buscar `"carvajal 1202"` no matchea `"Carvajal 0330 D 1202 , Santiago — …"` porque "carvajal" y "1202" no son contiguos. En el caso del screenshot, `CARVAJAL 0330 D 1901` no matchea porque no existe la unidad **1901** en la BD (verificado con SQL), pero el equipo espera que al menos surjan las Carvajal 0330 relacionadas — cosa que sí ocurriría con tokens independientes.
-2. **Cobertura de campos limitada.** Sólo se busca en `address`, `property_id`, `property_name`. No se busca por inspector, ejecutivo, mercado, HubSpot property id ni por inquilino/propietario (nombres que sí aparecen impresos en las filas). Los usuarios escriben "vanessa carvajal" o "sergio chavez" esperando resultados.
-3. **Sin normalización.** Comparación sensible a acentos, comas y espacios repetidos. `"Ñuñoa"` vs `"nunoa"`, `"Carvajal, 0330,"` vs `"carvajal 0330"`, etc.
+1. Nueva ruta pública-tras-login `/inspections/:id` (sin restricción por rol, solo autenticación):
+   - Si el usuario tiene rol `admin` → `Navigate` a `/admin/inspections/:id`.
+   - Si es `executive` → `/executive/inspection/:id`.
+   - Si es `inspector` → `/inspector/inspection/:id` (por consistencia, opcional).
+   - Si no está autenticado → `ProtectedRoute` ya redirige a `/auth` conservando `returnTo`, así al iniciar sesión aterriza en el link correcto.
 
-## Cambio propuesto
+2. Actualizar `supabase/functions/notify-executive-slack/index.ts` para que ambos botones (`submitted` y `owner_feedback`) usen:
+   ```
+   const link = `${APP_BASE_URL}/inspections/${insp.id}`;
+   ```
+   No republicar notificaciones existentes; solo cambia el destino de los futuros mensajes.
 
-Un único helper de matching, reutilizado por Admin y Ejecutivo. Puramente presentación/filtrado en cliente.
+3. Actualizar el copy del botón de `"Revisar inspección"` a `"Abrir inspección"` (más neutro para ambos roles). El de `owner_feedback` queda como `"Ver feedback"`.
 
-### 1. Nuevo helper `src/lib/inspection-search.ts`
+## Detalles técnicos
 
-- Exporta `buildInspectionHaystack(insp, opts)` que concatena en un string normalizado los campos:
-  - `property_name`, `address`, `property_id`, `hubspot_property_id`, `market`, `inspection_type`.
-  - `inspectorName`, `executiveName` (recibidos vía `opts` desde los mapas de perfiles que ya existen).
-  - `tenant_name`, `owner_name` extraídos con `getEffectiveSnapshot(insp)` (ya usados en otros paneles).
-- Exporta `matchesInspectionQuery(haystack, rawQuery)`:
-  - `normalize(s) = s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim()`.
-  - Tokeniza la query por espacios; requiere que **cada token** aparezca como substring en el haystack normalizado (AND de tokens).
-  - Query vacía → siempre `true`.
-
-### 2. `AdminInspections.tsx`
-
-- Precomputar `haystackByInsp: Map<id, string>` con `useMemo` sobre `inspections + inspectorProfiles + executiveProfiles`.
-- Reemplazar las líneas 401-406 por `if (q && !matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', searchQuery)) return false;`.
-
-### 3. `ExecutiveReviewQueue.tsx`
-
-- Mismo patrón: precomputar haystack con los perfiles ya cargados (`inspectorProfiles`) y aplicar `matchesInspectionQuery`.
-- El placeholder del input pasa de "Buscar por dirección o propiedad..." a "Buscar por dirección, unidad, inspector, propietario…".
-
-### 4. UX menor
-
-- Cuando la búsqueda produce 0 resultados, mostrar debajo del EmptyState un hint: "Prueba con menos palabras o quita filtros." (sólo si `searchQuery` no está vacía). Aplica a ambas vistas.
+- Archivo nuevo: `src/pages/InspectionRoleRedirect.tsx` — usa `useAuth()` para leer el rol activo y hace `<Navigate replace to={...}/>`. Mientras `role` carga, muestra el mismo skeleton que usan las demás rutas protegidas.
+- `src/App.tsx`: agregar
+  ```tsx
+  <Route path="/inspections/:id" element={
+    <ProtectedRoute allowedRoles={['admin','executive','inspector']}>
+      <InspectionRoleRedirect />
+    </ProtectedRoute>
+  } />
+  ```
+- `supabase/functions/notify-executive-slack/index.ts`: cambiar la construcción de `link` (una sola línea) y el texto del botón `submitted`.
 
 ## Fuera de alcance
 
-- Búsqueda fuzzy / tolerancia a typos (no lo pidió el usuario y añade complejidad).
-- Search server-side / paginado sobre índices FTS. Se puede evaluar en un siguiente tier si el volumen crece.
-- Cambios en `AdminSchedule` / `ExecutiveSchedule` (no tienen input de texto libre — filtran por dropdowns).
-
-## Verificación
-
-- Typecheck + build.
-- Manual en preview:
-  - Admin: buscar `"vanessa carvajal"` → aparecen todas las Carvajal asignadas a Vanessa.
-  - Admin: buscar `"sergio chavez"` → aparece Carvajal 0330 D 1202.
-  - Admin: buscar `"nunoa 3361"` → aparece "Marchant Pereira . Ñuñoa 3361 D 706".
-  - Ejecutivo: mismos casos.
+- No se modifican los permisos de los reportes públicos (`/report/:token`).
+- No se re-envían notificaciones ya enviadas.
+- No se cambia la lógica de `ProtectedRoute` ni los roles existentes.
