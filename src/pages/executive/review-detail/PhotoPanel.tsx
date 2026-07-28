@@ -169,27 +169,18 @@ export const PhotoPanel = memo(function PhotoPanel({
             </DialogTitle>
           </DialogHeader>
           {featured && (
-            <div className="relative">
-              <img
-                src={urlOf(featured.id)}
-                alt={featured.caption ?? ''}
-                decoding="async"
-                className="w-full rounded-lg object-contain max-h-[75vh] bg-muted/30"
-              />
-              {photos.length > 1 && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2">
-                  <Button variant="secondary" size="icon" className="h-9 w-9 rounded-full"
-                    onClick={() => setLightboxIdx((i) => (i! > 0 ? i! - 1 : photos.length - 1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="secondary" size="icon" className="h-9 w-9 rounded-full"
-                    onClick={() => setLightboxIdx((i) => (i! < photos.length - 1 ? i! + 1 : 0))}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
+            <ZoomableImage
+              src={urlOf(featured.id)}
+              alt={featured.caption ?? ''}
+              photoKey={featured.id}
+              showNav={photos.length > 1}
+              onPrev={() => setLightboxIdx((i) => (i! > 0 ? i! - 1 : photos.length - 1))}
+              onNext={() => setLightboxIdx((i) => (i! < photos.length - 1 ? i! + 1 : 0))}
+            />
           )}
+        </DialogContent>
+      </Dialog>
+
         </DialogContent>
       </Dialog>
 
