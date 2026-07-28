@@ -73,13 +73,17 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
-// Quick-filter buckets
+// Quick-filter buckets — SINGLE axis for KPI cards + chip row.
+// Every value here maps to exactly one predicate below, and clicking any
+// KPI/chip resets `statusFilter` so counters and results always agree.
 type Bucket =
   | 'all'
   | 'unassigned'
   | 'por_coordinar'
   | 'programadas'
   | 'in_progress'
+  | 'for_review'
+  | 'to_publish'
   | 'waiting_owner'
   | 'owner_feedback'
   | 'accepted';
@@ -89,6 +93,8 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'por_coordinar', label: 'Por coordinar' },
   { value: 'programadas', label: 'Programadas' },
   { value: 'in_progress', label: 'En progreso' },
+  { value: 'for_review', label: 'Para revisar' },
+  { value: 'to_publish', label: 'Para publicar' },
   { value: 'waiting_owner', label: 'Esperando propietario' },
   { value: 'owner_feedback', label: 'Feedback propietario' },
   { value: 'accepted', label: 'Aceptadas' },
@@ -332,44 +338,60 @@ export default function AdminInspections() {
     return m;
   }, [inspections]);
 
-  // Bucket counts in one pass (avoids 5x .filter inside the JSX).
+  // Per-inspection predicate helpers — the SAME predicates power counts and filtering.
+  const matchesBucket = (i: EnrichedInspection, target: Bucket): boolean => {
+    if (target === 'all') return true;
+    const b = bucketByInsp.get(i.id);
+    const fb = i.owner_feedback_status ?? 'none';
+    switch (target) {
+      case 'unassigned':      return b === 0;
+      case 'por_coordinar':   return b === 1;
+      case 'programadas':     return b === 2;
+      case 'in_progress':     return i.status === 'in_progress';
+      case 'for_review':      return i.status === 'submitted' || i.status === 'in_review';
+      case 'to_publish':      return i.status === 'approved' && fb !== 'accepted';
+      case 'waiting_owner':   return (i.status === 'published' || i.status === 'sent') && fb === 'none';
+      case 'owner_feedback':  return fb === 'pending_executive_review';
+      case 'accepted':        return fb === 'accepted';
+    }
+  };
+
+  // Bucket counts in one pass (avoids repeated .filter inside JSX).
   const bucketCounts = useMemo(() => {
-    const counts = {
+    const counts: Record<Bucket, number> = {
       all: inspections.length,
-      unassigned: 0,
-      por_coordinar: 0,
-      programadas: 0,
-      in_progress: 0,
-      owner_feedback: 0,
-      waiting_owner: 0,
-      accepted: 0,
+      unassigned: 0, por_coordinar: 0, programadas: 0,
+      in_progress: 0, for_review: 0, to_publish: 0,
+      waiting_owner: 0, owner_feedback: 0, accepted: 0,
     };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
+      const fb = i.owner_feedback_status ?? 'none';
       if (b === 0) counts.unassigned++;
       else if (b === 1) counts.por_coordinar++;
       else if (b === 2) counts.programadas++;
-      else if (b === 3) counts.in_progress++;
-      else if (b === 4) counts.owner_feedback++;
-      const fb = i.owner_feedback_status ?? 'none';
+      if (i.status === 'in_progress') counts.in_progress++;
+      if (i.status === 'submitted' || i.status === 'in_review') counts.for_review++;
+      if (i.status === 'approved' && fb !== 'accepted') counts.to_publish++;
       if ((i.status === 'published' || i.status === 'sent') && fb === 'none') counts.waiting_owner++;
+      if (fb === 'pending_executive_review') counts.owner_feedback++;
       if (fb === 'accepted') counts.accepted++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
 
-  // KPIs aligned with executive view + admin-only signals.
-  // After publish, the lifecycle splits in 3 (waiting / feedback / accepted)
-  // to reflect the owner-feedback loop instead of a single "Publicadas" bucket.
-  const kpis = useMemo(() => ({
-    unassigned:    bucketCounts.unassigned,
-    inProgress:    inspections.filter((i) => i.status === 'in_progress').length,
-    forReview:     inspections.filter((i) => i.status === 'submitted' || i.status === 'in_review').length,
-    toPublish:     inspections.filter((i) => i.status === 'approved' && i.owner_feedback_status !== 'accepted').length,
-    waitingOwner:  bucketCounts.waiting_owner,
-    ownerFeedback: bucketCounts.owner_feedback,
-    accepted:      bucketCounts.accepted,
-  }), [inspections, bucketCounts]);
+  // Exclusive quick-filter selector — resets `statusFilter` so counts and
+  // results always match (a second click on the same target clears it).
+  const applyQuickFilter = (target: Bucket) => {
+    setStatusFilter('all');
+    setBucketFilter((prev) => (prev === target ? 'all' : target));
+  };
+  // Selecting a granular state from the dropdown clears the quick-filter axis.
+  const applyStatusFilter = (value: string) => {
+    setBucketFilter('all');
+    setStatusFilter(value);
+  };
+
 
   // Available markets (for the market dropdown).
   const markets = useMemo(
@@ -404,18 +426,7 @@ export default function AdminInspections() {
       if (marketFilter !== 'all' && i.market !== marketFilter) return false;
       if (publishedFilter === 'published' && !i.published_at) return false;
       if (publishedFilter === 'not_published' && !!i.published_at) return false;
-      if (bucketFilter !== 'all') {
-        const b = bucketByInsp.get(i.id);
-        const fb = i.owner_feedback_status ?? 'none';
-        if (bucketFilter === 'unassigned' && b !== 0) return false;
-        if (bucketFilter === 'por_coordinar' && b !== 1) return false;
-        if (bucketFilter === 'programadas' && b !== 2) return false;
-        if (bucketFilter === 'in_progress' && b !== 3) return false;
-        if (bucketFilter === 'owner_feedback' && b !== 4) return false;
-        if (bucketFilter === 'waiting_owner'
-          && !((i.status === 'published' || i.status === 'sent') && fb === 'none')) return false;
-        if (bucketFilter === 'accepted' && fb !== 'accepted') return false;
-      }
+      if (!matchesBucket(i, bucketFilter)) return false;
       if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', searchQuery)) return false;
       return true;
     });
@@ -489,59 +500,77 @@ export default function AdminInspections() {
 
           {/* All Inspections */}
           <TabsContent value="all" className="space-y-4 mt-4">
-            {/* KPIs — clickable filter shortcuts. Post-publish lifecycle
-                splits in 3 (esperando ↔ feedback ↔ aceptadas). */}
-            <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
+            {/* KPI cards — 9 clickable shortcuts. Admin sees the full operational
+                lifecycle (Por coordinar + Programadas are admin-only vs the
+                executive queue, which only sees post-assignment stages). All
+                cards share ONE selection axis (`bucketFilter`) so counter and
+                results are always consistent. */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
               <KpiCard
-                label="Sin asignar" value={kpis.unassigned}
+                label="Sin asignar" value={bucketCounts.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
-                tooltip="Inspecciones creadas que aún no tienen inspector asignado."
+                tooltip="Inspecciones creadas que aún no tienen inspector o ejecutivo asignado."
                 active={bucketFilter === 'unassigned'}
-                onClick={() => setBucketFilter(bucketFilter === 'unassigned' ? 'all' : 'unassigned')}
+                onClick={() => applyQuickFilter('unassigned')}
               />
               <KpiCard
-                label="En progreso" value={kpis.inProgress}
+                label="Por coordinar" value={bucketCounts.por_coordinar}
+                icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Asignadas pero sin fecha/hora de recolección de llaves (admin-only)."
+                active={bucketFilter === 'por_coordinar'}
+                onClick={() => applyQuickFilter('por_coordinar')}
+              />
+              <KpiCard
+                label="Programadas" value={bucketCounts.programadas}
+                icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
+                tooltip="Con inspector, ejecutivo y fecha de llaves confirmada (admin-only)."
+                active={bucketFilter === 'programadas'}
+                onClick={() => applyQuickFilter('programadas')}
+              />
+              <KpiCard
+                label="En progreso" value={bucketCounts.in_progress}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="El inspector ya inició la captura en sitio."
-                active={statusFilter === 'in_progress'}
-                onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
+                active={bucketFilter === 'in_progress'}
+                onClick={() => applyQuickFilter('in_progress')}
               />
               <KpiCard
-                label="Para revisar" value={kpis.forReview}
+                label="Para revisar" value={bucketCounts.for_review}
                 icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
-                active={statusFilter === 'submitted'}
-                onClick={() => setStatusFilter(statusFilter === 'submitted' ? 'all' : 'submitted')}
+                active={bucketFilter === 'for_review'}
+                onClick={() => applyQuickFilter('for_review')}
               />
               <KpiCard
-                label="Para publicar" value={kpis.toPublish}
+                label="Para publicar" value={bucketCounts.to_publish}
                 icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Aprobadas internamente. Falta enviarlas al propietario."
-                active={statusFilter === 'approved'}
-                onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+                active={bucketFilter === 'to_publish'}
+                onClick={() => applyQuickFilter('to_publish')}
               />
               <KpiCard
-                label="Esperando propietario" value={kpis.waitingOwner}
+                label="Esperando propietario" value={bucketCounts.waiting_owner}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 active={bucketFilter === 'waiting_owner'}
-                onClick={() => setBucketFilter(bucketFilter === 'waiting_owner' ? 'all' : 'waiting_owner')}
+                onClick={() => applyQuickFilter('waiting_owner')}
               />
               <KpiCard
-                label="Feedback propietario" value={kpis.ownerFeedback}
+                label="Feedback propietario" value={bucketCounts.owner_feedback}
                 icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red"
                 tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 active={bucketFilter === 'owner_feedback'}
-                onClick={() => setBucketFilter(bucketFilter === 'owner_feedback' ? 'all' : 'owner_feedback')}
+                onClick={() => applyQuickFilter('owner_feedback')}
               />
               <KpiCard
-                label="Aceptadas" value={kpis.accepted}
+                label="Aceptadas" value={bucketCounts.accepted}
                 icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                 tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 active={bucketFilter === 'accepted'}
-                onClick={() => setBucketFilter(bucketFilter === 'accepted' ? 'all' : 'accepted')}
+                onClick={() => applyQuickFilter('accepted')}
               />
             </div>
+
 
             {/* FiltersBar — search + selects + sort + view toggle */}
             <FiltersBar>
@@ -554,7 +583,7 @@ export default function AdminInspections() {
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={applyStatusFilter}>
                 <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
@@ -638,7 +667,7 @@ export default function AdminInspections() {
                 return (
                   <button
                     key={b.value}
-                    onClick={() => setBucketFilter(b.value)}
+                    onClick={() => applyQuickFilter(b.value)}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors',
                       active
