@@ -1,42 +1,28 @@
-## Objetivo
-Permitir a los ejecutivos hacer zoom sobre las fotos directamente dentro del lightbox del workstation de revisión, sin descargar la imagen.
+## Problema
 
-## Alcance
-Solo se modifica el visor de fotos ejecutivo: `src/pages/executive/review-detail/PhotoPanel.tsx` (el `Dialog` lightbox que ya existe).
+En `ExecutiveReviewQueue`, los KPIs **Esperando propietario**, **Feedback propietario** y **Aceptadas** aplican el filtro correctamente (los conteos son correctos y `ownerFeedbackFilter` cambia), pero los resultados caen dentro del grupo **"Seguimiento"**, que es un `CollapsibleGroup` cuyo `defaultOpen` sólo es `true` cuando hay ≤3 elementos. Con 7 inspecciones aceptadas o esperando propietario, el grupo queda colapsado y al usuario le parece que "no se puede visualizar".
 
-No se toca el visor del inspector, el reporte público del propietario, ni la lógica de carga/almacenamiento de fotos.
+Adicionalmente, el `defaultOpen` sólo se evalúa al montar el componente, así que aunque el usuario cambie el filtro después, el grupo no se re-abre.
 
-## Comportamiento
+## Cambio propuesto
 
-Dentro del lightbox de una foto:
+Archivo único: `src/pages/executive/ExecutiveReviewQueue.tsx`.
 
-- **Zoom con rueda del mouse**: scroll adelante = acerca, scroll atrás = aleja. Zoom centrado en la posición del cursor.
-- **Doble click**: alterna entre 1x y 2.5x en el punto donde se hizo click.
-- **Arrastrar (drag)** cuando la escala es > 1x: mueve la imagen (pan). El cursor cambia a `grab` / `grabbing`.
-- **Controles visibles** en la esquina inferior derecha del lightbox:
-  - Botón `−` (alejar)
-  - Indicador de escala actual (ej. "150%")
-  - Botón `+` (acercar)
-  - Botón "Reset" (vuelve a 100% y centrado)
-- **Atajos de teclado** dentro del lightbox:
-  - `+` / `=` acerca
-  - `−` acerca al revés
-  - `0` reset
-  - Flechas ← / → siguen navegando entre fotos (se preserva el comportamiento existente).
-- **Límites**: escala mínima 1x, máxima 5x. Al navegar a otra foto (prev/next) se resetea la escala a 1x.
-- **Botones de navegación** prev/next solo se muestran cuando la escala es 1x, para que el drag de pan no compita con ellos.
+1. **Forzar apertura de grupos colapsables cuando hay un filtro activo.**
+   - Considerar "filtro activo" cualquiera de: `statusFilter !== 'all'`, `ownerFeedbackFilter !== 'all'`, `publishedFilter !== 'all'`, `inspectorFilter !== 'all'`, `marketFilter !== 'all'` o búsqueda con texto.
+   - Pasar ese booleano como prop `forceOpen` a `CollapsibleGroup` para **Seguimiento** y **Pre-inspección**.
 
-## Detalles técnicos
+2. **`CollapsibleGroup`: respetar `forceOpen` sobre el estado local.**
+   - Nueva prop opcional `forceOpen?: boolean`.
+   - Render abierto si `forceOpen || open`.
+   - El botón de toggle sigue funcionando cuando `forceOpen` es falso; cuando es verdadero, se muestra abierto y el chevron refleja el estado.
 
-En `PhotoPanel.tsx`:
+3. **Mejorar `defaultOpen` de Seguimiento.**
+   - `defaultOpen={grouped.follow_up.length <= 3}` se mantiene para el caso sin filtros, pero al aplicar cualquier filtro `forceOpen` lo abrirá igualmente.
 
-1. Añadir estado local dentro del `Dialog`: `{ scale, offsetX, offsetY, dragging }`. Envolver el `<img>` del lightbox en un contenedor con `overflow-hidden` y aplicar `transform: translate(x,y) scale(s)` sobre el `<img>`.
-2. Handlers en el contenedor: `onWheel` (con `e.preventDefault` + zoom hacia el cursor recalculando offsets), `onDoubleClick`, `onPointerDown` / `onPointerMove` / `onPointerUp` para pan (usar `setPointerCapture`).
-3. `useEffect` que resetea `{scale:1, offsetX:0, offsetY:0}` cuando cambia `lightboxIdx` o cuando el diálogo se cierra.
-4. Listener de teclado (solo activo mientras el lightbox está abierto) para `+`, `-`, `0`. Las flechas siguen manejadas por los botones existentes.
-5. Ocultar los botones `ChevronLeft`/`ChevronRight` cuando `scale > 1` para evitar que interfieran con el pan.
-6. Sin dependencias nuevas — todo se resuelve con estado local y CSS transforms.
+No se toca lógica de datos, ni buckets, ni KPIs — sólo presentación.
 
 ## Verificación
-- Typecheck (`tsgo`) limpio.
-- Prueba manual en el workstation ejecutivo: abrir una foto, hacer scroll para zoom, arrastrar para pan, doble click, botones +/−/reset, navegar entre fotos y confirmar reset.
+
+- Typecheck (`tsgo`) / build ya cubre regresión de tipos.
+- Comprobación manual en preview: click en cada uno de los tres KPIs y confirmar que las filas aparecen sin necesidad de expandir manualmente.
