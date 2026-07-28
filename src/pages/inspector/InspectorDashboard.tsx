@@ -21,6 +21,7 @@ import {
 } from '@/lib/inspector-operational';
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InspectionWithProgress extends Inspection {
@@ -207,7 +208,10 @@ export default function InspectorDashboard() {
                         <CardContent className="p-4 space-y-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="font-medium text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                                <InspectionTypeChip type={insp.inspection_type} />
+                              </div>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                                 <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
@@ -333,7 +337,10 @@ function HeroCard({ inspection: insp, contextLabel }: { inspection: InspectionWi
       <CardContent className="p-5 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-lg font-bold truncate">{insp.property_name ?? insp.property_id}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-lg font-bold truncate">{insp.property_name ?? insp.property_id}</p>
+              <InspectionTypeChip type={insp.inspection_type} />
+            </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{address}</span>
@@ -399,7 +406,10 @@ function MiniCard({ inspection: insp }: { inspection: InspectionWithProgress }) 
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-sm font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+              <InspectionTypeChip type={insp.inspection_type} size="xs" />
+            </div>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{insp.address ?? 'Sin dirección'}</span>

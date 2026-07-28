@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import InspectorBottomNav from '@/components/InspectorBottomNav';
@@ -161,7 +162,10 @@ export default function InspectorAllInspections() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="font-semibold text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                            <InspectionTypeChip type={insp.inspection_type} />
+                          </div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="h-3.5 w-3.5 shrink-0" />
                             <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
@@ -188,7 +192,10 @@ export default function InspectorAllInspections() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-semibold text-sm truncate">{insp.property_name ?? insp.property_id}</p>
+                          <InspectionTypeChip type={insp.inspection_type} />
+                        </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{insp.address ?? 'Sin dirección'}</span>

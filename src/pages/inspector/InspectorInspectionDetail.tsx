@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SectionStatusBadge } from '@/components/StatusBadge';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
+import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -436,6 +437,7 @@ export default function InspectorInspectionDetail() {
           </Button>
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <p className="font-semibold text-sm truncate">{inspection.property_name ?? inspection.property_id}</p>
+            <InspectionTypeChip type={inspection.inspection_type} />
             <InspectorStatusBadge state={displayState} />
           </div>
           {tenantWhatsapp && (
