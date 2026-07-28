@@ -44,6 +44,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import {
   MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download,
@@ -486,10 +489,26 @@ function RepairGroup({
   );
 }
 
-/** Budget block: 4-way split (owner/tenant × required/optional). */
-function BudgetBlock({
-  icon, title, variant, groups, interactive, decisions, onDecisionChange, lockedMap,
+/**
+ * Independent quotation as a collapsible accordion item.
+ * Collapsed header shows: title, quick stats, total (VAT-included).
+ * Expanded body shows: per-section groups, subtotal, discount, VAT, total.
+ */
+function BudgetQuotationAccordion({
+  id,
+  icon,
+  title,
+  variant,
+  groups,
+  interactive,
+  decisions,
+  onDecisionChange,
+  lockedMap,
+  discountAmount,
+  discount,
+  taxConfig,
 }: {
+  id: string;
   icon: React.ReactNode;
   title: string;
   variant: 'required' | 'optional';
@@ -498,6 +517,9 @@ function BudgetBlock({
   decisions?: DecisionState;
   onDecisionChange?: (id: string, next: { decision: Decision | null; comment: string }) => void;
   lockedMap?: Map<string, OwnerDecision>;
+  discountAmount: number;
+  discount?: PayloadDiscount | null;
+  taxConfig?: PayloadTaxConfig | null;
 }) {
   if (groups.length === 0) return null;
   const items = groups.flatMap(g => g.items);
@@ -505,36 +527,102 @@ function BudgetBlock({
   const full = sumRepairs(items);
   const showProjected = !!interactive && rejected > 0;
   const optional = variant === 'optional';
+
+  const vatEnabled = !!taxConfig?.enabled && Number(taxConfig?.percentage) > 0;
+  const vatPct = Number(taxConfig?.percentage ?? 0);
+  const vatLabel = taxConfig?.label || 'IVA';
+  const base = Math.max(0, projected - discountAmount);
+  const vat = vatEnabled ? Math.round((base * vatPct) / 100) : 0;
+  const total = base + vat;
+
+  const repCount = items.length;
+  const secCount = groups.length;
+
   return (
-    <Card className={`border-0 ring-1 shadow-sm ${optional ? 'ring-border/60 bg-muted/20' : 'ring-border'}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className={`text-body-lg flex items-center gap-2 ${optional ? 'italic text-muted-foreground font-medium' : ''}`}>
-          {icon} {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {groups.map((g) => (
-          <RepairGroup
-            key={g.sectionId}
-            title={g.sectionTitle}
-            items={g.items}
-            interactive={interactive}
-            decisionState={decisions}
-            onDecisionChange={onDecisionChange}
-            lockedDecisions={lockedMap}
-          />
-        ))}
-        <div className="flex items-center justify-between border-t pt-3">
-          <span className={`text-body ${optional ? 'italic text-muted-foreground font-medium' : 'font-semibold'}`}>Subtotal</span>
-          <div className="flex items-baseline gap-2 whitespace-nowrap">
-            {showProjected && (
-              <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(full)}</span>
-            )}
-            <span className={`text-body font-mono tabular-nums ${optional ? 'italic text-muted-foreground' : 'font-semibold'}`}>{fmt(projected)}</span>
+    <AccordionItem
+      value={id}
+      className={`border-0 rounded-2xl ring-1 shadow-sm overflow-hidden ${
+        optional ? 'ring-border/60 bg-muted/20' : 'ring-border bg-card'
+      }`}
+    >
+      <AccordionTrigger className="hover:no-underline px-4 sm:px-5 py-4 gap-3 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground">
+        <div className="flex items-start gap-3 flex-1 min-w-0 text-left">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            optional ? 'bg-muted text-muted-foreground' : 'bg-primary-soft text-primary'
+          }`}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-body font-semibold leading-tight ${optional ? 'italic text-muted-foreground' : 'text-foreground'}`}>
+              {title}
+            </p>
+            <p className="text-tiny text-muted-foreground mt-1 leading-snug">
+              {repCount} {repCount === 1 ? 'reparación' : 'reparaciones'} · {secCount} {secCount === 1 ? 'sección' : 'secciones'}
+              {vatEnabled ? ' · IVA incluido' : ''}
+            </p>
+          </div>
+          <div className="shrink-0 text-right pr-2">
+            <p className="text-tiny text-muted-foreground uppercase tracking-wide">Total</p>
+            <div className="flex items-baseline gap-1.5 justify-end">
+              {showProjected && (
+                <span className="text-tiny font-mono tabular-nums text-muted-foreground line-through">{fmt(full)}</span>
+              )}
+              <span className={`text-body-lg font-bold font-mono tabular-nums ${
+                optional ? 'italic text-muted-foreground' : 'text-primary'
+              }`}>
+                {fmt(total)}
+              </span>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 sm:px-5 pb-5">
+        <div className="space-y-4 pt-1">
+          {groups.map((g) => (
+            <RepairGroup
+              key={g.sectionId}
+              title={g.sectionTitle}
+              items={g.items}
+              interactive={interactive}
+              decisionState={decisions}
+              onDecisionChange={onDecisionChange}
+              lockedDecisions={lockedMap}
+            />
+          ))}
+          <div className="border-t pt-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-caption text-muted-foreground">Subtotal</span>
+              <span className="text-body font-mono tabular-nums">{fmt(projected)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-caption text-primary font-medium">
+                  Descuento comercial
+                  {discount && (
+                    <span className="ml-1 text-muted-foreground font-normal">
+                      ({discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo'})
+                    </span>
+                  )}
+                </span>
+                <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmount)}</span>
+              </div>
+            )}
+            {vatEnabled && (
+              <div className="flex items-center justify-between">
+                <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
+                <span className="text-body font-mono tabular-nums">{fmt(vat)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className={`text-body ${optional ? 'italic text-muted-foreground font-medium' : 'font-semibold'}`}>Total cotización</span>
+              <span className={`text-h3 font-bold font-mono tabular-nums ${optional ? 'italic text-muted-foreground' : 'text-primary'}`}>
+                {fmt(total)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -933,197 +1021,146 @@ export default function OwnerReport() {
                 </p>
               </div>
             )}
+            {(() => {
+              if (!buckets) return null;
+              const empty = (audience === 'owner' && grandTotalFull === 0)
+                || (audience === 'tenant' && tenantTotalFull === 0);
+              if (empty) {
+                return <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>;
+              }
 
-            {!buckets || (audience === 'owner' && grandTotalFull === 0) ||
-             (audience === 'tenant' && tenantTotalFull === 0) ? (
-              <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>
-            ) : audience === 'owner' ? (
-              <>
-                <BudgetBlock
-                  icon={<User className="h-4 w-4 text-primary" />}
-                  title="Propietario · Recomendadas"
-                  variant="required"
-                  groups={sectionGroups.ownerRequired}
-                  interactive={interactive}
-                  decisions={decisions}
-                  onDecisionChange={handleDecisionChange}
-                  lockedMap={lockedMap}
-                />
-                <BudgetBlock
-                  icon={<User className="h-4 w-4 text-muted-foreground" />}
-                  title="Propietario · Opcionales"
-                  variant="optional"
-                  groups={sectionGroups.ownerOptional}
-                  interactive={interactive}
-                  decisions={decisions}
-                  onDecisionChange={handleDecisionChange}
-                  lockedMap={lockedMap}
-                />
-                <BudgetBlock
-                  icon={<Users className="h-4 w-4 text-primary" />}
-                  title="Inquilino · Recomendadas"
-                  variant="required"
-                  groups={sectionGroups.tenantRequired}
-                  interactive={interactive}
-                  decisions={decisions}
-                  onDecisionChange={handleDecisionChange}
-                  lockedMap={lockedMap}
-                />
-                <BudgetBlock
-                  icon={<Users className="h-4 w-4 text-muted-foreground" />}
-                  title="Inquilino · Opcionales"
-                  variant="optional"
-                  groups={sectionGroups.tenantOptional}
-                  interactive={interactive}
-                  decisions={decisions}
-                  onDecisionChange={handleDecisionChange}
-                  lockedMap={lockedMap}
-                />
+              // Per-bucket projected subtotals (respect owner interactive decisions).
+              const subOwnReq = projectedSum(sectionGroups.ownerRequired.flatMap(g => g.items), decisions, interactive).projected;
+              const subOwnOpt = projectedSum(sectionGroups.ownerOptional.flatMap(g => g.items), decisions, interactive).projected;
+              const subTenReq = projectedSum(sectionGroups.tenantRequired.flatMap(g => g.items), decisions, interactive).projected;
+              const subTenOpt = projectedSum(sectionGroups.tenantOptional.flatMap(g => g.items), decisions, interactive).projected;
 
-                <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
-                  <CardContent className="py-4 sm:py-5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-caption text-muted-foreground">Subtotal recomendadas propietario</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(projectedSum(sectionGroups.ownerRequired.flatMap(g => g.items), decisions, interactive).projected)}</span>
-                    </div>
-                    <div className="flex items-center justify-between italic text-muted-foreground">
-                      <span className="text-caption">Subtotal opcionales propietario</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(projectedSum(sectionGroups.ownerOptional.flatMap(g => g.items), decisions, interactive).projected)}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t pt-2">
-                      <span className="text-caption text-muted-foreground">Subtotal recomendadas inquilino</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(projectedSum(sectionGroups.tenantRequired.flatMap(g => g.items), decisions, interactive).projected)}</span>
-                    </div>
-                    <div className="flex items-center justify-between italic text-muted-foreground">
-                      <span className="text-caption">Subtotal opcionales inquilino</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(projectedSum(sectionGroups.tenantOptional.flatMap(g => g.items), decisions, interactive).projected)}</span>
-                    </div>
+              const subAll = audience === 'owner'
+                ? subOwnReq + subOwnOpt + subTenReq + subTenOpt
+                : subTenReq + subTenOpt;
+              const totalDiscount = audience === 'owner' ? discountAmount : discountAmountTenant;
+              const share = (sub: number) => subAll > 0 ? Math.round(totalDiscount * sub / subAll) : 0;
 
-                    {discountAmount > 0 && (
-                      <div className="flex items-center justify-between border-t pt-2">
-                        <span className="text-caption text-primary font-medium">
-                          Descuento comercial
-                          {discount && (
-                            <span className="ml-1 text-muted-foreground font-normal">
-                              ({discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo'})
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmount)}</span>
-                      </div>
+              const discOwnReq = share(subOwnReq);
+              const discOwnOpt = share(subOwnOpt);
+              const discTenReq = share(subTenReq);
+              const discTenOpt = share(subTenOpt);
+
+              const calcTotal = (sub: number, disc: number) => {
+                const base = Math.max(0, sub - disc);
+                const v = vatEnabled ? Math.round((base * vatPct) / 100) : 0;
+                return base + v;
+              };
+              const totalRecomendadas =
+                (audience === 'owner' ? calcTotal(subOwnReq, discOwnReq) : 0)
+                + calcTotal(subTenReq, discTenReq);
+              const totalOpcionales =
+                (audience === 'owner' ? calcTotal(subOwnOpt, discOwnOpt) : 0)
+                + calcTotal(subTenOpt, discTenOpt);
+
+              // Default-open: all "recomendadas" quotations that have items.
+              const defaultOpen: string[] = [];
+              if (audience === 'owner' && sectionGroups.ownerRequired.length > 0) defaultOpen.push('owner-req');
+              if (sectionGroups.tenantRequired.length > 0) defaultOpen.push('tenant-req');
+
+              const nonEmptyCount =
+                (sectionGroups.ownerRequired.length > 0 && audience === 'owner' ? 1 : 0)
+                + (sectionGroups.ownerOptional.length > 0 && audience === 'owner' ? 1 : 0)
+                + (sectionGroups.tenantRequired.length > 0 ? 1 : 0)
+                + (sectionGroups.tenantOptional.length > 0 ? 1 : 0);
+
+              return (
+                <>
+                  <div className="rounded-xl bg-primary-soft/60 border border-primary/20 px-3.5 py-2.5">
+                    <p className="text-caption text-foreground leading-snug">
+                      <strong>{nonEmptyCount} {nonEmptyCount === 1 ? 'cotización independiente' : 'cotizaciones independientes'}.</strong>{' '}
+                      <span className="text-muted-foreground">Toca cada una para ver el detalle. No se suman entre sí.</span>
+                    </p>
+                  </div>
+
+                  <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-3">
+                    {audience === 'owner' && (
+                      <>
+                        <BudgetQuotationAccordion
+                          id="owner-req"
+                          icon={<User className="h-4 w-4" />}
+                          title="Propietario · Recomendadas"
+                          variant="required"
+                          groups={sectionGroups.ownerRequired}
+                          interactive={interactive}
+                          decisions={decisions}
+                          onDecisionChange={handleDecisionChange}
+                          lockedMap={lockedMap}
+                          discountAmount={discOwnReq}
+                          discount={discount}
+                          taxConfig={report.tax_config}
+                        />
+                        <BudgetQuotationAccordion
+                          id="owner-opt"
+                          icon={<User className="h-4 w-4" />}
+                          title="Propietario · Opcionales"
+                          variant="optional"
+                          groups={sectionGroups.ownerOptional}
+                          interactive={interactive}
+                          decisions={decisions}
+                          onDecisionChange={handleDecisionChange}
+                          lockedMap={lockedMap}
+                          discountAmount={discOwnOpt}
+                          discount={discount}
+                          taxConfig={report.tax_config}
+                        />
+                      </>
                     )}
-                    {vatEnabled && (
+                    <BudgetQuotationAccordion
+                      id="tenant-req"
+                      icon={<Users className="h-4 w-4" />}
+                      title="Inquilino · Recomendadas"
+                      variant="required"
+                      groups={sectionGroups.tenantRequired}
+                      interactive={interactive}
+                      decisions={decisions}
+                      onDecisionChange={handleDecisionChange}
+                      lockedMap={lockedMap}
+                      discountAmount={discTenReq}
+                      discount={discount}
+                      taxConfig={report.tax_config}
+                    />
+                    <BudgetQuotationAccordion
+                      id="tenant-opt"
+                      icon={<Users className="h-4 w-4" />}
+                      title="Inquilino · Opcionales"
+                      variant="optional"
+                      groups={sectionGroups.tenantOptional}
+                      interactive={interactive}
+                      decisions={decisions}
+                      onDecisionChange={handleDecisionChange}
+                      lockedMap={lockedMap}
+                      discountAmount={discTenOpt}
+                      discount={discount}
+                      taxConfig={report.tax_config}
+                    />
+                  </Accordion>
+
+                  {/* Minimal summary — no combined grand total. */}
+                  <Card className="border-0 ring-1 ring-border shadow-sm">
+                    <CardContent className="py-4 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
-                        <span className="text-body font-mono tabular-nums">{fmt(ownerVat + tenantVat)}</span>
+                        <span className="text-body font-semibold">Total recomendadas</span>
+                        <span className="text-h3 font-bold font-mono tabular-nums text-primary">{fmt(totalRecomendadas)}</span>
                       </div>
-                    )}
-
-                    {/* Split totals: recomendadas vs opcionales (no combined grand total). */}
-                    {(() => {
-                      const ownReq = projectedSum(sectionGroups.ownerRequired.flatMap(g => g.items), decisions, interactive).projected;
-                      const ownOpt = projectedSum(sectionGroups.ownerOptional.flatMap(g => g.items), decisions, interactive).projected;
-                      const tenReq = projectedSum(sectionGroups.tenantRequired.flatMap(g => g.items), decisions, interactive).projected;
-                      const tenOpt = projectedSum(sectionGroups.tenantOptional.flatMap(g => g.items), decisions, interactive).projected;
-                      const subReq = ownReq + tenReq;
-                      const subOpt = ownOpt + tenOpt;
-                      // Prorate discount + VAT between required/optional subtotals to stay consistent with payer-level math.
-                      const subAll = subReq + subOpt;
-                      const ratioReq = subAll > 0 ? subReq / subAll : 0;
-                      const ratioOpt = subAll > 0 ? subOpt / subAll : 0;
-                      const discReq = Math.round(discountAmount * ratioReq);
-                      const discOpt = Math.round(discountAmount * ratioOpt);
-                      const vatSum = ownerVat + tenantVat;
-                      const vatReq = Math.round(vatSum * ratioReq);
-                      const vatOpt = Math.round(vatSum * ratioOpt);
-                      const totReq = Math.max(0, subReq - discReq) + vatReq;
-                      const totOpt = Math.max(0, subOpt - discOpt) + vatOpt;
-                      return (
-                        <>
-                          <div className="flex items-center justify-between border-t pt-2">
-                            <span className="text-body-lg font-semibold">Total recomendadas</span>
-                            <span className="text-h3 font-bold font-mono tabular-nums text-primary">{fmt(totReq)}</span>
-                          </div>
-                          <div className="flex items-center justify-between italic">
-                            <span className="text-body font-medium text-muted-foreground">Total opcionales</span>
-                            <span className="text-body-lg font-mono tabular-nums text-muted-foreground">{fmt(totOpt)}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-
-                    {interactive && (
-                      <p className="text-tiny text-muted-foreground pt-1">Se actualiza al marcar cada reparación. No incluye las rechazadas.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <>
-                <BudgetBlock
-                  icon={<Users className="h-4 w-4 text-primary" />}
-                  title="Inquilino · Recomendadas"
-                  variant="required"
-                  groups={sectionGroups.tenantRequired}
-                />
-                <BudgetBlock
-                  icon={<Users className="h-4 w-4 text-muted-foreground" />}
-                  title="Inquilino · Opcionales"
-                  variant="optional"
-                  groups={sectionGroups.tenantOptional}
-                />
-
-                <Card className="border-0 ring-1 ring-primary/30 shadow-sm bg-primary-soft">
-                  <CardContent className="py-4 sm:py-5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-caption text-muted-foreground">Subtotal recomendadas</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(sumRepairs(sectionGroups.tenantRequired.flatMap(g => g.items)))}</span>
-                    </div>
-                    <div className="flex items-center justify-between italic text-muted-foreground">
-                      <span className="text-caption">Subtotal opcionales</span>
-                      <span className="text-body font-mono tabular-nums">{fmt(sumRepairs(sectionGroups.tenantOptional.flatMap(g => g.items)))}</span>
-                    </div>
-                    {discountAmountTenant > 0 && (
-                      <div className="flex items-center justify-between border-t pt-2">
-                        <span className="text-caption text-primary font-medium">Descuento comercial</span>
-                        <span className="text-body font-mono tabular-nums text-primary font-medium">−{fmt(discountAmountTenant)}</span>
+                      <div className="flex items-center justify-between italic">
+                        <span className="text-caption font-medium text-muted-foreground">Total opcionales</span>
+                        <span className="text-body font-mono tabular-nums text-muted-foreground">{fmt(totalOpcionales)}</span>
                       </div>
-                    )}
-                    {vatEnabled && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-caption text-muted-foreground">{vatLabel} {vatPct}%</span>
-                        <span className="text-body font-mono tabular-nums">{fmt(tenantVat)}</span>
-                      </div>
-                    )}
-                    {(() => {
-                      const subReq = sumRepairs(sectionGroups.tenantRequired.flatMap(g => g.items));
-                      const subOpt = sumRepairs(sectionGroups.tenantOptional.flatMap(g => g.items));
-                      const subAll = subReq + subOpt;
-                      const ratioReq = subAll > 0 ? subReq / subAll : 0;
-                      const ratioOpt = subAll > 0 ? subOpt / subAll : 0;
-                      const discReq = Math.round(discountAmountTenant * ratioReq);
-                      const discOpt = Math.round(discountAmountTenant * ratioOpt);
-                      const vatReq = Math.round(tenantVat * ratioReq);
-                      const vatOpt = Math.round(tenantVat * ratioOpt);
-                      const totReq = Math.max(0, subReq - discReq) + vatReq;
-                      const totOpt = Math.max(0, subOpt - discOpt) + vatOpt;
-                      return (
-                        <>
-                          <div className="flex items-center justify-between border-t pt-2">
-                            <span className="text-body-lg font-semibold">Total recomendadas</span>
-                            <span className="text-h3 font-bold font-mono tabular-nums">{fmt(totReq)}</span>
-                          </div>
-                          <div className="flex items-center justify-between italic">
-                            <span className="text-body font-medium text-muted-foreground">Total opcionales</span>
-                            <span className="text-body-lg font-mono tabular-nums text-muted-foreground">{fmt(totOpt)}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              </>
-            )}
+                      <p className="text-tiny text-muted-foreground pt-2 border-t mt-2">
+                        Cada cotización se decide y factura por separado — los totales no se suman.
+                        {interactive && ' Se actualiza al marcar cada reparación; no incluye las rechazadas.'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </main>
