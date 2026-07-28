@@ -138,6 +138,14 @@ export default function ExecutiveReviewQueue() {
     return true;
   }), [inspections, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
+  const hasActiveFilter =
+    search.trim() !== '' ||
+    statusFilter !== 'all' ||
+    marketFilter !== 'all' ||
+    inspectorFilter !== 'all' ||
+    publishedFilter !== 'all' ||
+    ownerFeedbackFilter !== 'all';
+
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
       (i.status === 'published' || i.status === 'sent')
