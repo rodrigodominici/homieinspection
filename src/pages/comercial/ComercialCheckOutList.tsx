@@ -33,11 +33,17 @@ const MARKET_OPTIONS = [
   { value: 'MX', label: 'México' },
 ];
 
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'Todos los tipos' },
+  { value: 'check_out', label: 'Check-out' },
+  { value: 'captacion', label: 'Captación' },
+];
+
 async function fetchComercialInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from('inspections')
     .select(INSPECTION_LIST_COLUMNS)
-    .eq('inspection_type', 'check_out')
+    .in('inspection_type', ['check_out', 'captacion'])
     .in('status', VISIBLE_STATUSES as unknown as string[])
     .order('inspection_completed_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false });
