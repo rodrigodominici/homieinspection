@@ -264,7 +264,7 @@ export default function ComercialCheckOutList() {
         )}
 
         <p className="text-tiny text-muted-foreground text-center pt-2">
-          {rows.length} de {(inspections ?? []).length} check-outs
+          {rows.length} de {(inspections ?? []).length} inspecciones
         </p>
       </div>
     </ComercialLayout>
