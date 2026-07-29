@@ -33,11 +33,17 @@ const MARKET_OPTIONS = [
   { value: 'MX', label: 'México' },
 ];
 
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'Todos los tipos' },
+  { value: 'check_out', label: 'Check-out' },
+  { value: 'captacion', label: 'Captación' },
+];
+
 async function fetchComercialInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from('inspections')
     .select(INSPECTION_LIST_COLUMNS)
-    .eq('inspection_type', 'check_out')
+    .in('inspection_type', ['check_out', 'captacion'])
     .in('status', VISIBLE_STATUSES as unknown as string[])
     .order('inspection_completed_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false });
@@ -99,12 +105,14 @@ export default function ComercialCheckOutList() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [market, setMarket] = useState<string>('all');
+  const [type, setType] = useState<string>('all');
 
   const rows = useMemo(() => {
     const list = inspections ?? [];
     return list.filter((i) => {
       if (status !== 'all' && i.status !== status) return false;
       if (market !== 'all' && i.market !== market) return false;
+      if (type !== 'all' && i.inspection_type !== type) return false;
       if (query.trim()) {
         const inspectorName = i.inspector_id ? profileMap.get(i.inspector_id)?.full_name ?? null : null;
         const executiveName = i.executive_id ? profileMap.get(i.executive_id)?.full_name ?? null : null;
@@ -113,23 +121,23 @@ export default function ComercialCheckOutList() {
       }
       return true;
     });
-  }, [inspections, status, market, query, profileMap]);
+  }, [inspections, status, market, type, query, profileMap]);
 
   return (
     <ComercialLayout>
       <div className="p-6 max-w-6xl mx-auto space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-h2">Check-Outs ejecutados</h1>
+            <h1 className="text-h2">Inspecciones</h1>
             <p className="text-caption text-muted-foreground mt-1">
-              Consulta y descarga de check-outs ya enviados por el equipo de operaciones.
+              Consulta y descarga de check-outs y captaciones ejecutadas por el equipo de operaciones.
             </p>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por dirección, propiedad, inspector, ejecutivo…"
@@ -138,6 +146,14 @@ export default function ComercialCheckOutList() {
               className="pl-9"
             />
           </div>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TYPE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -160,7 +176,7 @@ export default function ComercialCheckOutList() {
         {error && (
           <Card className="p-6 border-destructive/40">
             <p className="text-caption text-destructive">
-              No se pudieron cargar los check-outs. Intenta recargar la página.
+              No se pudieron cargar las inspecciones. Intenta recargar la página.
             </p>
           </Card>
         )}
@@ -172,7 +188,7 @@ export default function ComercialCheckOutList() {
         ) : rows.length === 0 ? (
           <Card className="p-10 text-center">
             <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm font-medium">Sin check-outs para mostrar</p>
+            <p className="text-sm font-medium">Sin inspecciones para mostrar</p>
             <p className="text-caption text-muted-foreground mt-1">
               Ajusta los filtros o vuelve más tarde.
             </p>
@@ -248,7 +264,7 @@ export default function ComercialCheckOutList() {
         )}
 
         <p className="text-tiny text-muted-foreground text-center pt-2">
-          {rows.length} de {(inspections ?? []).length} check-outs
+          {rows.length} de {(inspections ?? []).length} inspecciones
         </p>
       </div>
     </ComercialLayout>
