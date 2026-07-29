@@ -105,12 +105,14 @@ export default function ComercialCheckOutList() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [market, setMarket] = useState<string>('all');
+  const [type, setType] = useState<string>('all');
 
   const rows = useMemo(() => {
     const list = inspections ?? [];
     return list.filter((i) => {
       if (status !== 'all' && i.status !== status) return false;
       if (market !== 'all' && i.market !== market) return false;
+      if (type !== 'all' && i.inspection_type !== type) return false;
       if (query.trim()) {
         const inspectorName = i.inspector_id ? profileMap.get(i.inspector_id)?.full_name ?? null : null;
         const executiveName = i.executive_id ? profileMap.get(i.executive_id)?.full_name ?? null : null;
@@ -119,7 +121,7 @@ export default function ComercialCheckOutList() {
       }
       return true;
     });
-  }, [inspections, status, market, query, profileMap]);
+  }, [inspections, status, market, type, query, profileMap]);
 
   return (
     <ComercialLayout>
