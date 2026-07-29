@@ -128,9 +128,9 @@ export default function ComercialCheckOutList() {
       <div className="p-6 max-w-6xl mx-auto space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-h2">Check-Outs ejecutados</h1>
+            <h1 className="text-h2">Inspecciones</h1>
             <p className="text-caption text-muted-foreground mt-1">
-              Consulta y descarga de check-outs ya enviados por el equipo de operaciones.
+              Consulta y descarga de check-outs y captaciones ejecutadas por el equipo de operaciones.
             </p>
           </div>
         </div>
