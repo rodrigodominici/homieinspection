@@ -136,8 +136,8 @@ export default function ComercialCheckOutList() {
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por dirección, propiedad, inspector, ejecutivo…"
@@ -146,6 +146,14 @@ export default function ComercialCheckOutList() {
               className="pl-9"
             />
           </div>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TYPE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -168,7 +176,7 @@ export default function ComercialCheckOutList() {
         {error && (
           <Card className="p-6 border-destructive/40">
             <p className="text-caption text-destructive">
-              No se pudieron cargar los check-outs. Intenta recargar la página.
+              No se pudieron cargar las inspecciones. Intenta recargar la página.
             </p>
           </Card>
         )}
@@ -180,7 +188,7 @@ export default function ComercialCheckOutList() {
         ) : rows.length === 0 ? (
           <Card className="p-10 text-center">
             <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm font-medium">Sin check-outs para mostrar</p>
+            <p className="text-sm font-medium">Sin inspecciones para mostrar</p>
             <p className="text-caption text-muted-foreground mt-1">
               Ajusta los filtros o vuelve más tarde.
             </p>
