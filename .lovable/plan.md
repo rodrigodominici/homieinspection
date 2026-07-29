@@ -1,99 +1,44 @@
-## Contexto
+## Qué revisé (datos reales, no supuestos)
 
-Los roles hoy viven en `profiles.role` con enum TS `UserRole = 'admin' | 'inspector' | 'executive' | 'pending'` y `ProtectedRoute` valida por `allowedRoles`. Agregar un rol nuevo es viable y no rompe lo existente.
+- **Salud del backend**: base de datos arriba, sin reinicios, memoria 46%, disco 4%, pool 1/200, **conexiones 35/60 (moderado)**, 16.535 transacciones con rollback desde el último arranque. No hay caída de servidor: el problema es de **latencia por consultas**, no de infraestructura caída.
+- **Cambios de ayer/hoy** (git): rol Comercial + sus políticas RLS (28-jul 16:53) y ampliación de visibilidad a captación (29-jul 16:48). El resto fueron cambios de UI (tags, filtros, dashboards).
+- **Consultas más lentas** (pg_stat_statements): el mayor consumo acumulado del sistema es la resolución de objetos de storage al firmar URLs de fotos:
+  - `SELECT id FROM storage.objects WHERE name=$1 AND bucket_id=$2` → **168.105 llamadas, media 46,6 ms** (una segunda variante equivalente: 115.582 llamadas, media 14,8 ms).
+  - Consultas de PostgREST sobre `inspection_photos`, `inspection_sections`, `inspection_field_values` con picos de **1,7 s a 5,5 s** (max_ms).
+- **Datos**: 121 inspecciones, 14.124 fotos. **No existe índice sobre `inspection_photos.storage_path`** (verificado).
+- **Políticas RLS**: la migración del rol Comercial agregó políticas SELECT *permisivas* en `inspections`, `inspection_sections`, `inspection_field_values`, `inspection_photos`, `inspection_signatures`, `profiles` y **`storage.objects`**. Las políticas permisivas se evalúan (en OR) **para todos los usuarios autenticados**, no solo para el rol Comercial.
 
-Con tu aclaración, el rol comercial **no** necesita dashboards, KPIs, ni agenda: solo debe **listar, ver y descargar los Check-Out ejecutados** (recepciones), tal como un inspector ve su check-out ya enviado — con hallazgos, descripciones, fotos y firmas — pero sin poder editar nada.
+## Causa más probable
 
-Nombre propuesto: **`comercial`**.
+La política nueva sobre `storage.objects`:
 
----
+```text
+bucket_id = 'inspection-photos'
+AND has_role(auth.uid(),'comercial')
+AND EXISTS (SELECT 1 FROM inspection_photos p
+            WHERE p.storage_path = storage.objects.name
+              AND is_visible_checkout_for_comercial(p.inspection_id))
+```
 
-## Alcance del rol Comercial (solo lectura + descarga)
+Se evalúa en **cada firma de URL de foto** de inspectores, ejecutivos y admins. Como `storage_path` no tiene índice, el subquery puede recorrer las 14 mil filas de `inspection_photos`, y `auth.uid()`/`has_role` sin envolver en `(select ...)` se re-evalúan por fila. Eso encaja con la media de 46 ms por lookup de storage y con la lentitud generalizada al abrir inspecciones con muchas fotos (decenas de firmas por pantalla). La última migración además creó la política de `inspections` **sin `TO authenticated`**, por lo que también se evalúa para visitantes anónimos (reportes públicos).
 
-**Puede:**
-- Ingresar a Homie Inspection con su cuenta aprobada.
-- Ver un listado de **Check-Outs ejecutados** (inspecciones tipo `check_out` con estado ≥ `submitted`: en revisión, aprobadas, publicadas, aceptadas).
-- Abrir el detalle read-only de un check-out con toda la información capturada por el inspector: propiedad, hallazgos por sección, descripciones/observaciones, fotos (con zoom) y firmas.
-- **Descargar** el check-out en PDF.
+Esto es una hipótesis fuerte pero **no confirmada aún**: el primer paso del plan es confirmarla con `EXPLAIN ANALYZE` antes de tocar nada.
 
-**No puede:**
-- Ver captaciones, inspecciones no enviadas, ni presupuestos internos.
-- Ver dashboards, agenda, catálogo, usuarios, integraciones, ni ninguna otra sección.
-- Editar, aprobar, publicar, comentar, asignar, reabrir, subir/borrar fotos, ni tocar firmas.
-- Ver costos internos de contratista ni notas internas del equipo.
+## Plan
 
----
+1. **Confirmar el diagnóstico** (solo lectura): `EXPLAIN ANALYZE` de la firma de URL con y sin la política de `storage.objects`, y comparar el plan del `SELECT ... FROM storage.objects WHERE name=... AND bucket_id=...`. Revisar también logs de PostgREST/Auth por 5xx y timeouts en las últimas 48 h.
+2. **Índice faltante**: crear `CREATE INDEX CONCURRENTLY idx_inspection_photos_storage_path ON public.inspection_photos (storage_path);`
+3. **Reescribir la política de `storage.objects`** para que sea barata y cortocircuite:
+   - restringirla con `TO authenticated`,
+   - envolver la comprobación de rol en `(SELECT public.has_role((SELECT auth.uid()),'comercial'))` para que se evalúe una sola vez (InitPlan) y no por fila,
+   - eliminar el `EXISTS` correlacionado o reemplazarlo por una función `STABLE` con un único lookup indexado.
+4. **Aplicar el mismo patrón** a las políticas Comercial de `inspections`, `inspection_sections`, `inspection_field_values`, `inspection_photos`, `inspection_signatures` y `profiles`: agregar `TO authenticated` (falta en la de `inspections`) y envolver `auth.uid()`/`has_role` en subselects para que no se evalúen fila por fila.
+5. **Revisar la política amplia de `profiles`** para Comercial (hoy permite leer cualquier perfil): acotarla a las columnas/uso necesario o a perfiles con rol operativo.
+6. **Reducir el volumen de firmas de URL en el cliente**: hoy cada foto se firma individualmente (`getSignedPhotoUrlMap` hace N llamadas en paralelo). Pasar a firmado por lotes (`createSignedUrls` acepta un array) reduce cientos de round-trips por pantalla a uno solo, y baja la presión sobre conexiones.
+7. **Verificar**: volver a medir `pg_stat_statements` (media y max de los lookups de storage), abrir una inspección con muchas fotos como ejecutivo e inspector y comparar tiempos antes/después.
 
-## Pantallas y menú
+## Detalle técnico
 
-Espacio propio bajo `/comercial/*`, layout minimalista sin sidebar (solo header con logo, nombre de usuario y logout). Dos pantallas:
-
-### 1. Listado de Check-Outs ejecutados (`/comercial`)
-- Título: **"Check-Outs ejecutados"**.
-- Búsqueda tokenizada acento-insensible (misma librería que Admin/Ejecutivo) sobre dirección, torre, unidad, propietario/inquilino, ejecutivo, inspector.
-- Filtros: mercado (CL/MX), estado (En revisión, Aprobada, Publicada, Aceptada), rango de fecha de inspección.
-- Tabla/tarjetas con: dirección + unidad, tipo (chip Check-out), estado, fecha de inspección, ejecutivo, inspector.
-- Solo lista `inspection_type = 'check_out'` con `status in (submitted, in_review, approved, published, accepted)`.
-- Click → detalle read-only.
-
-### 2. Detalle de Check-Out (`/comercial/check-out/:id`)
-Vista read-only inspirada en cómo el inspector ve un check-out ya enviado. Estructura:
-
-- **Header**: dirección completa, tipo (chip "Check-out"), estado, fecha de inspección, ejecutivo e inspector asignados, botón **"Descargar PDF"**.
-- **Resumen de la propiedad**: datos del snapshot efectivo (tipo, dormitorios, baños, estacionamiento/bodega, torre, unidad, contacto).
-- **Hallazgos por sección** (recorre las secciones operativas en su orden):
-  - Nombre de la sección.
-  - Campos y valores capturados (respuestas de checklist, textos, selects, matrices).
-  - Observación final del inspector/ejecutivo.
-  - Galería de fotos con lightbox + zoom (reusar `ZoomableImage` del ejecutivo) y caption.
-- **Firmas**: firma del inspector y del inquilino (con nombre, fecha y estado: firmada / rehusada / no disponible).
-- **Sin panel de presupuesto ni de feedback del propietario** (esos son procesos internos posteriores).
-
-### Descarga PDF
-- Botón **"Descargar PDF"** en el header del detalle y como acción por fila en el listado.
-- Genera un PDF con la misma información visible en pantalla: portada con datos de la propiedad, secciones con hallazgos y fotos embebidas, firmas al final.
-- Se aprovecha la infraestructura existente de reporte (misma normalización de datos usada por `get_published_report`), pero orientado al **Check-Out ejecutado**, no al reporte del propietario.
-
----
-
-## Redirecciones y guardas
-
-- Login redirige a `/comercial` cuando `role === 'comercial'`.
-- `ProtectedRoute` acepta `'comercial'` como rol válido; rutas `/admin/*`, `/executive/*`, `/inspector/*` siguen bloqueadas.
-- Ruta compartida `/inspections/:id` (Slack): si el usuario es comercial y la inspección es un check-out enviado, redirige a `/comercial/check-out/:id`; si no cumple las condiciones, muestra "No disponible".
-
----
-
-## Cambios técnicos (referencia)
-
-1. **Base de datos**
-   - Agregar `'comercial'` al conjunto de roles válidos (`profiles.role`).
-   - Nuevas RLS `SELECT` para `comercial` en: `inspections` (filtradas a `inspection_type='check_out'` y `status in (submitted,in_review,approved,published,accepted)`), `inspection_sections`, `inspection_field_values`, `inspection_photos`, `inspection_signatures`, y lectura mínima de `profiles` (nombre + rol) para mostrar ejecutivo/inspector.
-   - **Sin** acceso a `inspection_repair_items`, `repair_catalog_items`, `inspection_reviews` (notas internas), `owner_feedback`, `inspection_audit_log`, integraciones, ni catálogo.
-   - Ningún `INSERT/UPDATE/DELETE` para `comercial` en ninguna tabla.
-
-2. **Frontend**
-   - `src/lib/types.ts`: extender `UserRole` con `'comercial'`.
-   - `src/App.tsx`: rutas `/comercial` y `/comercial/check-out/:id` con `ProtectedRoute allowedRoles={['comercial']}`.
-   - `src/components/ProtectedRoute.tsx`: incluir `comercial` en el flujo de aprobación.
-   - `src/pages/InspectionRoleRedirect.tsx`: rama comercial → `/comercial/check-out/:id` si el check-out ya fue enviado.
-   - Nuevas páginas:
-     - `src/pages/comercial/ComercialLayout.tsx` (header simple, sin sidebar).
-     - `src/pages/comercial/ComercialCheckOutList.tsx`.
-     - `src/pages/comercial/ComercialCheckOutDetail.tsx` (reutiliza `PhotoPanel`/`ZoomableImage` en modo read-only, sin acciones).
-     - `src/lib/comercial-checkout-pdf.ts` (armado del PDF a partir del payload normalizado).
-   - En páginas reutilizadas se pasa `readOnly` para ocultar cualquier CTA de edición.
-
-3. **Gestión de usuarios (Admin)**
-   - En `AdminUsers.tsx`, añadir `Comercial` como opción al asignar rol, con el mismo flujo de aprobación existente.
-
-4. **Auditoría**
-   - Assert defensivo en Edge Functions críticas (`publish_inspection`, `approve_inspection`, `executive_force_close_owner_feedback`, `hubspot-*`) para rechazar `role === 'comercial'` si llegara a invocarlas.
-
----
-
-## Fuera de alcance
-
-- Captaciones, dashboards, agenda, catálogo, presupuestos, feedback del propietario y cualquier otro módulo.
-- Segmentación por mercado/cartera dentro del rol comercial (por defecto ve todos los check-outs enviados; agregable después si se necesita).
-- Exportaciones masivas (CSV/Excel) — se puede agregar más adelante si el equipo lo pide.
+- Las políticas permisivas en Postgres se combinan con `OR`, por lo que una política costosa penaliza a **todos** los roles, incluso a quienes ya tenían acceso por otra política. Por eso un cambio pensado "solo para Comercial" degradó a toda la aplicación.
+- No se modificará la lógica de negocio ni los permisos efectivos: los roles verán exactamente lo mismo que hoy, solo cambia cómo se evalúan las políticas.
+- No hay evidencia de saturación de CPU/memoria del instance, así que **no** propongo aún subir el tamaño del Lovable Cloud; si tras el fix persisten timeouts con 35+ conexiones, lo reevaluamos.
