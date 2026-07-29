@@ -69,13 +69,53 @@ export async function getSignedPhotoUrl(storagePath: string | null | undefined):
   }
 }
 
+/**
+ * Batch-signs every photo in a single request (`createSignedUrls` accepts an
+ * array), instead of one round-trip per photo. Paths already cached with more
+ * than REFRESH_BUFFER_MS of life left are served from memory and excluded from
+ * the request. Falls back to individual signing only if the batch call fails.
+ */
 export async function getSignedPhotoUrlMap<T extends { id: string; storage_path: string }>(
   photos: T[],
 ): Promise<Record<string, string>> {
-  const entries = await Promise.all(
-    photos.map(async (p) => [p.id, await getSignedPhotoUrl(p.storage_path)] as const),
-  );
-  return Object.fromEntries(entries);
+  const result: Record<string, string> = {};
+  const now = Date.now();
+  const missing: string[] = [];
+
+  for (const p of photos) {
+    if (!p.storage_path) { result[p.id] = ''; continue; }
+    const cached = cache.get(p.storage_path);
+    if (cached && cached.expiresAt > now + REFRESH_BUFFER_MS) {
+      result[p.id] = cached.url;
+    } else if (!missing.includes(p.storage_path)) {
+      missing.push(p.storage_path);
+    }
+  }
+
+  if (missing.length) {
+    try {
+      const { data, error } = await supabase.storage
+        .from('inspection-photos')
+        .createSignedUrls(missing, TTL_SECONDS);
+      if (error) throw error;
+      for (const item of data ?? []) {
+        if (item.signedUrl && item.path) {
+          cache.set(item.path, { url: item.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 });
+        }
+      }
+      pruneCache();
+    } catch {
+      // Batch failed — fall back to per-path signing (with its own retry).
+      await Promise.all(missing.map((path) => getSignedPhotoUrl(path)));
+    }
+
+    for (const p of photos) {
+      if (result[p.id] !== undefined) continue;
+      result[p.id] = cache.get(p.storage_path)?.url ?? '';
+    }
+  }
+
+  return result;
 }
 
 /**
