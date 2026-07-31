@@ -183,6 +183,7 @@ export default function AdminDashboard() {
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
             <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
             <ExecutivePerformancePanel />
+            <InspectorPerformancePanel />
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
