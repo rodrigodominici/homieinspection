@@ -1726,6 +1726,23 @@ export type Database = {
           versions_per_report: number
         }[]
       }
+      get_inspector_performance: {
+        Args: never
+        Returns: {
+          assigned: number
+          avg_active_minutes: number
+          completed: number
+          fields_filled: number
+          in_progress: number
+          inspector_id: string
+          inspector_name: string
+          last_activity_at: string
+          median_active_minutes: number
+          median_hours_to_submit: number
+          photos: number
+          photos_per_inspection: number
+        }[]
+      }
       get_published_report: {
         Args: { p_property_id: string; p_token: string }
         Returns: Json

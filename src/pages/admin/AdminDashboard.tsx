@@ -10,6 +10,7 @@ import AdminLayout from '@/components/AdminLayout';
 import ExecutiveLoadChart from './dashboard/ExecutiveLoadChart';
 import OwnerAgingPanel from './dashboard/OwnerAgingPanel';
 import ExecutivePerformancePanel from './dashboard/ExecutivePerformancePanel';
+import InspectorPerformancePanel from './dashboard/InspectorPerformancePanel';
 import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
@@ -183,6 +184,7 @@ export default function AdminDashboard() {
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
             <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
             <ExecutivePerformancePanel />
+            <InspectorPerformancePanel />
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
