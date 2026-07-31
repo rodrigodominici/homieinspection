@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import ExecutiveLoadChart from './dashboard/ExecutiveLoadChart';
 import OwnerAgingPanel from './dashboard/OwnerAgingPanel';
+import ExecutivePerformancePanel from './dashboard/ExecutivePerformancePanel';
 import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
