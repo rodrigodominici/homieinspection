@@ -1702,6 +1702,30 @@ export type Database = {
         Args: { p_inspection_id: string; p_note?: string; p_reason: string }
         Returns: Json
       }
+      get_executive_performance: {
+        Args: never
+        Returns: {
+          assigned: number
+          client_amount: number
+          contractor_cost: number
+          executive_id: string
+          executive_name: string
+          inspections_with_items: number
+          inspections_with_versions: number
+          items_per_inspection: number
+          margin_pct: number
+          median_days_owner_response: number
+          median_hours_to_publish: number
+          median_hours_to_review: number
+          owner_accepted: number
+          owner_no_response: number
+          owner_responded: number
+          published: number
+          repair_items: number
+          report_versions: number
+          versions_per_report: number
+        }[]
+      }
       get_published_report: {
         Args: { p_property_id: string; p_token: string }
         Returns: Json
