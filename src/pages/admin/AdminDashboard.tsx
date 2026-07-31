@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import ExecutiveLoadChart from './dashboard/ExecutiveLoadChart';
 import OwnerAgingPanel from './dashboard/OwnerAgingPanel';
+import ExecutivePerformancePanel from './dashboard/ExecutivePerformancePanel';
 import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
@@ -181,6 +182,8 @@ export default function AdminDashboard() {
             </div>
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
             <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
+            <ExecutivePerformancePanel />
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Pending by Inspector */}
