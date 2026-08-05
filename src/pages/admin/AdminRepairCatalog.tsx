@@ -815,6 +815,59 @@ export default function AdminRepairCatalog() {
           </TabsContent>
         </Tabs>
 
+        {/* Duplicate contractor dialog */}
+        <Dialog open={!!dupSource} onOpenChange={(o) => { if (!o) setDupSource(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Copy className="h-5 w-5" /> Duplicar contratista
+              </DialogTitle>
+            </DialogHeader>
+            {dupSource && (
+              <div className="space-y-4">
+                <p className="text-caption text-muted-foreground">
+                  Se creará un nuevo contratista a partir de <span className="font-medium text-foreground">{dupSource.name}</span>.
+                </p>
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input value={dupName} onChange={(e) => setDupName(e.target.value)} autoFocus />
+                  {dupNameTrimmed && dupNameExists && (
+                    <p className="text-tiny text-destructive">Ya existe un contratista con ese nombre.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>País</Label>
+                  <Select value={dupCountry} onValueChange={setDupCountry}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CL">Chile</SelectItem>
+                      <SelectItem value="MX">México</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between rounded-md ring-1 ring-border p-3">
+                  <div>
+                    <p className="text-caption font-medium">Copiar precios de reparaciones</p>
+                    <p className="text-tiny text-muted-foreground">
+                      Se copiarán {countPricesFor(dupSource.id)} precio(s).
+                    </p>
+                  </div>
+                  <Switch checked={dupCopyPrices} onCheckedChange={setDupCopyPrices} />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDupSource(null)} disabled={dupSaving}>Cancelar</Button>
+              <Button onClick={duplicateContractor} disabled={dupSaving || !dupNameTrimmed || dupNameExists}>
+                {dupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Duplicar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
+
         {/* Item Dialog */}
         <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
