@@ -779,7 +779,7 @@ export default function AdminRepairCatalog() {
                         <TableHead>Nombre</TableHead>
                         <TableHead>País</TableHead>
                         <TableHead>Activo</TableHead>
-                        <TableHead className="w-10"></TableHead>
+                        <TableHead className="w-24 text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -792,12 +792,22 @@ export default function AdminRepairCatalog() {
                           <TableCell>
                             <Switch checked={c.is_active} onCheckedChange={() => toggleContractorActive(c.id, c.is_active)} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-right">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8"
+                                  onClick={() => openDuplicate(c)}>
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Duplicar con sus precios</TooltipContent>
+                            </Tooltip>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
                               onClick={() => deleteContractor(c.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </TableCell>
+
                         </TableRow>
                       ))}
                     </TableBody>
