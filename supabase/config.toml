@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.retry-hubspot-sync]
 verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false

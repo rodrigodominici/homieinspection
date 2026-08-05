@@ -1685,6 +1685,33 @@ export type Database = {
           },
         ]
       }
+      system_health_state: {
+        Row: {
+          detail: string | null
+          id: string
+          last_checked_at: string
+          last_notified_at: string | null
+          since: string
+          status: string
+        }
+        Insert: {
+          detail?: string | null
+          id?: string
+          last_checked_at?: string
+          last_notified_at?: string | null
+          since?: string
+          status?: string
+        }
+        Update: {
+          detail?: string | null
+          id?: string
+          last_checked_at?: string
+          last_notified_at?: string | null
+          since?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
