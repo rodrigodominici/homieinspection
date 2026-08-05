@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog';
 import type { RepairCatalogCategory, RepairCatalogItem, Contractor } from '@/lib/types';
-import { Plus, Pencil, Search, Tag, Package, HardHat, Trash2, DollarSign, Grid3X3, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Search, Tag, Package, HardHat, Trash2, DollarSign, Grid3X3, Check, Loader2, AlertCircle, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PRICING_TYPES = [
@@ -159,6 +159,13 @@ export default function AdminRepairCatalog() {
   const [newContractorName, setNewContractorName] = useState('');
   const [newContractorCountry, setNewContractorCountry] = useState('CL');
   const [loadingContractors, setLoadingContractors] = useState(true);
+
+  // Duplicate contractor dialog
+  const [dupSource, setDupSource] = useState<Contractor | null>(null);
+  const [dupName, setDupName] = useState('');
+  const [dupCountry, setDupCountry] = useState('CL');
+  const [dupCopyPrices, setDupCopyPrices] = useState(true);
+  const [dupSaving, setDupSaving] = useState(false);
 
   // Matrix pricing state: Map<item_id, Map<contractor_id, ContractorPrice>>
   const [priceMatrix, setPriceMatrix] = useState<Map<string, Map<string, ContractorPrice>>>(new Map());
@@ -328,6 +335,80 @@ export default function AdminRepairCatalog() {
     toast({ title: 'Contratista eliminado' });
     fetchData();
   };
+
+  // ── Duplicate contractor (with its price matrix) ───────────
+  const countPricesFor = (contractorId: string) => {
+    let n = 0;
+    for (const itemMap of priceMatrix.values()) if (itemMap.has(contractorId)) n++;
+    return n;
+  };
+
+  const openDuplicate = (c: Contractor) => {
+    setDupSource(c);
+    setDupName(`Copia de ${c.name}`);
+    setDupCountry(c.country);
+    setDupCopyPrices(true);
+  };
+
+  const dupNameTrimmed = dupName.trim();
+  const dupNameExists = contractors.some(
+    (c) => c.name.trim().toLowerCase() === dupNameTrimmed.toLowerCase(),
+  );
+
+  const duplicateContractor = async () => {
+    if (!dupSource || !dupNameTrimmed || dupNameExists) return;
+    setDupSaving(true);
+    try {
+      const { data: created, error: createErr } = await supabase
+        .from('contractors')
+        .insert({ name: dupNameTrimmed, country: dupCountry, is_active: true })
+        .select('id')
+        .single();
+      if (createErr || !created) throw createErr ?? new Error('insert_failed');
+
+      let copied = 0;
+      if (dupCopyPrices) {
+        const { data: srcPrices, error: readErr } = await supabase
+          .from('repair_catalog_item_contractor_prices')
+          .select('repair_catalog_item_id, price, currency')
+          .eq('contractor_id', dupSource.id);
+        if (readErr) throw readErr;
+
+        const rows = (srcPrices ?? []).map((p: any) => ({
+          repair_catalog_item_id: p.repair_catalog_item_id,
+          contractor_id: created.id,
+          price: p.price,
+          currency: p.currency,
+        }));
+        if (rows.length > 0) {
+          const { error: insErr } = await supabase
+            .from('repair_catalog_item_contractor_prices')
+            .insert(rows);
+          if (insErr) {
+            // Rollback: avoid leaving an empty duplicate behind.
+            await supabase.from('contractors').delete().eq('id', created.id);
+            throw insErr;
+          }
+        }
+        copied = rows.length;
+      }
+
+      toast({
+        title: 'Contratista duplicado',
+        description: dupCopyPrices
+          ? `${copied} precio${copied === 1 ? '' : 's'} de reparaciones copiado${copied === 1 ? '' : 's'}`
+          : 'Sin copiar precios',
+      });
+      setDupSource(null);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error al duplicar', description: err?.message ?? String(err), variant: 'destructive' });
+    } finally {
+      setDupSaving(false);
+    }
+  };
+
+
 
   // ── Matrix save handlers ───────────────────────────────────
   const saveBasePrice = useCallback(async (itemId: string, newPrice: number) => {
@@ -698,7 +779,7 @@ export default function AdminRepairCatalog() {
                         <TableHead>Nombre</TableHead>
                         <TableHead>País</TableHead>
                         <TableHead>Activo</TableHead>
-                        <TableHead className="w-10"></TableHead>
+                        <TableHead className="w-24 text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -711,12 +792,19 @@ export default function AdminRepairCatalog() {
                           <TableCell>
                             <Switch checked={c.is_active} onCheckedChange={() => toggleContractorActive(c.id, c.is_active)} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8"
+                              title="Duplicar con sus precios" aria-label="Duplicar contratista"
+                              onClick={() => openDuplicate(c)}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
                               onClick={() => deleteContractor(c.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </TableCell>
+
                         </TableRow>
                       ))}
                     </TableBody>
@@ -726,6 +814,59 @@ export default function AdminRepairCatalog() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Duplicate contractor dialog */}
+        <Dialog open={!!dupSource} onOpenChange={(o) => { if (!o) setDupSource(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Copy className="h-5 w-5" /> Duplicar contratista
+              </DialogTitle>
+            </DialogHeader>
+            {dupSource && (
+              <div className="space-y-4">
+                <p className="text-caption text-muted-foreground">
+                  Se creará un nuevo contratista a partir de <span className="font-medium text-foreground">{dupSource.name}</span>.
+                </p>
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input value={dupName} onChange={(e) => setDupName(e.target.value)} autoFocus />
+                  {dupNameTrimmed && dupNameExists && (
+                    <p className="text-tiny text-destructive">Ya existe un contratista con ese nombre.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>País</Label>
+                  <Select value={dupCountry} onValueChange={setDupCountry}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CL">Chile</SelectItem>
+                      <SelectItem value="MX">México</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between rounded-md ring-1 ring-border p-3">
+                  <div>
+                    <p className="text-caption font-medium">Copiar precios de reparaciones</p>
+                    <p className="text-tiny text-muted-foreground">
+                      Se copiarán {countPricesFor(dupSource.id)} precio(s).
+                    </p>
+                  </div>
+                  <Switch checked={dupCopyPrices} onCheckedChange={setDupCopyPrices} />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDupSource(null)} disabled={dupSaving}>Cancelar</Button>
+              <Button onClick={duplicateContractor} disabled={dupSaving || !dupNameTrimmed || dupNameExists}>
+                {dupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Duplicar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
 
         {/* Item Dialog */}
         <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
