@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog';
 import type { RepairCatalogCategory, RepairCatalogItem, Contractor } from '@/lib/types';
-import { Plus, Pencil, Search, Tag, Package, HardHat, Trash2, DollarSign, Grid3X3, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Search, Tag, Package, HardHat, Trash2, DollarSign, Grid3X3, Check, Loader2, AlertCircle, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PRICING_TYPES = [
