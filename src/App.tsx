@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import BackendStatusBanner from "@/components/BackendStatusBanner";
 
 // ── Eager (tiny, needed immediately on every route) ──────────────────────────
 import Index from "./pages/Index";
