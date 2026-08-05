@@ -160,6 +160,13 @@ export default function AdminRepairCatalog() {
   const [newContractorCountry, setNewContractorCountry] = useState('CL');
   const [loadingContractors, setLoadingContractors] = useState(true);
 
+  // Duplicate contractor dialog
+  const [dupSource, setDupSource] = useState<Contractor | null>(null);
+  const [dupName, setDupName] = useState('');
+  const [dupCountry, setDupCountry] = useState('CL');
+  const [dupCopyPrices, setDupCopyPrices] = useState(true);
+  const [dupSaving, setDupSaving] = useState(false);
+
   // Matrix pricing state: Map<item_id, Map<contractor_id, ContractorPrice>>
   const [priceMatrix, setPriceMatrix] = useState<Map<string, Map<string, ContractorPrice>>>(new Map());
 
