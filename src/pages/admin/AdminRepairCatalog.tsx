@@ -336,6 +336,80 @@ export default function AdminRepairCatalog() {
     fetchData();
   };
 
+  // ── Duplicate contractor (with its price matrix) ───────────
+  const countPricesFor = (contractorId: string) => {
+    let n = 0;
+    for (const itemMap of priceMatrix.values()) if (itemMap.has(contractorId)) n++;
+    return n;
+  };
+
+  const openDuplicate = (c: Contractor) => {
+    setDupSource(c);
+    setDupName(`Copia de ${c.name}`);
+    setDupCountry(c.country);
+    setDupCopyPrices(true);
+  };
+
+  const dupNameTrimmed = dupName.trim();
+  const dupNameExists = contractors.some(
+    (c) => c.name.trim().toLowerCase() === dupNameTrimmed.toLowerCase(),
+  );
+
+  const duplicateContractor = async () => {
+    if (!dupSource || !dupNameTrimmed || dupNameExists) return;
+    setDupSaving(true);
+    try {
+      const { data: created, error: createErr } = await supabase
+        .from('contractors')
+        .insert({ name: dupNameTrimmed, country: dupCountry, is_active: true })
+        .select('id')
+        .single();
+      if (createErr || !created) throw createErr ?? new Error('insert_failed');
+
+      let copied = 0;
+      if (dupCopyPrices) {
+        const { data: srcPrices, error: readErr } = await supabase
+          .from('repair_catalog_item_contractor_prices')
+          .select('repair_catalog_item_id, price, currency')
+          .eq('contractor_id', dupSource.id);
+        if (readErr) throw readErr;
+
+        const rows = (srcPrices ?? []).map((p: any) => ({
+          repair_catalog_item_id: p.repair_catalog_item_id,
+          contractor_id: created.id,
+          price: p.price,
+          currency: p.currency,
+        }));
+        if (rows.length > 0) {
+          const { error: insErr } = await supabase
+            .from('repair_catalog_item_contractor_prices')
+            .insert(rows);
+          if (insErr) {
+            // Rollback: avoid leaving an empty duplicate behind.
+            await supabase.from('contractors').delete().eq('id', created.id);
+            throw insErr;
+          }
+        }
+        copied = rows.length;
+      }
+
+      toast({
+        title: 'Contratista duplicado',
+        description: dupCopyPrices
+          ? `${copied} precio${copied === 1 ? '' : 's'} de reparaciones copiado${copied === 1 ? '' : 's'}`
+          : 'Sin copiar precios',
+      });
+      setDupSource(null);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error al duplicar', description: err?.message ?? String(err), variant: 'destructive' });
+    } finally {
+      setDupSaving(false);
+    }
+  };
+
+
+
   // ── Matrix save handlers ───────────────────────────────────
   const saveBasePrice = useCallback(async (itemId: string, newPrice: number) => {
     const { error } = await supabase.from('repair_catalog_items')
