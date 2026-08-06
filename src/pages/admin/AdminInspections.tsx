@@ -7,13 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { createInspectionFromPayload } from '@/lib/inspection-service';
-import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
+import CreateInspectionForm from './create-inspection/CreateInspectionForm';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
@@ -38,13 +36,6 @@ import {
   ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const payloadOptions = [
-  { key: 'studio', label: 'Estudio — 0D 1B, terraza + logia' },
-  { key: 'twoBedTwoBath', label: '2D 2B — con bodega y estacionamiento' },
-  { key: 'houseWithYard', label: 'Casa 3D 2B — con antejardín' },
-  { key: 'fullFeatures', label: '4D 4B — todas las características' },
-];
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
@@ -222,12 +213,8 @@ export default function AdminInspections() {
   const [assignInspector, setAssignInspector] = useState('');
   const [assignExecutive, setAssignExecutive] = useState('');
 
-  // Creation state
-  const [selectedExample, setSelectedExample] = useState('studio');
-  const [payloadText, setPayloadText] = useState(JSON.stringify(EXAMPLE_PAYLOADS.studio, null, 2));
-  const [selectedInspectorId, setSelectedInspectorId] = useState('');
-  const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
-  const [generating, setGenerating] = useState(false);
+  // Creation state (formulario guiado en CreateInspectionForm)
+
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -296,38 +283,8 @@ export default function AdminInspections() {
     }
   };
 
-  const handleExampleChange = (key: string) => {
-    setSelectedExample(key);
-    setPayloadText(JSON.stringify(EXAMPLE_PAYLOADS[key as keyof typeof EXAMPLE_PAYLOADS], null, 2));
-  };
 
-  const handleGenerate = async () => {
-    if (!profile) return;
-    if (!selectedInspectorId || !selectedExecutiveId) {
-      toast({ title: 'Asignación requerida', description: 'Selecciona inspector y ejecutivo.', variant: 'destructive' });
-      return;
-    }
-    setGenerating(true);
-    try {
-      const payload = JSON.parse(payloadText);
-      payload.inspector = { ...(payload.inspector ?? {}), id: selectedInspectorId };
-      payload.executive = { ...(payload.executive ?? {}), id: selectedExecutiveId };
-      const inspection = await createInspectionFromPayload(payload, profile.id);
-      toast({ title: 'Inspección creada', description: `ID: ${inspection.property_id}` });
-      setInspections((prev) => [{
-        ...(inspection as unknown as Inspection),
-        scheduleDatetime: null,
-        contractEndDate: null,
-        inspectorName: null,
-        executiveName: null,
-      }, ...prev]);
-      setSearchParams({ tab: 'all' });
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
-    } finally {
-      setGenerating(false);
-    }
-  };
+
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
 
@@ -973,80 +930,27 @@ export default function AdminInspections() {
 
           {/* Workload moved to AdminDashboard */}
 
-          {/* Manual Creation */}
+          {/* Manual Creation — formulario guiado on-demand */}
           <TabsContent value="create" className="space-y-6 mt-4">
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-body-lg">Paso 1 — Payload de Propiedad</CardTitle>
-                <CardDescription>Selecciona un ejemplo o pega un JSON personalizado</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Select value={selectedExample} onValueChange={handleExampleChange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {payloadOptions.map((opt) => <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  value={payloadText}
-                  onChange={(e) => setPayloadText(e.target.value)}
-                  className="font-mono text-xs min-h-[300px]"
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-body-lg">Paso 2 — Asignación</CardTitle>
-                </div>
-                <CardDescription>Selecciona inspector y ejecutivo</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Inspector</Label>
-                  {inspectors.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-status-regular">
-                      <AlertCircle className="h-4 w-4" /> No hay inspectores registrados
-                    </div>
-                  ) : (
-                    <Select value={selectedInspectorId} onValueChange={setSelectedInspectorId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar inspector..." /></SelectTrigger>
-                      <SelectContent>
-                        {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Ejecutivo</Label>
-                  {executives.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-status-regular">
-                      <AlertCircle className="h-4 w-4" /> No hay ejecutivos registrados
-                    </div>
-                  ) : (
-                    <Select value={selectedExecutiveId} onValueChange={setSelectedExecutiveId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar ejecutivo..." /></SelectTrigger>
-                      <SelectContent>
-                        {executives.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button
-              onClick={handleGenerate}
-              disabled={generating || !selectedInspectorId || !selectedExecutiveId}
-              className="w-full h-12 text-body-lg"
-              size="lg"
-            >
-              <Zap className="mr-2 h-5 w-5" />
-              {generating ? 'Generando...' : 'Generar Inspección'}
-            </Button>
+            {profile && (
+              <CreateInspectionForm
+                inspectors={inspectors}
+                executives={executives}
+                createdBy={profile.id}
+                onCreated={(inspection) => {
+                  setInspections((prev) => [{
+                    ...inspection,
+                    scheduleDatetime: null,
+                    contractEndDate: null,
+                    inspectorName: null,
+                    executiveName: null,
+                  } as EnrichedInspection, ...prev]);
+                  setSearchParams({ tab: 'all' });
+                }}
+              />
+            )}
           </TabsContent>
+
         </Tabs>
       </div>
     </AdminLayout>

@@ -21,10 +21,22 @@ import { generateSections, normalizePropertySnapshot } from './inspection-genera
 import type { PropertyPayload } from './types';
 import type { Json } from '@/integrations/supabase/types';
 
+export interface ExternalObjectRef {
+  /** ID numérico del objeto en HubSpot (contrato de locación o deal). */
+  externalObjectId: string;
+}
+
+const HUBSPOT_OBJECT_MAP = {
+  captacion: { type: 'deal', typeId: '0-3' },
+  check_out: { type: 'lease_contract', typeId: '2-47492934' },
+} as const;
+
 export async function createInspectionFromPayload(
   payload: PropertyPayload,
   createdBy: string,
+  externalRef?: ExternalObjectRef,
 ) {
+
   // 1. Build normalized payload with embedded generated structure & snapshot.
   const snapshot = normalizePropertySnapshot(payload);
   const generatedStructure = { sections: generateSections(payload) };
@@ -80,6 +92,46 @@ export async function createInspectionFromPayload(
     .from('inspections')
     .update({ created_by: createdBy })
     .eq('id', row.inspection_id);
+
+  // 4b. Registrar la referencia externa de HubSpot (habilita el sync bidireccional).
+  //     Misma lógica que el intake automático: se desactiva cualquier referencia
+  //     activa previa del mismo objeto en otra inspección.
+  const externalObjectId = externalRef?.externalObjectId?.trim();
+  if (externalObjectId) {
+    const map =
+      payload.inspection_type === 'captacion'
+        ? HUBSPOT_OBJECT_MAP.captacion
+        : HUBSPOT_OBJECT_MAP.check_out;
+
+    await supabase
+      .from('inspection_external_references')
+      .update({ is_active: false })
+      .eq('provider', 'hubspot')
+      .eq('external_object_type', map.type)
+      .eq('external_object_id', externalObjectId)
+      .eq('is_active', true);
+
+    const { error: refError } = await supabase
+      .from('inspection_external_references')
+      .insert({
+        inspection_id: row.inspection_id as string,
+        provider: 'hubspot',
+        external_object_type: map.type,
+        external_object_type_id: map.typeId,
+        external_object_id: externalObjectId,
+        is_active: true,
+        metadata: {
+          source: 'manual_admin',
+          source_event_id: sourceEvent.id,
+          created_at: new Date().toISOString(),
+        } as unknown as Json,
+      });
+    if (refError) {
+      throw new Error(`No se pudo registrar la referencia de HubSpot: ${refError.message}`);
+    }
+  }
+
+
 
   const { data: inspection, error: fetchError } = await supabase
     .from('inspections')
