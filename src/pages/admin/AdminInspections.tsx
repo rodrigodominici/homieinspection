@@ -7,13 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { createInspectionFromPayload } from '@/lib/inspection-service';
-import { EXAMPLE_PAYLOADS } from '@/lib/inspection-generator';
+import CreateInspectionForm from './create-inspection/CreateInspectionForm';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
@@ -38,13 +36,6 @@ import {
   ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const payloadOptions = [
-  { key: 'studio', label: 'Estudio — 0D 1B, terraza + logia' },
-  { key: 'twoBedTwoBath', label: '2D 2B — con bodega y estacionamiento' },
-  { key: 'houseWithYard', label: 'Casa 3D 2B — con antejardín' },
-  { key: 'fullFeatures', label: '4D 4B — todas las características' },
-];
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
