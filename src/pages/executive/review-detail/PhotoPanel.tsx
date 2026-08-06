@@ -42,6 +42,10 @@ export const PhotoPanel = memo(function PhotoPanel({
   const [visibleCount, setVisibleCount] = useState(PHOTO_PAGE);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // New section → collapse back to the first page.
+  useEffect(() => { setVisibleCount(PHOTO_PAGE); }, [sectionId]);
+
+
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
