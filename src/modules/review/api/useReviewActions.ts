@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { reviewDetailKeys } from './useReviewDetail';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import * as repairsService from './repairs.service';
@@ -63,7 +65,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
       const prev = qc.getQueryData<Record<string, T[]>>(key);
       if (!prev) return noop;
       const next: Record<string, T[]> = {};
-      for (const [sectionId, rows] of Object.entries(prev)) next[sectionId] = mutate(rows);
+      for (const [sectionId, rows] of Object.entries(prev)) next[sectionId] = mutate(rows as T[]);
       qc.setQueryData(key, next);
       return () => qc.setQueryData(key, prev);
     },
