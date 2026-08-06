@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { lookupRealty } from '@/lib/homie-realty';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
-import { inspectionTypeLabel } from '@/lib/inspection-type-labels';
+import { getInspectionTypeLabel } from '@/lib/inspection-type-labels';
 import type { Inspection, Profile, PropertyPayload } from '@/lib/types';
 import { AlertCircle, Building2, CheckCircle2, Loader2, Search, Zap } from 'lucide-react';
 
@@ -229,8 +229,8 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="check_out">{inspectionTypeLabel('check_out')}</SelectItem>
-                  <SelectItem value="captacion">{inspectionTypeLabel('captacion')}</SelectItem>
+                  <SelectItem value="check_out">{getInspectionTypeLabel('check_out')}</SelectItem>
+                  <SelectItem value="captacion">{getInspectionTypeLabel('captacion')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
