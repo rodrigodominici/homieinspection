@@ -21,10 +21,22 @@ import { generateSections, normalizePropertySnapshot } from './inspection-genera
 import type { PropertyPayload } from './types';
 import type { Json } from '@/integrations/supabase/types';
 
+export interface ExternalObjectRef {
+  /** ID numérico del objeto en HubSpot (contrato de locación o deal). */
+  externalObjectId: string;
+}
+
+const HUBSPOT_OBJECT_MAP = {
+  captacion: { type: 'deal', typeId: '0-3' },
+  check_out: { type: 'lease_contract', typeId: '2-47492934' },
+} as const;
+
 export async function createInspectionFromPayload(
   payload: PropertyPayload,
   createdBy: string,
+  externalRef?: ExternalObjectRef,
 ) {
+
   // 1. Build normalized payload with embedded generated structure & snapshot.
   const snapshot = normalizePropertySnapshot(payload);
   const generatedStructure = { sections: generateSections(payload) };
