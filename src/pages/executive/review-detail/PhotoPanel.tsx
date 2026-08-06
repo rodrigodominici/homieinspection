@@ -13,6 +13,9 @@ import type { InspectionPhoto } from '@/lib/types';
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+/** Photos render in pages so sections with 100+ photos don't decode them all at once. */
+const PHOTO_PAGE = 24;
+
 
 interface PhotoPanelProps {
   photos: InspectionPhoto[];
@@ -36,7 +39,13 @@ export const PhotoPanel = memo(function PhotoPanel({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PHOTO_PAGE);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // New section → collapse back to the first page.
+  useEffect(() => { setVisibleCount(PHOTO_PAGE); }, [sectionId]);
+
+
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -106,8 +115,9 @@ export const PhotoPanel = memo(function PhotoPanel({
           <span className="text-xs">Agregar foto</span>
         </button>
       ) : (
+        <>
         <div className="grid grid-cols-2 gap-2">
-          {photos.map((p, idx) => {
+          {photos.slice(0, visibleCount).map((p, idx) => {
             const visible = (p as any).visible_to_owner !== false;
             return (
               <div key={p.id} className="relative group">
@@ -122,7 +132,7 @@ export const PhotoPanel = memo(function PhotoPanel({
                   <img
                     src={urlOf(p.id, 'thumb')}
                     alt={p.caption ?? ''}
-
+                    loading="lazy"
                     decoding="async"
                     width={400}
                     height={300}
@@ -154,7 +164,18 @@ export const PhotoPanel = memo(function PhotoPanel({
             );
           })}
         </div>
+        {photos.length > visibleCount && (
+          <Button
+            type="button" variant="outline" size="sm"
+            className="mt-2 w-full h-8 text-xs"
+            onClick={() => setVisibleCount((c) => c + PHOTO_PAGE)}
+          >
+            Ver más fotos ({photos.length - visibleCount} restantes)
+          </Button>
+        )}
+        </>
       )}
+
 
       {/* Lightbox */}
       <Dialog open={lightboxIdx !== null} onOpenChange={(o) => { if (!o) setLightboxIdx(null); }}>

@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { reviewDetailKeys } from './useReviewDetail';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import * as repairsService from './repairs.service';
@@ -50,6 +52,51 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     [invalidate, refetch],
   );
 
+  // ─── Optimistic cache patches ────────────────────────────
+  // Both caches are Record<sectionId, row[]>. Each helper returns a rollback fn.
+  const qc = useQueryClient();
+  const noop = () => {};
+
+  const patchGrouped = useCallback(
+    <T extends { id: string }>(
+      key: readonly unknown[],
+      mutate: (rows: T[]) => T[],
+    ) => {
+      const prev = qc.getQueryData<Record<string, T[]>>(key);
+      if (!prev) return noop;
+      const next: Record<string, T[]> = {};
+      for (const [sectionId, rows] of Object.entries(prev)) next[sectionId] = mutate(rows as T[]);
+      qc.setQueryData(key, next);
+      return () => qc.setQueryData(key, prev);
+    },
+    [qc],
+  );
+
+  const patchPhoto = useCallback(
+    (photoId: string, patch: Partial<InspectionPhoto>) =>
+      patchGrouped<InspectionPhoto>(reviewDetailKeys.photos(id), (rows) =>
+        rows.map((r) => (r.id === photoId ? { ...r, ...patch } : r)),
+      ),
+    [patchGrouped, id],
+  );
+
+  const patchRepair = useCallback(
+    (repairId: string, patch: Record<string, unknown>) =>
+      patchGrouped<InspectionRepairItem>(reviewDetailKeys.repairs(id), (rows) =>
+        rows.map((r) => (r.id === repairId ? ({ ...r, ...patch } as InspectionRepairItem) : r)),
+      ),
+    [patchGrouped, id],
+  );
+
+  const removeRepairFromCache = useCallback(
+    (repairId: string) =>
+      patchGrouped<InspectionRepairItem>(reviewDetailKeys.repairs(id), (rows) =>
+        rows.filter((r) => r.id !== repairId),
+      ),
+    [patchGrouped, id],
+  );
+
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -68,13 +115,17 @@ export function useReviewActions(args: UseReviewActionsArgs) {
 
   const togglePhotoVisibility = useCallback(async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
+    // Optimistic: flip the flag in cache so the eye icon reacts instantly.
+    const revert = patchPhoto(photo.id, { visible_to_owner: !current } as any);
     try {
       await inspectionActions.togglePhotoVisibility(photo.id, current);
       await invalidatePhotos();
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
     }
-  }, [invalidatePhotos, toast]);
+  }, [patchPhoto, invalidatePhotos, toast]);
+
 
   const openCatalog = useCallback(async (sectionId: string) => {
     setCatalogSectionId(sectionId);
@@ -114,23 +165,29 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   }, [catalogSectionId, id, repairsBySection, selectedContractorId, profileId, invalidateRepairs, toast]);
 
   const updateRepairItem = useCallback(async (repairId: string, field: string, value: any) => {
+    // Optimistic: price/qty/visibility edits reflect immediately; totals recompute
+    // from the same cache, so no round-trip wait for the executive.
+    const revert = patchRepair(repairId, { [field]: value });
     try {
       await repairsService.updateRepairItem(repairId, field, value, profileId);
       await invalidateRepairs();
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [profileId, invalidateRepairs, toast]);
+  }, [patchRepair, profileId, invalidateRepairs, toast]);
 
   const deleteRepairItem = useCallback(async (repairId: string) => {
+    const revert = removeRepairFromCache(repairId);
     try {
       await repairsService.deleteRepairItem(repairId);
       await invalidateRepairs();
       toast({ title: 'Reparación eliminada' });
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [invalidateRepairs, toast]);
+  }, [removeRepairFromCache, invalidateRepairs, toast]);
 
   const handleContractorChange = useCallback(async (contractorId: string) => {
     if (!id) return;
