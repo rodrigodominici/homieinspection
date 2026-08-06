@@ -186,9 +186,8 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     } catch (e: any) {
       revert();
       toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
-
     }
-  }, [invalidateRepairs, toast]);
+  }, [removeRepairFromCache, invalidateRepairs, toast]);
 
   const handleContractorChange = useCallback(async (contractorId: string) => {
     if (!id) return;
