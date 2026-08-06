@@ -124,44 +124,46 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
   });
 
   const sections = sectionsQ.data ?? EMPTY_SECTIONS;
-  const secIds = useMemo(() => sections.map((s) => s.id), [sections]);
-  const sectionsReady = enabled && secIds.length > 0;
 
+  // NOTE: these used to filter by `inspection_section_id IN (secIds)`, which
+  // forced a network waterfall (sections had to resolve first). All four tables
+  // carry an indexed `inspection_id`, so we filter by it and fire in parallel
+  // with the sections query — one round-trip instead of two.
   const fieldsQ = useQuery({
-    queryKey: [...reviewDetailKeys.fields(inspectionId), secIds],
+    queryKey: reviewDetailKeys.fields(inspectionId),
     queryFn: async () => {
       const { data } = await supabase
         .from('inspection_field_values')
         .select('id, inspection_section_id, sort_order, field_label, group_key, value_text')
-        .in('inspection_section_id', secIds)
+        .eq('inspection_id', inspectionId!)
         .order('sort_order');
       return groupBy((data ?? []) as unknown as InspectionFieldValue[]);
     },
-    enabled: sectionsReady,
+    enabled,
     staleTime: 30_000,
   });
 
   const photosQ = useQuery({
-    queryKey: [...reviewDetailKeys.photos(inspectionId), secIds],
+    queryKey: reviewDetailKeys.photos(inspectionId),
     queryFn: async () => {
       const { data } = await supabase
         .from('inspection_photos')
         .select('*')
-        .in('inspection_section_id', secIds)
+        .eq('inspection_id', inspectionId!)
         .order('sort_order');
       return groupBy((data ?? []) as unknown as InspectionPhoto[]);
     },
-    enabled: sectionsReady,
+    enabled,
     staleTime: 30_000,
   });
 
   const reviewsQ = useQuery({
-    queryKey: [...reviewDetailKeys.reviews(inspectionId), secIds],
+    queryKey: reviewDetailKeys.reviews(inspectionId),
     queryFn: async () => {
       const { data } = await supabase
         .from('inspection_reviews')
         .select('*')
-        .in('inspection_section_id', secIds)
+        .eq('inspection_id', inspectionId!)
         .order('created_at');
       const list = (data ?? []) as unknown as InspectionReview[];
       const bySection = groupBy(list);
@@ -171,23 +173,24 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
       }
       return { bySection, initialInternalNotes };
     },
-    enabled: sectionsReady,
+    enabled,
     staleTime: 30_000,
   });
 
   const repairsQ = useQuery({
-    queryKey: [...reviewDetailKeys.repairs(inspectionId), secIds],
+    queryKey: reviewDetailKeys.repairs(inspectionId),
     queryFn: async () => {
       const { data } = await supabase
         .from('inspection_repair_items')
         .select('*')
-        .in('inspection_section_id', secIds)
+        .eq('inspection_id', inspectionId!)
         .order('sort_order');
       return groupBy((data ?? []) as unknown as InspectionRepairItem[]);
     },
-    enabled: sectionsReady,
+    enabled,
     staleTime: 30_000,
   });
+
 
   const signatureQ = useQuery({
     queryKey: reviewDetailKeys.signature(inspectionId),
@@ -203,11 +206,12 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
     staleTime: 30_000,
   });
 
-  // Loading: header data not yet ready, OR sections present but their derived
-  // queries still pending. (When secIds is empty, dependent queries stay idle.)
+  // Loading: every bundle query now runs in parallel off `inspectionId`.
   const loading =
-    (enabled && (inspectionQ.isLoading || sectionsQ.isLoading)) ||
-    (sectionsReady && (fieldsQ.isLoading || photosQ.isLoading || reviewsQ.isLoading || repairsQ.isLoading));
+    enabled &&
+    (inspectionQ.isLoading || sectionsQ.isLoading ||
+      fieldsQ.isLoading || photosQ.isLoading || reviewsQ.isLoading || repairsQ.isLoading);
+
 
   const invalidate = useMemo(
     () => ({
