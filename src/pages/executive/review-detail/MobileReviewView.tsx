@@ -19,7 +19,7 @@ interface MobileReviewViewProps {
   finalObservations: Record<string, string>;
   setFinalObservations: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   saveFinalObservationSilent: (sectionId: string, value: string) => Promise<void>;
-  urlOf: (id: string) => string | undefined;
+  urlOf: (id: string, variant?: 'full' | 'thumb') => string | undefined;
   signatureRecord: any | null;
   allRepairs: any[];
   clientTotal: number;
@@ -149,7 +149,7 @@ export function MobileReviewView({
                 {sPhotos.length > 0 && (
                   <div className="grid grid-cols-4 gap-1">
                     {sPhotos.map(p => (
-                      <img key={p.id} src={urlOf(p.id)} className="aspect-square rounded object-cover w-full" />
+                      <img key={p.id} src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" className="aspect-square rounded object-cover w-full" />
                     ))}
                   </div>
                 )}
