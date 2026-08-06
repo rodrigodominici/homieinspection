@@ -30,6 +30,7 @@ import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
+import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
