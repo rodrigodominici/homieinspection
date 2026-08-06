@@ -39,7 +39,9 @@ export const PhotoPanel = memo(function PhotoPanel({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PHOTO_PAGE);
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
