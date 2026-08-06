@@ -58,9 +58,15 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,   // 5 min — avoids refetch on tab-focus for fresh data
       gcTime: 10 * 60 * 1000,     // 10 min — keep inactive data in memory
       retry: 1,
+      // Tab-focus refetches were re-running the heavy detail bundles (photos,
+      // field values) on every window switch. Data is refreshed explicitly
+      // after mutations via granular invalidation instead.
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   },
 });
+
 
 // ── Route-level loading fallback ──────────────────────────────────────────────
 function PageLoader() {
