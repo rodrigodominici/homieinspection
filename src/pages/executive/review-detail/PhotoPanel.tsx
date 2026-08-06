@@ -13,6 +13,9 @@ import type { InspectionPhoto } from '@/lib/types';
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+/** Photos render in pages so sections with 100+ photos don't decode them all at once. */
+const PHOTO_PAGE = 24;
+
 
 interface PhotoPanelProps {
   photos: InspectionPhoto[];
