@@ -206,11 +206,12 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
     staleTime: 30_000,
   });
 
-  // Loading: header data not yet ready, OR sections present but their derived
-  // queries still pending. (When secIds is empty, dependent queries stay idle.)
+  // Loading: every bundle query now runs in parallel off `inspectionId`.
   const loading =
-    (enabled && (inspectionQ.isLoading || sectionsQ.isLoading)) ||
-    (sectionsReady && (fieldsQ.isLoading || photosQ.isLoading || reviewsQ.isLoading || repairsQ.isLoading));
+    enabled &&
+    (inspectionQ.isLoading || sectionsQ.isLoading ||
+      fieldsQ.isLoading || photosQ.isLoading || reviewsQ.isLoading || repairsQ.isLoading);
+
 
   const invalidate = useMemo(
     () => ({
