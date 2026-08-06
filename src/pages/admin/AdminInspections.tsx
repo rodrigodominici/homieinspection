@@ -287,38 +287,8 @@ export default function AdminInspections() {
     }
   };
 
-  const handleExampleChange = (key: string) => {
-    setSelectedExample(key);
-    setPayloadText(JSON.stringify(EXAMPLE_PAYLOADS[key as keyof typeof EXAMPLE_PAYLOADS], null, 2));
-  };
 
-  const handleGenerate = async () => {
-    if (!profile) return;
-    if (!selectedInspectorId || !selectedExecutiveId) {
-      toast({ title: 'Asignación requerida', description: 'Selecciona inspector y ejecutivo.', variant: 'destructive' });
-      return;
-    }
-    setGenerating(true);
-    try {
-      const payload = JSON.parse(payloadText);
-      payload.inspector = { ...(payload.inspector ?? {}), id: selectedInspectorId };
-      payload.executive = { ...(payload.executive ?? {}), id: selectedExecutiveId };
-      const inspection = await createInspectionFromPayload(payload, profile.id);
-      toast({ title: 'Inspección creada', description: `ID: ${inspection.property_id}` });
-      setInspections((prev) => [{
-        ...(inspection as unknown as Inspection),
-        scheduleDatetime: null,
-        contractEndDate: null,
-        inspectorName: null,
-        executiveName: null,
-      }, ...prev]);
-      setSearchParams({ tab: 'all' });
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
-    } finally {
-      setGenerating(false);
-    }
-  };
+
 
   const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
 
