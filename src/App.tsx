@@ -85,8 +85,9 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BackendStatusBanner />
+        <Suspense fallback={null}><BackendStatusBanner /></Suspense>
         <BrowserRouter>
+
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
