@@ -165,21 +165,28 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   }, [catalogSectionId, id, repairsBySection, selectedContractorId, profileId, invalidateRepairs, toast]);
 
   const updateRepairItem = useCallback(async (repairId: string, field: string, value: any) => {
+    // Optimistic: price/qty/visibility edits reflect immediately; totals recompute
+    // from the same cache, so no round-trip wait for the executive.
+    const revert = patchRepair(repairId, { [field]: value });
     try {
       await repairsService.updateRepairItem(repairId, field, value, profileId);
       await invalidateRepairs();
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo actualizar la reparación', description: e?.message, variant: 'destructive' });
     }
-  }, [profileId, invalidateRepairs, toast]);
+  }, [patchRepair, profileId, invalidateRepairs, toast]);
 
   const deleteRepairItem = useCallback(async (repairId: string) => {
+    const revert = removeRepairFromCache(repairId);
     try {
       await repairsService.deleteRepairItem(repairId);
       await invalidateRepairs();
       toast({ title: 'Reparación eliminada' });
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo eliminar la reparación', description: e?.message, variant: 'destructive' });
+
     }
   }, [invalidateRepairs, toast]);
 
