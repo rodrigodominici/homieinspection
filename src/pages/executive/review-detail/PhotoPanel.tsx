@@ -22,7 +22,7 @@ interface PhotoPanelProps {
   uploadedBy?: string;
   /** Signed URL resolver — lifted to parent so remounts (aside <-> workspace
    *  slot when repairs panel toggles) don't re-fetch / lose URLs. */
-  urlOf: (photoId: string) => string;
+  urlOf: (photoId: string, variant?: 'full' | 'thumb') => string;
   onToggleVisibility: (photo: InspectionPhoto) => void;
   onPhotosChanged: (next: InspectionPhoto[]) => void;
 }
@@ -120,9 +120,9 @@ export const PhotoPanel = memo(function PhotoPanel({
                   )}
                 >
                   <img
-                    src={urlOf(p.id)}
+                    src={urlOf(p.id, 'thumb')}
                     alt={p.caption ?? ''}
-                    loading="lazy"
+
                     decoding="async"
                     width={400}
                     height={300}

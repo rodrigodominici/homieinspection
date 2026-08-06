@@ -30,6 +30,7 @@ import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
+import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
   InspectionRepairItem, InspectionReportVersion, InspectionReview, Profile, WorkflowStage, RepairCatalogItem, InspectionSignature
@@ -167,9 +168,9 @@ export default function AdminInspectionDetail() {
   const fetchAll = useCallback(async () => {
     if (!id) return;
     const [inspRes, secRes, profilesRes, contractorRes] = await Promise.all([
-      supabase.from('inspections').select('*').eq('id', id).single(),
+      supabase.from('inspections').select(INSPECTION_DETAIL_COLUMNS).eq('id', id).single(),
       supabase.from('inspection_sections').select('*').eq('inspection_id', id).order('sort_order'),
-      supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
+      supabase.from('profiles').select('id, full_name, email, role, is_active, market, phone, country_code, approval_status, created_at, updated_at').eq('is_active', true).order('full_name'),
       supabase.from('contractors').select('*').eq('is_active', true).order('name'),
     ]);
 
@@ -233,7 +234,7 @@ export default function AdminInspectionDetail() {
             setRepairItems(rps);
             setRepairsBySection(groupBy(rps));
           }),
-        Promise.resolve(supabase.from('inspection_report_versions').select('*').eq('inspection_id', id).order('version_number', { ascending: false }))
+        Promise.resolve(supabase.from('inspection_report_versions').select('id, inspection_id, version_number, status, public_token, audience, is_latest, created_at, published_by, owner_decision_summary_json').eq('inspection_id', id).order('version_number', { ascending: false }))
           .then(r => { setReportVersions((r.data ?? []) as unknown as InspectionReportVersion[]); }),
         Promise.resolve(supabase.from('inspection_audit_log').select('*').eq('inspection_id', id).order('created_at', { ascending: false }))
           .then(r => { setAuditLog((r.data ?? []) as unknown as AuditLogEntry[]); }),
@@ -1487,7 +1488,7 @@ export default function AdminInspectionDetail() {
                                 return (
                                   <div key={p.id} className="relative group">
                                     <img
-                                      src={urlOf(p.id)} alt={p.caption ?? ''}
+                                      src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" alt={p.caption ?? ''}
                                       className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
                                       onClick={() => setPhotoLightbox(p)}
                                     />
@@ -1586,7 +1587,7 @@ export default function AdminInspectionDetail() {
                               const visible = (p as any).visible_to_owner !== false;
                               return (
                                 <div key={p.id} className="relative group">
-                                  <img src={urlOf(p.id)} alt={p.caption ?? ''}
+                                  <img src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" alt={p.caption ?? ''}
                                     className={cn('aspect-square rounded-xl object-cover', !visible && 'opacity-40')} />
                                   <button onClick={() => togglePhotoVisibility(p)}
                                     className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">

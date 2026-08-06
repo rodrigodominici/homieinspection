@@ -130,7 +130,7 @@ interface SectionBlockProps {
   section: InspectionSection;
   fields: InspectionFieldValue[];
   photos: InspectionPhoto[];
-  urlOf: (photoId: string) => string;
+  urlOf: (photoId: string, variant?: 'full' | 'thumb') => string;
   onOpenLightbox: (photos: InspectionPhoto[], idx: number) => void;
 }
 
@@ -215,7 +215,7 @@ function SectionBlock({ section, fields, photos, urlOf, onOpenLightbox }: Sectio
                 className="block w-full aspect-[4/3] rounded-lg overflow-hidden border border-border/60 bg-muted/30 hover:opacity-90 transition-opacity print:break-inside-avoid"
               >
                 <img
-                  src={urlOf(p.id)}
+                  src={urlOf(p.id, 'thumb')}
                   alt={p.caption ?? ''}
                   loading="lazy"
                   decoding="async"

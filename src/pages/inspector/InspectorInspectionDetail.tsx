@@ -34,6 +34,7 @@ import { getContractDateMicroLabel, getPrimaryContactLabel } from '@/lib/inspect
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
 import { triggerKeyCollectionSync, syncCheckoutIfApplicable } from '@/lib/hubspot-sync';
 
@@ -64,7 +65,7 @@ export default function InspectorInspectionDetail() {
   useEffect(() => {
     const fetchData = async () => {
       const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
-        supabase.from('inspections').select('*').eq('id', id!).single(),
+        supabase.from('inspections').select(INSPECTION_DETAIL_COLUMNS).eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name, skip_reason').eq('inspection_id', id!).order('created_at', { ascending: false }).limit(1),
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
