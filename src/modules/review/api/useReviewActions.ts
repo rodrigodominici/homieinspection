@@ -68,13 +68,17 @@ export function useReviewActions(args: UseReviewActionsArgs) {
 
   const togglePhotoVisibility = useCallback(async (photo: InspectionPhoto) => {
     const current = (photo as any).visible_to_owner ?? true;
+    // Optimistic: flip the flag in cache so the eye icon reacts instantly.
+    const revert = patchPhoto(photo.id, { visible_to_owner: !current } as any);
     try {
       await inspectionActions.togglePhotoVisibility(photo.id, current);
       await invalidatePhotos();
     } catch (e: any) {
+      revert();
       toast({ title: 'No se pudo actualizar la foto', description: e?.message, variant: 'destructive' });
     }
-  }, [invalidatePhotos, toast]);
+  }, [patchPhoto, invalidatePhotos, toast]);
+
 
   const openCatalog = useCallback(async (sectionId: string) => {
     setCatalogSectionId(sectionId);
