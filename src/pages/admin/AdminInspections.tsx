@@ -213,12 +213,8 @@ export default function AdminInspections() {
   const [assignInspector, setAssignInspector] = useState('');
   const [assignExecutive, setAssignExecutive] = useState('');
 
-  // Creation state
-  const [selectedExample, setSelectedExample] = useState('studio');
-  const [payloadText, setPayloadText] = useState(JSON.stringify(EXAMPLE_PAYLOADS.studio, null, 2));
-  const [selectedInspectorId, setSelectedInspectorId] = useState('');
-  const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
-  const [generating, setGenerating] = useState(false);
+  // Creation state (formulario guiado en CreateInspectionForm)
+
 
   useEffect(() => {
     const fetchAll = async () => {
