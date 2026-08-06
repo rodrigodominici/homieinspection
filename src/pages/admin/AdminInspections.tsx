@@ -973,80 +973,27 @@ export default function AdminInspections() {
 
           {/* Workload moved to AdminDashboard */}
 
-          {/* Manual Creation */}
+          {/* Manual Creation — formulario guiado on-demand */}
           <TabsContent value="create" className="space-y-6 mt-4">
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-body-lg">Paso 1 — Payload de Propiedad</CardTitle>
-                <CardDescription>Selecciona un ejemplo o pega un JSON personalizado</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Select value={selectedExample} onValueChange={handleExampleChange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {payloadOptions.map((opt) => <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  value={payloadText}
-                  onChange={(e) => setPayloadText(e.target.value)}
-                  className="font-mono text-xs min-h-[300px]"
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 ring-1 ring-border shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-body-lg">Paso 2 — Asignación</CardTitle>
-                </div>
-                <CardDescription>Selecciona inspector y ejecutivo</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Inspector</Label>
-                  {inspectors.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-status-regular">
-                      <AlertCircle className="h-4 w-4" /> No hay inspectores registrados
-                    </div>
-                  ) : (
-                    <Select value={selectedInspectorId} onValueChange={setSelectedInspectorId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar inspector..." /></SelectTrigger>
-                      <SelectContent>
-                        {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Ejecutivo</Label>
-                  {executives.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-status-regular">
-                      <AlertCircle className="h-4 w-4" /> No hay ejecutivos registrados
-                    </div>
-                  ) : (
-                    <Select value={selectedExecutiveId} onValueChange={setSelectedExecutiveId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar ejecutivo..." /></SelectTrigger>
-                      <SelectContent>
-                        {executives.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button
-              onClick={handleGenerate}
-              disabled={generating || !selectedInspectorId || !selectedExecutiveId}
-              className="w-full h-12 text-body-lg"
-              size="lg"
-            >
-              <Zap className="mr-2 h-5 w-5" />
-              {generating ? 'Generando...' : 'Generar Inspección'}
-            </Button>
+            {profile && (
+              <CreateInspectionForm
+                inspectors={inspectors}
+                executives={executives}
+                createdBy={profile.id}
+                onCreated={(inspection) => {
+                  setInspections((prev) => [{
+                    ...inspection,
+                    scheduleDatetime: null,
+                    contractEndDate: null,
+                    inspectorName: null,
+                    executiveName: null,
+                  } as EnrichedInspection, ...prev]);
+                  setSearchParams({ tab: 'all' });
+                }}
+              />
+            )}
           </TabsContent>
+
         </Tabs>
       </div>
     </AdminLayout>
