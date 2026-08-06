@@ -50,6 +50,51 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     [invalidate, refetch],
   );
 
+  // ─── Optimistic cache patches ────────────────────────────
+  // Both caches are Record<sectionId, row[]>. Each helper returns a rollback fn.
+  const qc = useQueryClient();
+  const noop = () => {};
+
+  const patchGrouped = useCallback(
+    <T extends { id: string }>(
+      key: readonly unknown[],
+      mutate: (rows: T[]) => T[],
+    ) => {
+      const prev = qc.getQueryData<Record<string, T[]>>(key);
+      if (!prev) return noop;
+      const next: Record<string, T[]> = {};
+      for (const [sectionId, rows] of Object.entries(prev)) next[sectionId] = mutate(rows);
+      qc.setQueryData(key, next);
+      return () => qc.setQueryData(key, prev);
+    },
+    [qc],
+  );
+
+  const patchPhoto = useCallback(
+    (photoId: string, patch: Partial<InspectionPhoto>) =>
+      patchGrouped<InspectionPhoto>(reviewDetailKeys.photos(id), (rows) =>
+        rows.map((r) => (r.id === photoId ? { ...r, ...patch } : r)),
+      ),
+    [patchGrouped, id],
+  );
+
+  const patchRepair = useCallback(
+    (repairId: string, patch: Record<string, unknown>) =>
+      patchGrouped<InspectionRepairItem>(reviewDetailKeys.repairs(id), (rows) =>
+        rows.map((r) => (r.id === repairId ? ({ ...r, ...patch } as InspectionRepairItem) : r)),
+      ),
+    [patchGrouped, id],
+  );
+
+  const removeRepairFromCache = useCallback(
+    (repairId: string) =>
+      patchGrouped<InspectionRepairItem>(reviewDetailKeys.repairs(id), (rows) =>
+        rows.filter((r) => r.id !== repairId),
+      ),
+    [patchGrouped, id],
+  );
+
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
