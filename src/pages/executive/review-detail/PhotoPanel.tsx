@@ -121,10 +121,8 @@ export const PhotoPanel = memo(function PhotoPanel({
                 >
                   <img
                     src={urlOf(p.id, 'thumb')}
-                    loading="lazy"
-                    decoding="async"
                     alt={p.caption ?? ''}
-                    loading="lazy"
+
                     decoding="async"
                     width={400}
                     height={300}
