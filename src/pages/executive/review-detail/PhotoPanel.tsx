@@ -106,8 +106,9 @@ export const PhotoPanel = memo(function PhotoPanel({
           <span className="text-xs">Agregar foto</span>
         </button>
       ) : (
+        <>
         <div className="grid grid-cols-2 gap-2">
-          {photos.map((p, idx) => {
+          {photos.slice(0, visibleCount).map((p, idx) => {
             const visible = (p as any).visible_to_owner !== false;
             return (
               <div key={p.id} className="relative group">
@@ -122,7 +123,7 @@ export const PhotoPanel = memo(function PhotoPanel({
                   <img
                     src={urlOf(p.id, 'thumb')}
                     alt={p.caption ?? ''}
-
+                    loading="lazy"
                     decoding="async"
                     width={400}
                     height={300}
@@ -154,7 +155,18 @@ export const PhotoPanel = memo(function PhotoPanel({
             );
           })}
         </div>
+        {photos.length > visibleCount && (
+          <Button
+            type="button" variant="outline" size="sm"
+            className="mt-2 w-full h-8 text-xs"
+            onClick={() => setVisibleCount((c) => c + PHOTO_PAGE)}
+          >
+            Ver más fotos ({photos.length - visibleCount} restantes)
+          </Button>
+        )}
+        </>
       )}
+
 
       {/* Lightbox */}
       <Dialog open={lightboxIdx !== null} onOpenChange={(o) => { if (!o) setLightboxIdx(null); }}>
