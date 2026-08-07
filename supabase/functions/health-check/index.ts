@@ -152,7 +152,9 @@ Deno.serve(async (req) => {
             detail,
             since: changed ? new Date().toISOString() : (prev?.since ?? new Date().toISOString()),
             last_checked_at: new Date().toISOString(),
-            last_notified_at: changed || needsReminder ? new Date().toISOString() : prev?.last_notified_at ?? null,
+            last_notified_at: SLACK_ALERTS_ENABLED && (changed || needsReminder)
+              ? new Date().toISOString()
+              : prev?.last_notified_at ?? null,
           }).select("id"),
           DB_TIMEOUT_MS,
         );
