@@ -15,6 +15,9 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const SLACK_GATEWAY = "https://connector-gateway.lovable.dev/slack/api";
 
+// Paused temporarily at the team's request. The health check and state tracking
+// remain active so Slack alerts can be re-enabled without rebuilding the monitor.
+const SLACK_ALERTS_ENABLED = false;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SLACK_API_KEY = Deno.env.get("SLACK_API_KEY");
 const SLACK_CHANNEL = Deno.env.get("SLACK_NOTIFICATIONS_CHANNEL_ID");
