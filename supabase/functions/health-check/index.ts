@@ -55,7 +55,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 async function slackPost(text: string) {
-  if (!LOVABLE_API_KEY || !SLACK_API_KEY || !SLACK_CHANNEL) return;
+  if (!SLACK_ALERTS_ENABLED || !LOVABLE_API_KEY || !SLACK_API_KEY || !SLACK_CHANNEL) return;
   try {
     await fetch(`${SLACK_GATEWAY}/chat.postMessage`, {
       method: "POST",
