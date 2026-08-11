@@ -36,6 +36,8 @@ import {
   ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { measureOperation, captureError } from '@/lib/monitoring';
+
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
