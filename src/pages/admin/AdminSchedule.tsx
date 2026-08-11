@@ -7,7 +7,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { INSPECTION_LIST_COLUMNS, PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
@@ -69,7 +69,7 @@ export default function AdminSchedule() {
           .from('inspections')
           .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name)`)
           .order('updated_at', { ascending: false }),
-        supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
+        supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
       ]);
 
       const items = ((inspRes.data ?? []) as unknown as (Inspection & { inspector: { full_name: string } | null })[]).map((insp) => {

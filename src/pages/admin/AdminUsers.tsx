@@ -14,6 +14,7 @@ import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
 import { Pencil, UserCheck, UserX, Plus, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   MARKET_OPTIONS,
   COUNTRY_CODE_OPTIONS,
@@ -62,7 +63,7 @@ export default function AdminUsers() {
   const [cuSubmitting, setCuSubmitting] = useState(false);
 
   const fetchAll = async () => {
-    const pRes = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    const pRes = await supabase.from('profiles').select(PROFILE_LIST_COLUMNS).order('created_at', { ascending: false }).limit(500);
     setProfiles((pRes.data ?? []) as unknown as Profile[]);
     setLoading(false);
   };
