@@ -167,12 +167,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       loading,
       profileLoading,
+      profileError,
+      retryProfile,
       signIn,
       signUp,
       signOut,
     }),
-    [session, user, profile, role, loading, profileLoading, signIn, signUp, signOut],
+    [session, user, profile, role, loading, profileLoading, profileError, retryProfile, signIn, signUp, signOut],
   );
+
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
