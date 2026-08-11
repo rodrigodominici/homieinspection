@@ -36,6 +36,8 @@ import {
   ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { measureOperation, captureError } from '@/lib/monitoring';
+
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
@@ -217,45 +219,77 @@ export default function AdminInspections() {
 
 
   useEffect(() => {
-    const fetchAll = async () => {
-      const [inspRes, profilesRes] = await Promise.all([
-        supabase
+    const INSPECTION_SELECT = `${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`;
+    const CHUNK = 500;
+
+    // Fetch every inspection in bounded chunks: the KPI counters and the
+    // quick-filter buckets are derived client-side from the JSON snapshot,
+    // so a truncated result set would show counters that don't match results.
+    const fetchInspectionChunks = async () => {
+      const rows: unknown[] = [];
+      for (let from = 0; ; from += CHUNK) {
+        const { data, error } = await supabase
           .from('inspections')
-          .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`)
+          .select(INSPECTION_SELECT)
           .order('updated_at', { ascending: false })
-          .limit(500),
-        supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
-      ]);
+          .range(from, from + CHUNK - 1);
+        if (error) throw error;
+        const batch = data ?? [];
+        rows.push(...batch);
+        if (batch.length < CHUNK) break;
+      }
+      return rows;
+    };
 
-      const profiles = (profilesRes.data ?? []) as unknown as Profile[];
-      setInspectors(profiles.filter((p) => p.role === 'inspector'));
-      setExecutives(profiles.filter((p) => p.role === 'executive'));
-
-      const rawItems = (inspRes.data ?? []) as unknown as (Inspection & {
-        inspector: { full_name: string } | null;
-        executive: { full_name: string } | null;
-      })[];
-      const enriched: EnrichedInspection[] = rawItems.map((insp) => {
-        const snapshot = getEffectiveSnapshot(insp);
-        const scheduleDatetime = parseDateTimeField(
-          snapshot?.fecha_recoleccion_llaves,
-          snapshot?.hora_recoleccion_llaves
+    const fetchAll = async () => {
+      try {
+        const [inspRows, profilesRes] = await measureOperation('admin_inspections_load', () =>
+          Promise.all([
+            fetchInspectionChunks(),
+            supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
+          ])
         );
-        const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
-        return {
-          ...insp,
-          scheduleDatetime,
-          contractEndDate,
-          inspectorName: insp.inspector?.full_name ?? null,
-          executiveName: insp.executive?.full_name ?? null,
-        };
-      });
 
-      setInspections(enriched);
-      setLoading(false);
+        const profiles = (profilesRes.data ?? []) as unknown as Profile[];
+        setInspectors(profiles.filter((p) => p.role === 'inspector'));
+        setExecutives(profiles.filter((p) => p.role === 'executive'));
+
+        const rawItems = inspRows as unknown as (Inspection & {
+          inspector: { full_name: string } | null;
+          executive: { full_name: string } | null;
+        })[];
+        const enriched: EnrichedInspection[] = rawItems.map((insp) => {
+          const snapshot = getEffectiveSnapshot(insp);
+          const scheduleDatetime = parseDateTimeField(
+            snapshot?.fecha_recoleccion_llaves,
+            snapshot?.hora_recoleccion_llaves
+          );
+          const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
+          return {
+            ...insp,
+            scheduleDatetime,
+            contractEndDate,
+            inspectorName: insp.inspector?.full_name ?? null,
+            executiveName: insp.executive?.full_name ?? null,
+          };
+        });
+
+        setInspections(enriched);
+      } catch (err) {
+        captureError(err instanceof Error ? err : new Error(String(err)), { context: "admin_inspections_load" });
+        toast({
+          title: 'No pudimos cargar las inspecciones',
+          description: 'Reintenta en unos segundos.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
     };
     fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const handleAssign = async (inspectionId: string) => {
     if (!assignInspector || !assignExecutive) {
