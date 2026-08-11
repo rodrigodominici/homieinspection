@@ -402,15 +402,26 @@ function CollapsibleGroup({
 }
 
 // ─── Bucket Section ────────────────────────────────────
-function BucketSection({
-  inspections, bucket, sectionsByInspection, inspectorProfiles,
-}: {
+/**
+ * Above this many rows the group switches to window virtualization so the
+ * queue stays responsive when a bucket holds hundreds of inspections.
+ */
+const VIRTUALIZE_THRESHOLD = 20;
+const ESTIMATED_ROW_HEIGHT = 168;
+
+function BucketSection(props: {
   inspections: Inspection[];
   bucket: ExecutiveBucket;
   sectionsByInspection: Record<string, SectionMeta[]>;
   inspectorProfiles: Record<string, { full_name?: string | null; email?: string | null }>;
 }) {
+  const { inspections, bucket, sectionsByInspection, inspectorProfiles } = props;
   if (inspections.length === 0) return null;
+
+  if (inspections.length > VIRTUALIZE_THRESHOLD) {
+    return <VirtualBucketSection {...props} />;
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {inspections.map(insp => (
@@ -422,6 +433,50 @@ function BucketSection({
           inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
         />
       ))}
+    </div>
+  );
+}
+
+function VirtualBucketSection({
+  inspections, bucket, sectionsByInspection, inspectorProfiles,
+}: {
+  inspections: Inspection[];
+  bucket: ExecutiveBucket;
+  sectionsByInspection: Record<string, SectionMeta[]>;
+  inspectorProfiles: Record<string, { full_name?: string | null; email?: string | null }>;
+}) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const virtualizer = useWindowVirtualizer({
+    count: inspections.length,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 6,
+    scrollMargin: listRef.current?.offsetTop ?? 0,
+  });
+
+  return (
+    <div ref={listRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map(item => {
+        const insp = inspections[item.index];
+        return (
+          <div
+            key={insp.id}
+            ref={virtualizer.measureElement}
+            data-index={item.index}
+            className="absolute left-0 w-full pb-3"
+            style={{
+              transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
+            }}
+          >
+            <InspectionRow
+              inspection={insp}
+              bucket={bucket}
+              sections={sectionsByInspection[insp.id] ?? []}
+              inspectorName={insp.inspector_id ? inspectorProfiles[insp.inspector_id]?.full_name ?? null : null}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
