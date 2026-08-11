@@ -175,8 +175,11 @@ export default function AdminMonitoring() {
                 {monitoringEnabled ? 'Activa' : 'Inactiva en este entorno'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground">
-              Web Vitals, errores y session replays se capturan solo en producción.
+            <CardContent className="text-xs text-muted-foreground space-y-2">
+              <p>Web Vitals, errores y session replays se capturan solo en producción.</p>
+              <Button variant="outline" size="sm" onClick={sendTestEvent} disabled={!monitoringEnabled}>
+                <Send className="mr-2 h-3.5 w-3.5" /> Enviar evento de prueba
+              </Button>
             </CardContent>
           </Card>
         </div>
