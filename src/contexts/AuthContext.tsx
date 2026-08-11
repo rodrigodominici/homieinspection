@@ -54,6 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         setSession(nextSession);
@@ -67,17 +69,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      if (initialSession?.user) {
-        fetchProfile(initialSession.user.id);
-      }
-      setLoading(false);
-    });
+    // Safety net: if the token refresh request hangs or fails (offline, backend
+    // hiccup), never leave the app stuck on the initial loading screen — the
+    // user must always be able to reach /auth.
+    const failSafe = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 4000);
 
-    return () => subscription.unsubscribe();
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (cancelled) return;
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        if (initialSession?.user) {
+          fetchProfile(initialSession.user.id);
+        }
+      })
+      .catch(() => {
+        // Network/refresh failure: treat as signed out so the login screen renders.
+        if (cancelled) return;
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(failSafe);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
+
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
