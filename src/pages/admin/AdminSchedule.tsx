@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { INSPECTION_LIST_COLUMNS, PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { measureOperation } from '@/lib/monitoring';
 import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
