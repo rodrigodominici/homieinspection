@@ -11,6 +11,8 @@ interface AuthContextType {
   role: UserRole | null;
   loading: boolean;          // true during initial auth check
   profileLoading: boolean;   // true while fetching profile after auth resolves
+  profileError: boolean;     // true when the profile could not be loaded (backend down/timeout)
+  retryProfile: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -18,40 +20,68 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const PROFILE_QUERY_TIMEOUT_MS = 6000;
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('profile_timeout')), ms)),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
     setProfileLoading(true);
+    setProfileError(false);
     try {
-      // Retry up to 3 times — first attempt is immediate, subsequent
-      // attempts back off in case the signup trigger has not committed yet.
-      let attempts = 0;
+      // Two attempts with a hard timeout each: the backend may be slow or the
+      // signup trigger may not have committed yet, but the UI must never hang.
       let data: Profile | null = null;
-      while (attempts < 3) {
-        const res = await supabase
-          .from('profiles')
-          .select('id,email,full_name,role,is_active,approval_status,market,country_code,phone,created_at,updated_at')
-          .eq('id', userId)
-          .maybeSingle();
-        if (res.data) {
-          data = res.data as Profile;
-          break;
+      let failed = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('id,email,full_name,role,is_active,approval_status,market,country_code,phone,created_at,updated_at')
+              .eq('id', userId)
+              .maybeSingle(),
+            PROFILE_QUERY_TIMEOUT_MS,
+          );
+          if (res.error) {
+            failed = true;
+          } else if (res.data) {
+            data = res.data as Profile;
+            failed = false;
+            break;
+          } else {
+            failed = false; // query worked, profile simply does not exist yet
+          }
+        } catch {
+          failed = true; // timed out / network failure
         }
-        attempts++;
-        if (attempts < 3) await new Promise((r) => setTimeout(r, 500 * attempts));
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
       }
       setProfile(data);
+      setProfileError(failed && !data);
       // Associate telemetry with the user (opaque id + role only, no PII).
       if (data) identifyUser(userId, data.role ?? null);
     } finally {
       setProfileLoading(false);
     }
   }, []);
+
+  const retryProfile = useCallback(() => {
+    if (user?.id) void fetchProfile(user.id);
+  }, [user?.id, fetchProfile]);
+
 
   useEffect(() => {
     let cancelled = false;
