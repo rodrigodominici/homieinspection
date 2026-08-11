@@ -31,10 +31,14 @@ export default function ExecutiveRepairCatalog() {
   useEffect(() => {
     (async () => {
       const [{ data: cats }, { data: its }, { data: conts }, { data: prices }] = await Promise.all([
-        supabase.from('repair_catalog_categories').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name'),
-        supabase.from('contractors').select('*').eq('is_active', true).order('name'),
-        supabase.from('repair_catalog_item_contractor_prices').select('repair_catalog_item_id, contractor_id, price'),
+        supabase.from('repair_catalog_categories').select('id, name, sort_order, is_active').eq('is_active', true).order('sort_order'),
+        supabase
+          .from('repair_catalog_items')
+          .select('id, name, owner_friendly_name, category_id, description, unit, pricing_type, base_price, currency, market, is_active, internal_notes, repair_catalog_categories(id, name, sort_order, is_active)')
+          .eq('is_active', true)
+          .order('name'),
+        supabase.from('contractors').select('id, name, country, is_active').eq('is_active', true).order('name'),
+        supabase.from('repair_catalog_item_contractor_prices').select('id, repair_catalog_item_id, contractor_id, price, currency'),
       ]);
       setCategories((cats ?? []) as unknown as RepairCatalogCategory[]);
       setItems((its ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);

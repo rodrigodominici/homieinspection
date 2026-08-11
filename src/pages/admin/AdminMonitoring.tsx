@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { monitoringEnabled } from '@/lib/monitoring';
-import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Gauge, ServerCrash } from 'lucide-react';
+import { monitoringEnabled, sendTestEvent } from '@/lib/monitoring';
+import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Gauge, ServerCrash, Send } from 'lucide-react';
 
 const POSTHOG_APP = 'https://app.posthog.com';
 
@@ -175,8 +175,11 @@ export default function AdminMonitoring() {
                 {monitoringEnabled ? 'Activa' : 'Inactiva en este entorno'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground">
-              Web Vitals, errores y session replays se capturan solo en producción.
+            <CardContent className="text-xs text-muted-foreground space-y-2">
+              <p>Web Vitals, errores y session replays se capturan solo en producción.</p>
+              <Button variant="outline" size="sm" onClick={sendTestEvent} disabled={!monitoringEnabled}>
+                <Send className="mr-2 h-3.5 w-3.5" /> Enviar evento de prueba
+              </Button>
             </CardContent>
           </Card>
         </div>

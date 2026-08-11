@@ -75,3 +75,142 @@ export const PROFILE_LIST_COLUMNS = [
   'created_at',
   'updated_at',
 ].join(', ');
+
+/**
+ * Projection for `inspection_sections` detail views.
+ */
+export const SECTION_COLUMNS = [
+  'id',
+  'inspection_id',
+  'template_section_id',
+  'section_key',
+  'section_title',
+  'section_type',
+  'sort_order',
+  'status',
+  'is_visible',
+  'final_observation',
+  'reviewed_by',
+  'reviewed_at',
+  'created_at',
+  'updated_at',
+].join(', ');
+
+/**
+ * Projection for `inspection_photos` — excludes the heavy `storage_path`? No, we
+ * need it for signing, but we don't need `caption`? We do. Keep all fields used.
+ */
+export const PHOTO_COLUMNS = [
+  'id',
+  'inspection_id',
+  'inspection_section_id',
+  'field_key',
+  'group_key',
+  'storage_bucket',
+  'storage_path',
+  'public_url',
+  'caption',
+  'sort_order',
+  'uploaded_by',
+  'created_at',
+  'visible_to_owner',
+].join(', ');
+
+/**
+ * Projection for `inspection_reviews`.
+ */
+export const REVIEW_COLUMNS = [
+  'id',
+  'inspection_id',
+  'inspection_section_id',
+  'comment_type',
+  'comment',
+  'created_by',
+  'created_at',
+].join(', ');
+
+/**
+ * Projection for `inspection_repair_items`.
+ */
+export const REPAIR_COLUMNS = [
+  'id',
+  'inspection_id',
+  'inspection_section_id',
+  'repair_catalog_item_id',
+  'title_snapshot',
+  'owner_friendly_name_snapshot',
+  'description_snapshot',
+  'category_snapshot',
+  'unit',
+  'pricing_type',
+  'quantity',
+  'unit_price',
+  'subtotal',
+  'notes',
+  'visible_to_owner',
+  'sort_order',
+  'created_by',
+  'updated_by',
+  'created_at',
+  'updated_at',
+  'contractor_unit_price',
+  'payer_role',
+  'payment_nature',
+].join(', ');
+
+/**
+ * Projection for `contractors` pickers.
+ */
+export const CONTRACTOR_COLUMNS = [
+  'id',
+  'name',
+  'country',
+  'is_active',
+  'created_at',
+].join(', ');
+
+/**
+ * Projection for `repair_catalog_categories`.
+ */
+export const CATEGORY_COLUMNS = [
+  'id',
+  'name',
+  'sort_order',
+  'is_active',
+  'created_at',
+].join(', ');
+
+/**
+ * Projection for `repair_catalog_items`.
+ */
+export const ITEM_COLUMNS = [
+  'id',
+  'name',
+  'owner_friendly_name',
+  'category_id',
+  'description',
+  'unit',
+  'pricing_type',
+  'base_price',
+  'currency',
+  'market',
+  'is_active',
+  'internal_notes',
+  'created_by',
+  'updated_by',
+  'created_at',
+  'updated_at',
+].join(', ');
+
+/**
+ * Projection for `repair_catalog_item_contractor_prices`.
+ */
+export const PRICE_COLUMNS = [
+  'id',
+  'repair_catalog_item_id',
+  'contractor_id',
+  'price',
+  'currency',
+  'created_at',
+  'updated_at',
+].join(', ');
