@@ -5,7 +5,12 @@
  * cache + invalidation.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { INSPECTION_DETAIL_COLUMNS, INSPECTION_LIST_COLUMNS } from "@/lib/inspection-columns";
+import {
+  CONTRACTOR_COLUMNS,
+  INSPECTION_DETAIL_COLUMNS,
+  INSPECTION_LIST_COLUMNS,
+  SECTION_COLUMNS,
+} from "@/lib/inspection-columns";
 import type { Inspection, InspectionSection, Profile } from "@/lib/types";
 
 export interface SectionMeta {
@@ -15,23 +20,6 @@ export interface SectionMeta {
   section_type: string;
   final_observation: string | null;
 }
-
-const SECTION_COLUMNS = [
-  'id',
-  'inspection_id',
-  'template_section_id',
-  'section_key',
-  'section_title',
-  'section_type',
-  'sort_order',
-  'status',
-  'is_visible',
-  'final_observation',
-  'reviewed_by',
-  'reviewed_at',
-  'created_at',
-  'updated_at',
-].join(', ');
 
 export async function listInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
