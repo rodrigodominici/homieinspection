@@ -1,51 +1,73 @@
-# Sincronizar cambios de "fecha de término real" desde HubSpot
+# Performance + Monitoreo (PostHog)
 
-Objetivo: cuando en HubSpot cambia la fecha de término real de contrato (o la fecha tentativa de recepción en captación) de un objeto ya vinculado, la inspección en Homie Inspection se actualiza automáticamente, sin duplicar la inspección.
+Antes de ejecutar, hay que corregir el diagnóstico: varias de las correcciones pedidas ya están aplicadas en el código actual. Este plan implementa lo que realmente falta y omite lo redundante.
 
-## Cómo funciona
+## Estado verificado hoy
 
-```text
-HubSpot workflow (trigger: cambio de propiedad fecha_de_termino_real)
-        ↓  webhook POST (con secreto compartido)
-Función de backend  hubspot-inspection-date-update
-        ↓  busca la inspección por ID de objeto de HubSpot
-        ↓  (activo en referencias externas; fallback por property_id)
-Actualiza la fecha en la inspección  →  registra en bitácora + log de eventos
-        ↓
-Se ve al instante en calendarios, listados admin/ejecutivo y ficha del receptor
-```
+Ya hecho (no requiere trabajo):
+- `AuthContext`: el `value` ya está en `useMemo`; `signIn`, `signUp`, `signOut` y `fetchProfile` ya usan `useCallback`; el perfil ya se lee con columnas explícitas (no `select('*')`).
+- Listas de inspector (Dashboard, All, Past, Calendar) ya usan React Query compartido (`useInspectorInspections`) con proyección de columnas (`INSPECTION_LIST_COLUMNS`).
+- `AdminInspections` y `ExecutiveReviewQueue` ya usan proyección de columnas, no `select('*')` sobre inspecciones.
+- `loading="lazy"` + `decoding="async"` ya están en las grillas de fotos de `AdminInspectionDetail`, `MobileReviewView` y `PhotoPanel` (que además pagina de 24 en 24).
+- QueryClient ya tiene `staleTime` 5 min, `gcTime` 10 min y refetch on focus/reconnect desactivados.
 
-- El webhook es distinto al de creación: no genera inspecciones nuevas, solo actualiza fechas de una existente.
-- Si no encuentra inspección para ese objeto, no falla: queda registrado como "sin coincidencia" para revisión en el panel de integración.
-- Si la inspección ya está publicada o cerrada, la fecha se actualiza igual pero se marca en la bitácora como cambio posterior al cierre (así el ejecutivo lo ve).
-- Idempotente: si llega el mismo valor que ya está guardado, se registra como "sin cambios" y no se toca nada.
+Pendiente real:
+- No existe `ErrorBoundary` global ni monitoreo/telemetría en producción.
+- `select('*')` sobre tablas completas sin límite en: `AdminUsers` (profiles), `AdminInspections` (profiles activos), `AdminSchedule` (profiles), `AdminRepairCatalog` (categorías, contratistas, matriz de precios completa), `ExecutiveRepairCatalog`, y `inspections.service.ts`.
+- Sin virtualización en las listas largas de admin/ejecutivo.
 
-## Qué se actualiza
+No pude confirmar los volúmenes actuales de filas (la base respondió con timeout al consultarla), así que el plan trata paginación y virtualización como mejoras defensivas, no como respuesta a un número medido.
 
-- Check-out: fecha de término real de contrato.
-- Captación: la misma propiedad se muestra como "Fecha tentativa de recepción" (ya existe ese mapeo de labels).
-- Opcional en el mismo webhook: fecha de recolección de llaves, para no armar otro flujo después.
+## Parte 1 — Correcciones de performance
 
-## Visibilidad para el equipo
+1. Proyección de columnas donde falta
+   - `profiles`: reemplazar `select('*')` por `id, full_name, email, role, is_active, approval_status, market, country_code, phone, created_at` en `AdminUsers`, `AdminInspections`, `AdminSchedule`.
+   - `inspections.service.ts`: usar `INSPECTION_LIST_COLUMNS` y columnas explícitas en secciones/perfiles.
+   - Catálogo de reparaciones: seleccionar solo las columnas usadas por la UI en categorías, ítems, contratistas y matriz de precios.
 
-- Entrada en la bitácora de la inspección: valor anterior → valor nuevo, origen HubSpot, fecha/hora.
-- Registro en el log de eventos de integración, visible en el panel de HubSpot del admin.
-- Aviso a Slack al canal de inspecciones cuando la fecha cambia y la inspección aún no está publicada (para que el receptor/ejecutivo reagenden). Se puede dejar apagado si prefieren.
+2. Paginación server-side donde tiene sentido
+   - `AdminInspections`: paginación con `.range()`, `PAGE_SIZE = 20`, y `count: 'exact'` para el total. Los KPIs y filtros existentes se calculan con conteos agregados server-side para no romper la lógica actual de "eje unificado de filtros".
+   - `AdminUsers`: `PAGE_SIZE = 50` con búsqueda server-side por nombre/email.
+   - `ExecutiveReviewQueue`: se mantiene la carga por grupos de estado (los filtros y contadores actuales dependen del set completo); se limita con `.range()` a 200 filas por grupo y se añade "cargar más".
+   - Migrar a React Query los fetches que aún viven en `useEffect` (`AdminUsers`, `AdminSchedule`, catálogos), con `queryKey` que incluya página y filtros.
 
-## Detalle técnico
+3. Virtualización
+   - Instalar `@tanstack/react-virtual`.
+   - Aplicar en la tabla de `AdminInspections` y en la lista de `ExecutiveReviewQueue`, respetando los grupos colapsables y el `forceOpen` ya existente.
 
-- Nueva función `supabase/functions/hubspot-inspection-date-update/index.ts`:
-  - `verify_jwt = false` en `supabase/config.toml`, autenticación por header `x-webhook-secret` comparado con `HUBSPOT_INTAKE_SECRET` (mismo secreto ya existente, comparación timing-safe).
-  - Body esperado: `{ source: "hubspot", event_type: "contract_date_updated", payload_version, external_object_id, data: { property_id?, inspection_type?, fecha_de_termino_real_de_contrato?, fecha_recoleccion_llaves? } }`. Validación manual del envelope, igual estilo que el intake.
-  - Resolución de la inspección: `inspection_external_references` con `provider='hubspot'`, `is_active=true` y `external_object_id` coincidente (acepta `37395005360` o `hs_contrato_/hs_deal_` con prefijo); fallback por `inspections.property_id` con inspección más reciente no cancelada.
-  - Escritura: merge en `property_overrides_json` (que ya tiene precedencia sobre `property_snapshot_json` en `resolvePropertyData`), más `updated_at`.
-  - Trazabilidad: fila en `inspection_source_events` (`event_type='contract_date_updated'`, `processing_status='processed'|'skipped'|'failed'`, `failure_reason='no_matching_inspection'` cuando aplique) y fila en `inspection_audit_log` con `action='hubspot_date_update'`, `note` con valor anterior y nuevo, `performed_by = null`.
-  - Slack: reutiliza el patrón de `notify-executive-slack` con un `event_type` nuevo; detrás de un flag constante para poder pausarlo.
-- Sin cambios de esquema: `property_overrides_json`, `inspection_audit_log` e `inspection_source_events` ya soportan todo esto.
-- Frontend: sin cambios funcionales; solo agregar el nuevo `event_type` a la etiqueta de eventos en el panel de logs de HubSpot para que se lea claro.
-- Del lado HubSpot (lo configura el equipo): workflow con trigger "fecha_de_termino_real ha cambiado" → acción webhook POST a la URL de la función, con el header del secreto y el `external_object_id` del registro.
+4. Imágenes
+   - Auditoría final: añadir `loading="lazy"` / `decoding="async"` a los `<img>` restantes que no son lightbox (firma en `AdminInspectionDetail`, cualquier grilla nueva).
 
-## Fuera de alcance
+## Parte 2 — Monitoreo con PostHog
 
-- No se reprocesa la estructura de secciones de la inspección.
-- No se cambian estados ni etapas del flujo por un cambio de fecha.
+PostHog está disponible como conector de Lovable, así que se conecta por ahí en lugar de pedir claves manuales: las variables `VITE_LOVABLE_CONNECTOR_POSTHOG_API_KEY` y `..._REGION` quedan inyectadas automáticamente. Requiere una acción del usuario para autorizar la conexión.
+
+1. `src/lib/monitoring.ts`
+   - `initMonitoring()` — inicializa `posthog-js` solo en producción y solo si hay token; `capture_pageview`, `capture_pageleave`, `capture_performance` (Web Vitals), session replay con `maskAllInputs: true` y `maskTextSelector: '[data-sensitive]'`.
+   - `identifyUser(userId, role)` — identifica por id y rol únicamente, sin email ni nombres (regla de datos sensibles).
+   - `captureError(error, context)` — envía `$exception`.
+   - `measureOperation(name, fn)` — mide duración, emite `performance_operation` y avisa en consola sobre 3000 ms.
+   - `stopRecordingOnSensitiveRoutes()` — detiene el replay en rutas con datos personales del inquilino (formularios de inspector, detalle de inspección, reporte público).
+
+2. Wiring
+   - `initMonitoring()` en `src/main.tsx` antes del render.
+   - `identifyUser` en `AuthContext` cuando el perfil queda cargado; `posthog.reset()` en `signOut`.
+   - Marcar con `data-sensitive` los campos con datos del inquilino (nombre, teléfono, WhatsApp, firma).
+
+3. `src/components/ErrorBoundary.tsx`
+   - Error boundary global que reporta a PostHog y muestra un fallback con el diseño del proyecto (tokens semánticos, botón de recarga). Se envuelve la app en `App.tsx`.
+
+4. Instrumentación de operaciones lentas
+   - `measureOperation` en: carga del dashboard de inspector, lista de admin, detalle de inspección admin, cola de revisión ejecutiva y subida de fotos (`src/shared/lib/inspection-photos.ts`).
+
+5. `src/pages/admin/AdminMonitoring.tsx` (ruta `/admin/monitoring`, solo admin, link en el sidebar)
+   - Estado del backend usando el `health-check`/`system_health_state` que ya existe en el proyecto.
+   - Últimos errores de cliente desde la tabla `client_error_log` ya existente (últimos 50).
+   - Operaciones más lentas de las últimas 24 h a partir de los eventos propios registrados en backend, más enlaces directos a PostHog (insights y session replays filtrados por rol inspector). PostHog no expone consultas de lectura con el token público, así que el panel muestra datos propios + enlaces, no métricas leídas desde PostHog.
+
+## Notas técnicas
+
+- Sin cambios de esquema salvo que el panel de monitoreo requiera un índice sobre `client_error_log(created_at)`; se confirmará antes de crearlo.
+- Nada de PostHog corre en desarrollo (`import.meta.env.PROD`).
+- No se hacen pushes al repositorio.
+- Al final: typecheck y suite de tests.
