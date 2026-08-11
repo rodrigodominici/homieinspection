@@ -5,7 +5,7 @@
  * cache + invalidation.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { INSPECTION_LIST_COLUMNS } from "@/lib/inspection-columns";
+import { INSPECTION_DETAIL_COLUMNS, INSPECTION_LIST_COLUMNS } from "@/lib/inspection-columns";
 import type { Inspection, InspectionSection, Profile } from "@/lib/types";
 
 export interface SectionMeta {
@@ -15,6 +15,23 @@ export interface SectionMeta {
   section_type: string;
   final_observation: string | null;
 }
+
+const SECTION_COLUMNS = [
+  'id',
+  'inspection_id',
+  'template_section_id',
+  'section_key',
+  'section_title',
+  'section_type',
+  'sort_order',
+  'status',
+  'is_visible',
+  'final_observation',
+  'reviewed_by',
+  'reviewed_at',
+  'created_at',
+  'updated_at',
+].join(', ');
 
 export async function listInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
@@ -28,11 +45,11 @@ export async function listInspections(): Promise<Inspection[]> {
 export async function getInspectionById(id: string): Promise<Inspection | null> {
   const { data, error } = await supabase
     .from("inspections")
-    .select("*")
+    .select(INSPECTION_DETAIL_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return (data ?? null) as Inspection | null;
+  return (data ?? null) as unknown as Inspection | null;
 }
 
 export async function listSectionsForInspections(inspectionIds: string[]): Promise<SectionMeta[]> {
@@ -48,7 +65,7 @@ export async function listSectionsForInspections(inspectionIds: string[]): Promi
 export async function listSectionsForInspection(inspectionId: string): Promise<InspectionSection[]> {
   const { data, error } = await supabase
     .from("inspection_sections")
-    .select("*")
+    .select(SECTION_COLUMNS)
     .eq("inspection_id", inspectionId)
     .order("sort_order", { ascending: true });
   if (error) throw error;

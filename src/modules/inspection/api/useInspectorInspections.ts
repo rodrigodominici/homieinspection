@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { measureOperation } from '@/lib/monitoring';
 import type { Inspection, InspectionSection } from '@/lib/types';
 
 type SectionLite = Pick<InspectionSection, 'status' | 'is_visible' | 'section_type'> & {
@@ -41,33 +42,39 @@ export const inspectorInspectionsKey = (opts: InspectorInspectionsOptions = {}) 
 async function fetchInspectorInspections(
   opts: InspectorInspectionsOptions,
 ): Promise<{ inspections: Inspection[]; sectionsByInspection: Record<string, SectionLite[]> }> {
-  let q = supabase.from('inspections').select(INSPECTION_LIST_COLUMNS);
-  if (opts.statuses && opts.statuses.length > 0) {
-    q = q.in('status', opts.statuses);
-  }
-  q = q.order(opts.orderBy ?? 'updated_at', { ascending: false });
+  return measureOperation(
+    `inspector_inspections_${opts.statuses?.join('_') ?? 'all'}`,
+    async () => {
+      let q = supabase.from('inspections').select(INSPECTION_LIST_COLUMNS);
+      if (opts.statuses && opts.statuses.length > 0) {
+        q = q.in('status', opts.statuses);
+      }
+      q = q.order(opts.orderBy ?? 'updated_at', { ascending: false });
 
-  const { data } = await q;
-  const inspections = (data ?? []) as unknown as Inspection[];
+      const { data } = await q;
+      const inspections = (data ?? []) as unknown as Inspection[];
 
-  if (opts.includeSections === false || inspections.length === 0) {
-    return { inspections, sectionsByInspection: {} };
-  }
+      if (opts.includeSections === false || inspections.length === 0) {
+        return { inspections, sectionsByInspection: {} };
+      }
 
-  const ids = inspections.map((i) => i.id);
-  const { data: allSections } = await supabase
-    .from('inspection_sections')
-    .select('id, inspection_id, status, is_visible, section_type')
-    .in('inspection_id', ids);
+      const ids = inspections.map((i) => i.id);
+      const { data: allSections } = await supabase
+        .from('inspection_sections')
+        .select('id, inspection_id, status, is_visible, section_type')
+        .in('inspection_id', ids);
 
-  const sectionsByInspection = ((allSections ?? []) as unknown as SectionLite[]).reduce<
-    Record<string, SectionLite[]>
-  >((acc, s) => {
-    (acc[s.inspection_id] ??= []).push(s);
-    return acc;
-  }, {});
+      const sectionsByInspection = ((allSections ?? []) as unknown as SectionLite[]).reduce<
+        Record<string, SectionLite[]>
+      >((acc, s) => {
+        (acc[s.inspection_id] ??= []).push(s);
+        return acc;
+      }, {});
 
-  return { inspections, sectionsByInspection };
+      return { inspections, sectionsByInspection };
+    },
+    { with_sections: opts.includeSections !== false },
+  );
 }
 
 export function useInspectorInspections(

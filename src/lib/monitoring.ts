@@ -25,7 +25,7 @@ const API_HOST =
   (REGION === 'us' ? 'https://us.i.posthog.com' : 'https://eu.i.posthog.com');
 
 /** Only send telemetry from real deployments. */
-const ENABLED = Boolean(import.meta.env.PROD && PROJECT_TOKEN);
+export const monitoringEnabled = Boolean(import.meta.env.PROD && PROJECT_TOKEN);
 
 let initialized = false;
 
@@ -38,7 +38,7 @@ const SENSITIVE_PATH_PATTERNS: RegExp[] = [
   /^\/executive\/inspection\//,
   /^\/admin\/inspections\/[^/]+/,
   /^\/comercial\/check-out\//,
-  /^\/report\//,
+  /^\/reportes\//,
   /^\/public\//,
 ];
 
@@ -47,7 +47,7 @@ export function isSensitivePath(pathname: string): boolean {
 }
 
 export function initMonitoring(): void {
-  if (!ENABLED || initialized) return;
+  if (!monitoringEnabled || initialized) return;
   initialized = true;
 
   posthog.init(PROJECT_TOKEN as string, {
@@ -74,7 +74,7 @@ export function initMonitoring(): void {
  * Call on every navigation.
  */
 export function syncSessionRecording(pathname: string): void {
-  if (!ENABLED || !initialized) return;
+  if (!monitoringEnabled || !initialized) return;
   if (isSensitivePath(pathname)) posthog.stopSessionRecording();
   else posthog.startSessionRecording();
 }
@@ -84,18 +84,18 @@ export function syncSessionRecording(pathname: string): void {
  * only the opaque id and the role, which is what the analysis needs.
  */
 export function identifyUser(userId: string, role: string | null): void {
-  if (!ENABLED || !initialized) return;
+  if (!monitoringEnabled || !initialized) return;
   posthog.identify(userId, { role: role ?? 'unknown' });
 }
 
 export function resetUser(): void {
-  if (!ENABLED || !initialized) return;
+  if (!monitoringEnabled || !initialized) return;
   posthog.reset();
 }
 
 export function captureError(error: Error, context?: Record<string, unknown>): void {
   console.error(error);
-  if (!ENABLED || !initialized) return;
+  if (!monitoringEnabled || !initialized) return;
   posthog.capture('$exception', {
     $exception_message: error.message,
     $exception_type: error.name,
@@ -120,7 +120,7 @@ export async function measureOperation<T>(
     throw err;
   } finally {
     const duration = performance.now() - start;
-    if (ENABLED && initialized) {
+    if (monitoringEnabled && initialized) {
       posthog.capture('performance_operation', {
         operation: name,
         duration_ms: Math.round(duration),
@@ -136,8 +136,52 @@ export async function measureOperation<T>(
 
 /** Fire-and-forget custom event (no PII). */
 export function trackEvent(name: string, props?: Record<string, unknown>): void {
-  if (!ENABLED || !initialized) return;
+  if (!monitoringEnabled || !initialized) return;
   posthog.capture(name, props);
 }
 
-export const monitoringEnabled = ENABLED;
+/** Sends a single event to verify PostHog ingestion is working. */
+export function sendTestEvent(): void {
+  if (!monitoringEnabled || !initialized) return;
+  posthog.capture('monitoring_test_event', { timestamp: new Date().toISOString() });
+}
+
+/**
+ * Supabase auth-js may throw an `AbortError: Lock broken by another request
+ * with the 'steal' option` when multiple tabs or rapid re-renders race for the
+ * localStorage lock. It is benign and should not surface as a crash to users.
+ */
+function isAuthLockError(err: unknown): err is Error {
+  return (
+    err instanceof Error &&
+    err.name === 'AbortError' &&
+    /Lock broken by another request with the 'steal' option/.test(err.message)
+  );
+}
+
+/**
+ * Catches unhandled errors and promise rejections that escape React's error boundary.
+ * The auth lock race is swallowed silently; everything else is reported to monitoring.
+ */
+export function initGlobalErrorHandlers(): void {
+  if (typeof window === 'undefined') return;
+
+  window.addEventListener('error', (event) => {
+    const err = event.error instanceof Error ? event.error : new Error(event.message);
+    captureError(err, { source: 'window.onerror', filename: event.filename });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    if (isAuthLockError(reason)) {
+      // Swallow silently — no console noise, no toast. A later auth state
+      // change will reconcile the session automatically.
+      if (monitoringEnabled && initialized) {
+        posthog.capture('auth_lock_warning', { message: reason.message });
+      }
+      return;
+    }
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    captureError(err, { source: 'unhandledrejection' });
+  });
+}
