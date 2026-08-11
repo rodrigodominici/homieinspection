@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { monitoringEnabled } from '@/lib/monitoring';
-import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Gauge, ServerCrash } from 'lucide-react';
+import { monitoringEnabled, sendTestEvent } from '@/lib/monitoring';
+import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Gauge, ServerCrash, Send } from 'lucide-react';
 
 const POSTHOG_APP = 'https://app.posthog.com';
 
