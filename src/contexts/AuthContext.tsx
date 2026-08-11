@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile, UserRole } from '@/lib/types';
+import { identifyUser, resetUser } from '@/lib/monitoring';
 
 interface AuthContextType {
   session: Session | null;
@@ -45,6 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (attempts < 3) await new Promise((r) => setTimeout(r, 500 * attempts));
       }
       setProfile(data);
+      // Associate telemetry with the user (opaque id + role only, no PII).
+      if (data) identifyUser(userId, data.role ?? null);
     } finally {
       setProfileLoading(false);
     }
@@ -95,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    resetUser();
   }, []);
 
   const role = profile?.role ?? null;

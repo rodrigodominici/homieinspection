@@ -1,11 +1,13 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { syncSessionRecording } from "@/lib/monitoring";
 // Health banner is non-critical for first paint → deferred out of the main chunk.
 const BackendStatusBanner = lazy(() => import("@/components/BackendStatusBanner"));
 
@@ -27,6 +29,7 @@ const AdminIntegrations = lazy(() => import("./pages/admin/AdminIntegrations"));
 const AdminIntegrationHubSpot = lazy(() => import("./pages/admin/AdminIntegrationHubSpot"));
 const AdminIntegrationHubSpotLogs = lazy(() => import("./pages/admin/AdminIntegrationHubSpotLogs"));
 const AdminIntegrationHubSpotOutboundLogs = lazy(() => import("./pages/admin/AdminIntegrationHubSpotOutboundLogs"));
+const AdminMonitoring = lazy(() => import("./pages/admin/AdminMonitoring"));
 
 // ── Lazy — Inspector ──────────────────────────────────────────────────────────
 const InspectorDashboard = lazy(() => import("./pages/inspector/InspectorDashboard"));
@@ -79,7 +82,17 @@ function PageLoader() {
   );
 }
 
+/** Stops session replay on routes that render tenant personal data. */
+function SessionRecordingGate() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    syncSessionRecording(pathname);
+  }, [pathname]);
+  return null;
+}
+
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
@@ -87,6 +100,7 @@ const App = () => (
         <Sonner />
         <Suspense fallback={null}><BackendStatusBanner /></Suspense>
         <BrowserRouter>
+          <SessionRecordingGate />
 
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -101,6 +115,7 @@ const App = () => (
               <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
               <Route path="/admin/schedule" element={<ProtectedRoute allowedRoles={['admin']}><AdminSchedule /></ProtectedRoute>} />
               <Route path="/admin/catalog" element={<ProtectedRoute allowedRoles={['admin']}><AdminRepairCatalog /></ProtectedRoute>} />
+              <Route path="/admin/monitoring" element={<ProtectedRoute allowedRoles={['admin']}><AdminMonitoring /></ProtectedRoute>} />
               <Route path="/admin/integrations" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrations /></ProtectedRoute>} />
               <Route path="/admin/integrations/hubspot" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpot /></ProtectedRoute>} />
               <Route path="/admin/integrations/hubspot/logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotLogs /></ProtectedRoute>} />
@@ -139,6 +154,7 @@ const App = () => (
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
