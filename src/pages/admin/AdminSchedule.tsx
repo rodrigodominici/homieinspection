@@ -65,13 +65,16 @@ export default function AdminSchedule() {
 
   useEffect(() => {
     const fetch = async () => {
-      const [inspRes, profilesRes] = await Promise.all([
-        supabase
-          .from('inspections')
-          .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name)`)
-          .order('updated_at', { ascending: false }),
-        supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
-      ]);
+      const [inspRes, profilesRes] = await measureOperation('admin_schedule_load', () =>
+        Promise.all([
+          supabase
+            .from('inspections')
+            .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name)`)
+            .order('updated_at', { ascending: false }),
+          supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
+        ]),
+      );
+
 
       const items = ((inspRes.data ?? []) as unknown as (Inspection & { inspector: { full_name: string } | null })[]).map((insp) => {
         const snapshot = getEffectiveSnapshot(insp);
