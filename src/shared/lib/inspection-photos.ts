@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { InspectionPhoto } from '@/lib/types';
+import { measureOperation } from '@/lib/monitoring';
 
 /**
  * Shared inspection-photo helpers (executive + inspector).
@@ -218,6 +219,18 @@ async function uploadToStorageWithRetry(path: string, blob: Blob): Promise<void>
  * and log; already-uploaded files in the batch are still returned in `results`.
  */
 export async function uploadInspectionPhotos(
+  opts: UploadInspectionPhotosOpts,
+): Promise<InspectionPhoto[]> {
+  // Photo upload is the slowest field operation — instrument it so slow
+  // networks show up in production telemetry.
+  return measureOperation(
+    'photo_upload_batch',
+    () => uploadInspectionPhotosInternal(opts),
+    { file_count: Array.from(opts.files).length },
+  );
+}
+
+async function uploadInspectionPhotosInternal(
   opts: UploadInspectionPhotosOpts,
 ): Promise<InspectionPhoto[]> {
   const { inspectionId, sectionId, sectionKey, files, uploadedBy, startingSortOrder = 0, fieldKey = null } = opts;
