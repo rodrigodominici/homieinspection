@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import CreateInspectionForm from './create-inspection/CreateInspectionForm';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
-import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { INSPECTION_LIST_COLUMNS, PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   priorityBucket as sharedPriorityBucket,
   priorityBucketLabel,
@@ -224,7 +224,7 @@ export default function AdminInspections() {
           .select(`${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`)
           .order('updated_at', { ascending: false })
           .limit(500),
-        supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
+        supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
       ]);
 
       const profiles = (profilesRes.data ?? []) as unknown as Profile[];

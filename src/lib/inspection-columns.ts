@@ -57,3 +57,21 @@ export const INSPECTION_LIST_COLUMNS = [
  * `generated_structure_json` blob needed to render the inspection form.
  */
 export const INSPECTION_DETAIL_COLUMNS = `${INSPECTION_LIST_COLUMNS}, generated_structure_json`;
+
+/**
+ * Projection for `profiles` lookups used by pickers, filters and user admin.
+ * Keeps the payload to the fields the UI renders instead of `select('*')`.
+ */
+export const PROFILE_LIST_COLUMNS = [
+  'id',
+  'email',
+  'full_name',
+  'role',
+  'is_active',
+  'approval_status',
+  'market',
+  'country_code',
+  'phone',
+  'created_at',
+  'updated_at',
+].join(', ');
