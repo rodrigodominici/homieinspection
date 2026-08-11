@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import BackendUnavailable from '@/components/BackendUnavailable';
 import type { UserRole } from '@/lib/types';
 
 interface ProtectedRouteProps {
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, profileLoading, profileError } = useAuth();
 
   if (loading) {
     return (
@@ -19,6 +20,19 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   if (!session) return <Navigate to="/auth" replace />;
+
+  // Backend unreachable: show an actionable screen instead of hanging forever.
+  if (profileError && !profile) return <BackendUnavailable />;
+
+  if (!profile && profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+
 
   // Block users pending approval
   if (profile && (profile.role === 'pending' || profile.approval_status !== 'approved')) {

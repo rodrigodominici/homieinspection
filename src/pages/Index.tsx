@@ -2,9 +2,10 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import BackendUnavailable from '@/components/BackendUnavailable';
 
 export default function Index() {
-  const { session, profile, loading, profileLoading } = useAuth();
+  const { session, profile, loading, profileLoading, profileError } = useAuth();
 
   if (loading) {
     return (
@@ -15,6 +16,8 @@ export default function Index() {
   }
 
   if (!session) return <Navigate to="/auth" replace />;
+
+  if (profileError && !profile) return <BackendUnavailable />;
 
   if (profileLoading || (!profile && !profileLoading && loading)) {
     return (
@@ -28,6 +31,7 @@ export default function Index() {
       </div>
     );
   }
+
 
   // Pending approval or no profile
   if (!profile || profile.role === 'pending' || profile.approval_status !== 'approved') {
