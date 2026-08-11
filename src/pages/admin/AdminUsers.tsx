@@ -14,8 +14,8 @@ import AdminLayout from '@/components/AdminLayout';
 import type { Profile, UserRole } from '@/lib/types';
 import { Pencil, UserCheck, UserX, Plus, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
 import { PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
+import {
   MARKET_OPTIONS,
   COUNTRY_CODE_OPTIONS,
   defaultCountryCodeForMarket,
