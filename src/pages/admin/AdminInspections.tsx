@@ -276,7 +276,7 @@ export default function AdminInspections() {
 
         setInspections(enriched);
       } catch (err) {
-        captureError(err, { context: 'admin_inspections_load' });
+        captureError(err instanceof Error ? err : new Error(String(err)), { context: "admin_inspections_load" });
         toast({
           title: 'No pudimos cargar las inspecciones',
           description: 'Reintenta en unos segundos.',
