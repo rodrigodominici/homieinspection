@@ -172,10 +172,13 @@ export default function AdminRepairCatalog() {
 
   const fetchData = async () => {
     const [{ data: cats }, { data: its }, { data: conts }, { data: allPrices }] = await Promise.all([
-      supabase.from('repair_catalog_categories').select('*').order('sort_order'),
-      supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').order('name'),
-      supabase.from('contractors').select('*').order('name'),
-      supabase.from('repair_catalog_item_contractor_prices').select('*'),
+      supabase.from('repair_catalog_categories').select('id, name, sort_order, is_active').order('sort_order'),
+      supabase
+        .from('repair_catalog_items')
+        .select('id, name, owner_friendly_name, category_id, description, unit, pricing_type, base_price, currency, market, is_active, internal_notes, created_by, updated_by, created_at, updated_at, repair_catalog_categories(id, name, sort_order, is_active)')
+        .order('name'),
+      supabase.from('contractors').select('id, name, country, is_active').order('name'),
+      supabase.from('repair_catalog_item_contractor_prices').select('id, repair_catalog_item_id, contractor_id, price, currency, created_at, updated_at'),
     ]);
     setCategories((cats ?? []) as unknown as RepairCatalogCategory[]);
     setItems((its ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
