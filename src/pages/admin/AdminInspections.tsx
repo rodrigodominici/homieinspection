@@ -154,10 +154,8 @@ export default function AdminInspections() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'all';
 
-  const [inspections, setInspections] = useState<EnrichedInspection[]>([]);
-  const [inspectors, setInspectors] = useState<Profile[]>([]);
-  const [executives, setExecutives] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all');
   const [inspectorFilter, setInspectorFilter] = useState<string>(searchParams.get('inspector') ?? 'all');
   const [executiveFilter, setExecutiveFilter] = useState<string>(searchParams.get('executive') ?? 'all');
