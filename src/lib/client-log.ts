@@ -65,7 +65,7 @@ export function logClientEvent(params: LogParams): void {
           route,
           role: role ?? null,
           app_version: APP_VERSION,
-          context: context ?? null,
+          context: (context ?? null) as never,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null,
         },
       ]);
