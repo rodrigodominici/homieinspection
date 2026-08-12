@@ -35,6 +35,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { getPublicPhotoUrl } from '@/lib/public-photo-urls';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -148,8 +149,9 @@ function Shimmer({ className }: { className?: string }) {
  * Lazy public photo signing.
  *
  * Public reports run as anon, so storage RLS forbids direct `createSignedUrl`.
- * The `sign-public-photo` edge function checks the (token, property_id, photo_id)
- * triple with the service role and returns a 1h signed URL.
+ * The `sign-public-photo` edge function checks the (token, property_id, photo ids)
+ * triple with the service role and returns 1h signed URLs. Requests from all
+ * photos on the page are batched into a single call (see public-photo-urls).
  */
 function PublicPhoto({
   photoId, propertyId, token, alt, caption,
@@ -161,12 +163,11 @@ function PublicPhoto({
     let cancelled = false;
     setFailed(false);
     setUrl(null);
-    supabase.functions
-      .invoke('sign-public-photo', { body: { property_id: propertyId, token, photo_id: photoId } })
-      .then(({ data, error }) => {
+    getPublicPhotoUrl(propertyId, token, photoId)
+      .then((signed) => {
         if (cancelled) return;
-        if (error || !data?.url) setFailed(true);
-        else setUrl(data.url as string);
+        if (!signed) setFailed(true);
+        else setUrl(signed);
       })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };

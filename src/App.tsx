@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,6 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
+import NewVersionPrompt from "@/components/NewVersionPrompt";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { syncSessionRecording } from "@/lib/monitoring";
 // Health banner is non-critical for first paint → deferred out of the main chunk.
 const BackendStatusBanner = lazy(() => import("@/components/BackendStatusBanner"));
@@ -18,43 +21,43 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 // ── Lazy — Admin ─────────────────────────────────────────────────────────────
-const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
-const AdminInspections = lazy(() => import("./pages/admin/AdminInspections"));
-const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
-const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
-const AdminSchedule = lazy(() => import("./pages/admin/AdminSchedule"));
-const AdminInspectionDetail = lazy(() => import("./pages/admin/AdminInspectionDetail"));
-const AdminRepairCatalog = lazy(() => import("./pages/admin/AdminRepairCatalog"));
-const AdminIntegrations = lazy(() => import("./pages/admin/AdminIntegrations"));
-const AdminIntegrationHubSpot = lazy(() => import("./pages/admin/AdminIntegrationHubSpot"));
-const AdminIntegrationHubSpotLogs = lazy(() => import("./pages/admin/AdminIntegrationHubSpotLogs"));
-const AdminIntegrationHubSpotOutboundLogs = lazy(() => import("./pages/admin/AdminIntegrationHubSpotOutboundLogs"));
-const AdminMonitoring = lazy(() => import("./pages/admin/AdminMonitoring"));
+const AdminDashboard = lazyWithRetry(() => import("./pages/admin/AdminDashboard"), "AdminDashboard");
+const AdminInspections = lazyWithRetry(() => import("./pages/admin/AdminInspections"), "AdminInspections");
+const AdminUsers = lazyWithRetry(() => import("./pages/admin/AdminUsers"), "AdminUsers");
+const AdminSettings = lazyWithRetry(() => import("./pages/admin/AdminSettings"), "AdminSettings");
+const AdminSchedule = lazyWithRetry(() => import("./pages/admin/AdminSchedule"), "AdminSchedule");
+const AdminInspectionDetail = lazyWithRetry(() => import("./pages/admin/AdminInspectionDetail"), "AdminInspectionDetail");
+const AdminRepairCatalog = lazyWithRetry(() => import("./pages/admin/AdminRepairCatalog"), "AdminRepairCatalog");
+const AdminIntegrations = lazyWithRetry(() => import("./pages/admin/AdminIntegrations"), "AdminIntegrations");
+const AdminIntegrationHubSpot = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpot"), "AdminIntegrationHubSpot");
+const AdminIntegrationHubSpotLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotLogs"), "AdminIntegrationHubSpotLogs");
+const AdminIntegrationHubSpotOutboundLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotOutboundLogs"), "AdminIntegrationHubSpotOutboundLogs");
+const AdminMonitoring = lazyWithRetry(() => import("./pages/admin/AdminMonitoring"), "AdminMonitoring");
 
 // ── Lazy — Inspector ──────────────────────────────────────────────────────────
-const InspectorDashboard = lazy(() => import("./pages/inspector/InspectorDashboard"));
-const InspectorPastInspections = lazy(() => import("./pages/inspector/InspectorPastInspections"));
-const InspectorAllInspections = lazy(() => import("./pages/inspector/InspectorAllInspections"));
-const InspectorProfile = lazy(() => import("./pages/inspector/InspectorProfile"));
-const InspectorInspectionDetail = lazy(() => import("./pages/inspector/InspectorInspectionDetail"));
-const InspectorSectionComplete = lazy(() => import("./pages/inspector/InspectorSectionComplete"));
-const InspectorCalendar = lazy(() => import("./pages/inspector/InspectorCalendar"));
+const InspectorDashboard = lazyWithRetry(() => import("./pages/inspector/InspectorDashboard"), "InspectorDashboard");
+const InspectorPastInspections = lazyWithRetry(() => import("./pages/inspector/InspectorPastInspections"), "InspectorPastInspections");
+const InspectorAllInspections = lazyWithRetry(() => import("./pages/inspector/InspectorAllInspections"), "InspectorAllInspections");
+const InspectorProfile = lazyWithRetry(() => import("./pages/inspector/InspectorProfile"), "InspectorProfile");
+const InspectorInspectionDetail = lazyWithRetry(() => import("./pages/inspector/InspectorInspectionDetail"), "InspectorInspectionDetail");
+const InspectorSectionComplete = lazyWithRetry(() => import("./pages/inspector/InspectorSectionComplete"), "InspectorSectionComplete");
+const InspectorCalendar = lazyWithRetry(() => import("./pages/inspector/InspectorCalendar"), "InspectorCalendar");
 
 // ── Lazy — Executive ──────────────────────────────────────────────────────────
-const ExecutiveReviewQueue = lazy(() => import("./pages/executive/ExecutiveReviewQueue"));
-const ExecutiveReviewDetail = lazy(() => import("./pages/executive/ExecutiveReviewDetail"));
-const ExecutiveSchedule = lazy(() => import("./pages/executive/ExecutiveSchedule"));
-const ExecutiveRepairCatalog = lazy(() => import("./pages/executive/ExecutiveRepairCatalog"));
+const ExecutiveReviewQueue = lazyWithRetry(() => import("./pages/executive/ExecutiveReviewQueue"), "ExecutiveReviewQueue");
+const ExecutiveReviewDetail = lazyWithRetry(() => import("./pages/executive/ExecutiveReviewDetail"), "ExecutiveReviewDetail");
+const ExecutiveSchedule = lazyWithRetry(() => import("./pages/executive/ExecutiveSchedule"), "ExecutiveSchedule");
+const ExecutiveRepairCatalog = lazyWithRetry(() => import("./pages/executive/ExecutiveRepairCatalog"), "ExecutiveRepairCatalog");
 
 // ── Lazy — Public ─────────────────────────────────────────────────────────────
-const OwnerReport = lazy(() => import("./pages/public/OwnerReport"));
+const OwnerReport = lazyWithRetry(() => import("./pages/public/OwnerReport"), "OwnerReport");
 
 // ── Lazy — Comercial (solo lectura) ───────────────────────────────────────────
-const ComercialCheckOutList = lazy(() => import("./pages/comercial/ComercialCheckOutList"));
-const ComercialCheckOutDetail = lazy(() => import("./pages/comercial/ComercialCheckOutDetail"));
+const ComercialCheckOutList = lazyWithRetry(() => import("./pages/comercial/ComercialCheckOutList"), "ComercialCheckOutList");
+const ComercialCheckOutDetail = lazyWithRetry(() => import("./pages/comercial/ComercialCheckOutDetail"), "ComercialCheckOutDetail");
 
 // ── Lazy — Shared ─────────────────────────────────────────────────────────────
-const InspectionRoleRedirect = lazy(() => import("./pages/InspectionRoleRedirect"));
+const InspectionRoleRedirect = lazyWithRetry(() => import("./pages/InspectionRoleRedirect"), "InspectionRoleRedirect");
 
 // ── QueryClient with sensible cache defaults ──────────────────────────────────
 const queryClient = new QueryClient({
@@ -91,6 +94,12 @@ function SessionRecordingGate() {
   return null;
 }
 
+/** Resets the per-route boundary whenever the user navigates. */
+function RouteBoundary({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  return <RouteErrorBoundary resetKey={pathname}>{children}</RouteErrorBoundary>;
+}
+
 const App = () => (
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
@@ -101,7 +110,9 @@ const App = () => (
         <Suspense fallback={null}><BackendStatusBanner /></Suspense>
         <BrowserRouter>
           <SessionRecordingGate />
+          <NewVersionPrompt />
 
+          <RouteBoundary>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -150,6 +161,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </RouteBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

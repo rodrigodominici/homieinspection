@@ -25,6 +25,9 @@ interface ClientErrorRow {
   status_code: number | null;
   section_key: string | null;
   inspection_id: string | null;
+  route: string | null;
+  role: string | null;
+  app_version: string | null;
 }
 
 interface SupabaseStatus {
@@ -56,7 +59,7 @@ function useClientErrors() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('client_error_log')
-        .select('id, created_at, error_kind, message, status_code, section_key, inspection_id')
+        .select('id, created_at, error_kind, message, status_code, section_key, inspection_id, route, role, app_version')
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -251,6 +254,9 @@ export default function AdminMonitoring() {
                     <tr className="border-b border-border">
                       <th className="py-2 text-left font-medium">Fecha</th>
                       <th className="py-2 text-left font-medium">Tipo</th>
+                      <th className="py-2 text-left font-medium">Ruta</th>
+                      <th className="py-2 text-left font-medium">Rol</th>
+                      <th className="py-2 text-left font-medium">Build</th>
                       <th className="py-2 text-left font-medium">HTTP</th>
                       <th className="py-2 text-left font-medium">Mensaje</th>
                       <th className="py-2 text-left font-medium">Inspección</th>
@@ -261,6 +267,9 @@ export default function AdminMonitoring() {
                       <tr key={e.id} className="border-b border-border/50">
                         <td className="py-2 whitespace-nowrap text-muted-foreground">{fmt(e.created_at)}</td>
                         <td className="py-2 whitespace-nowrap">{e.error_kind}</td>
+                        <td className="py-2 max-w-[180px] truncate">{e.route ?? '—'}</td>
+                        <td className="py-2 whitespace-nowrap">{e.role ?? '—'}</td>
+                        <td className="py-2 whitespace-nowrap text-muted-foreground">{e.app_version ?? '—'}</td>
                         <td className="py-2 whitespace-nowrap">{e.status_code ?? '—'}</td>
                         <td className="py-2 max-w-[380px] truncate">{e.message ?? '—'}</td>
                         <td className="py-2 whitespace-nowrap">

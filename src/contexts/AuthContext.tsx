@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile, UserRole } from '@/lib/types';
 import { identifyUser, resetUser } from '@/lib/monitoring';
+import { logClientEvent } from '@/lib/client-log';
 
 interface AuthContextType {
   session: Session | null;
@@ -73,6 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileError(failed && !data);
       // Associate telemetry with the user (opaque id + role only, no PII).
       if (data) identifyUser(userId, data.role ?? null);
+      else if (failed) logClientEvent({ kind: 'auth_boot_timeout', message: 'profile query failed/timed out' });
+      else logClientEvent({ kind: 'profile_missing', message: 'profile row not found for session user' });
     } finally {
       setProfileLoading(false);
     }
@@ -103,7 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // hiccup), never leave the app stuck on the initial loading screen — the
     // user must always be able to reach /auth.
     const failSafe = setTimeout(() => {
-      if (!cancelled) setLoading(false);
+      if (cancelled) return;
+      setLoading((wasLoading) => {
+        if (wasLoading) {
+          logClientEvent({ kind: 'auth_boot_timeout', message: 'getSession did not resolve in 4s' });
+        }
+        return false;
+      });
     }, 4000);
 
     supabase.auth
