@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -123,6 +124,16 @@ interface EnrichedInspection extends Inspection {
  * Local helper: bucket lookup adapted for EnrichedInspection (which already has scheduleDatetime).
  * Delegates to the shared `priorityBucket` so AdminInspections and AdminDashboard never drift.
  */
+interface AdminInspectionsData {
+  inspections: EnrichedInspection[];
+  inspectors: Profile[];
+  executives: Profile[];
+}
+
+const ADMIN_INSPECTIONS_QUERY_KEY = ['admin-inspections'] as const;
+const EMPTY_INSPECTIONS: EnrichedInspection[] = [];
+const EMPTY_PROFILES: Profile[] = [];
+
 function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 4 | 5 {
   return sharedPriorityBucket({
     inspector_id: insp.inspector_id,
@@ -319,7 +330,7 @@ export default function AdminInspections() {
       toast({ title: 'Inspección asignada' });
       const inspectorName = inspectors.find(p => p.id === assignInspector)?.full_name ?? null;
       const executiveName = executives.find(p => p.id === assignExecutive)?.full_name ?? null;
-      setInspections((prev) =>
+      patchInspections((prev) =>
         prev.map((i) =>
           i.id === inspectionId
             ? { ...i, inspector_id: assignInspector, executive_id: assignExecutive, status: 'assigned' as const, inspectorName, executiveName }
@@ -985,7 +996,7 @@ export default function AdminInspections() {
                 executives={executives}
                 createdBy={profile.id}
                 onCreated={(inspection) => {
-                  setInspections((prev) => [{
+                  patchInspections((prev) => [{
                     ...inspection,
                     scheduleDatetime: null,
                     contractEndDate: null,
