@@ -76,9 +76,6 @@ export function initMonitoring(): void {
   // Tag every event with the build id so we can correlate failures to a deploy.
   posthog.register({ app_version: APP_VERSION });
 
-  // Explicit first pageview: guarantees at least one event per session even if
-  // automatic capture is disabled by a future SDK default change.
-  posthog.capture('$pageview');
 
   // Exposed for support/debugging from the browser console (read-only usage).
   (window as unknown as Record<string, unknown>).posthog = posthog;
