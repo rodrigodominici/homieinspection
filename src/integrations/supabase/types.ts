@@ -16,36 +16,48 @@ export type Database = {
     Tables: {
       client_error_log: {
         Row: {
+          app_version: string | null
           context: Json | null
           created_at: string
           error_kind: string
+          event_kind: string | null
           id: string
           inspection_id: string | null
           message: string | null
+          role: string | null
+          route: string | null
           section_key: string | null
           status_code: number | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
+          app_version?: string | null
           context?: Json | null
           created_at?: string
           error_kind: string
+          event_kind?: string | null
           id?: string
           inspection_id?: string | null
           message?: string | null
+          role?: string | null
+          route?: string | null
           section_key?: string | null
           status_code?: number | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
+          app_version?: string | null
           context?: Json | null
           created_at?: string
           error_kind?: string
+          event_kind?: string | null
           id?: string
           inspection_id?: string | null
           message?: string | null
+          role?: string | null
+          route?: string | null
           section_key?: string | null
           status_code?: number | null
           user_agent?: string | null
