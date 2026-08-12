@@ -106,7 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // hiccup), never leave the app stuck on the initial loading screen — the
     // user must always be able to reach /auth.
     const failSafe = setTimeout(() => {
-      if (!cancelled) setLoading(false);
+      if (cancelled) return;
+      setLoading((wasLoading) => {
+        if (wasLoading) {
+          logClientEvent({ kind: 'auth_boot_timeout', message: 'getSession did not resolve in 4s' });
+        }
+        return false;
+      });
     }, 4000);
 
     supabase.auth
