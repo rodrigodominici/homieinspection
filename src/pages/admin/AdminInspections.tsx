@@ -216,77 +216,92 @@ export default function AdminInspections() {
   // Creation state (formulario guiado en CreateInspectionForm)
 
 
-  useEffect(() => {
-    const INSPECTION_SELECT = `${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`;
-    const CHUNK = 500;
+  // Single cached query for the whole page: inspections (chunked so KPI
+  // counters, derived from the JSON snapshot client-side, are never truncated)
+  // plus the active profiles used by the assignment selects and filters.
+  const { data: adminData, isLoading: loading, error: loadError } = useQuery({
+    queryKey: ADMIN_INSPECTIONS_QUERY_KEY,
+    queryFn: async (): Promise<AdminInspectionsData> => {
+      const INSPECTION_SELECT = `${INSPECTION_LIST_COLUMNS}, inspector:profiles!inspections_inspector_id_fkey(full_name), executive:profiles!inspections_executive_id_fkey(full_name)`;
+      const CHUNK = 500;
 
-    // Fetch every inspection in bounded chunks: the KPI counters and the
-    // quick-filter buckets are derived client-side from the JSON snapshot,
-    // so a truncated result set would show counters that don't match results.
-    const fetchInspectionChunks = async () => {
-      const rows: unknown[] = [];
-      for (let from = 0; ; from += CHUNK) {
-        const { data, error } = await supabase
-          .from('inspections')
-          .select(INSPECTION_SELECT)
-          .order('updated_at', { ascending: false })
-          .range(from, from + CHUNK - 1);
-        if (error) throw error;
-        const batch = data ?? [];
-        rows.push(...batch);
-        if (batch.length < CHUNK) break;
-      }
-      return rows;
-    };
+      const fetchInspectionChunks = async () => {
+        const rows: unknown[] = [];
+        for (let from = 0; ; from += CHUNK) {
+          const { data, error } = await supabase
+            .from('inspections')
+            .select(INSPECTION_SELECT)
+            .order('updated_at', { ascending: false })
+            .range(from, from + CHUNK - 1);
+          if (error) throw error;
+          const batch = data ?? [];
+          rows.push(...batch);
+          if (batch.length < CHUNK) break;
+        }
+        return rows;
+      };
 
-    const fetchAll = async () => {
-      try {
-        const [inspRows, profilesRes] = await measureOperation('admin_inspections_load', () =>
-          Promise.all([
-            fetchInspectionChunks(),
-            supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
-          ])
+      const [inspRows, profilesRes] = await measureOperation('admin_inspections_load', () =>
+        Promise.all([
+          fetchInspectionChunks(),
+          supabase.from('profiles').select(PROFILE_LIST_COLUMNS).eq('is_active', true).order('full_name'),
+        ])
+      );
+      if (profilesRes.error) throw profilesRes.error;
+
+      const profiles = (profilesRes.data ?? []) as unknown as Profile[];
+      const rawItems = inspRows as unknown as (Inspection & {
+        inspector: { full_name: string } | null;
+        executive: { full_name: string } | null;
+      })[];
+      const enriched: EnrichedInspection[] = rawItems.map((insp) => {
+        const snapshot = getEffectiveSnapshot(insp);
+        const scheduleDatetime = parseDateTimeField(
+          snapshot?.fecha_recoleccion_llaves,
+          snapshot?.hora_recoleccion_llaves
         );
+        const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
+        return {
+          ...insp,
+          scheduleDatetime,
+          contractEndDate,
+          inspectorName: insp.inspector?.full_name ?? null,
+          executiveName: insp.executive?.full_name ?? null,
+        };
+      });
 
-        const profiles = (profilesRes.data ?? []) as unknown as Profile[];
-        setInspectors(profiles.filter((p) => p.role === 'inspector'));
-        setExecutives(profiles.filter((p) => p.role === 'executive'));
+      return {
+        inspections: enriched,
+        inspectors: profiles.filter((p) => p.role === 'inspector'),
+        executives: profiles.filter((p) => p.role === 'executive'),
+      };
+    },
+  });
 
-        const rawItems = inspRows as unknown as (Inspection & {
-          inspector: { full_name: string } | null;
-          executive: { full_name: string } | null;
-        })[];
-        const enriched: EnrichedInspection[] = rawItems.map((insp) => {
-          const snapshot = getEffectiveSnapshot(insp);
-          const scheduleDatetime = parseDateTimeField(
-            snapshot?.fecha_recoleccion_llaves,
-            snapshot?.hora_recoleccion_llaves
-          );
-          const contractEndDate = parseDateField(snapshot?.fecha_de_termino_real_de_contrato);
-          return {
-            ...insp,
-            scheduleDatetime,
-            contractEndDate,
-            inspectorName: insp.inspector?.full_name ?? null,
-            executiveName: insp.executive?.full_name ?? null,
-          };
-        });
+  const inspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
+  const inspectors = adminData?.inspectors ?? EMPTY_PROFILES;
+  const executives = adminData?.executives ?? EMPTY_PROFILES;
 
-        setInspections(enriched);
-      } catch (err) {
-        captureError(err instanceof Error ? err : new Error(String(err)), { context: "admin_inspections_load" });
-        toast({
-          title: 'No pudimos cargar las inspecciones',
-          description: 'Reintenta en unos segundos.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAll();
+  useEffect(() => {
+    if (!loadError) return;
+    captureError(loadError instanceof Error ? loadError : new Error(String(loadError)), {
+      context: 'admin_inspections_load',
+    });
+    toast({
+      title: 'No pudimos cargar las inspecciones',
+      description: 'Reintenta en unos segundos.',
+      variant: 'destructive',
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadError]);
+
+  /** Patches the cached list in place — avoids a full refetch after a mutation. */
+  const patchInspections = (updater: (prev: EnrichedInspection[]) => EnrichedInspection[]) => {
+    queryClient.setQueryData<AdminInspectionsData>(ADMIN_INSPECTIONS_QUERY_KEY, (prev) =>
+      prev ? { ...prev, inspections: updater(prev.inspections) } : prev
+    );
+  };
+
 
 
   const handleAssign = async (inspectionId: string) => {
