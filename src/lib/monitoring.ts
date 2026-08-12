@@ -55,7 +55,11 @@ export function initMonitoring(): void {
 
   posthog.init(PROJECT_TOKEN as string, {
     api_host: API_HOST,
-    capture_pageview: true,
+    // Modern SDK defaults: without this the 1.4xx SDK loads but never emits
+    // the initial $pageview, so nothing reaches PostHog.
+    defaults: '2025-05-24',
+    // SPA: capture pageviews on every history change, not just on load.
+    capture_pageview: 'history_change',
     capture_pageleave: true,
     autocapture: true,
     // Web Vitals: LCP, CLS, INP, FCP, TTFB
@@ -71,6 +75,10 @@ export function initMonitoring(): void {
 
   // Tag every event with the build id so we can correlate failures to a deploy.
   posthog.register({ app_version: APP_VERSION });
+
+  // Explicit first pageview: guarantees at least one event per session even if
+  // automatic capture is disabled by a future SDK default change.
+  posthog.capture('$pageview');
 
   syncSessionRecording(window.location.pathname);
 }
