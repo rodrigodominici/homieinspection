@@ -36,6 +36,12 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
+        // A deploy renames every hashed chunk. Without these three flags a tab
+        // (or the installed PWA) keeps the previous app shell alive and then
+        // fails to load chunks that no longer exist → blank screen.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         // Pre-cache the app shell only. Icons / large images are runtime-cached.
         globPatterns: ["**/*.{js,css,html,woff2}", "favicon.ico", "pwa-192x192.png"],
         runtimeCaching: [
@@ -66,6 +72,13 @@ export default defineConfig(({ mode }) => ({
     }),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
+  define: {
+    // Build identity, sent with every diagnostic event so we can tell whether a
+    // failing client is running a stale build.
+    __APP_VERSION__: JSON.stringify(
+      `${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`,
+    ),
+  },
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
