@@ -10,6 +10,9 @@
  * fallback so the module works either way.
  */
 import posthog from 'posthog-js';
+import { logClientEvent } from '@/lib/client-log';
+import { isChunkLoadError, recoverFromStaleBuild } from '@/lib/lazy-with-retry';
+import { APP_VERSION } from '@/lib/app-version';
 
 const env = import.meta.env as Record<string, string | boolean | undefined>;
 
@@ -169,6 +172,8 @@ export function initGlobalErrorHandlers(): void {
   window.addEventListener('error', (event) => {
     const err = event.error instanceof Error ? event.error : new Error(event.message);
     captureError(err, { source: 'window.onerror', filename: event.filename });
+    if (isChunkLoadError(err)) void recoverFromStaleBuild(err.message);
+    else logClientEvent({ kind: 'window_error', message: `${err.name}: ${err.message}` });
   });
 
   window.addEventListener('unhandledrejection', (event) => {
@@ -183,5 +188,7 @@ export function initGlobalErrorHandlers(): void {
     }
     const err = reason instanceof Error ? reason : new Error(String(reason));
     captureError(err, { source: 'unhandledrejection' });
+    if (isChunkLoadError(err)) void recoverFromStaleBuild(err.message);
+    else logClientEvent({ kind: 'unhandled_rejection', message: `${err.name}: ${err.message}` });
   });
 }
