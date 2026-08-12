@@ -80,6 +80,9 @@ export function initMonitoring(): void {
   // automatic capture is disabled by a future SDK default change.
   posthog.capture('$pageview');
 
+  // Exposed for support/debugging from the browser console (read-only usage).
+  (window as unknown as Record<string, unknown>).posthog = posthog;
+
   syncSessionRecording(window.location.pathname);
 }
 
