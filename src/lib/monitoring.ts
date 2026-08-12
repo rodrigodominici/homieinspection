@@ -69,6 +69,9 @@ export function initMonitoring(): void {
     disable_session_recording: true,
   });
 
+  // Tag every event with the build id so we can correlate failures to a deploy.
+  posthog.register({ app_version: APP_VERSION });
+
   syncSessionRecording(window.location.pathname);
 }
 
