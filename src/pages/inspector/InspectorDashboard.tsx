@@ -190,7 +190,7 @@ export default function InspectorDashboard() {
               <StatTile label="Total asignadas" value={assigned.length} icon={ClipboardList} to="/inspector/all?filter=active" accent tooltip="Todas tus inspecciones activas (asignadas + en progreso)." />
               <StatTile label="Por coordinar" value={toCoordinate.length} icon={PhoneCall} to="/inspector/all?filter=active&state=to_coordinate" tooltip="Falta coordinar fecha o acceso con el propietario/inquilino." />
               <StatTile label="Por iniciar" value={toStart.length} icon={PlayCircle} to="/inspector/all?filter=active&state=assigned" tooltip="Coordinadas y listas para arrancar el día de visita." />
-              <StatTile label="En progreso" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" tooltip="Ya iniciaste la captura en sitio. Continúa donde quedaste." />
+              <StatTile label="En espera de check out" value={inProgress.length} icon={Loader2} to="/inspector/all?filter=active&state=in_progress" tooltip="Ya iniciaste la captura en sitio. Continúa donde quedaste." />
             </div>
 
 

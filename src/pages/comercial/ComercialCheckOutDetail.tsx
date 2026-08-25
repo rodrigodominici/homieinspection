@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
+import QuienReparaChip from '@/components/QuienReparaChip';
 import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import {
   ArrowLeft, Camera, ChevronLeft, ChevronRight, Download, MapPin,
@@ -463,6 +464,7 @@ export default function ComercialCheckOutDetail() {
               <div className="flex items-center gap-2 flex-wrap mb-1.5">
                 <InspectionTypeChip type={inspection.inspection_type} />
                 <InspectionStatusBadge status={inspection.status} />
+                <QuienReparaChip value={inspection.quien_repara} />
                 <span className="text-tiny text-muted-foreground uppercase tracking-wide">
                   {inspection.market}
                 </span>

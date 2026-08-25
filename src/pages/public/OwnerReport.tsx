@@ -51,8 +51,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import {
   MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download,
-  Check, MessageSquare, X, CheckCircle2, AlertCircle, Send,
+  Check, MessageSquare, X, CheckCircle2, AlertCircle, Send, Wrench,
 } from 'lucide-react';
+import { QUIEN_REPARA_LABELS } from '@/lib/quien-repara';
+
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
@@ -136,6 +138,7 @@ interface ReportPayload {
   owner_decisions?: OwnerDecision[];
   inspection_status?: string;
   owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted';
+  quien_repara?: 'homie' | 'dueno' | 'ninguno' | null;
 }
 
 const fmt = (n: number) =>
@@ -905,6 +908,12 @@ export default function OwnerReport() {
               <span className="inline-flex items-center gap-1">
                 <Key className="h-3.5 w-3.5" />
                 Recolección de llaves: {new Date(`${fecha_recoleccion_llaves}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            )}
+            {report.quien_repara && (
+              <span className="inline-flex items-center gap-1">
+                <Wrench className="h-3.5 w-3.5" />
+                Repara: {QUIEN_REPARA_LABELS[report.quien_repara]}
               </span>
             )}
           </div>

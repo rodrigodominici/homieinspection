@@ -140,14 +140,14 @@ export default function AdminDashboard() {
               </Link>
               <Link to="/admin/inspections?status=in_progress">
                 <KpiCard
-                  label="En progreso" value={kpis.inProgress}
+                  label="En espera de check out" value={kpis.inProgress}
                   icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="El inspector ya inició la captura en sitio."
                 />
               </Link>
               <Link to="/admin/inspections?status=submitted">
                 <KpiCard
-                  label="Para revisar" value={kpis.forReview}
+                  label="En gestión de cotización" value={kpis.forReview}
                   icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
                 />
@@ -161,21 +161,21 @@ export default function AdminDashboard() {
               </Link>
               <Link to="/admin/inspections?bucket=waiting_owner">
                 <KpiCard
-                  label="Esperando propietario" value={kpis.waitingOwner}
+                  label="En gestión de aprobación" value={kpis.waitingOwner}
                   icon={<Hourglass className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 />
               </Link>
               <Link to="/admin/inspections?bucket=owner_feedback">
                 <KpiCard
-                  label="Feedback propietario" value={kpis.ownerFeedback}
+                  label="Propietario pidió cambios" value={kpis.ownerFeedback}
                   icon={<MessageSquareWarning className="h-5 w-5 text-status-bad" />} accent="red"
                   tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 />
               </Link>
               <Link to="/admin/inspections?bucket=accepted">
                 <KpiCard
-                  label="Aceptadas" value={kpis.accepted}
+                  label="Aprobados" value={kpis.accepted}
                   icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                   tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 />
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Próximas Programadas
+                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Próximas coordinadas p/ recibir
                     </CardTitle>
                     <Link to="/admin/schedule"><Button variant="ghost" size="sm">Ver calendario</Button></Link>
                   </div>

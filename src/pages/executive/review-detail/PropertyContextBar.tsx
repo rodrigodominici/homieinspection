@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { fmtCurrency } from './helpers';
 import { getPrimaryContactLabel } from '@/lib/inspection-type-labels';
+import QuienReparaSelect from '@/components/QuienReparaSelect';
 import type { Inspection } from '@/lib/types';
 
 interface PropertyContextBarProps {
@@ -93,6 +94,11 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
         {deposit && (
           <Item icon={Wallet} label="Garantía" value={deposit} />
         )}
+        <QuienReparaSelect
+          inspectionId={inspection.id}
+          value={inspection.quien_repara}
+          className="min-w-0"
+        />
         <div className="flex items-start gap-2 min-w-0">
           <SigIcon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${sigColor}`} />
           <div className="min-w-0">

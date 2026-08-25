@@ -49,6 +49,7 @@ import { useOwnerFeedbackByRepair } from '@/modules/review/api/useOwnerFeedbackB
 import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
+import QuienReparaSelect from '@/components/QuienReparaSelect';
 import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
 import {
   PendingDecisionsBanner,
@@ -890,6 +891,11 @@ export default function AdminInspectionDetail() {
               <SummaryItem label="Inspector" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
               <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
               <SummaryItem label="Tipo" value={inspection.inspection_type} />
+              <QuienReparaSelect
+                inspectionId={inspection.id}
+                value={inspection.quien_repara}
+                onSaved={() => { fetchAll(); }}
+              />
               {(() => {
                 const snap = getEffectiveSnapshot(inspection);
                 const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;

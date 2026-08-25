@@ -50,6 +50,7 @@ export const INSPECTION_LIST_COLUMNS = [
   'updated_at',
   'owner_feedback_status',
   'owner_feedback_last_submitted_at',
+  'quien_repara',
 ].join(', ');
 
 /**

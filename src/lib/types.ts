@@ -125,6 +125,7 @@ export interface Inspection {
   approved_by: string | null;
   created_at: string;
   updated_at: string;
+  quien_repara?: 'homie' | 'dueno' | 'ninguno' | null;
   owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted' | null;
   owner_feedback_last_submitted_at?: string | null;
   // Joined fields

@@ -94,7 +94,7 @@ export default function OwnerAgingPanel({ inspections, profileMap }: Props) {
                 mode === 'waitingOwner' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Hourglass className="h-3.5 w-3.5" /> Esperando propietario
+              <Hourglass className="h-3.5 w-3.5" /> En gestión de aprobación
             </button>
             <button
               onClick={() => { setMode('ownerFeedback'); setActiveBucket(null); }}
@@ -102,7 +102,7 @@ export default function OwnerAgingPanel({ inspections, profileMap }: Props) {
                 mode === 'ownerFeedback' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <MessageSquareWarning className="h-3.5 w-3.5" /> Feedback propietario
+              <MessageSquareWarning className="h-3.5 w-3.5" /> Propietario pidió cambios
             </button>
           </div>
         </div>

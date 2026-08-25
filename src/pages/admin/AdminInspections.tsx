@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InspectionStatusBadge } from '@/components/StatusBadge';
+import QuienReparaChip from '@/components/QuienReparaChip';
+import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES } from '@/lib/quien-repara';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import CreateInspectionForm from './create-inspection/CreateInspectionForm';
@@ -42,16 +44,16 @@ import { measureOperation, captureError } from '@/lib/monitoring';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
-  { value: 'pending', label: 'Pendiente' },
+  { value: 'pending', label: 'Por coordinar' },
   { value: 'pending_assignment', label: 'Sin asignar' },
-  { value: 'assigned', label: 'Asignada' },
-  { value: 'in_progress', label: 'En progreso' },
-  { value: 'submitted', label: 'Lista para revisión' },
-  { value: 'in_review', label: 'En revisión' },
-  { value: 'approved', label: 'Aprobada' },
-  { value: 'published', label: 'Publicada' },
-  { value: 'accepted', label: 'Aceptada por propietario' },
-  { value: 'sent', label: 'Entregada' },
+  { value: 'assigned', label: 'Coordinada p/ recibir' },
+  { value: 'in_progress', label: 'En espera de check out' },
+  { value: 'submitted', label: 'En gestión de cotización' },
+  { value: 'in_review', label: 'En gestión de cotización (revisión)' },
+  { value: 'approved', label: 'En gestión de aprobación' },
+  { value: 'published', label: 'En gestión de aprobación (publicada)' },
+  { value: 'accepted', label: 'Aprobado' },
+  { value: 'sent', label: 'Finalizado' },
 ];
 
 const SORT_OPTIONS = [
@@ -85,13 +87,13 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
   { value: 'por_coordinar', label: 'Por coordinar' },
-  { value: 'programadas', label: 'Programadas' },
-  { value: 'in_progress', label: 'En progreso' },
-  { value: 'for_review', label: 'Para revisar' },
+  { value: 'programadas', label: 'Coordinadas p/ recibir' },
+  { value: 'in_progress', label: 'En espera de check out' },
+  { value: 'for_review', label: 'En gestión de cotización' },
   { value: 'to_publish', label: 'Para publicar' },
-  { value: 'waiting_owner', label: 'Esperando propietario' },
-  { value: 'owner_feedback', label: 'Feedback propietario' },
-  { value: 'accepted', label: 'Aceptadas' },
+  { value: 'waiting_owner', label: 'En gestión de aprobación' },
+  { value: 'owner_feedback', label: 'Propietario pidió cambios' },
+  { value: 'accepted', label: 'Aprobados' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
@@ -173,6 +175,7 @@ export default function AdminInspections() {
   const [marketFilter, setMarketFilter] = useState<string>(searchParams.get('market') ?? 'all');
   const [publishedFilter, setPublishedFilter] = useState<string>(searchParams.get('published') ?? 'all');
   const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
+  const [quienReparaFilter, setQuienReparaFilter] = useState<string>(searchParams.get('quien_repara') ?? 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') ?? 'priority');
   const [page, setPage] = useState<number>(() => {
@@ -197,6 +200,7 @@ export default function AdminInspections() {
     setOrDelete('market', marketFilter);
     setOrDelete('published', publishedFilter);
     setOrDelete('bucket', bucketFilter);
+    setOrDelete('quien_repara', quienReparaFilter);
     setOrDelete('sort', sortBy, 'priority');
     if (page > 1) next.set('page', String(page)); else next.delete('page');
     if (pageSize !== 25) next.set('pageSize', String(pageSize)); else next.delete('pageSize');
@@ -204,13 +208,13 @@ export default function AdminInspections() {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, sortBy, page, pageSize]);
+  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, sortBy, page, pageSize]);
 
   // Reset to first page whenever filters / search / sort change.
   useEffect(() => {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
 
   const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
   const setViewMode = (v: 'cards' | 'table') => {
@@ -436,6 +440,10 @@ export default function AdminInspections() {
   const filteredInspections = useMemo(() => {
     const result = inspections.filter((i) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
+      if (quienReparaFilter !== 'all') {
+        const qr = i.quien_repara ?? 'undefined';
+        if (qr !== quienReparaFilter) return false;
+      }
       if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
       if (executiveFilter !== 'all' && i.executive_id !== executiveFilter) return false;
       if (marketFilter !== 'all' && i.market !== marketFilter) return false;
@@ -482,7 +490,7 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, searchQuery, sortBy]);
+  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
 
   // Client-side pagination over filtered results.
   const totalResults = filteredInspections.length;
@@ -536,21 +544,21 @@ export default function AdminInspections() {
                 onClick={() => applyQuickFilter('por_coordinar')}
               />
               <KpiCard
-                label="Programadas" value={bucketCounts.programadas}
+                label="Coordinadas p/ recibir" value={bucketCounts.programadas}
                 icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Con inspector, ejecutivo y fecha de llaves confirmada (admin-only)."
                 active={bucketFilter === 'programadas'}
                 onClick={() => applyQuickFilter('programadas')}
               />
               <KpiCard
-                label="En progreso" value={bucketCounts.in_progress}
+                label="En espera de check out" value={bucketCounts.in_progress}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="El inspector ya inició la captura en sitio."
                 active={bucketFilter === 'in_progress'}
                 onClick={() => applyQuickFilter('in_progress')}
               />
               <KpiCard
-                label="Para revisar" value={bucketCounts.for_review}
+                label="En gestión de cotización" value={bucketCounts.for_review}
                 icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
                 active={bucketFilter === 'for_review'}
@@ -564,21 +572,21 @@ export default function AdminInspections() {
                 onClick={() => applyQuickFilter('to_publish')}
               />
               <KpiCard
-                label="Esperando propietario" value={bucketCounts.waiting_owner}
+                label="En gestión de aprobación" value={bucketCounts.waiting_owner}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 active={bucketFilter === 'waiting_owner'}
                 onClick={() => applyQuickFilter('waiting_owner')}
               />
               <KpiCard
-                label="Feedback propietario" value={bucketCounts.owner_feedback}
+                label="Propietario pidió cambios" value={bucketCounts.owner_feedback}
                 icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red"
                 tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 active={bucketFilter === 'owner_feedback'}
                 onClick={() => applyQuickFilter('owner_feedback')}
               />
               <KpiCard
-                label="Aceptadas" value={bucketCounts.accepted}
+                label="Aprobados" value={bucketCounts.accepted}
                 icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                 tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 active={bucketFilter === 'accepted'}
@@ -602,6 +610,14 @@ export default function AdminInspections() {
                 <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={quienReparaFilter} onValueChange={setQuienReparaFilter}>
+                <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="¿Quién repara?" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Quién repara: todos</SelectItem>
+                  {QUIEN_REPARA_VALUES.map((v) => <SelectItem key={v} value={v}>{QUIEN_REPARA_LABELS[v]}</SelectItem>)}
+                  <SelectItem value="undefined">Sin definir</SelectItem>
                 </SelectContent>
               </Select>
               {markets.length > 1 && (
@@ -935,6 +951,7 @@ export default function AdminInspections() {
                               </span>
                             )}
                             <InspectionStatusBadge status={insp.status} />
+                            {insp.quien_repara && <QuienReparaChip value={insp.quien_repara} />}
                           </div>
                           <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
                           <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
