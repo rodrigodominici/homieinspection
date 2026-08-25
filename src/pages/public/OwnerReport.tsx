@@ -51,8 +51,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import {
   MapPin, Building, Calendar, FileText, DollarSign, User, Users, ImageOff, Key, Download,
-  Check, MessageSquare, X, CheckCircle2, AlertCircle, Send,
+  Check, MessageSquare, X, CheckCircle2, AlertCircle, Send, Wrench,
 } from 'lucide-react';
+import { QUIEN_REPARA_LABELS } from '@/lib/quien-repara';
+
 
 type Audience = 'owner' | 'tenant';
 type PayerRole = 'owner' | 'tenant';
