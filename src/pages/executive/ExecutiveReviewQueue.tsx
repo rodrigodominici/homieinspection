@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateProgress, getEffectiveSnapshot } from '@/lib/inspection-utils';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
+import QuienReparaChip from '@/components/QuienReparaChip';
+
 import type { Inspection, InspectionSection } from '@/lib/types';
 import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
@@ -220,12 +222,12 @@ export default function ExecutiveReviewQueue() {
           <>
             {/* KPIs — ordenados según el ciclo real: revisión → publicación → propietario → cierre. */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-              <KpiCard label="Para revisar"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  tooltip="Inspecciones enviadas por el inspector que esperan tu revisión inicial." active={statusFilter === 'submitted'}     onClick={() => setStatusExclusive(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
+              <KpiCard label="En gestión de cotización"  value={kpis.forReview}    icon={<FileSearch className="h-5 w-5 text-primary" />}       accent="blue"  tooltip="Inspecciones enviadas por el inspector que esperan tu revisión inicial." active={statusFilter === 'submitted'}     onClick={() => setStatusExclusive(statusFilter === 'submitted'     ? 'all' : 'submitted')} />
               <KpiCard label="En revisión"   value={kpis.inReview}     icon={<Eye className="h-5 w-5 text-primary" />}             accent="blue"  tooltip="Estás revisando estas inspecciones. Continúa para aprobarlas o pedir cambios." active={statusFilter === 'in_review'}      onClick={() => setStatusExclusive(statusFilter === 'in_review'      ? 'all' : 'in_review')} />
               <KpiCard label="Para publicar" value={kpis.toPublish}    icon={<Send className="h-5 w-5 text-primary" />}            accent="blue"  tooltip="Aprobadas internamente. Falta enviarlas al propietario." active={statusFilter === 'approved'}       onClick={() => setStatusExclusive(statusFilter === 'approved'       ? 'all' : 'approved')} />
-              <KpiCard label="Esperando propietario" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta." active={ownerFeedbackFilter === 'waiting'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'waiting' ? 'all' : 'waiting')} />
-              <KpiCard label="Feedback propietario" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" tooltip="El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar." active={ownerFeedbackFilter === 'pending_review'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'pending_review' ? 'all' : 'pending_review')} />
-              <KpiCard label="Aceptadas"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" tooltip="El propietario aceptó la cotización. Ciclo cerrado." active={ownerFeedbackFilter === 'accepted'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'accepted' ? 'all' : 'accepted')} />
+              <KpiCard label="En gestión de aprobación" value={kpis.waitingOwner} icon={<Clock className="h-5 w-5 text-primary" />}    accent="blue" tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta." active={ownerFeedbackFilter === 'waiting'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'waiting' ? 'all' : 'waiting')} />
+              <KpiCard label="Propietario pidió cambios" value={kpis.ownerFeedback} icon={<AlertCircle className="h-5 w-5 text-status-bad" />} accent="red" tooltip="El propietario solicitó cambios. Requiere tu acción para ajustar y reenviar." active={ownerFeedbackFilter === 'pending_review'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'pending_review' ? 'all' : 'pending_review')} />
+              <KpiCard label="Aprobados"     value={kpis.accepted}     icon={<CheckCircle2 className="h-5 w-5 text-accent" />}     accent="green" tooltip="El propietario aceptó la cotización. Ciclo cerrado." active={ownerFeedbackFilter === 'accepted'} onClick={() => setOwnerFeedbackExclusive(ownerFeedbackFilter === 'accepted' ? 'all' : 'accepted')} />
             </div>
 
             {/* Filters */}
@@ -547,6 +549,7 @@ function InspectionRow({
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold leading-tight truncate">{insp.property_name ?? insp.property_id}</p>
                 <StatusBadge inspection={insp} />
+                {insp.quien_repara && <QuienReparaChip value={insp.quien_repara} />}
               </div>
               {/* Line 2: address · inspector */}
               <p className="text-caption text-muted-foreground truncate">

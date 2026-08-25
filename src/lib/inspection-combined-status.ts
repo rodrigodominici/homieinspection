@@ -30,7 +30,16 @@ export interface CombinedStatus {
   requiresExecutiveAction: boolean;
 }
 
-type Input = Pick<Inspection, "status" | "owner_feedback_status">;
+type Input = Pick<Inspection, "status" | "owner_feedback_status"> &
+  Partial<Pick<Inspection, "property_snapshot_json" | "property_overrides_json">>;
+
+/** True when the key-collection date is already agreed (coordinated). */
+function hasKeyCollectionDate(insp: Input): boolean {
+  const snapshot = (insp.property_snapshot_json ?? {}) as Record<string, unknown>;
+  const overrides = (insp.property_overrides_json ?? null) as Record<string, unknown> | null;
+  const merged = overrides ? { ...snapshot, ...overrides } : snapshot;
+  return Boolean(merged?.fecha_recoleccion_llaves);
+}
 
 export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
   const fb = insp.owner_feedback_status ?? "none";
@@ -48,14 +57,14 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
     if (fb === "accepted") {
       return {
         key: "accepted_by_owner",
-        label: "Aceptada por propietario",
+        label: "Aprobado",
         tone: "approved",
         requiresExecutiveAction: false,
       };
     }
     return {
       key: "published_waiting_owner",
-      label: "Publicada · esperando propietario",
+      label: "En gestión de aprobación",
       tone: "published",
       requiresExecutiveAction: false,
     };
@@ -66,26 +75,50 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
     if (fb === "accepted") {
       return {
         key: "accepted_by_owner",
-        label: "Aceptada por propietario",
+        label: "Aprobado",
         tone: "approved",
         requiresExecutiveAction: false,
       };
     }
     return {
       key: "approved_pending_publish",
-      label: "Aprobada",
+      label: "En gestión de aprobación",
       tone: "approved",
       requiresExecutiveAction: false,
     };
   }
 
+  if (insp.status === "accepted") {
+    return {
+      key: "accepted_by_owner",
+      label: "Aprobado",
+      tone: "approved",
+      requiresExecutiveAction: false,
+    };
+  }
+
+  // Pre-work: coordination is the operational dimension.
+  if (insp.status === "assigned" || insp.status === "pending") {
+    return hasKeyCollectionDate(insp)
+      ? {
+          key: "assigned",
+          label: "Coordinada p/ recibir",
+          tone: "pending",
+          requiresExecutiveAction: false,
+        }
+      : {
+          key: "assigned",
+          label: "Por coordinar",
+          tone: "pending",
+          requiresExecutiveAction: false,
+        };
+  }
+
   const baseMap: Record<string, { label: string; tone: StatusTone }> = {
-    pending:            { label: "Pendiente",           tone: "pending" },
-    pending_assignment: { label: "Sin asignar",         tone: "blocked" },
-    assigned:           { label: "Asignada",            tone: "pending" },
-    in_progress:        { label: "En progreso",         tone: "in-progress" },
-    submitted:          { label: "Lista para revisión", tone: "pending" },
-    in_review:          { label: "En revisión",         tone: "in-progress" },
+    pending_assignment: { label: "Sin asignar",              tone: "blocked" },
+    in_progress:        { label: "En espera de check out",   tone: "in-progress" },
+    submitted:          { label: "En gestión de cotización", tone: "pending" },
+    in_review:          { label: "En gestión de cotización", tone: "in-progress" },
   };
   const fallback = baseMap[insp.status] ?? { label: insp.status, tone: "neutral" as StatusTone };
   return {
@@ -95,6 +128,7 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
     requiresExecutiveAction: false,
   };
 }
+
 
 /** True when the executive needs to revisit a published inspection. */
 export function requiresExecutiveOwnerFollowUp(insp: Input): boolean {

@@ -87,14 +87,15 @@ export const STAGE_ORDER: StageKey[] = [
 ];
 
 export const STAGE_META: Record<StageKey, StageMeta> = {
-  unassigned:    { key: "unassigned",    label: "Sin asignar",            colorClass: "bg-status-bad",       legendDotClass: "bg-status-bad" },
-  inProgress:    { key: "inProgress",    label: "En progreso",            colorClass: "bg-primary",          legendDotClass: "bg-primary" },
-  forReview:     { key: "forReview",     label: "Para revisar",           colorClass: "bg-primary/70",       legendDotClass: "bg-primary/70" },
-  toPublish:     { key: "toPublish",     label: "Para publicar",          colorClass: "bg-primary/50",       legendDotClass: "bg-primary/50" },
-  waitingOwner:  { key: "waitingOwner",  label: "Esperando propietario",  colorClass: "bg-primary/30",       legendDotClass: "bg-primary/30" },
-  ownerFeedback: { key: "ownerFeedback", label: "Feedback propietario",   colorClass: "bg-status-bad/70",    legendDotClass: "bg-status-bad/70" },
-  accepted:      { key: "accepted",      label: "Aceptadas",              colorClass: "bg-accent",           legendDotClass: "bg-accent" },
+  unassigned:    { key: "unassigned",    label: "Sin asignar",                 colorClass: "bg-status-bad",       legendDotClass: "bg-status-bad" },
+  inProgress:    { key: "inProgress",    label: "En espera de check out",      colorClass: "bg-primary",          legendDotClass: "bg-primary" },
+  forReview:     { key: "forReview",     label: "En gestión de cotización",    colorClass: "bg-primary/70",       legendDotClass: "bg-primary/70" },
+  toPublish:     { key: "toPublish",     label: "Para publicar",               colorClass: "bg-primary/50",       legendDotClass: "bg-primary/50" },
+  waitingOwner:  { key: "waitingOwner",  label: "En gestión de aprobación",    colorClass: "bg-primary/30",       legendDotClass: "bg-primary/30" },
+  ownerFeedback: { key: "ownerFeedback", label: "Propietario pidió cambios",   colorClass: "bg-status-bad/70",    legendDotClass: "bg-status-bad/70" },
+  accepted:      { key: "accepted",      label: "Aprobado",                    colorClass: "bg-accent",           legendDotClass: "bg-accent" },
 };
+
 
 export function computeInspectionKpis(inspections: Inspection[]): InspectionKpis {
   const k: InspectionKpis = {

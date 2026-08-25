@@ -1275,6 +1275,7 @@ export type Database = {
           property_snapshot_json: Json
           property_type: string | null
           published_at: string | null
+          quien_repara: string | null
           review_completed_at: string | null
           scheduled_at: string | null
           source_event_id: string | null
@@ -1315,6 +1316,7 @@ export type Database = {
           property_snapshot_json: Json
           property_type?: string | null
           published_at?: string | null
+          quien_repara?: string | null
           review_completed_at?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null
@@ -1355,6 +1357,7 @@ export type Database = {
           property_snapshot_json?: Json
           property_type?: string | null
           published_at?: string | null
+          quien_repara?: string | null
           review_completed_at?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null

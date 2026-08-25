@@ -75,18 +75,18 @@ export function getInspectorDisplayState(
 
 
 
-  if (inspection.status === 'submitted') return { key: 'submitted', label: 'Enviada', tone: 'good' };
-  if (inspection.status === 'in_review') return { key: 'in_review', label: 'En revisión', tone: 'primary' };
-  if (inspection.status === 'approved') return { key: 'approved', label: 'Aprobada', tone: 'good' };
-  if (inspection.status === 'published') return { key: 'published', label: 'Publicada', tone: 'good' };
-  if (inspection.status === 'sent') return { key: 'sent', label: 'Enviada', tone: 'good' };
+  if (inspection.status === 'submitted') return { key: 'submitted', label: 'En gestión de cotización', tone: 'good' };
+  if (inspection.status === 'in_review') return { key: 'in_review', label: 'En gestión de cotización', tone: 'primary' };
+  if (inspection.status === 'approved') return { key: 'approved', label: 'En gestión de aprobación', tone: 'good' };
+  if (inspection.status === 'published') return { key: 'published', label: 'En gestión de aprobación', tone: 'good' };
+  if (inspection.status === 'sent') return { key: 'sent', label: 'Finalizado', tone: 'good' };
 
   if (progressPercent === 100 && totalSections > 0) {
     return { key: 'ready_to_submit', label: 'Lista para enviar', tone: 'good' };
   }
 
   if (progressPercent > 0 || inspection.started_at) {
-    return { key: 'in_progress', label: 'En progreso', tone: 'primary' };
+    return { key: 'in_progress', label: 'En espera de check out', tone: 'primary' };
   }
 
   // to_coordinate: only when full inspection is available for snapshot check
@@ -95,8 +95,9 @@ export function getInspectorDisplayState(
   }
 
   if (['assigned', 'pending_assignment', 'pending'].includes(inspection.status)) {
-    return { key: 'assigned', label: 'Asignada', tone: 'neutral' };
+    return { key: 'assigned', label: 'Coordinada p/ recibir', tone: 'neutral' };
   }
+
 
   return { key: 'unknown', label: inspection.status, tone: 'neutral' };
 }
