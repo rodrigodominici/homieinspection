@@ -18,7 +18,7 @@ import type { Inspection, Profile } from '@/lib/types';
 import {
   Plus, User, CalendarClock, AlertTriangle,
   UserCheck, Clock, FileSearch, AlertCircle, Send, CheckCircle2,
-  MessageSquareWarning, Hourglass,
+  MessageSquareWarning, Hourglass, Archive,
 } from 'lucide-react';
 
 /**
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
             {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue.
                 After publishing, the lifecycle splits in 3 to reflect the
                 owner-feedback loop (esperando ↔ requiere acción ↔ aceptada). */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3">
               <Link to="/admin/inspections?bucket=unassigned">
                 <KpiCard
                   label="Sin asignar" value={kpis.unassigned}
