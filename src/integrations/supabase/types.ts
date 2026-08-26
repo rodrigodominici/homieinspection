@@ -1744,6 +1744,10 @@ export type Database = {
         Args: { p_inspection_id: string; p_note?: string; p_reason: string }
         Returns: Json
       }
+      finalize_inspection: {
+        Args: { p_inspection_id: string; p_note?: string }
+        Returns: Json
+      }
       get_executive_performance: {
         Args: never
         Returns: {
