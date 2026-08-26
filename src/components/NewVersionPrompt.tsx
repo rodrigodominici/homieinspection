@@ -1,19 +1,75 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { APP_VERSION } from '@/lib/app-version';
 
 /**
  * Stale-build guard.
  *
- * The service worker precaches the app shell, so a tab left open across a
- * deploy keeps running the old build and can break when it lazily loads a
- * screen whose chunk no longer exists. This component:
- *   - activates a waiting service worker immediately,
- *   - reloads once when a new worker takes control,
- *   - offers a manual "Actualizar" if the browser reports an update.
+ * Two independent detectors:
+ *   1. Service worker lifecycle — activates a waiting worker and reloads once
+ *      a new worker takes control.
+ *   2. Build-version polling — compares the version embedded in this bundle
+ *      against `/version.json` (emitted at build time, fetched with
+ *      `cache: "no-store"`). This catches the case where the service worker
+ *      already took control with an old bundle, so nothing else would ever
+ *      prompt an update.
+ *
+ * When a mismatch is detected we show the "Actualizar" pill; if the user
+ * ignores it, we reload automatically the next time the tab regains focus.
  */
+const POLL_MS = 5 * 60_000;
+
+async function fetchDeployedVersion(): Promise<string | null> {
+  try {
+    const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { version?: unknown };
+    return typeof json.version === 'string' ? json.version : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function NewVersionPrompt() {
   const [updateReady, setUpdateReady] = useState(false);
+  const staleRef = useRef(false);
 
+  // ---- Detector 2: build-version polling -----------------------------------
+  useEffect(() => {
+    if (APP_VERSION === 'dev') return;
+    let cancelled = false;
+
+    const check = async () => {
+      const deployed = await fetchDeployedVersion();
+      if (cancelled || !deployed) return;
+      if (deployed !== APP_VERSION) {
+        staleRef.current = true;
+        setUpdateReady(true);
+      }
+    };
+
+    void check();
+    const timer = window.setInterval(() => void check(), POLL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      // Already known to be stale and the user never acted → refresh now.
+      if (staleRef.current) {
+        window.location.reload();
+        return;
+      }
+      void check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  // ---- Detector 1: service worker lifecycle (unchanged behaviour) ----------
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     let reloaded = false;
@@ -24,6 +80,8 @@ export default function NewVersionPrompt() {
       window.location.reload();
     };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+    let cleanupVisibility: (() => void) | undefined;
 
     void navigator.serviceWorker.getRegistration().then((reg) => {
       if (!reg) return;
@@ -44,11 +102,12 @@ export default function NewVersionPrompt() {
         if (document.visibilityState === 'visible') void reg.update().catch(() => {});
       };
       document.addEventListener('visibilitychange', onVisible);
-      return () => document.removeEventListener('visibilitychange', onVisible);
+      cleanupVisibility = () => document.removeEventListener('visibilitychange', onVisible);
     });
 
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      cleanupVisibility?.();
     };
   }, []);
 
