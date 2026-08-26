@@ -122,68 +122,68 @@ export default function AdminDashboard() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
         ) : (
           <>
             {/* KPI Cards — aligned with AdminInspections & ExecutiveReviewQueue.
                 After publishing, the lifecycle splits in 3 to reflect the
                 owner-feedback loop (esperando ↔ requiere acción ↔ aceptada). */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3">
-              <Link to="/admin/inspections?bucket=unassigned">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Link to="/admin/inspections?bucket=unassigned" className="block h-full">
                 <KpiCard
                   label="Sin asignar" value={kpis.unassigned}
                   icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
                   tooltip="Inspecciones creadas que aún no tienen inspector asignado."
                 />
               </Link>
-              <Link to="/admin/inspections?status=in_progress">
+              <Link to="/admin/inspections?status=in_progress" className="block h-full">
                 <KpiCard
                   label="En espera de Hallazgos" value={kpis.inProgress}
                   icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="El inspector ya inició la captura en sitio."
                 />
               </Link>
-              <Link to="/admin/inspections?status=submitted">
+              <Link to="/admin/inspections?status=submitted" className="block h-full">
                 <KpiCard
                   label="En gestión de cotización" value={kpis.forReview}
                   icon={<FileSearch className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="Enviadas por el inspector y esperando revisión del ejecutivo."
                 />
               </Link>
-              <Link to="/admin/inspections?status=approved">
+              <Link to="/admin/inspections?status=approved" className="block h-full">
                 <KpiCard
                   label="Para publicar" value={kpis.toPublish}
                   icon={<Send className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="Aprobadas internamente. Falta enviarlas al propietario."
                 />
               </Link>
-              <Link to="/admin/inspections?bucket=waiting_owner">
+              <Link to="/admin/inspections?bucket=waiting_owner" className="block h-full">
                 <KpiCard
                   label="En gestión de aprobación" value={kpis.waitingOwner}
                   icon={<Hourglass className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="Publicadas y enviadas al propietario. Aguardando su respuesta."
                 />
               </Link>
-              <Link to="/admin/inspections?bucket=owner_feedback">
+              <Link to="/admin/inspections?bucket=owner_feedback" className="block h-full">
                 <KpiCard
                   label="Propietario pidió cambios" value={kpis.ownerFeedback}
                   icon={<MessageSquareWarning className="h-5 w-5 text-status-bad" />} accent="red"
                   tooltip="El propietario solicitó cambios. Requiere acción del ejecutivo."
                 />
               </Link>
-              <Link to="/admin/inspections?bucket=accepted">
+              <Link to="/admin/inspections?bucket=accepted" className="block h-full">
                 <KpiCard
                   label="Aprobados" value={kpis.accepted}
                   icon={<CheckCircle2 className="h-5 w-5 text-accent" />} accent="green"
                   tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 />
               </Link>
-              <Link to="/admin/inspections?status=sent">
+              <Link to="/admin/inspections?status=sent" className="block h-full">
                 <KpiCard
                   label="Finalizados" value={kpis.finalized}
-                  icon={<Archive className="h-5 w-5 text-muted-foreground" />}
+                  icon={<Archive className="h-5 w-5 text-muted-foreground" />} accent="green"
                   tooltip="Cerradas operativamente por ejecutivo o admin."
                 />
               </Link>
