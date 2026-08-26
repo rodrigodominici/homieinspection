@@ -36,7 +36,7 @@ import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, LayoutGrid, Table2,
-  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
+  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2, Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { measureOperation, captureError } from '@/lib/monitoring';
