@@ -50,15 +50,15 @@ export function KpiCard({
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       className={cn(
-        "rounded-xl border border-border bg-card p-4",
+        "flex h-full min-h-[104px] flex-col justify-between rounded-xl border border-border bg-card p-4",
         accent && ACCENT_CLASS[accent],
         onClick && "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active && "ring-2 ring-primary ring-offset-2 bg-primary/5",
       )}
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="mt-3 flex items-end justify-between gap-2">
-        <p className="font-display text-3xl font-bold text-foreground flex items-center gap-2">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <p className="font-display text-2xl font-bold text-foreground flex items-center gap-2">
           {icon}
           {value}
         </p>
@@ -72,6 +72,7 @@ export function KpiCard({
       {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
+
 
   if (!tooltip) return card;
 

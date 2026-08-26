@@ -9,7 +9,7 @@
  * Backed by the `executive_force_close_owner_feedback` RPC, which records
  * a synthetic submission row and writes to `inspection_audit_log`.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCallout } from '@/shared/ui/AlertCallout';
-import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES, type QuienRepara } from '@/lib/quien-repara';
 import { toast } from '@/hooks/use-toast';
 
 type Reason = 'no_response' | 'coordinated_offline' | 'other';
@@ -33,41 +32,12 @@ export function ManualCloseOwnerFeedbackDialog({ open, onOpenChange, inspectionI
   const [reason, setReason] = useState<Reason>('no_response');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  // `quien_repara` is mandatory to finalize an inspection: load the current
-  // value when the dialog opens so the executive can confirm or set it here.
-  const [quienRepara, setQuienRepara] = useState<QuienRepara | null>(null);
-  const [loadingFlag, setLoadingFlag] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoadingFlag(true);
-    supabase
-      .from('inspections')
-      .select('quien_repara')
-      .eq('id', inspectionId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setQuienRepara((data?.quien_repara as QuienRepara | null) ?? null);
-        setLoadingFlag(false);
-      });
-    return () => { cancelled = true; };
-  }, [open, inspectionId]);
-
   const noteRequired = reason === 'other';
-  const canSubmit =
-    !submitting && !loadingFlag && !!quienRepara && (!noteRequired || note.trim().length > 0);
+  const canSubmit = !submitting && (!noteRequired || note.trim().length > 0);
 
   const handleSubmit = async () => {
-    if (!quienRepara) return;
     setSubmitting(true);
     try {
-      const { error: flagError } = await supabase
-        .from('inspections')
-        .update({ quien_repara: quienRepara })
-        .eq('id', inspectionId);
-      if (flagError) throw flagError;
       const { data, error } = await supabase.rpc('executive_force_close_owner_feedback' as any, {
         p_inspection_id: inspectionId,
         p_reason: reason,
@@ -137,30 +107,6 @@ export function ManualCloseOwnerFeedbackDialog({ open, onOpenChange, inspectionI
               placeholder={noteRequired ? 'Describe el motivo del cierre' : 'Detalles adicionales (opcional)'}
               rows={3}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>
-              ¿Quién repara? <span className="text-destructive">*</span>
-            </Label>
-            <RadioGroup
-              value={quienRepara ?? ''}
-              onValueChange={(v) => setQuienRepara(v as QuienRepara)}
-            >
-              {QUIEN_REPARA_VALUES.map((v) => (
-                <div key={v} className="flex items-start gap-2">
-                  <RadioGroupItem value={v} id={`qr-${v}`} className="mt-0.5" />
-                  <Label htmlFor={`qr-${v}`} className="font-normal cursor-pointer">
-                    {QUIEN_REPARA_LABELS[v]}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {!quienRepara && !loadingFlag && (
-              <p className="text-xs text-muted-foreground">
-                Obligatorio para finalizar la inspección.
-              </p>
-            )}
           </div>
 
           <AlertCallout variant="warning">

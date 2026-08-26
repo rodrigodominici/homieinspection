@@ -49,7 +49,7 @@ import { useOwnerFeedbackByRepair } from '@/modules/review/api/useOwnerFeedbackB
 import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount';
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
-import QuienReparaSelect from '@/components/QuienReparaSelect';
+import QuienReparaChip from '@/components/QuienReparaChip';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
 import {
@@ -892,11 +892,10 @@ export default function AdminInspectionDetail() {
               <SummaryItem label="Inspector" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
               <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
               <SummaryItem label="Tipo" value={inspection.inspection_type} />
-              <QuienReparaSelect
-                inspectionId={inspection.id}
-                value={inspection.quien_repara}
-                onSaved={() => { fetchAll(); }}
-              />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight mb-1">¿Quién repara?</p>
+                <QuienReparaChip value={inspection.quien_repara} />
+              </div>
               {(() => {
                 const snap = getEffectiveSnapshot(inspection);
                 const fechaLlaves = (snap?.fecha_recoleccion_llaves as string) ?? null;
