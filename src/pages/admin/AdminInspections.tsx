@@ -532,7 +532,7 @@ export default function AdminInspections() {
                 executive queue, which only sees post-assignment stages). All
                 cards share ONE selection axis (`bucketFilter`) so counter and
                 results are always consistent. */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3">
               <KpiCard
                 label="Sin asignar" value={bucketCounts.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
