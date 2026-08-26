@@ -212,6 +212,14 @@ export function PublishView(props: PublishViewProps) {
         </div>
       )}
 
+      {/* Terminal close: approved/accepted → sent ("Finalizado") */}
+      <FinalizeInspectionButton
+        inspectionId={inspection.id}
+        status={inspection.status}
+        quienRepara={(inspection as any).quien_repara ?? null}
+        onFinalized={onRefresh}
+      />
+
       {/* Published versions timeline */}
       {isPublished && <PublishedVersionsTimeline inspectionId={inspection.id} />}
     </div>
