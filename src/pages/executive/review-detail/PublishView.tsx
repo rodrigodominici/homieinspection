@@ -3,6 +3,7 @@ import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy } from 'lu
 import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
+import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
 
@@ -210,6 +211,14 @@ export function PublishView(props: PublishViewProps) {
           </div>
         </div>
       )}
+
+      {/* Terminal close: approved/accepted → sent ("Finalizado") */}
+      <FinalizeInspectionButton
+        inspectionId={inspection.id}
+        status={inspection.status}
+        quienRepara={(inspection as any).quien_repara ?? null}
+        onFinalized={onRefresh}
+      />
 
       {/* Published versions timeline */}
       {isPublished && <PublishedVersionsTimeline inspectionId={inspection.id} />}

@@ -50,6 +50,7 @@ import { useQuotationDiscount } from '@/modules/review/api/useQuotationDiscount'
 import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quotation-discount';
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
 import QuienReparaSelect from '@/components/QuienReparaSelect';
+import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
 import {
   PendingDecisionsBanner,
@@ -1149,6 +1150,13 @@ export default function AdminInspectionDetail() {
                   </Button>
                 </div>
               )}
+              {/* Terminal close: approved/accepted → sent ("Finalizado") */}
+              <FinalizeInspectionButton
+                inspectionId={inspection.id}
+                status={inspection.status}
+                quienRepara={(inspection as any).quien_repara ?? null}
+                onFinalized={fetchAll}
+              />
             </div>
 
             {/* Post-publish info */}
