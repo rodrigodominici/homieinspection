@@ -3,6 +3,7 @@ import { Check, AlertTriangle, X, Send, RefreshCw, ExternalLink, Copy } from 'lu
 import { cn } from '@/lib/utils';
 import { ApproveInspectionDialog } from '@/modules/review/components';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
+import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
 
