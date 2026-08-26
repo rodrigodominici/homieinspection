@@ -596,6 +596,13 @@ export default function AdminInspections() {
                 active={bucketFilter === 'accepted'}
                 onClick={() => applyQuickFilter('accepted')}
               />
+              <KpiCard
+                label="Finalizados" value={bucketCounts.finalized}
+                icon={<Archive className="h-5 w-5 text-muted-foreground" />} accent="green"
+                tooltip="Cerradas operativamente por ejecutivo o admin."
+                active={bucketFilter === 'finalized'}
+                onClick={() => applyQuickFilter('finalized')}
+              />
             </div>
 
 
