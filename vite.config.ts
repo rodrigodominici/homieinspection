@@ -4,8 +4,14 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Build identity. Injected into the bundle and also emitted as `/version.json`
+// so a long-lived tab (or the installed PWA) can detect it is running a stale
+// build even when the service worker already took control.
+const APP_VERSION = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+
   server: {
     host: "::",
     port: 8080,
