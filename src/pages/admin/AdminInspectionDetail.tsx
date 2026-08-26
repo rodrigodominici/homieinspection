@@ -1153,6 +1153,7 @@ export default function AdminInspectionDetail() {
               <FinalizeInspectionButton
                 inspectionId={inspection.id}
                 status={inspection.status}
+                ownerFeedbackStatus={inspection.owner_feedback_status ?? null}
                 quienRepara={(inspection as any).quien_repara ?? null}
                 onFinalized={fetchAll}
               />

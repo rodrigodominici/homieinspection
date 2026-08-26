@@ -22,6 +22,8 @@ import { toast } from '@/hooks/use-toast';
 interface Props {
   inspectionId: string;
   status: string | null | undefined;
+  /** Owner lifecycle flag — a published report already accepted by the owner is finalizable. */
+  ownerFeedbackStatus?: string | null;
   quienRepara: QuienRepara | null | undefined;
   onFinalized?: () => void;
   variant?: 'default' | 'outline';
@@ -31,14 +33,18 @@ interface Props {
 const FINALIZABLE = new Set(['approved', 'accepted']);
 
 export function FinalizeInspectionButton({
-  inspectionId, status, quienRepara, onFinalized, variant = 'default', size = 'default',
+  inspectionId, status, ownerFeedbackStatus, quienRepara, onFinalized, variant = 'default', size = 'default',
 }: Props) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [flag, setFlag] = useState<QuienRepara | null>(quienRepara ?? null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!status || !FINALIZABLE.has(status)) return null;
+  const finalizable =
+    !!status &&
+    (FINALIZABLE.has(status) ||
+      (status === 'published' && ownerFeedbackStatus === 'accepted'));
+  if (!finalizable) return null;
 
   const canSubmit = !submitting && !!flag;
 
