@@ -88,7 +88,7 @@ export const STAGE_ORDER: StageKey[] = [
 
 export const STAGE_META: Record<StageKey, StageMeta> = {
   unassigned:    { key: "unassigned",    label: "Sin asignar",                 colorClass: "bg-status-bad",       legendDotClass: "bg-status-bad" },
-  inProgress:    { key: "inProgress",    label: "En espera de check out",      colorClass: "bg-primary",          legendDotClass: "bg-primary" },
+  inProgress:    { key: "inProgress",    label: "En espera de Hallazgos",      colorClass: "bg-primary",          legendDotClass: "bg-primary" },
   forReview:     { key: "forReview",     label: "En gestión de cotización",    colorClass: "bg-primary/70",       legendDotClass: "bg-primary/70" },
   toPublish:     { key: "toPublish",     label: "Para publicar",               colorClass: "bg-primary/50",       legendDotClass: "bg-primary/50" },
   waitingOwner:  { key: "waitingOwner",  label: "En gestión de aprobación",    colorClass: "bg-primary/30",       legendDotClass: "bg-primary/30" },

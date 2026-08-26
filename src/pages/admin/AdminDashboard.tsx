@@ -140,7 +140,7 @@ export default function AdminDashboard() {
               </Link>
               <Link to="/admin/inspections?status=in_progress">
                 <KpiCard
-                  label="En espera de check out" value={kpis.inProgress}
+                  label="En espera de Hallazgos" value={kpis.inProgress}
                   icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="El inspector ya inició la captura en sitio."
                 />
