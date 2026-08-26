@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -8,6 +8,24 @@ import { VitePWA } from "vite-plugin-pwa";
 // so a long-lived tab (or the installed PWA) can detect it is running a stale
 // build even when the service worker already took control.
 const APP_VERSION = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+
+/**
+ * Emits `/version.json` alongside the bundle. Not matched by the service worker
+ * precache globs, so clients always fetch it from the network.
+ */
+function versionFilePlugin(): Plugin {
+  return {
+    name: "app-version-file",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: JSON.stringify({ version: APP_VERSION }),
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -77,19 +95,7 @@ export default defineConfig(({ mode }) => ({
       },
     }),
     mode === "development" && componentTagger(),
-    {
-      // Emits `/version.json` alongside the bundle. Not matched by the service
-      // worker precache globs, so it is always fetched from the network.
-      name: "app-version-file",
-      apply: "build" as const,
-      generateBundle() {
-        this.emitFile({
-          type: "asset" as const,
-          fileName: "version.json",
-          source: JSON.stringify({ version: APP_VERSION }),
-        });
-      },
-    },
+    versionFilePlugin(),
   ].filter(Boolean),
   define: {
     // Build identity, sent with every diagnostic event so we can tell whether a
