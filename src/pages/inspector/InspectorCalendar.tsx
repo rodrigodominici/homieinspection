@@ -137,7 +137,7 @@ export default function InspectorCalendar() {
       <div className="flex gap-2 px-4 pb-3">
         {([
           { value: 'all' as const, label: 'Todas' },
-          { value: 'programmed' as const, label: 'Coordinadas p/ recibir' },
+          { value: 'programmed' as const, label: 'Coordinadas' },
           { value: 'to_coordinate' as const, label: 'Por coordinar' },
         ]).map(pill => (
           <Button

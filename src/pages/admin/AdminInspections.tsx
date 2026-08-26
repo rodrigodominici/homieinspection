@@ -87,7 +87,7 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
   { value: 'por_coordinar', label: 'Por coordinar' },
-  { value: 'programadas', label: 'Coordinadas p/ recibir' },
+  { value: 'programadas', label: 'Coordinadas' },
   { value: 'in_progress', label: 'En espera de Hallazgos' },
   { value: 'for_review', label: 'En gestión de cotización' },
   { value: 'to_publish', label: 'Para publicar' },
@@ -544,7 +544,7 @@ export default function AdminInspections() {
                 onClick={() => applyQuickFilter('por_coordinar')}
               />
               <KpiCard
-                label="Coordinadas p/ recibir" value={bucketCounts.programadas}
+                label="Coordinadas" value={bucketCounts.programadas}
                 icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Con inspector, ejecutivo y fecha de llaves confirmada (admin-only)."
                 active={bucketFilter === 'programadas'}
