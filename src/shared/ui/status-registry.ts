@@ -36,8 +36,8 @@ const TONE_CLASS: Record<StatusTone, string> = {
 export const INSPECTION_STATUS: Record<InspectionStatus, StatusEntry> = {
   pending:            { label: "Por coordinar",              tone: "pending" },
   pending_assignment: { label: "Sin asignar",                tone: "blocked" },
-  assigned:           { label: "Coordinada p/ recibir",      tone: "pending" },
-  in_progress:        { label: "En espera de check out",     tone: "in-progress" },
+  assigned:           { label: "Coordinada",      tone: "pending" },
+  in_progress:        { label: "En espera de Hallazgos",     tone: "in-progress" },
   submitted:          { label: "En gestión de cotización",   tone: "pending", actionable: true },
   in_review:          { label: "En gestión de cotización",   tone: "in-progress", actionable: true },
   approved:           { label: "En gestión de aprobación",   tone: "approved" },

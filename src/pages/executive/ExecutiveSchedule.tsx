@@ -226,7 +226,7 @@ export default function ExecutiveSchedule() {
         <div className="flex items-center gap-2 flex-wrap">
           {([
             { value: 'all' as const, label: 'Todas' },
-            { value: 'programmed' as const, label: 'Coordinadas p/ recibir' },
+            { value: 'programmed' as const, label: 'Coordinadas' },
             { value: 'to_coordinate' as const, label: 'Por coordinar' },
           ]).map(pill => (
             <Button

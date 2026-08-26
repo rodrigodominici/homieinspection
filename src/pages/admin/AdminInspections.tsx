@@ -46,8 +46,8 @@ const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
   { value: 'pending', label: 'Por coordinar' },
   { value: 'pending_assignment', label: 'Sin asignar' },
-  { value: 'assigned', label: 'Coordinada p/ recibir' },
-  { value: 'in_progress', label: 'En espera de check out' },
+  { value: 'assigned', label: 'Coordinada' },
+  { value: 'in_progress', label: 'En espera de Hallazgos' },
   { value: 'submitted', label: 'En gestión de cotización' },
   { value: 'in_review', label: 'En gestión de cotización (revisión)' },
   { value: 'approved', label: 'En gestión de aprobación' },
@@ -87,8 +87,8 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
   { value: 'por_coordinar', label: 'Por coordinar' },
-  { value: 'programadas', label: 'Coordinadas p/ recibir' },
-  { value: 'in_progress', label: 'En espera de check out' },
+  { value: 'programadas', label: 'Coordinadas' },
+  { value: 'in_progress', label: 'En espera de Hallazgos' },
   { value: 'for_review', label: 'En gestión de cotización' },
   { value: 'to_publish', label: 'Para publicar' },
   { value: 'waiting_owner', label: 'En gestión de aprobación' },
@@ -544,14 +544,14 @@ export default function AdminInspections() {
                 onClick={() => applyQuickFilter('por_coordinar')}
               />
               <KpiCard
-                label="Coordinadas p/ recibir" value={bucketCounts.programadas}
+                label="Coordinadas" value={bucketCounts.programadas}
                 icon={<CalendarIcon className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="Con inspector, ejecutivo y fecha de llaves confirmada (admin-only)."
                 active={bucketFilter === 'programadas'}
                 onClick={() => applyQuickFilter('programadas')}
               />
               <KpiCard
-                label="En espera de check out" value={bucketCounts.in_progress}
+                label="En espera de Hallazgos" value={bucketCounts.in_progress}
                 icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                 tooltip="El inspector ya inició la captura en sitio."
                 active={bucketFilter === 'in_progress'}

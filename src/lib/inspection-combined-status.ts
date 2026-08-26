@@ -102,7 +102,7 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
     return hasKeyCollectionDate(insp)
       ? {
           key: "assigned",
-          label: "Coordinada p/ recibir",
+          label: "Coordinada",
           tone: "pending",
           requiresExecutiveAction: false,
         }
@@ -116,7 +116,7 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
 
   const baseMap: Record<string, { label: string; tone: StatusTone }> = {
     pending_assignment: { label: "Sin asignar",              tone: "blocked" },
-    in_progress:        { label: "En espera de check out",   tone: "in-progress" },
+    in_progress:        { label: "En espera de Hallazgos",   tone: "in-progress" },
     submitted:          { label: "En gestión de cotización", tone: "pending" },
     in_review:          { label: "En gestión de cotización", tone: "in-progress" },
   };

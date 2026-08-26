@@ -140,7 +140,7 @@ export default function AdminDashboard() {
               </Link>
               <Link to="/admin/inspections?status=in_progress">
                 <KpiCard
-                  label="En espera de check out" value={kpis.inProgress}
+                  label="En espera de Hallazgos" value={kpis.inProgress}
                   icon={<Clock className="h-5 w-5 text-primary" />} accent="blue"
                   tooltip="El inspector ya inició la captura en sitio."
                 />
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Próximas coordinadas p/ recibir
+                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Próximas coordinadas
                     </CardTitle>
                     <Link to="/admin/schedule"><Button variant="ghost" size="sm">Ver calendario</Button></Link>
                   </div>

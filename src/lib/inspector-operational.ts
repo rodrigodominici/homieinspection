@@ -86,7 +86,7 @@ export function getInspectorDisplayState(
   }
 
   if (progressPercent > 0 || inspection.started_at) {
-    return { key: 'in_progress', label: 'En espera de check out', tone: 'primary' };
+    return { key: 'in_progress', label: 'En espera de Hallazgos', tone: 'primary' };
   }
 
   // to_coordinate: only when full inspection is available for snapshot check
@@ -95,7 +95,7 @@ export function getInspectorDisplayState(
   }
 
   if (['assigned', 'pending_assignment', 'pending'].includes(inspection.status)) {
-    return { key: 'assigned', label: 'Coordinada p/ recibir', tone: 'neutral' };
+    return { key: 'assigned', label: 'Coordinada', tone: 'neutral' };
   }
 
 
