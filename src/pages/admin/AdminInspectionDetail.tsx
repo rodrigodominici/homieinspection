@@ -1150,6 +1150,13 @@ export default function AdminInspectionDetail() {
                   </Button>
                 </div>
               )}
+              {/* Terminal close: approved/accepted → sent ("Finalizado") */}
+              <FinalizeInspectionButton
+                inspectionId={inspection.id}
+                status={inspection.status}
+                quienRepara={(inspection as any).quien_repara ?? null}
+                onFinalized={fetchAll}
+              />
             </div>
 
             {/* Post-publish info */}
