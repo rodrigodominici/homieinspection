@@ -180,7 +180,15 @@ export default function AdminDashboard() {
                   tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 />
               </Link>
+              <Link to="/admin/inspections?status=sent">
+                <KpiCard
+                  label="Finalizados" value={kpis.finalized}
+                  icon={<Archive className="h-5 w-5 text-muted-foreground" />}
+                  tooltip="Cerradas operativamente por ejecutivo o admin."
+                />
+              </Link>
             </div>
+
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
             <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
             <ExecutivePerformancePanel />
