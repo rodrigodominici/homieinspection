@@ -22,6 +22,8 @@ export interface InspectionKpis {
   ownerFeedback: number;
   /** Owner accepted (or executive force-closed). */
   accepted: number;
+  /** Operationally closed by executive/admin (status `sent`). */
+  finalized: number;
 }
 
 export function bucketOf(insp: Inspection): PriorityBucket {
@@ -43,7 +45,8 @@ export type StageKey =
   | "toPublish"
   | "waitingOwner"
   | "ownerFeedback"
-  | "accepted";
+  | "accepted"
+  | "finalized";
 
 /**
  * Single-inspection classifier — mirrors the logic in `computeInspectionKpis`
@@ -88,6 +91,7 @@ export const STAGE_ORDER: StageKey[] = [
   "waitingOwner",
   "ownerFeedback",
   "accepted",
+  "finalized",
 ];
 
 export const STAGE_META: Record<StageKey, StageMeta> = {
@@ -97,6 +101,7 @@ export const STAGE_META: Record<StageKey, StageMeta> = {
   toPublish:     { key: "toPublish",     label: "Para publicar",               colorClass: "bg-primary/50",       legendDotClass: "bg-primary/50" },
   waitingOwner:  { key: "waitingOwner",  label: "En gestión de aprobación",    colorClass: "bg-primary/30",       legendDotClass: "bg-primary/30" },
   ownerFeedback: { key: "ownerFeedback", label: "Propietario pidió cambios",   colorClass: "bg-status-bad/70",    legendDotClass: "bg-status-bad/70" },
+  finalized:     { key: "finalized",     label: "Finalizado",                  colorClass: "bg-muted-foreground", legendDotClass: "bg-muted-foreground" },
   accepted:      { key: "accepted",      label: "Aprobado",                    colorClass: "bg-accent",           legendDotClass: "bg-accent" },
 };
 
@@ -104,7 +109,7 @@ export const STAGE_META: Record<StageKey, StageMeta> = {
 export function computeInspectionKpis(inspections: Inspection[]): InspectionKpis {
   const k: InspectionKpis = {
     unassigned: 0, inProgress: 0, forReview: 0,
-    toPublish: 0, waitingOwner: 0, ownerFeedback: 0, accepted: 0,
+    toPublish: 0, waitingOwner: 0, ownerFeedback: 0, accepted: 0, finalized: 0,
   };
   for (const i of inspections) {
     const s = stageOf(i);
