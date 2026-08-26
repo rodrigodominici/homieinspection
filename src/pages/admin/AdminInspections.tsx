@@ -82,7 +82,8 @@ type Bucket =
   | 'to_publish'
   | 'waiting_owner'
   | 'owner_feedback'
-  | 'accepted';
+  | 'accepted'
+  | 'finalized';
 const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
@@ -94,6 +95,7 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'waiting_owner', label: 'En gestión de aprobación' },
   { value: 'owner_feedback', label: 'Propietario pidió cambios' },
   { value: 'accepted', label: 'Aprobados' },
+  { value: 'finalized', label: 'Finalizados' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
