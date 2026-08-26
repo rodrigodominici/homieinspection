@@ -77,14 +77,26 @@ export default defineConfig(({ mode }) => ({
       },
     }),
     mode === "development" && componentTagger(),
+    {
+      // Emits `/version.json` alongside the bundle. Not matched by the service
+      // worker precache globs, so it is always fetched from the network.
+      name: "app-version-file",
+      apply: "build" as const,
+      generateBundle() {
+        this.emitFile({
+          type: "asset" as const,
+          fileName: "version.json",
+          source: JSON.stringify({ version: APP_VERSION }),
+        });
+      },
+    },
   ].filter(Boolean),
   define: {
     // Build identity, sent with every diagnostic event so we can tell whether a
     // failing client is running a stale build.
-    __APP_VERSION__: JSON.stringify(
-      `${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`,
-    ),
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
+
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
