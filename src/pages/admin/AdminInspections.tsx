@@ -371,9 +371,10 @@ export default function AdminInspections() {
       case 'in_progress':     return i.status === 'in_progress';
       case 'for_review':      return i.status === 'submitted' || i.status === 'in_review';
       case 'to_publish':      return i.status === 'approved' && fb !== 'accepted';
-      case 'waiting_owner':   return (i.status === 'published' || i.status === 'sent') && fb === 'none';
-      case 'owner_feedback':  return fb === 'pending_executive_review';
-      case 'accepted':        return fb === 'accepted';
+      case 'waiting_owner':   return i.status === 'published' && fb === 'none';
+      case 'owner_feedback':  return i.status !== 'sent' && fb === 'pending_executive_review';
+      case 'accepted':        return i.status !== 'sent' && fb === 'accepted';
+      case 'finalized':       return i.status === 'sent';
     }
   };
 
@@ -383,7 +384,7 @@ export default function AdminInspections() {
       all: inspections.length,
       unassigned: 0, por_coordinar: 0, programadas: 0,
       in_progress: 0, for_review: 0, to_publish: 0,
-      waiting_owner: 0, owner_feedback: 0, accepted: 0,
+      waiting_owner: 0, owner_feedback: 0, accepted: 0, finalized: 0,
     };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
@@ -394,9 +395,10 @@ export default function AdminInspections() {
       if (i.status === 'in_progress') counts.in_progress++;
       if (i.status === 'submitted' || i.status === 'in_review') counts.for_review++;
       if (i.status === 'approved' && fb !== 'accepted') counts.to_publish++;
-      if ((i.status === 'published' || i.status === 'sent') && fb === 'none') counts.waiting_owner++;
-      if (fb === 'pending_executive_review') counts.owner_feedback++;
-      if (fb === 'accepted') counts.accepted++;
+      if (i.status === 'published' && fb === 'none') counts.waiting_owner++;
+      if (i.status !== 'sent' && fb === 'pending_executive_review') counts.owner_feedback++;
+      if (i.status !== 'sent' && fb === 'accepted') counts.accepted++;
+      if (i.status === 'sent') counts.finalized++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
