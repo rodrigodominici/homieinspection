@@ -53,19 +53,23 @@ export type StageKey =
  */
 export function stageOf(insp: Inspection): StageKey | null {
   if (bucketOf(insp) === 0) return "unassigned";
+  // Terminal operational close wins over the owner-feedback lifecycle.
+  if (insp.status === "sent") return "finalized";
   if (insp.status === "in_progress") return "inProgress";
   if (insp.status === "submitted" || insp.status === "in_review") return "forReview";
+  if (insp.status === "accepted") return "accepted";
   if (insp.status === "approved") {
     if (isAcceptedByOwner(insp)) return "accepted";
     return "toPublish";
   }
-  if (insp.status === "published" || insp.status === "sent") {
+  if (insp.status === "published") {
     if (requiresExecutiveOwnerFollowUp(insp)) return "ownerFeedback";
     if (isAcceptedByOwner(insp)) return "accepted";
     if (isWaitingOwner(insp)) return "waitingOwner";
   }
   return null;
 }
+
 
 export interface StageMeta {
   key: StageKey;
