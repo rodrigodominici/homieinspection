@@ -36,7 +36,7 @@ import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, LayoutGrid, Table2,
-  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2,
+  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2, Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { measureOperation, captureError } from '@/lib/monitoring';
@@ -82,7 +82,8 @@ type Bucket =
   | 'to_publish'
   | 'waiting_owner'
   | 'owner_feedback'
-  | 'accepted';
+  | 'accepted'
+  | 'finalized';
 const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
@@ -94,6 +95,7 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'waiting_owner', label: 'En gestión de aprobación' },
   { value: 'owner_feedback', label: 'Propietario pidió cambios' },
   { value: 'accepted', label: 'Aprobados' },
+  { value: 'finalized', label: 'Finalizados' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
@@ -369,9 +371,10 @@ export default function AdminInspections() {
       case 'in_progress':     return i.status === 'in_progress';
       case 'for_review':      return i.status === 'submitted' || i.status === 'in_review';
       case 'to_publish':      return i.status === 'approved' && fb !== 'accepted';
-      case 'waiting_owner':   return (i.status === 'published' || i.status === 'sent') && fb === 'none';
-      case 'owner_feedback':  return fb === 'pending_executive_review';
-      case 'accepted':        return fb === 'accepted';
+      case 'waiting_owner':   return i.status === 'published' && fb === 'none';
+      case 'owner_feedback':  return i.status !== 'sent' && fb === 'pending_executive_review';
+      case 'accepted':        return i.status !== 'sent' && fb === 'accepted';
+      case 'finalized':       return i.status === 'sent';
     }
   };
 
@@ -381,7 +384,7 @@ export default function AdminInspections() {
       all: inspections.length,
       unassigned: 0, por_coordinar: 0, programadas: 0,
       in_progress: 0, for_review: 0, to_publish: 0,
-      waiting_owner: 0, owner_feedback: 0, accepted: 0,
+      waiting_owner: 0, owner_feedback: 0, accepted: 0, finalized: 0,
     };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
@@ -392,9 +395,10 @@ export default function AdminInspections() {
       if (i.status === 'in_progress') counts.in_progress++;
       if (i.status === 'submitted' || i.status === 'in_review') counts.for_review++;
       if (i.status === 'approved' && fb !== 'accepted') counts.to_publish++;
-      if ((i.status === 'published' || i.status === 'sent') && fb === 'none') counts.waiting_owner++;
-      if (fb === 'pending_executive_review') counts.owner_feedback++;
-      if (fb === 'accepted') counts.accepted++;
+      if (i.status === 'published' && fb === 'none') counts.waiting_owner++;
+      if (i.status !== 'sent' && fb === 'pending_executive_review') counts.owner_feedback++;
+      if (i.status !== 'sent' && fb === 'accepted') counts.accepted++;
+      if (i.status === 'sent') counts.finalized++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
@@ -528,7 +532,7 @@ export default function AdminInspections() {
                 executive queue, which only sees post-assignment stages). All
                 cards share ONE selection axis (`bucketFilter`) so counter and
                 results are always consistent. */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3">
               <KpiCard
                 label="Sin asignar" value={bucketCounts.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
@@ -591,6 +595,13 @@ export default function AdminInspections() {
                 tooltip="El propietario aceptó la cotización. Ciclo cerrado."
                 active={bucketFilter === 'accepted'}
                 onClick={() => applyQuickFilter('accepted')}
+              />
+              <KpiCard
+                label="Finalizados" value={bucketCounts.finalized}
+                icon={<Archive className="h-5 w-5 text-muted-foreground" />} accent="green"
+                tooltip="Cerradas operativamente por ejecutivo o admin."
+                active={bucketFilter === 'finalized'}
+                onClick={() => applyQuickFilter('finalized')}
               />
             </div>
 
