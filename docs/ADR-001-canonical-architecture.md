@@ -1,7 +1,7 @@
 # ADR-001: Canonical Operational Architecture
 
 Status: Accepted — in production
-Date: 2026-04-17 (last reviewed 2026-05-22)
+Date: 2026-04-17 (last reviewed 2026-08-27)
 
 ## Decisions
 
@@ -72,3 +72,51 @@ failed event is debuggable without reading SQL:
 last attempted stage even when the SQL exception bubbles up. Deterministic
 failures (`payload_validation`, `structure_generation`, SQL-syntax / constraint
 errors) are non-retryable and rejected by `retry-source-event` with HTTP 409.
+
+## Addendum — decisions accepted after 2026-05 (reviewed 2026-08-27)
+
+6. **Status vocabulary is type-agnostic and centralized.**
+   `src/shared/ui/status-registry.ts` is the only source of labels and
+   tones. No label may reference "check-out" (both `check_out` and
+   `captacion` share the same states). Wording per inspection type comes
+   from `src/lib/inspection-type-labels.ts`.
+
+7. **`quien_repara` is a flag, not a status.**
+   Values `homie | dueno | ninguno`. Editable **only** inside the
+   "Finalizar inspección" action; read-only everywhere else. Changes are
+   audited by the `log_quien_repara_change` trigger.
+
+8. **Operational close is an explicit action.**
+   `public.finalize_inspection` moves `approved` / `accepted` /
+   `published+accepted` inspections to `sent` ("Finalizado"), requires
+   `quien_repara`, and is allowed for Admin and Executive. `sent` always
+   wins over the owner-feedback lifecycle in bucket derivation.
+
+9. **KPIs and list filters derive from one module.**
+   `src/lib/inspection-buckets.ts` feeds Admin lists, dashboards and the
+   executive queue. KPI clicks reset conflicting filters (unified
+   filtering axis).
+
+10. **`comercial` is a read-only role.**
+    Access is enforced in the database via `public.is_comercial()` and
+    `public.is_visible_checkout_for_comercial()`; the UI only consults and
+    downloads published check-outs.
+
+11. **Resilience baseline.**
+    Auth resolution has a 6 s timeout with a `BackendUnavailable` fallback;
+    route chunks use `lazyWithRetry`; a build-time `version.json` plus
+    `NewVersionPrompt` prevent stale PWA bundles; `health-check` +
+    `system_health_state` back outage alerting; client errors land in
+    `client_error_log` and PostHog.
+
+12. **RLS policies must use InitPlan subselects.**
+    Write `(select auth.uid())`, never bare `auth.uid()`, so policies stay
+    index-friendly on large tables.
+
+13. **Photo access is batch-signed.**
+    Signed URLs are requested in batches with a 1 h TTL and refreshed at
+    ~50 min. Images are compressed to JPEG (max 1600px) client-side, and
+    uploads refresh the JWT before retrying on 400/401.
+
+14. **Deleting an inspection deletes its source events.**
+    Otherwise intake deduplication blocks re-ingesting the same payload.
