@@ -20,7 +20,8 @@ export type CombinedStatusKey =
   | "owner_requested_changes"
   | "accepted_by_owner"
   | "approved_pending_publish"
-  | "approved_manual_close";
+  | "approved_manual_close"
+  | "finalized";
 
 export interface CombinedStatus {
   key: CombinedStatusKey;
