@@ -38,18 +38,20 @@ import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspectio
 type ExecutiveBucket =
   | 'owner_feedback'  // published + owner pidió cambios → máxima prioridad
   | 'action'          // submitted, in_review, approved
-  | 'follow_up'       // published, sent (sin feedback) y aceptadas
+  | 'follow_up'       // published (sin feedback) y aceptadas
+  | 'finalized'       // sent → cerradas operativamente
   | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
-  if ((insp.status === 'published' || insp.status === 'sent')
-      && insp.owner_feedback_status === 'pending_executive_review') {
+  // Cierre operativo terminal: manda sobre el ciclo de feedback.
+  if (insp.status === 'sent') return 'finalized';
+  if (insp.status === 'published' && insp.owner_feedback_status === 'pending_executive_review') {
     return 'owner_feedback';
   }
   // Aceptada por propietario = ciclo cerrado, no es acción pendiente.
   if (isAcceptedByOwner(insp)) return 'follow_up';
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
-  if (['published', 'sent'].includes(insp.status)) return 'follow_up';
+  if (insp.status === 'published') return 'follow_up';
   return 'pre_inspection';
 }
 
@@ -188,7 +190,7 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      owner_feedback: [], action: [], follow_up: [], pre_inspection: [],
+      owner_feedback: [], action: [], follow_up: [], finalized: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
     // Apply per-bucket secondary sort (override the global sortKey).
@@ -203,6 +205,7 @@ export default function ExecutiveReviewQueue() {
       const dB = b.published_at ? new Date(b.published_at).getTime() : 0;
       return dB - dA;
     });
+    buckets.finalized.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     return buckets;
   }, [sortedFiltered]);
 
@@ -245,13 +248,13 @@ export default function ExecutiveReviewQueue() {
                 <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="assigned">Asignada</SelectItem>
-                  <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="submitted">Lista para revisión</SelectItem>
-                  <SelectItem value="in_review">En revisión</SelectItem>
-                  <SelectItem value="approved">Aprobada</SelectItem>
+                  <SelectItem value="assigned">Coordinada</SelectItem>
+                  <SelectItem value="in_progress">En espera de Hallazgos</SelectItem>
+                  <SelectItem value="submitted">En gestión de cotización</SelectItem>
+                  <SelectItem value="in_review">En gestión de cotización (en revisión)</SelectItem>
+                  <SelectItem value="approved">En gestión de aprobación</SelectItem>
                   <SelectItem value="published">Publicada</SelectItem>
-                  <SelectItem value="sent">Entregada</SelectItem>
+                  <SelectItem value="sent">Finalizada</SelectItem>
                 </SelectContent>
               </Select>
               {markets.length > 1 && (
@@ -329,6 +332,14 @@ export default function ExecutiveReviewQueue() {
                 {grouped.follow_up.length > 0 && (
                   <CollapsibleGroup label="Seguimiento" total={grouped.follow_up.length} defaultOpen={grouped.follow_up.length <= 3} forceOpen={hasActiveFilter}>
                     <BucketSection inspections={grouped.follow_up} bucket="follow_up"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
+                )}
+
+                {grouped.finalized.length > 0 && (
+                  <CollapsibleGroup label="Finalizadas" total={grouped.finalized.length} defaultOpen={false} forceOpen={hasActiveFilter}
+                    description="Inspecciones cerradas operativamente.">
+                    <BucketSection inspections={grouped.finalized} bucket="finalized"
                       sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
                   </CollapsibleGroup>
                 )}
