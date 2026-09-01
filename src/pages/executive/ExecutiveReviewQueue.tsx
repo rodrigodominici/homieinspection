@@ -248,13 +248,13 @@ export default function ExecutiveReviewQueue() {
                 <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="assigned">Asignada</SelectItem>
-                  <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="submitted">Lista para revisión</SelectItem>
-                  <SelectItem value="in_review">En revisión</SelectItem>
-                  <SelectItem value="approved">Aprobada</SelectItem>
+                  <SelectItem value="assigned">Coordinada</SelectItem>
+                  <SelectItem value="in_progress">En espera de Hallazgos</SelectItem>
+                  <SelectItem value="submitted">En gestión de cotización</SelectItem>
+                  <SelectItem value="in_review">En gestión de cotización (en revisión)</SelectItem>
+                  <SelectItem value="approved">En gestión de aprobación</SelectItem>
                   <SelectItem value="published">Publicada</SelectItem>
-                  <SelectItem value="sent">Entregada</SelectItem>
+                  <SelectItem value="sent">Finalizada</SelectItem>
                 </SelectContent>
               </Select>
               {markets.length > 1 && (
