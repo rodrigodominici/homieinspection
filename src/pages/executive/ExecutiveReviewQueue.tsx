@@ -336,6 +336,14 @@ export default function ExecutiveReviewQueue() {
                   </CollapsibleGroup>
                 )}
 
+                {grouped.finalized.length > 0 && (
+                  <CollapsibleGroup label="Finalizadas" total={grouped.finalized.length} defaultOpen={false} forceOpen={hasActiveFilter}
+                    description="Inspecciones cerradas operativamente.">
+                    <BucketSection inspections={grouped.finalized} bucket="finalized"
+                      sectionsByInspection={sectionsByInspection} inspectorProfiles={inspectorProfiles} />
+                  </CollapsibleGroup>
+                )}
+
                 {grouped.pre_inspection.length > 0 && (
                   <CollapsibleGroup label="Pre-inspección" total={grouped.pre_inspection.length} defaultOpen={false} forceOpen={hasActiveFilter}
                     description="Inspecciones en etapas previas a la revisión ejecutiva.">
