@@ -38,18 +38,20 @@ import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspectio
 type ExecutiveBucket =
   | 'owner_feedback'  // published + owner pidió cambios → máxima prioridad
   | 'action'          // submitted, in_review, approved
-  | 'follow_up'       // published, sent (sin feedback) y aceptadas
+  | 'follow_up'       // published (sin feedback) y aceptadas
+  | 'finalized'       // sent → cerradas operativamente
   | 'pre_inspection'; // pending_assignment, assigned, in_progress
 
 function getExecutiveBucket(insp: Inspection): ExecutiveBucket {
-  if ((insp.status === 'published' || insp.status === 'sent')
-      && insp.owner_feedback_status === 'pending_executive_review') {
+  // Cierre operativo terminal: manda sobre el ciclo de feedback.
+  if (insp.status === 'sent') return 'finalized';
+  if (insp.status === 'published' && insp.owner_feedback_status === 'pending_executive_review') {
     return 'owner_feedback';
   }
   // Aceptada por propietario = ciclo cerrado, no es acción pendiente.
   if (isAcceptedByOwner(insp)) return 'follow_up';
   if (['submitted', 'in_review', 'approved'].includes(insp.status)) return 'action';
-  if (['published', 'sent'].includes(insp.status)) return 'follow_up';
+  if (insp.status === 'published') return 'follow_up';
   return 'pre_inspection';
 }
 
