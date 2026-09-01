@@ -205,6 +205,7 @@ export default function ExecutiveReviewQueue() {
       const dB = b.published_at ? new Date(b.published_at).getTime() : 0;
       return dB - dA;
     });
+    buckets.finalized.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     return buckets;
   }, [sortedFiltered]);
 
