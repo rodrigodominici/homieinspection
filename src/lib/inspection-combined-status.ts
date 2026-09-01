@@ -45,6 +45,16 @@ function hasKeyCollectionDate(insp: Input): boolean {
 export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
   const fb = insp.owner_feedback_status ?? "none";
 
+  // Terminal operational close wins over the owner-feedback lifecycle.
+  if (insp.status === "sent") {
+    return {
+      key: "finalized",
+      label: "Finalizado",
+      tone: "neutral",
+      requiresExecutiveAction: false,
+    };
+  }
+
   // Published reports: owner-feedback dimension takes over.
   if (insp.status === "published" || insp.status === "sent") {
     if (fb === "pending_executive_review") {
