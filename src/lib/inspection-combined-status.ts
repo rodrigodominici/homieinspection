@@ -56,7 +56,7 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
   }
 
   // Published reports: owner-feedback dimension takes over.
-  if (insp.status === "published" || insp.status === "sent") {
+  if (insp.status === "published") {
     if (fb === "pending_executive_review") {
       return {
         key: "owner_requested_changes",
