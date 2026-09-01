@@ -190,7 +190,7 @@ export default function ExecutiveReviewQueue() {
 
   const grouped = useMemo(() => {
     const buckets: Record<ExecutiveBucket, Inspection[]> = {
-      owner_feedback: [], action: [], follow_up: [], pre_inspection: [],
+      owner_feedback: [], action: [], follow_up: [], finalized: [], pre_inspection: [],
     };
     sortedFiltered.forEach(i => { buckets[getExecutiveBucket(i)].push(i); });
     // Apply per-bucket secondary sort (override the global sortKey).
