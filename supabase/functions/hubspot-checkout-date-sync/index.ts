@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
     .from('inspections')
     .select('id, status, scheduled_at, inspection_type')
     .eq('property_id', property_id)
-    .eq('inspection_type', 'checkout')
+    .eq('inspection_type', 'check_out')
     .in('status', UPDATABLE_STATUSES)
     .order('created_at', { ascending: false })
     .limit(1)
