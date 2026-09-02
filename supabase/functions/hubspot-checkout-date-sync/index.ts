@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
       property_id,
       payload: body,
       status: 'failed',
-      failure_reason: 'lookup_failed',
+      failure_reason: 'unknown',
       error_message: findErr.message,
     });
     return json({ error: 'lookup_failed', detail: findErr.message }, 500);
@@ -111,9 +111,9 @@ Deno.serve(async (req: Request) => {
       external_object_id: external_object_id ?? null,
       property_id,
       payload: body,
-      status: 'skipped',
-      failure_reason: 'no_active_inspection',
+      status: 'completed',
       error_message: `No active checkout inspection found for property_id=${property_id}`,
+      normalized: { skipped: true, reason: 'no_active_inspection' },
     });
     return json({ status: 'skipped', reason: 'no_active_inspection' }, 200);
   }
@@ -126,10 +126,10 @@ Deno.serve(async (req: Request) => {
       external_object_id: external_object_id ?? null,
       property_id,
       payload: body,
-      status: 'skipped',
-      failure_reason: 'date_unchanged',
+      status: 'completed',
       error_message: `scheduled_at already equals new_date (${scheduledAt})`,
       inspection_id: inspection.id,
+      normalized: { skipped: true, reason: 'date_unchanged' },
     });
     return json({ status: 'skipped', reason: 'date_unchanged', inspection_id: inspection.id }, 200);
   }
@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
       property_id,
       payload: body,
       status: 'failed',
-      failure_reason: 'update_failed',
+      failure_reason: 'unknown',
       error_message: updateErr.message,
       inspection_id: inspection.id,
     });
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     external_object_id: external_object_id ?? null,
     property_id,
     payload: body,
-    status: 'processed',
+    status: 'completed',
     inspection_id: inspection.id,
     normalized: {
       inspection_id: inspection.id,
@@ -188,8 +188,8 @@ async function logEvent(
     external_object_id: string | null;
     property_id: string;
     payload: unknown;
-    status: 'processed' | 'skipped' | 'failed';
-    failure_reason?: string;
+    status: 'completed' | 'failed';
+    failure_reason?: 'payload_validation' | 'normalization' | 'inspection_creation' | 'assignment_resolution' | 'unknown';
     error_message?: string;
     inspection_id?: string;
     normalized?: unknown;
