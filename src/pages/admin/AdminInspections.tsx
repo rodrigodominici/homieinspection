@@ -24,6 +24,7 @@ import {
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
 import { marketLabel } from '@/lib/markets';
+import { isStalled, evaluateStall, STALL_THRESHOLD_DAYS } from '@/lib/inspection-stalled';
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
 import {
@@ -36,7 +37,7 @@ import type { Inspection, Profile } from '@/lib/types';
 import {
   UserCheck, AlertCircle, Zap, Search, ExternalLink, MapPin, User, UserCog,
   Calendar as CalendarIcon, FileText, LayoutGrid, Table2,
-  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2, Archive,
+  ArrowUpDown, Check, FileSearch, Send, CheckCircle2, Clock, Building2, Archive, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { measureOperation, captureError } from '@/lib/monitoring';
@@ -83,7 +84,8 @@ type Bucket =
   | 'waiting_owner'
   | 'owner_feedback'
   | 'accepted'
-  | 'finalized';
+  | 'finalized'
+  | 'incomplete';
 const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'all', label: 'Todas' },
   { value: 'unassigned', label: 'Sin asignar' },
@@ -96,6 +98,7 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'owner_feedback', label: 'Propietario pidió cambios' },
   { value: 'accepted', label: 'Aprobados' },
   { value: 'finalized', label: 'Finalizados' },
+  { value: 'incomplete', label: 'Incompletas' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
@@ -375,6 +378,7 @@ export default function AdminInspections() {
       case 'owner_feedback':  return i.status !== 'sent' && fb === 'pending_executive_review';
       case 'accepted':        return i.status !== 'sent' && fb === 'accepted';
       case 'finalized':       return i.status === 'sent';
+      case 'incomplete':      return isStalled(i);
     }
   };
 
@@ -384,7 +388,7 @@ export default function AdminInspections() {
       all: inspections.length,
       unassigned: 0, por_coordinar: 0, programadas: 0,
       in_progress: 0, for_review: 0, to_publish: 0,
-      waiting_owner: 0, owner_feedback: 0, accepted: 0, finalized: 0,
+      waiting_owner: 0, owner_feedback: 0, accepted: 0, finalized: 0, incomplete: 0,
     };
     for (const i of inspections) {
       const b = bucketByInsp.get(i.id);
@@ -399,6 +403,7 @@ export default function AdminInspections() {
       if (i.status !== 'sent' && fb === 'pending_executive_review') counts.owner_feedback++;
       if (i.status !== 'sent' && fb === 'accepted') counts.accepted++;
       if (i.status === 'sent') counts.finalized++;
+      if (isStalled(i)) counts.incomplete++;
     }
     return counts;
   }, [inspections, bucketByInsp]);
@@ -532,7 +537,7 @@ export default function AdminInspections() {
                 executive queue, which only sees post-assignment stages). All
                 cards share ONE selection axis (`bucketFilter`) so counter and
                 results are always consistent. */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               <KpiCard
                 label="Sin asignar" value={bucketCounts.unassigned}
                 icon={<UserCheck className="h-5 w-5 text-status-bad" />} accent="red"
@@ -602,6 +607,14 @@ export default function AdminInspections() {
                 tooltip="Cerradas operativamente por ejecutivo o admin."
                 active={bucketFilter === 'finalized'}
                 onClick={() => applyQuickFilter('finalized')}
+              />
+              <KpiCard
+                label="Incompletas" value={bucketCounts.incomplete}
+                icon={<AlertTriangle className="h-5 w-5 text-status-bad" />}
+                accent={bucketCounts.incomplete > 0 ? 'red' : undefined}
+                tooltip={`Comenzadas y sin finalizar: sin actividad por más de ${STALL_THRESHOLD_DAYS.not_started}d (sin iniciar), ${STALL_THRESHOLD_DAYS.in_progress}d (en curso) o ${STALL_THRESHOLD_DAYS.review}d (en cotización).`}
+                active={bucketFilter === 'incomplete'}
+                onClick={() => applyQuickFilter('incomplete')}
               />
             </div>
 
@@ -846,6 +859,15 @@ export default function AdminInspections() {
                                   <AlertCircle className="h-3 w-3" /> {missing}
                                 </span>
                               )}
+                              {(() => {
+                                const stall = evaluateStall(insp);
+                                if (!stall?.stalled) return null;
+                                return (
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-status-bad-bg px-2 py-0.5 text-[10px] font-semibold text-status-bad">
+                                    <AlertTriangle className="h-3 w-3" /> Sin actividad hace {stall.idleDays}d
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
