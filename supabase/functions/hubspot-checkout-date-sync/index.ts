@@ -1,10 +1,11 @@
-// Inbound HubSpot → Homie Inspection sync for checkout date changes.
+// Inbound HubSpot → Homie Inspection sync for contract end date changes.
 // Called by a dedicated HubSpot workflow that triggers on
 // `fecha_de_termino_de_` property changes on Contrato de Locación objects.
 //
 // Finds the active checkout inspection for the property and updates
-// scheduled_at. Skips gracefully when no inspection exists (e.g. the date
-// changed before the creation workflow ran).
+// `fecha_de_termino_real_de_contrato` inside property_snapshot_json (and the
+// override copy, so the UI reflects it). Skips gracefully when no inspection
+// exists (e.g. the date changed before the creation workflow ran).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -31,7 +32,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Statuses where updating the scheduled date still makes sense.
+// Statuses where updating the contract end date still makes sense.
 const UPDATABLE_STATUSES = ['pending', 'scheduled', 'in_progress', 'assigned'];
 
 Deno.serve(async (req: Request) => {
@@ -75,14 +76,15 @@ Deno.serve(async (req: Request) => {
   if (isNaN(parsedDate.getTime())) {
     return json({ error: 'invalid_date', received: new_date }, 400);
   }
-  const scheduledAt = parsedDate.toISOString();
+  // Contract end date is stored as a plain calendar date (YYYY-MM-DD).
+  const contractEndDate = parsedDate.toISOString().slice(0, 10);
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // ── Find the active checkout inspection for this property ──
   const { data: inspection, error: findErr } = await supabase
     .from('inspections')
-    .select('id, status, scheduled_at, inspection_type')
+    .select('id, status, inspection_type, property_snapshot_json, property_overrides_json')
     .eq('property_id', property_id)
     .eq('inspection_type', 'check_out')
     .in('status', UPDATABLE_STATUSES)
@@ -118,26 +120,44 @@ Deno.serve(async (req: Request) => {
     return json({ status: 'skipped', reason: 'no_active_inspection' }, 200);
   }
 
+  const snapshot = (inspection.property_snapshot_json ?? {}) as Record<string, unknown>;
+  const overrides = (inspection.property_overrides_json ?? null) as Record<string, unknown> | null;
+
+  const rawCurrent =
+    (overrides?.fecha_de_termino_real_de_contrato as string | undefined) ??
+    (snapshot.fecha_de_termino_real_de_contrato as string | undefined) ??
+    null;
+  const currentDate = rawCurrent ? String(rawCurrent).slice(0, 10) : null;
+
   // Skip if the date is already the same (idempotent guard).
-  const currentDate = inspection.scheduled_at ? new Date(inspection.scheduled_at).toISOString() : null;
-  if (currentDate === scheduledAt) {
+  if (currentDate === contractEndDate) {
     await logEvent(supabase, {
       event_type: 'checkout_date_updated',
       external_object_id: external_object_id ?? null,
       property_id,
       payload: body,
       status: 'completed',
-      error_message: `scheduled_at already equals new_date (${scheduledAt})`,
+      error_message: `fecha_de_termino_real_de_contrato already equals new_date (${contractEndDate})`,
       inspection_id: inspection.id,
       normalized: { skipped: true, reason: 'date_unchanged' },
     });
     return json({ status: 'skipped', reason: 'date_unchanged', inspection_id: inspection.id }, 200);
   }
 
-  // ── Update scheduled_at ──
+  // ── Update the contract end date (snapshot + override copy if present) ──
+  const updatePayload: Record<string, unknown> = {
+    property_snapshot_json: { ...snapshot, fecha_de_termino_real_de_contrato: contractEndDate },
+  };
+  if (overrides && 'fecha_de_termino_real_de_contrato' in overrides) {
+    updatePayload.property_overrides_json = {
+      ...overrides,
+      fecha_de_termino_real_de_contrato: contractEndDate,
+    };
+  }
+
   const { error: updateErr } = await supabase
     .from('inspections')
-    .update({ scheduled_at: scheduledAt })
+    .update(updatePayload)
     .eq('id', inspection.id);
 
   if (updateErr) {
@@ -156,7 +176,7 @@ Deno.serve(async (req: Request) => {
   }
 
   console.info(
-    `[checkout-date-sync] updated inspection ${inspection.id}: ${currentDate} → ${scheduledAt}`,
+    `[checkout-date-sync] updated inspection ${inspection.id}: ${currentDate} → ${contractEndDate}`,
   );
 
   await logEvent(supabase, {
@@ -168,16 +188,17 @@ Deno.serve(async (req: Request) => {
     inspection_id: inspection.id,
     normalized: {
       inspection_id: inspection.id,
-      old_scheduled_at: currentDate,
-      new_scheduled_at: scheduledAt,
+      field: 'fecha_de_termino_real_de_contrato',
+      old_contract_end_date: currentDate,
+      new_contract_end_date: contractEndDate,
     },
   });
 
   return json({
     status: 'updated',
     inspection_id: inspection.id,
-    old_scheduled_at: currentDate,
-    new_scheduled_at: scheduledAt,
+    old_contract_end_date: currentDate,
+    new_contract_end_date: contractEndDate,
   }, 200);
 });
 
