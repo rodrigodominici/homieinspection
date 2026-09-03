@@ -193,6 +193,8 @@ export default function AdminDashboard() {
 
             <ExecutiveLoadChart inspections={inspections} profileMap={profileMap} />
             <OwnerAgingPanel inspections={inspections} profileMap={profileMap} />
+            <StalledInspectionsPanel inspections={inspections} profileMap={profileMap} />
+
             <ExecutivePerformancePanel />
             <InspectorPerformancePanel />
 
