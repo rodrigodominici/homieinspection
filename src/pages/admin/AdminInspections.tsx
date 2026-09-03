@@ -859,6 +859,15 @@ export default function AdminInspections() {
                                   <AlertCircle className="h-3 w-3" /> {missing}
                                 </span>
                               )}
+                              {(() => {
+                                const stall = evaluateStall(insp);
+                                if (!stall?.stalled) return null;
+                                return (
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-status-bad-bg px-2 py-0.5 text-[10px] font-semibold text-status-bad">
+                                    <AlertTriangle className="h-3 w-3" /> Sin actividad hace {stall.idleDays}d
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>

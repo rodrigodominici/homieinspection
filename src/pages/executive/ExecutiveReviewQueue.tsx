@@ -575,6 +575,16 @@ function InspectionRow({
                     {waitingLabel}
                   </span>
                 )}
+                {(() => {
+                  const stall = evaluateStall(insp);
+                  if (!stall?.stalled) return null;
+                  return (
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded-md bg-status-bad/10 text-status-bad font-medium">
+                      <AlertTriangle className="h-3 w-3" />
+                      Sin actividad hace {stall.idleDays}d
+                    </span>
+                  );
+                })()}
                 <span>{insp.market} · {insp.inspection_type}</span>
                 <span className="flex items-center gap-1">
                   <Key className="h-3 w-3" />
