@@ -14,11 +14,13 @@ import type { SectionMeta } from '@/modules/inspection/api/inspections.service';
 import {
   FileSearch, Clock, Search, Eye, Send, ExternalLink, Play, CheckCircle2,
   ArrowUpDown, Key, Check, ChevronRight, AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { evaluateStall } from '@/lib/inspection-stalled';
 
 import {
   PageHeader,
