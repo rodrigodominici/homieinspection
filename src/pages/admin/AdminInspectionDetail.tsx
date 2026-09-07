@@ -30,6 +30,10 @@ import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
+import { SignedPhotoImg } from '@/components/SignedPhotoImg';
+
+const PHOTO_PAGE = 24;
+
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
@@ -116,6 +120,9 @@ export default function AdminInspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState<InspectionPhoto | null>(null);
+  // Fotos visibles por sección (evita firmar cientos de URLs de una vez).
+  const [photoLimits, setPhotoLimits] = useState<Record<string, number>>({});
+
 
   // Grouped data for review/budget tabs
   const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
