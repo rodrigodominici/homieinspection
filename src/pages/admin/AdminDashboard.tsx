@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
@@ -23,6 +23,23 @@ import {
   UserCheck, Clock, FileSearch, Send, CheckCircle2,
   MessageSquareWarning, Hourglass, Archive, CalendarRange, X,
 } from 'lucide-react';
+
+/** Convert a YYYY-MM-DD string into a local Date (midnight) for the date picker. */
+function dashToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+}
+
+/** Convert a Date back to YYYY-MM-DD for filtering and stable state. */
+function dateToDash(date?: Date): string {
+  if (!date) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 /**
  * Reduced inspection columns for the dashboard.
