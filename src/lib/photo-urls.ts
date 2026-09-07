@@ -76,7 +76,8 @@ export async function getSignedPhotoUrl(storagePath: string | null | undefined):
 
     if (url) {
       cache.set(storagePath, { url, expiresAt: Date.now() + TTL_SECONDS * 1000 });
-      pruneCache();
+      pruneCache(new Set([storagePath]));
+
       return url;
     }
 
@@ -121,7 +122,8 @@ export async function getSignedPhotoUrlMap<T extends { id: string; storage_path:
           cache.set(item.path, { url: item.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 });
         }
       }
-      pruneCache();
+      pruneCache(new Set(photos.map((p) => p.storage_path)));
+
     } catch {
       // Batch failed — fall back to per-path signing (with its own retry).
       await Promise.all(missing.map((path) => getSignedPhotoUrl(path)));
