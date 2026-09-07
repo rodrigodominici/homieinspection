@@ -17,20 +17,38 @@ import { supabase } from '@/integrations/supabase/client';
 
 const TTL_SECONDS = 3600;
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh only in last 5 min of lifetime
-const MAX_CACHE_SIZE = 300;              // ~300 photos max in memory
+// One inspection can hold 400+ photos, and each photo occupies TWO entries
+// (original + thumbnail). A small FIFO cap silently evicted URLs that were
+// still on screen, leaving blank tiles. Keep the caches separate and large
+// enough for a full inspection, and prune expired entries first.
+const MAX_CACHE_SIZE = 1500;
 
 const cache = new Map<string, { url: string; expiresAt: number }>();
 
-/** Evict oldest entries when cache exceeds the size limit. */
-function pruneCache() {
+/**
+ * Evict entries when the cache exceeds the size limit. Expired entries go
+ * first; `keep` (paths used by the current request) is never evicted.
+ */
+function pruneCache(keep?: Set<string>) {
   if (cache.size <= MAX_CACHE_SIZE) return;
-  const toDelete = cache.size - MAX_CACHE_SIZE;
-  let count = 0;
-  for (const key of cache.keys()) {
-    cache.delete(key);
-    if (++count >= toDelete) break;
+  const now = Date.now();
+  for (const [key, val] of cache) {
+    if (cache.size <= MAX_CACHE_SIZE) return;
+    if (val.expiresAt <= now && !keep?.has(key)) cache.delete(key);
+  }
+  for (const key of cache) {
+    if (cache.size <= MAX_CACHE_SIZE) return;
+    const k = key[0];
+    if (!keep?.has(k)) cache.delete(k);
   }
 }
+
+/** Drop a cached URL (original + thumb) so the next read re-signs it. */
+export function invalidatePhotoUrl(storagePath: string) {
+  cache.delete(storagePath);
+  cache.delete(`thumb:${THUMB_WIDTH}:${storagePath}`);
+}
+
 
 async function sign(storagePath: string): Promise<string | null> {
   const { data, error } = await supabase.storage
@@ -58,7 +76,8 @@ export async function getSignedPhotoUrl(storagePath: string | null | undefined):
 
     if (url) {
       cache.set(storagePath, { url, expiresAt: Date.now() + TTL_SECONDS * 1000 });
-      pruneCache();
+      pruneCache(new Set([storagePath]));
+
       return url;
     }
 
@@ -103,7 +122,8 @@ export async function getSignedPhotoUrlMap<T extends { id: string; storage_path:
           cache.set(item.path, { url: item.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 });
         }
       }
-      pruneCache();
+      pruneCache(new Set(photos.map((p) => p.storage_path)));
+
     } catch {
       // Batch failed — fall back to per-path signing (with its own retry).
       await Promise.all(missing.map((path) => getSignedPhotoUrl(path)));
@@ -169,7 +189,7 @@ async function getSignedThumbUrlMap<T extends { id: string; storage_path: string
       }),
     );
   }
-  pruneCache();
+  pruneCache(new Set(photos.flatMap((p) => [p.storage_path, thumbKey(p.storage_path)])));
 
   for (const p of photos) {
     if (result[p.id] !== undefined) continue;

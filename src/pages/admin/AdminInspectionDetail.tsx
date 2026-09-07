@@ -30,6 +30,10 @@ import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
+import { SignedPhotoImg } from '@/components/SignedPhotoImg';
+
+const PHOTO_PAGE = 24;
+
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import type {
   Inspection, InspectionSection, InspectionFieldValue, InspectionPhoto,
@@ -116,6 +120,9 @@ export default function AdminInspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState<InspectionPhoto | null>(null);
+  // Fotos visibles por sección (evita firmar cientos de URLs de una vez).
+  const [photoLimits, setPhotoLimits] = useState<Record<string, number>>({});
+
 
   // Grouped data for review/budget tabs
   const [fieldsBySection, setFieldsBySection] = useState<Record<string, InspectionFieldValue[]>>({});
@@ -1493,17 +1500,21 @@ export default function AdminInspectionDetail() {
                         )}
 
                         {/* Photos — grid with view, visibility toggle, delete */}
-                        {secPhotos.length > 0 && (
+                        {secPhotos.length > 0 && (() => {
+                          const shown = photoLimits[sec.id] ?? PHOTO_PAGE;
+                          const visiblePhotos = secPhotos.slice(0, shown);
+                          return (
                           <div>
                             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos ({secPhotos.length})</p>
                             <div className="grid grid-cols-4 gap-2">
-                              {secPhotos.map(p => {
+                              {visiblePhotos.map(p => {
                                 const visible = (p as any).visible_to_owner !== false;
                                 return (
                                   <div key={p.id} className="relative group">
-                                    <img
-                                      src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" alt={p.caption ?? ''}
-                                      className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
+                                    <SignedPhotoImg
+                                      url={urlOf(p.id, 'thumb')} storagePath={p.storage_path}
+                                      loading="lazy" decoding="async" alt={p.caption ?? ''}
+                                      className={cn('aspect-square w-full rounded-xl object-cover cursor-pointer bg-muted', !visible && 'opacity-40')}
                                       onClick={() => setPhotoLightbox(p)}
                                     />
                                     <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1523,8 +1534,19 @@ export default function AdminInspectionDetail() {
                                 );
                               })}
                             </div>
+                            {secPhotos.length > shown && (
+                              <button
+                                type="button"
+                                className="mt-2 text-xs font-medium text-primary hover:underline"
+                                onClick={() => setPhotoLimits(prev => ({ ...prev, [sec.id]: shown + PHOTO_PAGE }))}
+                              >
+                                Ver más fotos ({secPhotos.length - shown} restantes)
+                              </button>
+                            )}
                           </div>
-                        )}
+                          );
+                        })()}
+
                       </CollapsibleContent>
                     </Collapsible></div>
                   );
@@ -1593,16 +1615,19 @@ export default function AdminInspectionDetail() {
                       )}
 
                       {/* Photos with visibility toggles */}
-                      {sPhotos.length > 0 && (
+                      {sPhotos.length > 0 && (() => {
+                        const shown = photoLimits[section.id] ?? PHOTO_PAGE;
+                        return (
                         <div>
                           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos ({sPhotos.length})</p>
                           <div className="grid grid-cols-4 gap-2">
-                            {sPhotos.map((p) => {
+                            {sPhotos.slice(0, shown).map((p) => {
                               const visible = (p as any).visible_to_owner !== false;
                               return (
                                 <div key={p.id} className="relative group">
-                                  <img src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" alt={p.caption ?? ''}
-                                    className={cn('aspect-square rounded-xl object-cover', !visible && 'opacity-40')} />
+                                  <SignedPhotoImg url={urlOf(p.id, 'thumb')} storagePath={p.storage_path}
+                                    loading="lazy" decoding="async" alt={p.caption ?? ''}
+                                    className={cn('aspect-square w-full rounded-xl object-cover bg-muted', !visible && 'opacity-40')} />
                                   <button onClick={() => togglePhotoVisibility(p)}
                                     className="absolute top-1 right-1 p-1 rounded-md bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity">
                                     {visible ? <Eye className="h-3.5 w-3.5 text-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -1611,8 +1636,19 @@ export default function AdminInspectionDetail() {
                               );
                             })}
                           </div>
+                          {sPhotos.length > shown && (
+                            <button
+                              type="button"
+                              className="mt-2 text-xs font-medium text-primary hover:underline"
+                              onClick={() => setPhotoLimits(prev => ({ ...prev, [section.id]: shown + PHOTO_PAGE }))}
+                            >
+                              Ver más fotos ({sPhotos.length - shown} restantes)
+                            </button>
+                          )}
                         </div>
-                      )}
+                        );
+                      })()}
+
 
                       {/* Internal note */}
                       <div className="border-t pt-3 space-y-2">
@@ -1865,7 +1901,7 @@ export default function AdminInspectionDetail() {
         {photoLightbox && (
           <Dialog open={!!photoLightbox} onOpenChange={(o) => !o && setPhotoLightbox(null)}>
             <DialogContent className="max-w-2xl">
-              <img src={urlOf(photoLightbox.id)} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
+              <SignedPhotoImg url={urlOf(photoLightbox.id)} storagePath={photoLightbox.storage_path} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
               {photoLightbox.caption && <p className="text-caption text-muted-foreground text-center">{photoLightbox.caption}</p>}
             </DialogContent>
           </Dialog>
