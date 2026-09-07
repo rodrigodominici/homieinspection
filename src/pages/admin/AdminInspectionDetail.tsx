@@ -1493,17 +1493,21 @@ export default function AdminInspectionDetail() {
                         )}
 
                         {/* Photos — grid with view, visibility toggle, delete */}
-                        {secPhotos.length > 0 && (
+                        {secPhotos.length > 0 && (() => {
+                          const shown = photoLimits[sec.id] ?? PHOTO_PAGE;
+                          const visiblePhotos = secPhotos.slice(0, shown);
+                          return (
                           <div>
                             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Fotos ({secPhotos.length})</p>
                             <div className="grid grid-cols-4 gap-2">
-                              {secPhotos.map(p => {
+                              {visiblePhotos.map(p => {
                                 const visible = (p as any).visible_to_owner !== false;
                                 return (
                                   <div key={p.id} className="relative group">
-                                    <img
-                                      src={urlOf(p.id, 'thumb')} loading="lazy" decoding="async" alt={p.caption ?? ''}
-                                      className={cn('aspect-square rounded-xl object-cover cursor-pointer', !visible && 'opacity-40')}
+                                    <SignedPhotoImg
+                                      url={urlOf(p.id, 'thumb')} storagePath={p.storage_path}
+                                      loading="lazy" decoding="async" alt={p.caption ?? ''}
+                                      className={cn('aspect-square w-full rounded-xl object-cover cursor-pointer bg-muted', !visible && 'opacity-40')}
                                       onClick={() => setPhotoLightbox(p)}
                                     />
                                     <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1523,8 +1527,19 @@ export default function AdminInspectionDetail() {
                                 );
                               })}
                             </div>
+                            {secPhotos.length > shown && (
+                              <button
+                                type="button"
+                                className="mt-2 text-xs font-medium text-primary hover:underline"
+                                onClick={() => setPhotoLimits(prev => ({ ...prev, [sec.id]: shown + PHOTO_PAGE }))}
+                              >
+                                Ver más fotos ({secPhotos.length - shown} restantes)
+                              </button>
+                            )}
                           </div>
-                        )}
+                          );
+                        })()}
+
                       </CollapsibleContent>
                     </Collapsible></div>
                   );
