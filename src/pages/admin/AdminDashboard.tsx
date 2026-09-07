@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
@@ -19,8 +20,8 @@ import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   Plus, User, CalendarClock, AlertTriangle,
-  UserCheck, Clock, FileSearch, AlertCircle, Send, CheckCircle2,
-  MessageSquareWarning, Hourglass, Archive,
+  UserCheck, Clock, FileSearch, Send, CheckCircle2,
+  MessageSquareWarning, Hourglass, Archive, CalendarRange, X,
 } from 'lucide-react';
 
 /**
