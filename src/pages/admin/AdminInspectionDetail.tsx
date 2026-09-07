@@ -1901,7 +1901,7 @@ export default function AdminInspectionDetail() {
         {photoLightbox && (
           <Dialog open={!!photoLightbox} onOpenChange={(o) => !o && setPhotoLightbox(null)}>
             <DialogContent className="max-w-2xl">
-              <img src={urlOf(photoLightbox.id)} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
+              <SignedPhotoImg url={urlOf(photoLightbox.id)} storagePath={photoLightbox.storage_path} alt={photoLightbox.caption ?? ''} className="w-full rounded-lg" />
               {photoLightbox.caption && <p className="text-caption text-muted-foreground text-center">{photoLightbox.caption}</p>}
             </DialogContent>
           </Dialog>
