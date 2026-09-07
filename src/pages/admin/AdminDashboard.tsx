@@ -169,20 +169,20 @@ export default function AdminDashboard() {
           <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
             <CalendarRange className="h-4 w-4" /> Recolección de llaves:
           </span>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+          <DatePicker
+            value={dashToDate(dateFrom)}
+            onChange={(d) => setDateFrom(dateToDash(d))}
+            placeholder="Desde"
             className="h-8 w-[150px] bg-background"
-            aria-label="Desde"
+            align="start"
           />
           <span className="text-sm text-muted-foreground">a</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+          <DatePicker
+            value={dashToDate(dateTo)}
+            onChange={(d) => setDateTo(dateToDash(d))}
+            placeholder="Hasta"
             className="h-8 w-[150px] bg-background"
-            aria-label="Hasta"
+            align="end"
           />
           {dateFilterActive && (
             <>
