@@ -53,6 +53,13 @@ async function fetchActiveProfiles(): Promise<Profile[]> {
   return (data ?? []) as unknown as Profile[];
 }
 
+/** Key-pickup date (fecha_recoleccion_llaves) as YYYY-MM-DD, or null. */
+function keyPickupDate(i: Inspection): string | null {
+  const snap = getEffectiveSnapshot(i);
+  const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
+  return fecha && /^\d{4}-\d{2}-\d{2}/.test(fecha) ? fecha.slice(0, 10) : null;
+}
+
 export default function AdminDashboard() {
   const inspQuery = useQuery({
     queryKey: ['admin', 'dashboard', 'inspections'],
@@ -65,9 +72,25 @@ export default function AdminDashboard() {
     staleTime: 5 * 60_000,
   });
 
+  // Date-range filter by key-pickup date (fecha_recoleccion_llaves).
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const dateFilterActive = dateFrom !== '' || dateTo !== '';
+
   const loading = inspQuery.isLoading || profilesQuery.isLoading;
-  const inspections = inspQuery.data ?? [];
+  const allInspections = inspQuery.data ?? [];
   const profiles = profilesQuery.data ?? [];
+
+  const inspections = useMemo(() => {
+    if (!dateFilterActive) return allInspections;
+    return allInspections.filter((i) => {
+      const d = keyPickupDate(i);
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [allInspections, dateFilterActive, dateFrom, dateTo]);
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
