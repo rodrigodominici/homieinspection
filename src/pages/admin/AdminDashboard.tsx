@@ -147,6 +147,43 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
+        {/* Date-range filter: key-pickup date (recolección de llaves) */}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 ring-1 ring-border px-3 py-2">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <CalendarRange className="h-4 w-4" /> Recolección de llaves:
+          </span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-8 w-[150px] bg-background"
+            aria-label="Desde"
+          />
+          <span className="text-sm text-muted-foreground">a</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-8 w-[150px] bg-background"
+            aria-label="Hasta"
+          />
+          {dateFilterActive && (
+            <>
+              <span className="text-caption text-muted-foreground">
+                {inspections.length} de {allInspections.length} inspecciones
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Limpiar
+              </Button>
+            </>
+          )}
+        </div>
+
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
