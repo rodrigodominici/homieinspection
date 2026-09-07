@@ -189,7 +189,7 @@ async function getSignedThumbUrlMap<T extends { id: string; storage_path: string
       }),
     );
   }
-  pruneCache();
+  pruneCache(new Set(photos.flatMap((p) => [p.storage_path, thumbKey(p.storage_path)])));
 
   for (const p of photos) {
     if (result[p.id] !== undefined) continue;
