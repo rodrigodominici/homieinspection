@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/shared/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import AdminLayout from '@/components/AdminLayout';
@@ -19,8 +20,8 @@ import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
 import type { Inspection, Profile } from '@/lib/types';
 import {
   Plus, User, CalendarClock, AlertTriangle,
-  UserCheck, Clock, FileSearch, AlertCircle, Send, CheckCircle2,
-  MessageSquareWarning, Hourglass, Archive,
+  UserCheck, Clock, FileSearch, Send, CheckCircle2,
+  MessageSquareWarning, Hourglass, Archive, CalendarRange, X,
 } from 'lucide-react';
 
 /**
@@ -52,6 +53,13 @@ async function fetchActiveProfiles(): Promise<Profile[]> {
   return (data ?? []) as unknown as Profile[];
 }
 
+/** Key-pickup date (fecha_recoleccion_llaves) as YYYY-MM-DD, or null. */
+function keyPickupDate(i: Inspection): string | null {
+  const snap = getEffectiveSnapshot(i);
+  const fecha = snap?.fecha_recoleccion_llaves as string | undefined;
+  return fecha && /^\d{4}-\d{2}-\d{2}/.test(fecha) ? fecha.slice(0, 10) : null;
+}
+
 export default function AdminDashboard() {
   const inspQuery = useQuery({
     queryKey: ['admin', 'dashboard', 'inspections'],
@@ -64,9 +72,25 @@ export default function AdminDashboard() {
     staleTime: 5 * 60_000,
   });
 
+  // Date-range filter by key-pickup date (fecha_recoleccion_llaves).
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const dateFilterActive = dateFrom !== '' || dateTo !== '';
+
   const loading = inspQuery.isLoading || profilesQuery.isLoading;
-  const inspections = inspQuery.data ?? [];
+  const allInspections = inspQuery.data ?? [];
   const profiles = profilesQuery.data ?? [];
+
+  const inspections = useMemo(() => {
+    if (!dateFilterActive) return allInspections;
+    return allInspections.filter((i) => {
+      const d = keyPickupDate(i);
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [allInspections, dateFilterActive, dateFrom, dateTo]);
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
@@ -121,6 +145,43 @@ export default function AdminDashboard() {
           <Link to="/admin/inspections?tab=create">
             <Button><Plus className="mr-2 h-4 w-4" /> Nueva Inspección</Button>
           </Link>
+        </div>
+
+        {/* Date-range filter: key-pickup date (recolección de llaves) */}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 ring-1 ring-border px-3 py-2">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <CalendarRange className="h-4 w-4" /> Recolección de llaves:
+          </span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-8 w-[150px] bg-background"
+            aria-label="Desde"
+          />
+          <span className="text-sm text-muted-foreground">a</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-8 w-[150px] bg-background"
+            aria-label="Hasta"
+          />
+          {dateFilterActive && (
+            <>
+              <span className="text-caption text-muted-foreground">
+                {inspections.length} de {allInspections.length} inspecciones
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Limpiar
+              </Button>
+            </>
+          )}
         </div>
 
         {loading ? (
