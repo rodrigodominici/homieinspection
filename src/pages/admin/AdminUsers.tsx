@@ -349,10 +349,13 @@ export default function AdminUsers() {
                           <td className="py-3 px-4 text-muted-foreground">{p.email}</td>
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
                           <td className="py-3 px-4 text-muted-foreground">
-                            {((p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []))
-                              .map((m) => marketLabel(m))
-                              .join(' · ') || '—'}
+                            {p.role === 'admin'
+                              ? 'Todos'
+                              : ((p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []))
+                                  .map((m) => marketLabel(m))
+                                  .join(' · ') || '—'}
                           </td>
+
                           <td className="py-3 px-4 text-muted-foreground">{formatPhoneDisplay(p.country_code, p.phone)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
