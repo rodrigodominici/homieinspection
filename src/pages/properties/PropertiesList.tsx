@@ -15,9 +15,12 @@ import { marketLabel } from '@/lib/markets';
 import { groupByProperty, listPropertyInspections } from '@/modules/properties/api/properties.service';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 import RoleLayout from './RoleLayout';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PropertiesList() {
   const [query, setQuery] = useState('');
+  const { profile } = useAuth();
+  const base = profile?.role === 'executive' ? '/executive' : '/admin';
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['properties', 'all'],
@@ -53,7 +56,7 @@ export default function PropertiesList() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <KpiCard label="Inmuebles" value={properties.length} icon={Building2} />
+        <KpiCard label="Inmuebles" value={properties.length} icon={<Building2 className="h-4 w-4" />} />
         <KpiCard label="Captaciones" value={totals.captacion} />
         <KpiCard label="Check-in" value={totals.checkIn} />
         <KpiCard label="Check-out" value={totals.checkOut} />
@@ -121,7 +124,7 @@ export default function PropertiesList() {
                     <p className="text-lg font-semibold tabular-nums">{p.inspections.length}</p>
                   </div>
                   <Link
-                    to={`properties/${encodeURIComponent(p.property_id)}`.replace(/^/, './')}
+                    to={`${base}/properties/${encodeURIComponent(p.property_id)}`}
                     className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                   >
                     Ver historial <ArrowRight className="h-3.5 w-3.5" />
