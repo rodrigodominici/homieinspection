@@ -8,6 +8,7 @@ import { InspectionStatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
+import { useMarket } from '@/contexts/MarketContext';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import {
   getContractDateMicroLabel,
@@ -57,6 +58,7 @@ type ScheduleFilter = 'all' | 'programmed' | 'to_coordinate';
 
 export default function ExecutiveSchedule() {
   const [inspections, setInspections] = useState<ScheduledInspection[]>([]);
+  const { matchesMarket } = useMarket();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -132,8 +134,9 @@ export default function ExecutiveSchedule() {
   const today = new Date().toDateString();
 
   // A) Excluir estados terminales del calendario operativo.
-  const operational = inspections.filter(i => !isTerminalScheduleStatus(i.status));
-  const terminalCount = inspections.length - operational.length;
+  const scopedInspections = inspections.filter(i => matchesMarket(i.market));
+  const operational = scopedInspections.filter(i => !isTerminalScheduleStatus(i.status));
+  const terminalCount = scopedInspections.length - operational.length;
 
   const filtered = operational.filter(i => {
     if (filterInspector !== 'all' && i.inspector_id !== filterInspector) return false;

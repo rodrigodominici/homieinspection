@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useMarket } from '@/contexts/MarketContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,7 @@ function keyPickupDate(i: Inspection): string | null {
 }
 
 export default function AdminDashboard() {
+  const { matchesMarket } = useMarket();
   const inspQuery = useQuery({
     queryKey: ['admin', 'dashboard', 'inspections'],
     queryFn: fetchDashboardInspections,
@@ -99,15 +101,16 @@ export default function AdminDashboard() {
   const profiles = profilesQuery.data ?? [];
 
   const inspections = useMemo(() => {
-    if (!dateFilterActive) return allInspections;
-    return allInspections.filter((i) => {
+    const scoped = allInspections.filter((i) => matchesMarket(i.market));
+    if (!dateFilterActive) return scoped;
+    return scoped.filter((i) => {
       const d = keyPickupDate(i);
       if (!d) return false;
       if (dateFrom && d < dateFrom) return false;
       if (dateTo && d > dateTo) return false;
       return true;
     });
-  }, [allInspections, dateFilterActive, dateFrom, dateTo]);
+  }, [allInspections, matchesMarket, dateFilterActive, dateFrom, dateTo]);
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
