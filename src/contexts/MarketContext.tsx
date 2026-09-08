@@ -22,8 +22,15 @@ interface MarketContextValue {
   availableMarkets: string[];
   /** True si el usuario puede alternar de país. */
   canSwitch: boolean;
+  /**
+   * True solo cuando el ámbito abarca varios países ('all'): en ese caso vale la
+   * pena mostrar la etiqueta de país en listas y fichas. Con un país concreto
+   * seleccionado la etiqueta es redundante con el selector global.
+   */
+  showMarketTag: boolean;
   /** True si la inspección/inmueble entra en el ámbito elegido. */
   matchesMarket: (raw: string | null | undefined) => boolean;
+
 }
 
 const ALL_MARKETS = MARKET_OPTIONS.map((m) => m.value as string);
@@ -33,6 +40,7 @@ const MarketContext = createContext<MarketContextValue>({
   setMarket: () => {},
   availableMarkets: ALL_MARKETS,
   canSwitch: true,
+  showMarketTag: false,
   matchesMarket: () => true,
 });
 
@@ -87,6 +95,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       setMarket,
       availableMarkets,
       canSwitch: availableMarkets.length > 1,
+      showMarketTag: market === 'all',
       matchesMarket: (raw) => {
         const norm = normalizeMarket(raw);
         if (!market) return true; // aún resolviendo el país del perfil

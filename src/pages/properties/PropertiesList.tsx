@@ -32,7 +32,7 @@ export default function PropertiesList() {
   const [query, setQuery] = useState('');
   const [types, setTypes] = useState<CanonicalInspectionType[]>([]);
   const { profile } = useAuth();
-  const { matchesMarket } = useMarket();
+  const { matchesMarket, showMarketTag } = useMarket();
   const base = profile?.role === 'executive' ? '/executive' : '/admin';
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -169,7 +169,9 @@ export default function PropertiesList() {
                         {p.property_name ?? p.address ?? p.property_id}
                       </p>
                       <Badge variant="outline" className="font-mono text-tiny">{p.property_id}</Badge>
-                      <Badge variant="secondary" className="text-tiny">{marketLabel(p.market)}</Badge>
+                      {showMarketTag && (
+                        <Badge variant="secondary" className="text-tiny">{marketLabel(p.market)}</Badge>
+                      )}
                     </div>
                     {p.address && (
                       <p className="flex items-center gap-1 truncate text-caption text-muted-foreground">
