@@ -800,6 +800,61 @@ export type Database = {
           },
         ]
       }
+      inspection_report_files: {
+        Row: {
+          audience: string
+          bytes: number
+          created_at: string
+          generated_by: string | null
+          id: string
+          inspection_id: string
+          report_version_id: string | null
+          storage_path: string
+        }
+        Insert: {
+          audience?: string
+          bytes?: number
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          inspection_id: string
+          report_version_id?: string | null
+          storage_path: string
+        }
+        Update: {
+          audience?: string
+          bytes?: number
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          inspection_id?: string
+          report_version_id?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_report_files_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_report_files_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_report_files_report_version_id_fkey"
+            columns: ["report_version_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_report_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_report_versions: {
         Row: {
           audience: string
