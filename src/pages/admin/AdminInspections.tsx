@@ -422,11 +422,6 @@ export default function AdminInspections() {
   };
 
 
-  // Available markets (for the market dropdown).
-  const markets = useMemo(
-    () => [...new Set(inspections.map((i) => i.market).filter(Boolean) as string[])],
-    [inspections]
-  );
 
   // Precompute normalized haystacks per inspection so tokenized search across
   // address, tenant, inspector name, executive name, etc. is O(n) per keystroke.
