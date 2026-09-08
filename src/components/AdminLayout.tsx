@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { LayoutDashboard, ClipboardList, Users, Settings, LogOut, CalendarClock, Wrench, Plug, Activity, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import MarketSwitcher from '@/components/MarketSwitcher';
 
 const navItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -97,8 +98,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="min-h-screen flex w-full">
         <AdminSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center border-b bg-card/80 backdrop-blur-sm px-4 shrink-0">
+          <header className="h-14 flex items-center gap-3 border-b bg-card/80 backdrop-blur-sm px-4 shrink-0">
             <SidebarTrigger />
+            <div className="ml-auto"><MarketSwitcher /></div>
           </header>
           <main className="flex-1 overflow-auto">
             {children}
