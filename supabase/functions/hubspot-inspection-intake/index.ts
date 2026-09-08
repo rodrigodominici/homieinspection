@@ -365,7 +365,7 @@ Deno.serve(async (req: Request) => {
           try {
             const provider = 'hubspot';
             // El tipo de objeto externo depende del tipo de inspección:
-            // check_out → Contrato Arriendo (custom 2-47492934)
+            // check_out / check_in → Contrato Arriendo (custom 2-47492934)
             // captacion → Deal estándar (0-3, pipeline Publicaciones CL)
             const isCaptacion = body.inspection_type === 'captacion';
             const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
