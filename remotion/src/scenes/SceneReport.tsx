@@ -76,10 +76,10 @@ export const SceneReport: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ ...base, padding: "100px 130px", flexDirection: "row", alignItems: "center" }}>
-      <div style={{ flex: 1.05 }}>
+      <div style={{ flex: 1.0, paddingRight: 40 }}>
         <Eyebrow index="03" label="Informe automático" />
         <Reveal delay={8} duration={30} style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 80, fontWeight: 900, letterSpacing: -3, lineHeight: 1.03 }}>
+          <div style={{ fontSize: 72, fontWeight: 900, letterSpacing: -2.5, lineHeight: 1.05, maxWidth: 720 }}>
             Informe de entrega
             <br />
             <span style={{ color: COLORS.indigoBright }}>en PDF</span> para el inquilino
@@ -131,7 +131,7 @@ export const SceneReport: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ flex: 0.95, position: "relative", height: 470 }}>
+      <div style={{ flex: 0.85, position: "relative", height: 470 }}>
         <div
           style={{
             position: "absolute",

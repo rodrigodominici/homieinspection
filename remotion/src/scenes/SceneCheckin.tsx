@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  useCurrentFrame,
-  useVideoConfig,
-  spring,
-  interpolate,
-  Sequence,
-} from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { COLORS, base } from "../theme";
 import { Reveal } from "../components/Reveal";
 import { Eyebrow } from "../components/Eyebrow";
@@ -105,16 +98,16 @@ export const SceneCheckin: React.FC = () => {
     <AbsoluteFill style={{ ...base, padding: "110px 140px", justifyContent: "center" }}>
       <Eyebrow index="01" label="Cobertura del ciclo" />
       <Reveal delay={8} duration={30} style={{ marginTop: 26 }}>
-        <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: -3, lineHeight: 1.02, maxWidth: 1150 }}>
+        <div style={{ fontSize: 78, fontWeight: 900, letterSpacing: -3, lineHeight: 1.02, maxWidth: 1080 }}>
           Ya generamos inspecciones de <span style={{ color: COLORS.indigoBright }}>Check-in</span>
         </div>
       </Reveal>
 
-      <div style={{ position: "relative", marginTop: 66 }}>
+      <div style={{ position: "relative", marginTop: 54 }}>
         <div
           style={{
             position: "absolute",
-            top: 96,
+            top: 118,
             left: 40,
             height: 2,
             width: `${line * 92}%`,
@@ -122,13 +115,11 @@ export const SceneCheckin: React.FC = () => {
             opacity: 0.7,
           }}
         />
-        <Sequence>
-          <div style={{ display: "flex", gap: 30, position: "relative" }}>
-            {STEPS.map((_, i) => (
-              <Card key={i} i={i} active={i === 1} />
-            ))}
-          </div>
-        </Sequence>
+        <div style={{ display: "flex", gap: 30, position: "relative", alignItems: "flex-start" }}>
+          {STEPS.map((_, i) => (
+            <Card key={i} i={i} active={i === 1} />
+          ))}
+        </div>
       </div>
     </AbsoluteFill>
   );
