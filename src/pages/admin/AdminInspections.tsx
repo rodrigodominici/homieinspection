@@ -23,7 +23,7 @@ import {
   priorityBucketLabel,
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
-import { normalizeMarket } from '@/lib/markets';
+import { marketLabel, normalizeMarket } from '@/lib/markets';
 import { useMarket } from '@/contexts/MarketContext';
 import { isStalled, evaluateStall, STALL_THRESHOLD_DAYS } from '@/lib/inspection-stalled';
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
