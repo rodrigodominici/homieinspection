@@ -93,12 +93,18 @@ function getContextualCTA(insp: Inspection, bucket: ExecutiveBucket): CTAInfo {
 
 
 export default function ExecutiveReviewQueue() {
-  const { inspections, sectionsByInspection, inspectorProfiles, loading, error } = useExecutiveQueue();
+  const { inspections: allInspections, sectionsByInspection, inspectorProfiles, loading, error } = useExecutiveQueue();
+  const { matchesMarket } = useMarket();
+
+  // El país viene del selector global de la app.
+  const inspections = useMemo(
+    () => allInspections.filter((i) => matchesMarket(i.market)),
+    [allInspections, matchesMarket],
+  );
 
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [marketFilter, setMarketFilter] = useState('all');
   const [inspectorFilter, setInspectorFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
   const [ownerFeedbackFilter, setOwnerFeedbackFilter] = useState<'all' | 'waiting' | 'pending_review' | 'accepted'>('all');
