@@ -58,16 +58,39 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
   return {
     ...raw,
     property_type: propertyType ?? raw.property_type,
+    scheduled_at: normalizeDateValue((raw as any).scheduled_at),
+    fecha_recoleccion_llaves: normalizeDateValue((raw as any).fecha_recoleccion_llaves),
     recipient_email: raw.recipient_email ?? (raw as any).correo_receptora ?? null,
     tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
     tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
     unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
-    fecha_de_termino_real_de_contrato: raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date ?? null,
-    fecha_de_recepcion_del_checkout_cl: raw.fecha_de_recepcion_del_checkout_cl ?? (raw as any).checkout_received_date ?? null,
+    fecha_de_termino_real_de_contrato: normalizeDateValue(
+      raw.fecha_de_termino_real_de_contrato ?? (raw as any).contract_end_date,
+    ),
+    fecha_de_recepcion_del_checkout_cl: normalizeDateValue(
+      raw.fecha_de_recepcion_del_checkout_cl ?? (raw as any).checkout_received_date,
+    ),
   };
 }
+
+/**
+ * HubSpot envía fechas como epoch en milisegundos (número o string numérico).
+ * Postgres no las acepta como timestamp, así que las convertimos a ISO.
+ */
+export function normalizeDateValue(value: unknown): any {
+  if (value === null || value === undefined || value === '') return value ?? null;
+  if (typeof value === 'number' || /^\d{10,16}$/.test(String(value).trim())) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const ms = String(Math.trunc(n)).length <= 10 ? n * 1000 : n;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  return value as any;
+}
+
 
 // ─── Shared helpers ─────────────────────────────────────────────────────
 
