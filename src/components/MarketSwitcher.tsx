@@ -5,7 +5,7 @@ import { marketLabel } from '@/lib/markets';
 import { useMarket } from '@/contexts/MarketContext';
 
 export default function MarketSwitcher() {
-  const { market, setMarket, availableMarkets, canSwitch, canSeeAll } = useMarket();
+  const { market, setMarket, availableMarkets, canSwitch } = useMarket();
 
   // Un solo país asignado: chip de solo lectura, sin posibilidad de cambio.
   if (!canSwitch) {
@@ -24,7 +24,7 @@ export default function MarketSwitcher() {
         <SelectValue placeholder="País" />
       </SelectTrigger>
       <SelectContent>
-        {canSeeAll && <SelectItem value="all">Todos los países</SelectItem>}
+        
         {availableMarkets.map((m) => (
           <SelectItem key={m} value={m}>{marketLabel(m)}</SelectItem>
         ))}

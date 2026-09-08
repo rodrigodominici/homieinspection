@@ -61,10 +61,10 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  // Fuerza el valor a un país permitido. 'all' solo existe para admin.
+  // Fuerza el valor a un país permitido. Siempre se trabaja dentro de un país.
   useEffect(() => {
     const allowed = new Set<string>(availableMarkets);
-    const valid = market === 'all' ? isAdmin : allowed.has(market);
+    const valid = allowed.has(market);
     if (!valid) {
       const fallback =
         (normalizeMarket(profile?.market) && allowed.has(normalizeMarket(profile?.market)!)
