@@ -77,6 +77,7 @@ export default function PropertyDetail() {
 
   return (
     <RoleLayout>
+      <div className="p-6 max-w-7xl space-y-6">
       <PageHeader
         title={latest?.property_name ?? latest?.address ?? propertyId}
         description={latest?.address ?? undefined}
@@ -137,6 +138,7 @@ export default function PropertyDetail() {
           </Tabs>
         </div>
       )}
+      </div>
     </RoleLayout>
   );
 }
