@@ -19,7 +19,7 @@ export const TERMINAL_SCHEDULE_STATUSES = new Set<string>([
 export const isTerminalScheduleStatus = (status: string | null | undefined): boolean =>
   !!status && TERMINAL_SCHEDULE_STATUSES.has(status);
 
-export type ScheduleTypeFilter = 'all' | 'check_out' | 'captacion';
+export type ScheduleTypeFilter = 'all' | 'check_out' | 'captacion' | 'check_in';
 
 /**
  * Clases tailwind por tipo de inspección para diferenciación visual en banner
