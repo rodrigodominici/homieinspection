@@ -138,8 +138,7 @@ export default function ExecutiveSchedule() {
     if (filterInspector !== 'all' && i.inspector_id !== filterInspector) return false;
     if (filterExecutive !== 'all' && (i as any).executive_id !== filterExecutive) return false;
     if (typeFilter !== 'all') {
-      const t = i.inspection_type === 'captacion' ? 'captacion' : 'check_out';
-      if (t !== typeFilter) return false;
+      if (normalizeInspectionType(i.inspection_type) !== typeFilter) return false;
     }
     return true;
   });
@@ -244,6 +243,7 @@ export default function ExecutiveSchedule() {
             { value: 'all' as const, label: 'Todos los tipos' },
             { value: 'check_out' as const, label: 'Check-out' },
             { value: 'captacion' as const, label: 'Captación' },
+            { value: 'check_in' as const, label: 'Check-in' },
           ]).map(pill => (
             <Button
               key={pill.value}
