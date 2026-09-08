@@ -15,6 +15,7 @@ import { listInspectionsByProperty } from '@/modules/properties/api/properties.s
 import { listProfilesByIds } from '@/modules/inspection/api/inspections.service';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { marketLabel } from '@/lib/markets';
+import { useMarket } from '@/contexts/MarketContext';
 import PropertyTimeline from './PropertyTimeline';
 import PropertyComparison from './PropertyComparison';
 import RoleLayout from './RoleLayout';
@@ -71,7 +72,7 @@ export default function PropertyDetail() {
         { label: 'Estacionamiento', value: str(snapshot.parking_number) ?? (snapshot.has_parking ? 'Sí' : '—') },
         { label: 'Bodega', value: str(snapshot.storage_number) ?? (snapshot.has_storage ? 'Sí' : '—') },
         { label: 'Comuna', value: str(snapshot.comuna) ?? '—' },
-        { label: 'Mercado', value: marketLabel(latest.market) },
+        ...(showMarketTag ? [{ label: 'Mercado', value: marketLabel(latest.market) }] : []),
       ]
     : [];
 

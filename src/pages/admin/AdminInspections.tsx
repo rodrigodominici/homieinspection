@@ -171,7 +171,7 @@ export default function AdminInspections() {
   const { profile } = useAuth();
   const { toast } = useToast();
   // El país es global (selector de la barra superior), no un filtro local.
-  const { market: marketFilter } = useMarket();
+  const { market: marketFilter, showMarketTag } = useMarket();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'all';
 
@@ -758,7 +758,7 @@ export default function AdminInspections() {
                         <TableHead>Asignación</TableHead>
                         <TableHead>Inspector</TableHead>
                         <TableHead>Ejecutivo</TableHead>
-                        <TableHead>Mercado</TableHead>
+                        {showMarketTag && <TableHead>Mercado</TableHead>}
                         <TableHead>Tipo</TableHead>
                         <TableHead>Creada</TableHead>
                         <TableHead>Término contrato</TableHead>
@@ -798,7 +798,7 @@ export default function AdminInspections() {
                             </TableCell>
                             <TableCell className="text-xs">{insp.inspectorName ?? <span className="italic text-muted-foreground">—</span>}</TableCell>
                             <TableCell className="text-xs">{insp.executiveName ?? <span className="italic text-muted-foreground">—</span>}</TableCell>
-                            <TableCell className="text-xs">{marketLabel(insp.market)}</TableCell>
+                            {showMarketTag && <TableCell className="text-xs">{marketLabel(insp.market)}</TableCell>}
                             <TableCell className="text-xs">{insp.inspection_type}</TableCell>
                             <TableCell className="text-xs whitespace-nowrap">{formatDate(new Date(insp.created_at))}</TableCell>
                             <TableCell className="text-xs whitespace-nowrap">
@@ -892,7 +892,7 @@ export default function AdminInspections() {
                                 <UserCog className="h-3 w-3" />
                                 {insp.executiveName ?? <span className="italic">sin ejecutivo</span>}
                               </span>
-                              <span>{insp.inspection_type} · {marketLabel(insp.market)}</span>
+                              <span>{insp.inspection_type}{showMarketTag ? ` · ${marketLabel(insp.market)}` : ''}</span>
                             </div>
                           </div>
                           <Link to={`/admin/inspections/${insp.id}`}>
