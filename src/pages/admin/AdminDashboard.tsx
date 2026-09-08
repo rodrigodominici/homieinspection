@@ -94,7 +94,9 @@ export default function AdminDashboard() {
   // Date-range filter by key-pickup date (fecha_recoleccion_llaves).
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [types, setTypes] = useState<CanonicalInspectionType[]>([]);
   const dateFilterActive = dateFrom !== '' || dateTo !== '';
+  const filtersActive = dateFilterActive || types.length > 0;
 
   const loading = inspQuery.isLoading || profilesQuery.isLoading;
   const allInspections = inspQuery.data ?? [];
@@ -102,15 +104,19 @@ export default function AdminDashboard() {
 
   const inspections = useMemo(() => {
     const scoped = allInspections.filter((i) => matchesMarket(i.market));
-    if (!dateFilterActive) return scoped;
+    if (!filtersActive) return scoped;
     return scoped.filter((i) => {
+      if (types.length > 0 && !types.includes(normalizeInspectionType(i.inspection_type)))
+        return false;
+      if (!dateFilterActive) return true;
       const d = keyPickupDate(i);
       if (!d) return false;
       if (dateFrom && d < dateFrom) return false;
       if (dateTo && d > dateTo) return false;
       return true;
     });
-  }, [allInspections, matchesMarket, dateFilterActive, dateFrom, dateTo]);
+  }, [allInspections, matchesMarket, filtersActive, dateFilterActive, dateFrom, dateTo, types]);
+
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
