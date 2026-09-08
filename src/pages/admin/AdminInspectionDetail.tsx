@@ -27,7 +27,8 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
-import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import { getContractDateShortLabel, isCheckIn } from '@/lib/inspection-type-labels';
+import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import { SignedPhotoImg } from '@/components/SignedPhotoImg';
@@ -1167,6 +1168,15 @@ export default function AdminInspectionDetail() {
                 onFinalized={fetchAll}
               />
             </div>
+
+            {/* Informe de entrega en PDF — solo check-in */}
+            {isCheckIn(inspection.inspection_type) && (
+              <div className="mt-4">
+                <ReportPdfCard inspectionId={inspection.id} />
+              </div>
+            )}
+
+
 
             {/* Post-publish info */}
             {isPublished && ownerUrl && (

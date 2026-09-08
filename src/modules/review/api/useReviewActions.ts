@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import * as repairsService from './repairs.service';
 import * as inspectionActions from './inspection-actions.service';
+import { generateCheckinReportPdf } from './checkin-report.service';
+import { checkinReportKey } from './useCheckinReport';
+import { isCheckIn } from '@/lib/inspection-type-labels';
 import type { PublishedUrls } from '@/modules/review/components';
 import type {
   Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection, RepairCatalogItem,
@@ -224,12 +227,29 @@ export function useReviewActions(args: UseReviewActionsArgs) {
       setPublishDialogOpen(true);
       toast({ title: `Reporte v${result.versionNumber} publicado` });
       await invalidateInspection();
+
+      // Check-in: el informe de entrega en PDF se genera automáticamente.
+      // Si falla, la publicación se mantiene y se puede regenerar a mano.
+      if (isCheckIn(inspection.inspection_type)) {
+        generateCheckinReportPdf({ inspectionId: inspection.id, profileId })
+          .then((record) => {
+            qc.setQueryData(checkinReportKey(inspection.id), record);
+            toast({ title: 'Informe de entrega en PDF generado' });
+          })
+          .catch((e: any) => {
+            toast({
+              title: 'El reporte se publicó, pero el PDF no se generó',
+              description: e?.message ?? 'Puedes generarlo con el botón "Generar PDF".',
+              variant: 'destructive',
+            });
+          });
+      }
     } catch (e: any) {
       toast({ title: 'Error al publicar', description: e?.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, invalidateInspection, toast]);
+  }, [inspection, missingSections.length, operationalSections, allRepairs, photosBySection, finalObservations, clientTotal, profileId, invalidateInspection, qc, toast]);
 
   const handleApprove = useCallback(async () => {
     if (!id) return;

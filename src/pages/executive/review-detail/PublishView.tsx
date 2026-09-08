@@ -5,8 +5,9 @@ import { ApproveInspectionDialog } from '@/modules/review/components';
 import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
+import { ReportPdfCard } from './ReportPdfCard';
 import type { Inspection, InspectionSection } from '@/lib/types';
-import { requiresQuotation } from '@/lib/inspection-type-labels';
+import { isCheckIn, requiresQuotation } from '@/lib/inspection-type-labels';
 
 interface PublishViewProps {
   inspection: Inspection;
@@ -228,6 +229,10 @@ export function PublishView(props: PublishViewProps) {
           </div>
         </div>
       )}
+
+      {/* Informe de entrega en PDF — solo check-in */}
+      {isCheckIn(inspection.inspection_type) && <ReportPdfCard inspectionId={inspection.id} />}
+
 
       {/* Terminal close: approved/accepted → sent ("Finalizado") */}
       <FinalizeInspectionButton
