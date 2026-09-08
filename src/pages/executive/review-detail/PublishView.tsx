@@ -6,6 +6,7 @@ import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
+import { requiresQuotation } from '@/lib/inspection-type-labels';
 
 interface PublishViewProps {
   inspection: Inspection;
@@ -46,7 +47,13 @@ export function PublishView(props: PublishViewProps) {
     onGoToInspection, onGoToRepairs, onRefresh,
   } = props;
 
+  // El check-in registra el estado de entrega: sin reparaciones ni cotización.
+  const withQuotation = requiresQuotation(inspection.inspection_type);
+
   const checks: ChecklistRow[] = [
+    // ...
+  ].concat([] as ChecklistRow[]);
+  const baseChecks: ChecklistRow[] = [
     missingSections.length === 0
       ? { level: 'ok', label: 'Todas las secciones tienen observación final' }
       : {
@@ -58,12 +65,6 @@ export function PublishView(props: PublishViewProps) {
             onClick: () => onGoToInspection(missingSections[0].id),
           },
         },
-    hasRepairs
-      ? { level: 'ok', label: 'Reparaciones cargadas y revisadas' }
-      : { level: 'warn', label: 'Sin reparaciones cargadas', detail: 'La inspección se puede publicar sin reparaciones.' },
-    hasContractor
-      ? { level: 'ok', label: 'Contratista asignado' }
-      : { level: 'warn', label: 'Sin contratista asignado', detail: 'Asigna uno desde Reparaciones para calcular costos internos.' },
     signatureRecord
       ? signatureRecord.signature_status === 'signed'
         ? { level: 'ok', label: 'Firma del inquilino capturada' }
