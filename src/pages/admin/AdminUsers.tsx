@@ -144,7 +144,9 @@ export default function AdminUsers() {
 
   const handleEditSave = async () => {
     if (!editingProfile) return;
-    if (editMarkets.length === 0) {
+    const allMarkets = MARKET_OPTIONS.map((m) => m.value);
+    const effectiveMarkets = editRole === 'admin' ? allMarkets : editMarkets;
+    if (effectiveMarkets.length === 0) {
       toast({ title: 'Selecciona al menos un país', variant: 'destructive' });
       return;
     }
@@ -153,8 +155,9 @@ export default function AdminUsers() {
     const updates = {
       role: editRole,
       full_name: editName,
-      market: editMarkets.includes(editMarket) ? editMarket : editMarkets[0],
-      markets: editMarkets,
+      market: effectiveMarkets.includes(editMarket) ? editMarket : effectiveMarkets[0],
+      markets: effectiveMarkets,
+
       country_code: editCountryCode || null,
       phone: cleanPhone || null,
       is_active: editIsActive,
