@@ -144,7 +144,9 @@ export default function AdminUsers() {
 
   const handleEditSave = async () => {
     if (!editingProfile) return;
-    if (editMarkets.length === 0) {
+    const allMarkets = MARKET_OPTIONS.map((m) => m.value);
+    const effectiveMarkets = editRole === 'admin' ? allMarkets : editMarkets;
+    if (effectiveMarkets.length === 0) {
       toast({ title: 'Selecciona al menos un país', variant: 'destructive' });
       return;
     }
@@ -153,8 +155,9 @@ export default function AdminUsers() {
     const updates = {
       role: editRole,
       full_name: editName,
-      market: editMarkets.includes(editMarket) ? editMarket : editMarkets[0],
-      markets: editMarkets,
+      market: effectiveMarkets.includes(editMarket) ? editMarket : effectiveMarkets[0],
+      markets: effectiveMarkets,
+
       country_code: editCountryCode || null,
       phone: cleanPhone || null,
       is_active: editIsActive,
@@ -202,14 +205,16 @@ export default function AdminUsers() {
       toast({ title: 'Teléfono inválido', description: 'Solo dígitos, 6–15 caracteres.', variant: 'destructive' }); return;
     }
     setCuSubmitting(true);
+    const cuEffectiveMarkets = cuRole === 'admin' ? MARKET_OPTIONS.map((m) => m.value) : cuMarkets;
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
         full_name: name,
         email,
         password: cuPassword,
         role: cuRole,
-        market: cuMarkets.includes(cuMarket) ? cuMarket : cuMarkets[0],
-        markets: cuMarkets,
+        market: cuEffectiveMarkets.includes(cuMarket) ? cuMarket : cuEffectiveMarkets[0],
+        markets: cuEffectiveMarkets,
+
         country_code: cuCountryCode,
         phone,
         is_active: cuIsActive,
@@ -349,10 +354,13 @@ export default function AdminUsers() {
                           <td className="py-3 px-4 text-muted-foreground">{p.email}</td>
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
                           <td className="py-3 px-4 text-muted-foreground">
-                            {((p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []))
-                              .map((m) => marketLabel(m))
-                              .join(' · ') || '—'}
+                            {p.role === 'admin'
+                              ? 'Todos'
+                              : ((p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []))
+                                  .map((m) => marketLabel(m))
+                                  .join(' · ') || '—'}
                           </td>
+
                           <td className="py-3 px-4 text-muted-foreground">{formatPhoneDisplay(p.country_code, p.phone)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
@@ -417,37 +425,48 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Países con acceso</Label>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_OPTIONS.map((m) => {
-                    const on = editMarkets.includes(m.value);
-                    return (
-                      <Button
-                        key={m.value}
-                        type="button"
-                        size="sm"
-                        variant={on ? 'default' : 'outline'}
-                        onClick={() => {
-                          const next = on
-                            ? editMarkets.filter((x) => x !== m.value)
-                            : [...editMarkets, m.value];
-                          setEditMarkets(next);
-                          if (next.length > 0 && !next.includes(editMarket)) {
-                            setEditMarket(next[0]);
-                            if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(next[0]));
-                          }
-                        }}
-                      >
-                        {m.label}
-                      </Button>
-                    );
-                  })}
+              {editRole === 'admin' ? (
+                <div className="space-y-2">
+                  <Label>Países con acceso</Label>
+                  <div className="rounded-md bg-muted/40 px-3 py-2 text-sm font-medium">Todos</div>
+                  <p className="text-tiny text-muted-foreground">
+                    Los administradores siempre tienen acceso a todos los países.
+                  </p>
                 </div>
-                <p className="text-tiny text-muted-foreground">
-                  El usuario solo verá datos de los países seleccionados.
-                </p>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Países con acceso</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {MARKET_OPTIONS.map((m) => {
+                      const on = editMarkets.includes(m.value);
+                      return (
+                        <Button
+                          key={m.value}
+                          type="button"
+                          size="sm"
+                          variant={on ? 'default' : 'outline'}
+                          onClick={() => {
+                            const next = on
+                              ? editMarkets.filter((x) => x !== m.value)
+                              : [...editMarkets, m.value];
+                            setEditMarkets(next);
+                            if (next.length > 0 && !next.includes(editMarket)) {
+                              setEditMarket(next[0]);
+                              if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(next[0]));
+                            }
+                          }}
+                        >
+                          {m.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-tiny text-muted-foreground">
+                    El usuario solo verá datos de los países seleccionados.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>País principal</Label>
@@ -549,32 +568,43 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Países con acceso</Label>
-              <div className="flex flex-wrap gap-2">
-                {MARKET_OPTIONS.map((m) => {
-                  const on = cuMarkets.includes(m.value);
-                  return (
-                    <Button
-                      key={m.value}
-                      type="button"
-                      size="sm"
-                      variant={on ? 'default' : 'outline'}
-                      onClick={() => {
-                        const next = on ? cuMarkets.filter((x) => x !== m.value) : [...cuMarkets, m.value];
-                        setCuMarkets(next);
-                        if (next.length > 0 && !next.includes(cuMarket)) {
-                          setCuMarket(next[0]);
-                          setCuCountryCode(defaultCountryCodeForMarket(next[0]));
-                        }
-                      }}
-                    >
-                      {m.label}
-                    </Button>
-                  );
-                })}
+            {cuRole === 'admin' ? (
+              <div className="space-y-2">
+                <Label>Países con acceso</Label>
+                <div className="rounded-md bg-muted/40 px-3 py-2 text-sm font-medium">Todos</div>
+                <p className="text-tiny text-muted-foreground">
+                  Los administradores siempre tienen acceso a todos los países.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Países con acceso</Label>
+                <div className="flex flex-wrap gap-2">
+                  {MARKET_OPTIONS.map((m) => {
+                    const on = cuMarkets.includes(m.value);
+                    return (
+                      <Button
+                        key={m.value}
+                        type="button"
+                        size="sm"
+                        variant={on ? 'default' : 'outline'}
+                        onClick={() => {
+                          const next = on ? cuMarkets.filter((x) => x !== m.value) : [...cuMarkets, m.value];
+                          setCuMarkets(next);
+                          if (next.length > 0 && !next.includes(cuMarket)) {
+                            setCuMarket(next[0]);
+                            setCuCountryCode(defaultCountryCodeForMarket(next[0]));
+                          }
+                        }}
+                      >
+                        {m.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>País principal</Label>
