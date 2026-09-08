@@ -51,13 +51,10 @@ export function PublishView(props: PublishViewProps) {
   const withQuotation = requiresQuotation(inspection.inspection_type);
 
   const checks: ChecklistRow[] = [
-    // ...
-  ].concat([] as ChecklistRow[]);
-  const baseChecks: ChecklistRow[] = [
     missingSections.length === 0
       ? { level: 'ok', label: 'Todas las secciones tienen observación final' }
       : {
-          level: 'block',
+          level: 'block' as CheckLevel,
           label: `${missingSections.length} secciones sin observación final`,
           detail: missingSections.map((s) => s.section_title).join(' · '),
           action: {
@@ -65,6 +62,16 @@ export function PublishView(props: PublishViewProps) {
             onClick: () => onGoToInspection(missingSections[0].id),
           },
         },
+    ...(withQuotation
+      ? ([
+          hasRepairs
+            ? { level: 'ok', label: 'Reparaciones cargadas y revisadas' }
+            : { level: 'warn', label: 'Sin reparaciones cargadas', detail: 'La inspección se puede publicar sin reparaciones.' },
+          hasContractor
+            ? { level: 'ok', label: 'Contratista asignado' }
+            : { level: 'warn', label: 'Sin contratista asignado', detail: 'Asigna uno desde Reparaciones para calcular costos internos.' },
+        ] as ChecklistRow[])
+      : []),
     signatureRecord
       ? signatureRecord.signature_status === 'signed'
         ? { level: 'ok', label: 'Firma del inquilino capturada' }
@@ -73,6 +80,7 @@ export function PublishView(props: PublishViewProps) {
           : { level: 'warn', label: 'Inquilino no disponible para firma', detail: signatureRecord.skip_reason ?? undefined }
       : { level: 'warn', label: 'Sin registro de firma' },
   ];
+
 
   const hasBlockers = checks.some((c) => c.level === 'block');
   const canApprove = ['submitted', 'in_review'].includes(inspection.status);
