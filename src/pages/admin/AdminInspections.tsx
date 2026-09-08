@@ -23,7 +23,8 @@ import {
   priorityBucketLabel,
   missingAssignmentLabel,
 } from '@/lib/inspector-operational';
-import { marketLabel } from '@/lib/markets';
+import { normalizeMarket } from '@/lib/markets';
+import { useMarket } from '@/contexts/MarketContext';
 import { isStalled, evaluateStall, STALL_THRESHOLD_DAYS } from '@/lib/inspection-stalled';
 import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
@@ -169,6 +170,8 @@ function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 4 | 5 {
 export default function AdminInspections() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  // El país es global (selector de la barra superior), no un filtro local.
+  const { market: marketFilter } = useMarket();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'all';
 
@@ -177,7 +180,6 @@ export default function AdminInspections() {
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all');
   const [inspectorFilter, setInspectorFilter] = useState<string>(searchParams.get('inspector') ?? 'all');
   const [executiveFilter, setExecutiveFilter] = useState<string>(searchParams.get('executive') ?? 'all');
-  const [marketFilter, setMarketFilter] = useState<string>(searchParams.get('market') ?? 'all');
   const [publishedFilter, setPublishedFilter] = useState<string>(searchParams.get('published') ?? 'all');
   const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
   const [quienReparaFilter, setQuienReparaFilter] = useState<string>(searchParams.get('quien_repara') ?? 'all');
@@ -202,7 +204,6 @@ export default function AdminInspections() {
     setOrDelete('inspector', inspectorFilter);
     setOrDelete('executive', executiveFilter);
     setOrDelete('status', statusFilter);
-    setOrDelete('market', marketFilter);
     setOrDelete('published', publishedFilter);
     setOrDelete('bucket', bucketFilter);
     setOrDelete('quien_repara', quienReparaFilter);
@@ -455,7 +456,7 @@ export default function AdminInspections() {
       }
       if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
       if (executiveFilter !== 'all' && i.executive_id !== executiveFilter) return false;
-      if (marketFilter !== 'all' && i.market !== marketFilter) return false;
+      if (marketFilter !== 'all' && normalizeMarket(i.market) !== marketFilter) return false;
       if (publishedFilter === 'published' && !i.published_at) return false;
       if (publishedFilter === 'not_published' && !!i.published_at) return false;
       if (!matchesBucket(i, bucketFilter)) return false;
@@ -644,18 +645,6 @@ export default function AdminInspections() {
                   <SelectItem value="undefined">Sin definir</SelectItem>
                 </SelectContent>
               </Select>
-              {markets.length > 1 && (
-                <Select value={marketFilter} onValueChange={setMarketFilter}>
-                  <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card">
-                    <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                    <SelectValue placeholder="Mercado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los mercados</SelectItem>
-                    {markets.map((m) => <SelectItem key={m} value={m}>{marketLabel(m)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
               <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
                 <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
                 <SelectContent>
