@@ -9,6 +9,7 @@ import AdminLayout from '@/components/AdminLayout';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { INSPECTION_LIST_COLUMNS, PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
 import { measureOperation } from '@/lib/monitoring';
+import { useMarket } from '@/contexts/MarketContext';
 import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
