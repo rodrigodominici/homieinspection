@@ -91,6 +91,13 @@ export async function listInspectionsByProperty(propertyId: string): Promise<Ins
   return list.sort((a, b) => new Date(eventDate(b)).getTime() - new Date(eventDate(a)).getTime());
 }
 
+export interface ComparablePhoto {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  sort_order: number;
+}
+
 export interface ComparableSection {
   id: string;
   inspection_id: string;
@@ -102,9 +109,10 @@ export interface ComparableSection {
   is_visible: boolean;
   final_observation: string | null;
   photoCount: number;
+  photos: ComparablePhoto[];
 }
 
-/** Secciones visibles (con conteo de fotos) de una o dos inspecciones a comparar. */
+/** Secciones visibles (con sus fotos) de una o dos inspecciones a comparar. */
 export async function listComparableSections(
   inspectionIds: string[],
 ): Promise<ComparableSection[]> {
@@ -119,22 +127,28 @@ export async function listComparableSections(
       .order('sort_order', { ascending: true }),
     supabase
       .from('inspection_photos')
-      .select('inspection_section_id')
-      .in('inspection_id', inspectionIds),
+      .select('id, inspection_section_id, storage_path, caption, sort_order')
+      .in('inspection_id', inspectionIds)
+      .order('sort_order', { ascending: true }),
   ]);
 
   if (sectionsRes.error) throw sectionsRes.error;
   if (photosRes.error) throw photosRes.error;
 
-  const photoCounts = new Map<string, number>();
-  for (const p of (photosRes.data ?? []) as { inspection_section_id: string }[]) {
-    photoCounts.set(p.inspection_section_id, (photoCounts.get(p.inspection_section_id) ?? 0) + 1);
+  const bySection = new Map<string, ComparablePhoto[]>();
+  for (const p of (photosRes.data ?? []) as (ComparablePhoto & { inspection_section_id: string })[]) {
+    const list = bySection.get(p.inspection_section_id);
+    const entry: ComparablePhoto = {
+      id: p.id, storage_path: p.storage_path, caption: p.caption, sort_order: p.sort_order,
+    };
+    if (list) list.push(entry);
+    else bySection.set(p.inspection_section_id, [entry]);
   }
 
-  return ((sectionsRes.data ?? []) as any[]).map((s) => ({
-    ...s,
-    photoCount: photoCounts.get(s.id) ?? 0,
-  })) as ComparableSection[];
+  return ((sectionsRes.data ?? []) as any[]).map((s) => {
+    const photos = bySection.get(s.id) ?? [];
+    return { ...s, photos, photoCount: photos.length };
+  }) as ComparableSection[];
 }
 
 export const propertyEventDate = eventDate;
