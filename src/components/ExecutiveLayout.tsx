@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { ClipboardList, CalendarClock, BookOpen, Building2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import MarketSwitcher from '@/components/MarketSwitcher';
 
 const navItems = [
   { title: 'Inspecciones', url: '/executive', icon: ClipboardList },
