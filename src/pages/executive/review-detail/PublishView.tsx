@@ -6,6 +6,7 @@ import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import type { Inspection, InspectionSection } from '@/lib/types';
+import { requiresQuotation } from '@/lib/inspection-type-labels';
 
 interface PublishViewProps {
   inspection: Inspection;
@@ -46,11 +47,14 @@ export function PublishView(props: PublishViewProps) {
     onGoToInspection, onGoToRepairs, onRefresh,
   } = props;
 
+  // El check-in registra el estado de entrega: sin reparaciones ni cotización.
+  const withQuotation = requiresQuotation(inspection.inspection_type);
+
   const checks: ChecklistRow[] = [
     missingSections.length === 0
       ? { level: 'ok', label: 'Todas las secciones tienen observación final' }
       : {
-          level: 'block',
+          level: 'block' as CheckLevel,
           label: `${missingSections.length} secciones sin observación final`,
           detail: missingSections.map((s) => s.section_title).join(' · '),
           action: {
@@ -58,12 +62,16 @@ export function PublishView(props: PublishViewProps) {
             onClick: () => onGoToInspection(missingSections[0].id),
           },
         },
-    hasRepairs
-      ? { level: 'ok', label: 'Reparaciones cargadas y revisadas' }
-      : { level: 'warn', label: 'Sin reparaciones cargadas', detail: 'La inspección se puede publicar sin reparaciones.' },
-    hasContractor
-      ? { level: 'ok', label: 'Contratista asignado' }
-      : { level: 'warn', label: 'Sin contratista asignado', detail: 'Asigna uno desde Reparaciones para calcular costos internos.' },
+    ...(withQuotation
+      ? ([
+          hasRepairs
+            ? { level: 'ok', label: 'Reparaciones cargadas y revisadas' }
+            : { level: 'warn', label: 'Sin reparaciones cargadas', detail: 'La inspección se puede publicar sin reparaciones.' },
+          hasContractor
+            ? { level: 'ok', label: 'Contratista asignado' }
+            : { level: 'warn', label: 'Sin contratista asignado', detail: 'Asigna uno desde Reparaciones para calcular costos internos.' },
+        ] as ChecklistRow[])
+      : []),
     signatureRecord
       ? signatureRecord.signature_status === 'signed'
         ? { level: 'ok', label: 'Firma del inquilino capturada' }
@@ -72,6 +80,7 @@ export function PublishView(props: PublishViewProps) {
           : { level: 'warn', label: 'Inquilino no disponible para firma', detail: signatureRecord.skip_reason ?? undefined }
       : { level: 'warn', label: 'Sin registro de firma' },
   ];
+
 
   const hasBlockers = checks.some((c) => c.level === 'block');
   const canApprove = ['submitted', 'in_review'].includes(inspection.status);
@@ -83,7 +92,9 @@ export function PublishView(props: PublishViewProps) {
       <div>
         <h2 className="text-h3 font-semibold tracking-tight">Publicación</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Verifica la disponibilidad de la inspección y publica el reporte final para el propietario y el inquilino.
+          {withQuotation
+            ? 'Verifica la disponibilidad de la inspección y publica el reporte final para el propietario y el inquilino.'
+            : 'Verifica la disponibilidad de la inspección y publica el informe de entrega para el inquilino.'}
         </p>
       </div>
 
@@ -148,8 +159,12 @@ export function PublishView(props: PublishViewProps) {
             </p>
             <p className="text-sm text-muted-foreground">
               {isPublished
-                ? 'Los enlaces ya están disponibles para propietario e inquilino.'
-                : 'Se generarán enlaces públicos para propietario e inquilino. Las observaciones finales y la cotización quedarán visibles.'}
+                ? withQuotation
+                  ? 'Los enlaces ya están disponibles para propietario e inquilino.'
+                  : 'El enlace ya está disponible para el inquilino.'
+                : withQuotation
+                  ? 'Se generarán enlaces públicos para propietario e inquilino. Las observaciones finales y la cotización quedarán visibles.'
+                  : 'Se generará el enlace del informe de entrega para el inquilino, con las observaciones finales y las fotos.'}
             </p>
           </div>
           {hasBlockers && !isPublished && (
@@ -181,8 +196,8 @@ export function PublishView(props: PublishViewProps) {
         </div>
       )}
 
-      {/* Owner feedback panel */}
-      {isPublished && (
+      {/* Owner feedback panel — no aplica en check-in (sin cotización) */}
+      {isPublished && withQuotation && (
         <OwnerFeedbackPanel
           inspectionId={inspection.id}
           ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
@@ -197,12 +212,14 @@ export function PublishView(props: PublishViewProps) {
       {isPublished && (
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <p className="font-semibold">Compartir reporte</p>
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className={cn('grid gap-3', withQuotation && 'md:grid-cols-2')}>
+            {withQuotation && (
             <ShareCard
               audience="Propietario"
               onOpen={onOpenOwner}
               onCopy={onCopyOwner}
             />
+            )}
             <ShareCard
               audience="Inquilino"
               onOpen={onOpenTenant}
@@ -218,6 +235,7 @@ export function PublishView(props: PublishViewProps) {
         status={inspection.status}
         ownerFeedbackStatus={inspection.owner_feedback_status ?? null}
         quienRepara={(inspection as any).quien_repara ?? null}
+        inspectionType={inspection.inspection_type}
         onFinalized={onRefresh}
       />
 

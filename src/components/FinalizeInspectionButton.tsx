@@ -25,6 +25,8 @@ interface Props {
   /** Owner lifecycle flag — a published report already accepted by the owner is finalizable. */
   ownerFeedbackStatus?: string | null;
   quienRepara: QuienRepara | null | undefined;
+  /** Tipo de inspección — `check_in` no exige definir quién repara. */
+  inspectionType?: string | null;
   onFinalized?: () => void;
   variant?: 'default' | 'outline';
   size?: 'default' | 'sm' | 'lg';
@@ -33,8 +35,10 @@ interface Props {
 const FINALIZABLE = new Set(['approved', 'accepted']);
 
 export function FinalizeInspectionButton({
-  inspectionId, status, ownerFeedbackStatus, quienRepara, onFinalized, variant = 'default', size = 'default',
+  inspectionId, status, ownerFeedbackStatus, quienRepara, inspectionType,
+  onFinalized, variant = 'default', size = 'default',
 }: Props) {
+  const needsQuienRepara = inspectionType !== 'check_in';
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [flag, setFlag] = useState<QuienRepara | null>(quienRepara ?? null);
@@ -46,13 +50,13 @@ export function FinalizeInspectionButton({
       (status === 'published' && ownerFeedbackStatus === 'accepted'));
   if (!finalizable) return null;
 
-  const canSubmit = !submitting && !!flag;
+  const canSubmit = !submitting && (!needsQuienRepara || !!flag);
 
   const handleSubmit = async () => {
-    if (!flag) return;
+    if (needsQuienRepara && !flag) return;
     setSubmitting(true);
     try {
-      if (flag !== quienRepara) {
+      if (needsQuienRepara && flag && flag !== quienRepara) {
         const { error } = await supabase
           .from('inspections')
           .update({ quien_repara: flag })
@@ -106,6 +110,7 @@ export function FinalizeInspectionButton({
           </DialogHeader>
 
           <div className="space-y-4">
+            {needsQuienRepara && (
             <div className="space-y-2">
               <Label>¿Quién repara?</Label>
               <RadioGroup
@@ -123,6 +128,7 @@ export function FinalizeInspectionButton({
                 ))}
               </RadioGroup>
             </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="finalize-note">Nota (opcional)</Label>

@@ -32,6 +32,8 @@ const AdminIntegrations = lazyWithRetry(() => import("./pages/admin/AdminIntegra
 const AdminIntegrationHubSpot = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpot"), "AdminIntegrationHubSpot");
 const AdminIntegrationHubSpotLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotLogs"), "AdminIntegrationHubSpotLogs");
 const AdminIntegrationHubSpotOutboundLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotOutboundLogs"), "AdminIntegrationHubSpotOutboundLogs");
+const PropertiesList = lazyWithRetry(() => import("./pages/properties/PropertiesList"), "PropertiesList");
+const PropertyDetail = lazyWithRetry(() => import("./pages/properties/PropertyDetail"), "PropertyDetail");
 const AdminMonitoring = lazyWithRetry(() => import("./pages/admin/AdminMonitoring"), "AdminMonitoring");
 
 // ── Lazy — Inspector ──────────────────────────────────────────────────────────
@@ -122,6 +124,8 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/inspections" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspections /></ProtectedRoute>} />
               <Route path="/admin/inspections/:id" element={<ProtectedRoute allowedRoles={['admin']}><AdminInspectionDetail /></ProtectedRoute>} />
+              <Route path="/admin/properties" element={<ProtectedRoute allowedRoles={['admin']}><PropertiesList /></ProtectedRoute>} />
+              <Route path="/admin/properties/:propertyId" element={<ProtectedRoute allowedRoles={['admin']}><PropertyDetail /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
               <Route path="/admin/schedule" element={<ProtectedRoute allowedRoles={['admin']}><AdminSchedule /></ProtectedRoute>} />
@@ -145,6 +149,8 @@ const App = () => (
               {/* Executive routes */}
               <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
               <Route path="/executive/schedule" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveSchedule /></ProtectedRoute>} />
+              <Route path="/executive/properties" element={<ProtectedRoute allowedRoles={['executive']}><PropertiesList /></ProtectedRoute>} />
+              <Route path="/executive/properties/:propertyId" element={<ProtectedRoute allowedRoles={['executive']}><PropertyDetail /></ProtectedRoute>} />
               <Route path="/executive/inspection/:id" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewDetail /></ProtectedRoute>} />
               <Route path="/executive/catalog" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveRepairCatalog /></ProtectedRoute>} />
 

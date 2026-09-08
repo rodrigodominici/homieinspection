@@ -39,7 +39,7 @@ const SAMPLE_PAYLOAD = {
 const FIELD_MAPPING = [
   { field: 'property_id', required: true, note: 'Identificador del inmueble (estable).' },
   { field: 'market', required: true, note: 'Mercado (ej. CL, MX).' },
-  { field: 'inspection_type', required: true, note: 'check_in | check_out.' },
+  { field: 'inspection_type', required: true, note: 'check_out | check_in | captacion.' },
   { field: 'property_type', required: false, note: 'Única fuente de verdad para clasificación: estudio | departamento | casa.' },
   { field: 'bedrooms_count', required: false, note: 'Cantidad de dormitorios.' },
   { field: 'bathrooms_count', required: false, note: 'Cantidad de baños (mínimo 1).' },
@@ -290,7 +290,7 @@ export default function AdminIntegrationHubSpot() {
             <p className="text-xs text-muted-foreground">
               El objeto destino se resuelve vía <code>inspection_external_references</code> según el{' '}
               <code>inspection_type</code> — el modelo de inspecciones permanece desacoplado de HubSpot.
-              Prefijo de <code>external_object_id</code>: <code>hs_contrato_</code> para check_out,{' '}
+              Prefijo de <code>external_object_id</code>: <code>hs_contrato_</code> para check_out y check_in,{' '}
               <code>hs_deal_</code> para captación.
             </p>
             <p className="text-xs text-muted-foreground">

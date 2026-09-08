@@ -5,6 +5,7 @@ import { ArrowLeft, ClipboardList, Wrench, FileText, Send, Check, Info } from 'l
 import { cn } from '@/lib/utils';
 import { fmtCurrency } from './helpers';
 import type { Inspection } from '@/lib/types';
+import { requiresQuotation } from '@/lib/inspection-type-labels';
 
 interface HeaderStatusBadgeProps {
   status: Inspection['status'];
@@ -64,10 +65,16 @@ export function WorkflowStepper({
 }: WorkflowStepperProps) {
   const ownerPending = ownerFeedbackStatus === 'pending_executive_review';
   const ownerAccepted = ownerFeedbackStatus === 'accepted';
+  // El check-in solo registra el estado inicial: no tiene etapa de presupuesto.
+  const withQuotation = requiresQuotation(inspection.inspection_type);
   const steps: StepDef[] = [
     { key: 'inspection', label: 'Inspección', icon: ClipboardList, badge: pendingDecisionsCount || null },
-    { key: 'repairs', label: 'Reparaciones', icon: Wrench, badge: repairsCount || null },
-    { key: 'quotation', label: 'Cotización', icon: FileText, badge: null },
+    ...(withQuotation
+      ? ([
+          { key: 'repairs', label: 'Reparaciones', icon: Wrench, badge: repairsCount || null },
+          { key: 'quotation', label: 'Cotización', icon: FileText, badge: null },
+        ] as StepDef[])
+      : []),
     { key: 'publish', label: 'Publicación', icon: Send, badge: ownerPending ? 1 : null },
   ];
 
@@ -141,7 +148,8 @@ export function WorkflowStepper({
           })}
         </nav>
 
-        {/* Budget chip (read-only) */}
+        {/* Budget chip (read-only) — no aplica en check-in */}
+        {withQuotation && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -156,6 +164,7 @@ export function WorkflowStepper({
           </TooltipTrigger>
           <TooltipContent side="bottom">Ir a Reparaciones</TooltipContent>
         </Tooltip>
+        )}
 
       </div>
     </header>

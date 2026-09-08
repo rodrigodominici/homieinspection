@@ -13,6 +13,7 @@ import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
   getInspectionTypeLabel,
+  normalizeInspectionType,
 } from '@/lib/inspection-type-labels';
 import {
   isTerminalScheduleStatus,
@@ -112,8 +113,7 @@ export default function AdminSchedule() {
   const filtered = operational.filter(i => {
     if (filterInspector !== 'all' && i.inspector_id !== filterInspector) return false;
     if (typeFilter !== 'all') {
-      const t = i.inspection_type === 'captacion' ? 'captacion' : 'check_out';
-      if (t !== typeFilter) return false;
+      if (normalizeInspectionType(i.inspection_type) !== typeFilter) return false;
     }
     return true;
   });
@@ -209,6 +209,7 @@ export default function AdminSchedule() {
             { value: 'all' as const, label: 'Todos los tipos' },
             { value: 'check_out' as const, label: 'Check-out' },
             { value: 'captacion' as const, label: 'Captación' },
+            { value: 'check_in' as const, label: 'Check-in' },
           ]).map(pill => (
             <Button
               key={pill.value}

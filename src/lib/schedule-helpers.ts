@@ -19,7 +19,7 @@ export const TERMINAL_SCHEDULE_STATUSES = new Set<string>([
 export const isTerminalScheduleStatus = (status: string | null | undefined): boolean =>
   !!status && TERMINAL_SCHEDULE_STATUSES.has(status);
 
-export type ScheduleTypeFilter = 'all' | 'check_out' | 'captacion';
+export type ScheduleTypeFilter = 'all' | 'check_out' | 'captacion' | 'check_in';
 
 /**
  * Clases tailwind por tipo de inspección para diferenciación visual en banner
@@ -57,8 +57,20 @@ const CAPTACION_TOKENS: TypeVisualTokens = {
   dateLineClass: 'flex items-center gap-1 text-tiny text-indigo-700 mt-1',
 };
 
+const CHECK_IN_TOKENS: TypeVisualTokens = {
+  bannerItemClass:
+    'block rounded-md border border-dashed border-teal-300 bg-teal-50 text-teal-800 px-1.5 py-1 text-[10px] leading-tight hover:bg-teal-100 transition-colors mb-0.5',
+  bannerSubtextClass: 'block truncate text-teal-600',
+  bannerInspectorClass: 'block text-teal-500 truncate',
+  cardRingClass: 'border-0 ring-1 ring-teal-200 shadow-sm hover:shadow-md transition-shadow border-dashed',
+  chipClass: 'inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 bg-teal-50 rounded-full px-2 py-0.5',
+  bottomBgClass: 'bg-teal-50/30',
+  dateLineClass: 'flex items-center gap-1 text-tiny text-teal-700 mt-1',
+};
+
 export const getTypeVisualTokens = (t: InspectionType): TypeVisualTokens =>
-  t === 'captacion' ? CAPTACION_TOKENS : CHECK_OUT_TOKENS;
+  t === 'captacion' ? CAPTACION_TOKENS : t === 'check_in' ? CHECK_IN_TOKENS : CHECK_OUT_TOKENS;
+
 
 /** Devuelve la fecha formateada, con prefijo "Estimada · " para captación. */
 export const formatScheduleDate = (date: Date, t: InspectionType, opts?: Intl.DateTimeFormatOptions): string => {

@@ -7,11 +7,11 @@ import { StatusBadge } from '@/shared/ui';
 import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { cn } from '@/lib/utils';
 import { stageOf, STAGE_META, STAGE_ORDER, type StageKey } from '@/lib/inspection-buckets';
-import { isCaptacion } from '@/lib/inspection-type-labels';
+import { normalizeInspectionType } from '@/lib/inspection-type-labels';
 import type { Inspection, Profile } from '@/lib/types';
 import { Users2 } from 'lucide-react';
 
-type TypeFilter = 'all' | 'captacion' | 'check_out';
+type TypeFilter = 'all' | 'captacion' | 'check_out' | 'check_in';
 
 interface Props {
   inspections: Inspection[];
@@ -35,8 +35,7 @@ export default function ExecutiveLoadChart({ inspections, profileMap }: Props) {
 
   const filtered = useMemo(() => {
     if (typeFilter === 'all') return inspections;
-    if (typeFilter === 'captacion') return inspections.filter((i) => isCaptacion(i.inspection_type));
-    return inspections.filter((i) => !isCaptacion(i.inspection_type));
+    return inspections.filter((i) => normalizeInspectionType(i.inspection_type) === typeFilter);
   }, [inspections, typeFilter]);
 
   const rows = useMemo<ExecRow[]>(() => {
@@ -101,6 +100,7 @@ export default function ExecutiveLoadChart({ inspections, profileMap }: Props) {
                 <TabsTrigger value="all" className="text-xs px-3">Todas</TabsTrigger>
                 <TabsTrigger value="captacion" className="text-xs px-3">Captación</TabsTrigger>
                 <TabsTrigger value="check_out" className="text-xs px-3">Check-out</TabsTrigger>
+                <TabsTrigger value="check_in" className="text-xs px-3">Check-in</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
