@@ -35,6 +35,7 @@ const BUSINESS_ROLES: { value: string; label: string }[] = [
 
 export default function AdminUsers() {
   const { toast } = useToast();
+  const { matchesMarket } = useMarket();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>('all');
