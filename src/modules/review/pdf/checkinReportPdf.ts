@@ -249,20 +249,27 @@ class Doc {
 
   keyValue(label: string, value: string) {
     const size = 9.5;
-    const labelW = 150;
-    const lines = wrap(winAnsi(value || '-'), this.regular, size, CONTENT_W - labelW - 8);
+    const labelW = 170;
+    const gutter = 10;
+    const labelLines = wrap(winAnsi(label), this.bold, size, labelW - gutter);
+    const valueLines = wrap(winAnsi(value || '-'), this.regular, size, CONTENT_W - labelW);
     const lh = size * 1.35;
-    this.ensure(lh * lines.length + 2);
-    this.page.drawText(winAnsi(label), {
-      x: MARGIN, y: this.y - size, size, font: this.bold, color: MUTED,
+    const rows = Math.max(labelLines.length, valueLines.length);
+    this.ensure(lh * rows + 3);
+    labelLines.forEach((line, i) => {
+      this.page.drawText(line, {
+        x: MARGIN, y: this.y - size - i * lh, size, font: this.bold, color: MUTED,
+      });
     });
-    lines.forEach((line, i) => {
+    valueLines.forEach((line, i) => {
       this.page.drawText(line, {
         x: MARGIN + labelW, y: this.y - size - i * lh, size, font: this.regular, color: TEXT,
       });
     });
-    this.y -= lh * lines.length + 2;
+    this.y -= lh * rows + 3;
   }
+
+
 
   get pdfDoc() { return this.pdf; }
   get fontRegular() { return this.regular; }
