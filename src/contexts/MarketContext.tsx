@@ -4,7 +4,7 @@
  * El país no es un filtro por sección: se elige una vez en la barra superior y
  * todas las pantallas operativas filtran por él. Cada usuario solo puede elegir
  * entre los países asignados a su perfil (`profiles.markets`); el rol admin
- * puede ver todos los países y además la opción "Todos los países".
+ * puede elegir cualquier país. Siempre se trabaja dentro de un país concreto.
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,10 +15,10 @@ export type MarketScope = 'all' | string;
 const STORAGE_KEY = 'homie.market-scope';
 
 interface MarketContextValue {
-  /** 'all' (solo admin) o código de país canónico ('CL', 'MX'). */
+  /** Código de país canónico ('CL', 'MX', 'PE'). */
   market: MarketScope;
   setMarket: (m: MarketScope) => void;
-  /** Países que este usuario puede elegir (sin 'all'). */
+  /** Países que este usuario puede elegir. */
   availableMarkets: string[];
   /** True si el usuario puede alternar de país. */
   canSwitch: boolean;
