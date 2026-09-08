@@ -349,11 +349,13 @@ export async function buildCheckinReportPdf(input: CheckinPdfInput): Promise<Uin
     /* Fotos: grilla 2x2 */
     const photos = section.photos;
     if (photos.length) {
+      const cellW = (CONTENT_W - 12) / 2;
+      const cellH = 150;
+      // El título de fotos nunca queda huérfano al final de la página.
+      doc.ensure(cellH + 40);
       doc.text(`Fotos (${photos.length})`, { size: 9, bold: true, color: MUTED });
       doc.gap(4);
 
-      const cellW = (CONTENT_W - 12) / 2;
-      const cellH = 150;
       const captionH = 12;
 
       for (let i = 0; i < photos.length; i += 2) {
