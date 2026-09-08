@@ -260,17 +260,21 @@ Deno.serve(async (req: Request) => {
     ...(executiveRes.input_email ? { email: executiveRes.input_email } : {}),
   };
 
+  // Normalizamos alias y fechas (HubSpot manda epoch ms) antes de persistir.
+  const normalizedData = normalizeIncomingPayload(body.data as any) as any;
+
   const normalized = {
-    ...body.data,
+    ...normalizedData,
     inspector: Object.keys(normalizedInspector).length ? normalizedInspector : undefined,
     executive: Object.keys(normalizedExecutive).length ? normalizedExecutive : undefined,
     __generated__: generatedStructure,
-    __snapshot__: body.data,
+    __snapshot__: normalizedData,
     __assignment__: {
       inspector: inspectorRes,
       executive: executiveRes,
     },
   };
+
 
   const { data: inserted, error: insertErr } = await supabase
     .from('inspection_source_events')
