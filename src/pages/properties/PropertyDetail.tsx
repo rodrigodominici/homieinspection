@@ -38,7 +38,10 @@ export default function PropertyDetail() {
     staleTime: 60_000,
   });
 
+  const { showMarketTag } = useMarket();
+
   const personIds = useMemo(() => {
+
     const ids = new Set<string>();
     for (const i of inspections ?? []) {
       if (i.inspector_id) ids.add(i.inspector_id);
