@@ -205,14 +205,16 @@ export default function AdminUsers() {
       toast({ title: 'Teléfono inválido', description: 'Solo dígitos, 6–15 caracteres.', variant: 'destructive' }); return;
     }
     setCuSubmitting(true);
+    const cuEffectiveMarkets = cuRole === 'admin' ? MARKET_OPTIONS.map((m) => m.value) : cuMarkets;
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
         full_name: name,
         email,
         password: cuPassword,
         role: cuRole,
-        market: cuMarkets.includes(cuMarket) ? cuMarket : cuMarkets[0],
-        markets: cuMarkets,
+        market: cuEffectiveMarkets.includes(cuMarket) ? cuMarket : cuEffectiveMarkets[0],
+        markets: cuEffectiveMarkets,
+
         country_code: cuCountryCode,
         phone,
         is_active: cuIsActive,
