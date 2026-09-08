@@ -41,7 +41,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = profile?.role === 'admin';
 
   const availableMarkets = useMemo<string[]>(() => {
-    if (isAdmin) return ALL_MARKETS;
+    if (isAdmin) return ['all', ...ALL_MARKETS];
     const assigned = (profile?.markets ?? [])
       .map((m) => normalizeMarket(m))
       .filter((m): m is string => !!m);
