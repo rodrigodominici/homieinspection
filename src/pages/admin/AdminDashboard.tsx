@@ -30,6 +30,13 @@ import {
   MessageSquareWarning, Hourglass, Archive, CalendarRange, X,
 } from 'lucide-react';
 
+const TYPE_FILTERS: { value: CanonicalInspectionType; label: string }[] = [
+  { value: 'captacion', label: 'Captación' },
+  { value: 'check_in', label: 'Check-in' },
+  { value: 'check_out', label: 'Check-out' },
+];
+
+
 /** Convert a YYYY-MM-DD string into a local Date (midnight) for the date picker. */
 function dashToDate(value: string): Date | undefined {
   if (!value) return undefined;
