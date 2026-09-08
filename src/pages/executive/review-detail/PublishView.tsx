@@ -92,7 +92,9 @@ export function PublishView(props: PublishViewProps) {
       <div>
         <h2 className="text-h3 font-semibold tracking-tight">Publicación</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Verifica la disponibilidad de la inspección y publica el reporte final para el propietario y el inquilino.
+          {withQuotation
+            ? 'Verifica la disponibilidad de la inspección y publica el reporte final para el propietario y el inquilino.'
+            : 'Verifica la disponibilidad de la inspección y publica el informe de entrega para el inquilino.'}
         </p>
       </div>
 
@@ -157,8 +159,12 @@ export function PublishView(props: PublishViewProps) {
             </p>
             <p className="text-sm text-muted-foreground">
               {isPublished
-                ? 'Los enlaces ya están disponibles para propietario e inquilino.'
-                : 'Se generarán enlaces públicos para propietario e inquilino. Las observaciones finales y la cotización quedarán visibles.'}
+                ? withQuotation
+                  ? 'Los enlaces ya están disponibles para propietario e inquilino.'
+                  : 'El enlace ya está disponible para el inquilino.'
+                : withQuotation
+                  ? 'Se generarán enlaces públicos para propietario e inquilino. Las observaciones finales y la cotización quedarán visibles.'
+                  : 'Se generará el enlace del informe de entrega para el inquilino, con las observaciones finales y las fotos.'}
             </p>
           </div>
           {hasBlockers && !isPublished && (
@@ -206,12 +212,14 @@ export function PublishView(props: PublishViewProps) {
       {isPublished && (
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <p className="font-semibold">Compartir reporte</p>
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className={cn('grid gap-3', withQuotation && 'md:grid-cols-2')}>
+            {withQuotation && (
             <ShareCard
               audience="Propietario"
               onOpen={onOpenOwner}
               onCopy={onCopyOwner}
             />
+            )}
             <ShareCard
               audience="Inquilino"
               onOpen={onOpenTenant}
