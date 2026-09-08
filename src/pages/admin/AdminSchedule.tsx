@@ -13,6 +13,7 @@ import {
   getContractDateMicroLabel,
   getContractDateShortLabel,
   getInspectionTypeLabel,
+  normalizeInspectionType,
 } from '@/lib/inspection-type-labels';
 import {
   isTerminalScheduleStatus,
