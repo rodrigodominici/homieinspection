@@ -22,8 +22,6 @@ interface MarketContextValue {
   availableMarkets: string[];
   /** True si el usuario puede alternar de país. */
   canSwitch: boolean;
-  /** True si el usuario puede ver todos los países a la vez (admin). */
-  canSeeAll: boolean;
   /** True si la inspección/inmueble entra en el ámbito elegido. */
   matchesMarket: (raw: string | null | undefined) => boolean;
 }
@@ -31,11 +29,10 @@ interface MarketContextValue {
 const ALL_MARKETS = MARKET_OPTIONS.map((m) => m.value as string);
 
 const MarketContext = createContext<MarketContextValue>({
-  market: 'all',
+  market: 'CL',
   setMarket: () => {},
   availableMarkets: ALL_MARKETS,
   canSwitch: true,
-  canSeeAll: true,
   matchesMarket: () => true,
 });
 
@@ -88,11 +85,9 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       market,
       setMarket,
       availableMarkets,
-      canSwitch: availableMarkets.length > 1 || isAdmin,
-      canSeeAll: isAdmin,
+      canSwitch: availableMarkets.length > 1,
       matchesMarket: (raw) => {
         const norm = normalizeMarket(raw);
-        if (market === 'all') return true;
         if (!market) return true; // aún resolviendo el país del perfil
         return norm === market;
       },
