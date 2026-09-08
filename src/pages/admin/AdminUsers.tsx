@@ -420,37 +420,48 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Países con acceso</Label>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_OPTIONS.map((m) => {
-                    const on = editMarkets.includes(m.value);
-                    return (
-                      <Button
-                        key={m.value}
-                        type="button"
-                        size="sm"
-                        variant={on ? 'default' : 'outline'}
-                        onClick={() => {
-                          const next = on
-                            ? editMarkets.filter((x) => x !== m.value)
-                            : [...editMarkets, m.value];
-                          setEditMarkets(next);
-                          if (next.length > 0 && !next.includes(editMarket)) {
-                            setEditMarket(next[0]);
-                            if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(next[0]));
-                          }
-                        }}
-                      >
-                        {m.label}
-                      </Button>
-                    );
-                  })}
+              {editRole === 'admin' ? (
+                <div className="space-y-2">
+                  <Label>Países con acceso</Label>
+                  <div className="rounded-md bg-muted/40 px-3 py-2 text-sm font-medium">Todos</div>
+                  <p className="text-tiny text-muted-foreground">
+                    Los administradores siempre tienen acceso a todos los países.
+                  </p>
                 </div>
-                <p className="text-tiny text-muted-foreground">
-                  El usuario solo verá datos de los países seleccionados.
-                </p>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Países con acceso</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {MARKET_OPTIONS.map((m) => {
+                      const on = editMarkets.includes(m.value);
+                      return (
+                        <Button
+                          key={m.value}
+                          type="button"
+                          size="sm"
+                          variant={on ? 'default' : 'outline'}
+                          onClick={() => {
+                            const next = on
+                              ? editMarkets.filter((x) => x !== m.value)
+                              : [...editMarkets, m.value];
+                            setEditMarkets(next);
+                            if (next.length > 0 && !next.includes(editMarket)) {
+                              setEditMarket(next[0]);
+                              if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(next[0]));
+                            }
+                          }}
+                        >
+                          {m.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-tiny text-muted-foreground">
+                    El usuario solo verá datos de los países seleccionados.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>País principal</Label>
