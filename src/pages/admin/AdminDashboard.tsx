@@ -19,11 +19,23 @@ import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
 import type { Inspection, Profile } from '@/lib/types';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  normalizeInspectionType,
+  type CanonicalInspectionType,
+} from '@/lib/inspection-type-labels';
 import {
   Plus, User, CalendarClock, AlertTriangle,
   UserCheck, Clock, FileSearch, Send, CheckCircle2,
   MessageSquareWarning, Hourglass, Archive, CalendarRange, X,
 } from 'lucide-react';
+
+const TYPE_FILTERS: { value: CanonicalInspectionType; label: string }[] = [
+  { value: 'captacion', label: 'Captación' },
+  { value: 'check_in', label: 'Check-in' },
+  { value: 'check_out', label: 'Check-out' },
+];
+
 
 /** Convert a YYYY-MM-DD string into a local Date (midnight) for the date picker. */
 function dashToDate(value: string): Date | undefined {
@@ -94,7 +106,9 @@ export default function AdminDashboard() {
   // Date-range filter by key-pickup date (fecha_recoleccion_llaves).
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [types, setTypes] = useState<CanonicalInspectionType[]>([]);
   const dateFilterActive = dateFrom !== '' || dateTo !== '';
+  const filtersActive = dateFilterActive || types.length > 0;
 
   const loading = inspQuery.isLoading || profilesQuery.isLoading;
   const allInspections = inspQuery.data ?? [];
@@ -102,15 +116,19 @@ export default function AdminDashboard() {
 
   const inspections = useMemo(() => {
     const scoped = allInspections.filter((i) => matchesMarket(i.market));
-    if (!dateFilterActive) return scoped;
+    if (!filtersActive) return scoped;
     return scoped.filter((i) => {
+      if (types.length > 0 && !types.includes(normalizeInspectionType(i.inspection_type)))
+        return false;
+      if (!dateFilterActive) return true;
       const d = keyPickupDate(i);
       if (!d) return false;
       if (dateFrom && d < dateFrom) return false;
       if (dateTo && d > dateTo) return false;
       return true;
     });
-  }, [allInspections, matchesMarket, dateFilterActive, dateFrom, dateTo]);
+  }, [allInspections, matchesMarket, filtersActive, dateFilterActive, dateFrom, dateTo, types]);
+
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
@@ -187,7 +205,24 @@ export default function AdminDashboard() {
             className="h-8 w-[150px] bg-background"
             align="end"
           />
-          {dateFilterActive && (
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            value={types}
+            onValueChange={(v) => setTypes(v as CanonicalInspectionType[])}
+            className="flex-wrap gap-1"
+          >
+            {TYPE_FILTERS.map((t) => (
+              <ToggleGroupItem
+                key={t.value}
+                value={t.value}
+                className="h-8 rounded-lg bg-background px-3 text-caption data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+              >
+                {t.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {filtersActive && (
             <>
               <span className="text-caption text-muted-foreground">
                 {inspections.length} de {allInspections.length} inspecciones
@@ -196,13 +231,14 @@ export default function AdminDashboard() {
                 variant="ghost"
                 size="sm"
                 className="h-8"
-                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                onClick={() => { setDateFrom(''); setDateTo(''); setTypes([]); }}
               >
                 <X className="mr-1 h-3.5 w-3.5" /> Limpiar
               </Button>
             </>
           )}
         </div>
+
 
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
