@@ -19,6 +19,11 @@ import { KpiCard } from '@/shared/ui';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { bucketOf, computeInspectionKpis } from '@/lib/inspection-buckets';
 import type { Inspection, Profile } from '@/lib/types';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  normalizeInspectionType,
+  type CanonicalInspectionType,
+} from '@/lib/inspection-type-labels';
 import {
   Plus, User, CalendarClock, AlertTriangle,
   UserCheck, Clock, FileSearch, Send, CheckCircle2,
