@@ -12,11 +12,12 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { ClipboardList, CalendarClock, BookOpen, LogOut } from 'lucide-react';
+import { ClipboardList, CalendarClock, BookOpen, Building2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { title: 'Inspecciones', url: '/executive', icon: ClipboardList },
+  { title: 'Inmuebles', url: '/executive/properties', icon: Building2 },
   { title: 'Agenda', url: '/executive/schedule', icon: CalendarClock },
   { title: 'Catálogo', url: '/executive/catalog', icon: BookOpen },
 ];
