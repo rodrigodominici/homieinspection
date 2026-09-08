@@ -59,7 +59,7 @@ export default function AdminUsers() {
   const [cuPassword, setCuPassword] = useState('');
   const [cuShowPassword, setCuShowPassword] = useState(false);
   const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial'>('inspector');
-  const [cuMarket, setCuMarket] = useState<'CL' | 'MX'>('CL');
+  const [cuMarket, setCuMarket] = useState<string>('CL');
   const [cuMarkets, setCuMarkets] = useState<string[]>(['CL']);
   const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
   const [cuPhone, setCuPhone] = useState<string>('');
@@ -130,11 +130,12 @@ export default function AdminUsers() {
     setEditingProfile(p);
     setEditRole(p.role === 'pending' ? 'inspector' : p.role);
     setEditName(p.full_name);
-    setEditMarket((p.market === 'CL' || p.market === 'MX') ? p.market : 'CL');
+    const valid = MARKET_OPTIONS.map((m) => m.value as string);
+    setEditMarket(valid.includes(p.market ?? '') ? p.market! : 'CL');
     setEditMarkets(
-      (p.markets ?? []).length > 0
-        ? p.markets!.filter((m) => m === 'CL' || m === 'MX')
-        : [(p.market === 'MX' ? 'MX' : 'CL')],
+      (p.markets ?? []).filter((m) => valid.includes(m)).length > 0
+        ? p.markets!.filter((m) => valid.includes(m))
+        : [valid.includes(p.market ?? '') ? p.market! : 'CL'],
     );
     setEditCountryCode(p.country_code ?? defaultCountryCodeForMarket(p.market));
     setEditPhone(p.phone ?? '');
@@ -563,7 +564,7 @@ export default function AdminUsers() {
                         const next = on ? cuMarkets.filter((x) => x !== m.value) : [...cuMarkets, m.value];
                         setCuMarkets(next);
                         if (next.length > 0 && !next.includes(cuMarket)) {
-                          setCuMarket(next[0] as 'CL' | 'MX');
+                          setCuMarket(next[0]);
                           setCuCountryCode(defaultCountryCodeForMarket(next[0]));
                         }
                       }}
@@ -580,7 +581,7 @@ export default function AdminUsers() {
                 <Select
                   value={cuMarket}
                   onValueChange={(v) => {
-                    const next = v as 'CL' | 'MX';
+                    const next = v;
                     setCuMarket(next);
                     if (!cuMarkets.includes(next)) setCuMarkets([...cuMarkets, next]);
                     setCuCountryCode(defaultCountryCodeForMarket(next));

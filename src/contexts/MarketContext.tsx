@@ -4,7 +4,7 @@
  * El país no es un filtro por sección: se elige una vez en la barra superior y
  * todas las pantallas operativas filtran por él. Cada usuario solo puede elegir
  * entre los países asignados a su perfil (`profiles.markets`); el rol admin
- * puede ver todos los países y además la opción "Todos los países".
+ * puede elegir cualquier país. Siempre se trabaja dentro de un país concreto.
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,15 +15,13 @@ export type MarketScope = 'all' | string;
 const STORAGE_KEY = 'homie.market-scope';
 
 interface MarketContextValue {
-  /** 'all' (solo admin) o código de país canónico ('CL', 'MX'). */
+  /** Código de país canónico ('CL', 'MX', 'PE'). */
   market: MarketScope;
   setMarket: (m: MarketScope) => void;
-  /** Países que este usuario puede elegir (sin 'all'). */
+  /** Países que este usuario puede elegir. */
   availableMarkets: string[];
   /** True si el usuario puede alternar de país. */
   canSwitch: boolean;
-  /** True si el usuario puede ver todos los países a la vez (admin). */
-  canSeeAll: boolean;
   /** True si la inspección/inmueble entra en el ámbito elegido. */
   matchesMarket: (raw: string | null | undefined) => boolean;
 }
@@ -31,11 +29,10 @@ interface MarketContextValue {
 const ALL_MARKETS = MARKET_OPTIONS.map((m) => m.value as string);
 
 const MarketContext = createContext<MarketContextValue>({
-  market: 'all',
+  market: 'CL',
   setMarket: () => {},
   availableMarkets: ALL_MARKETS,
   canSwitch: true,
-  canSeeAll: true,
   matchesMarket: () => true,
 });
 
@@ -61,10 +58,10 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  // Fuerza el valor a un país permitido. 'all' solo existe para admin.
+  // Fuerza el valor a un país permitido. Siempre se trabaja dentro de un país.
   useEffect(() => {
     const allowed = new Set<string>(availableMarkets);
-    const valid = market === 'all' ? isAdmin : allowed.has(market);
+    const valid = allowed.has(market);
     if (!valid) {
       const fallback =
         (normalizeMarket(profile?.market) && allowed.has(normalizeMarket(profile?.market)!)
@@ -88,11 +85,9 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       market,
       setMarket,
       availableMarkets,
-      canSwitch: availableMarkets.length > 1 || isAdmin,
-      canSeeAll: isAdmin,
+      canSwitch: availableMarkets.length > 1,
       matchesMarket: (raw) => {
         const norm = normalizeMarket(raw);
-        if (market === 'all') return true;
         if (!market) return true; // aún resolviendo el país del perfil
         return norm === market;
       },
