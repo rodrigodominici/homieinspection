@@ -26,7 +26,7 @@ export default function MarketSwitcher() {
       <SelectContent>
         
         {availableMarkets.map((m) => (
-          <SelectItem key={m} value={m}>{marketLabel(m)}</SelectItem>
+          <SelectItem key={m} value={m}>{m === 'all' ? 'Todos los países' : marketLabel(m)}</SelectItem>
         ))}
       </SelectContent>
     </Select>
