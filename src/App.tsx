@@ -171,6 +171,7 @@ const App = () => (
           </RouteBoundary>
         </BrowserRouter>
       </TooltipProvider>
+      </MarketProvider>
     </AuthProvider>
   </QueryClientProvider>
   </ErrorBoundary>
