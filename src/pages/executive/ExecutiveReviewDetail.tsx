@@ -2,6 +2,7 @@ import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { requiresQuotation } from '@/lib/inspection-type-labels';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -284,6 +285,14 @@ export default function ExecutiveReviewDetail() {
     setRepairsDrawerSectionId(sid);
   }, []);
 
+
+  // El check-in no tiene presupuesto: si el modo apunta a esas etapas, volver.
+  useEffect(() => {
+    if (inspection && !requiresQuotation(inspection.inspection_type)
+        && (mode === 'repairs' || mode === 'quotation')) {
+      setMode('inspection');
+    }
+  }, [inspection, mode]);
 
   // ─── Stable mode/dialog handlers ───────────────────────
   const handleOpenDiscount = useCallback(() => setDiscountSheetOpen(true), []);
