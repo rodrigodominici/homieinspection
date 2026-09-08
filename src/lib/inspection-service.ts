@@ -26,9 +26,15 @@ export interface ExternalObjectRef {
   externalObjectId: string;
 }
 
+/**
+ * Objeto de HubSpot por tipo de inspección:
+ * - captacion → Deal estándar (0-3, pipeline Publicaciones)
+ * - check_out / check_in → Contrato de Arriendo (custom 2-47492934)
+ */
 const HUBSPOT_OBJECT_MAP = {
   captacion: { type: 'deal', typeId: '0-3' },
   check_out: { type: 'lease_contract', typeId: '2-47492934' },
+  check_in: { type: 'lease_contract', typeId: '2-47492934' },
 } as const;
 
 export async function createInspectionFromPayload(
@@ -101,7 +107,9 @@ export async function createInspectionFromPayload(
     const map =
       payload.inspection_type === 'captacion'
         ? HUBSPOT_OBJECT_MAP.captacion
-        : HUBSPOT_OBJECT_MAP.check_out;
+        : payload.inspection_type === 'check_in'
+          ? HUBSPOT_OBJECT_MAP.check_in
+          : HUBSPOT_OBJECT_MAP.check_out;
 
     await supabase
       .from('inspection_external_references')
