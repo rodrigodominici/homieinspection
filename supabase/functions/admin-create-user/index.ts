@@ -16,6 +16,7 @@ interface CreateUserBody {
   full_name: string;
   role: 'admin' | 'inspector' | 'executive' | 'comercial';
   market: 'CL' | 'MX';
+  markets: string[];
   country_code: string;
   phone: string;
   is_active: boolean;
@@ -37,18 +38,21 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   const country_code = (body.country_code ?? '').trim();
   const phone = (body.phone ?? '').trim();
   const is_active = typeof body.is_active === 'boolean' ? body.is_active : true;
+  const rawMarkets = Array.isArray(body.markets) && body.markets.length > 0 ? body.markets : [market];
+  const markets = Array.from(new Set(rawMarkets.filter((m) => ['CL', 'MX'].includes(m ?? ''))));
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'invalid_email' };
   if (password.length < 8) return { ok: false, error: 'weak_password' };
   if (!full_name || full_name.length > 120) return { ok: false, error: 'invalid_full_name' };
   if (!['admin', 'inspector', 'executive', 'comercial'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
   if (!['CL', 'MX'].includes(market ?? '')) return { ok: false, error: 'invalid_market' };
+  if (markets.length === 0) return { ok: false, error: 'invalid_market' };
   if (!/^\+\d{1,4}$/.test(country_code)) return { ok: false, error: 'invalid_country_code' };
   if (!/^\d{6,15}$/.test(phone)) return { ok: false, error: 'invalid_phone' };
 
   return {
     ok: true,
-    data: { email, password, full_name, role: role!, market: market!, country_code, phone, is_active },
+    data: { email, password, full_name, role: role!, market: market!, markets, country_code, phone, is_active },
   };
 }
 
@@ -118,6 +122,7 @@ Deno.serve(async (req) => {
       email: body.email,
       role: body.role,
       market: body.market,
+      markets: body.markets,
       country_code: body.country_code,
       phone: body.phone,
       is_active: body.is_active,

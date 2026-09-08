@@ -1473,6 +1473,7 @@ export type Database = {
           id: string
           is_active: boolean
           market: string | null
+          markets: string[]
           phone: string | null
           role: string
           updated_at: string
@@ -1486,6 +1487,7 @@ export type Database = {
           id: string
           is_active?: boolean
           market?: string | null
+          markets?: string[]
           phone?: string | null
           role: string
           updated_at?: string
@@ -1499,6 +1501,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           market?: string | null
+          markets?: string[]
           phone?: string | null
           role?: string
           updated_at?: string
@@ -1748,47 +1751,90 @@ export type Database = {
         Args: { p_inspection_id: string; p_note?: string }
         Returns: Json
       }
-      get_executive_performance: {
-        Args: never
-        Returns: {
-          assigned: number
-          client_amount: number
-          contractor_cost: number
-          executive_id: string
-          executive_name: string
-          inspections_with_items: number
-          inspections_with_versions: number
-          items_per_inspection: number
-          margin_pct: number
-          median_days_owner_response: number
-          median_hours_to_publish: number
-          median_hours_to_review: number
-          owner_accepted: number
-          owner_no_response: number
-          owner_responded: number
-          published: number
-          repair_items: number
-          report_versions: number
-          versions_per_report: number
-        }[]
-      }
-      get_inspector_performance: {
-        Args: never
-        Returns: {
-          assigned: number
-          avg_active_minutes: number
-          completed: number
-          fields_filled: number
-          in_progress: number
-          inspector_id: string
-          inspector_name: string
-          last_activity_at: string
-          median_active_minutes: number
-          median_hours_to_submit: number
-          photos: number
-          photos_per_inspection: number
-        }[]
-      }
+      get_executive_performance:
+        | {
+            Args: never
+            Returns: {
+              assigned: number
+              client_amount: number
+              contractor_cost: number
+              executive_id: string
+              executive_name: string
+              inspections_with_items: number
+              inspections_with_versions: number
+              items_per_inspection: number
+              margin_pct: number
+              median_days_owner_response: number
+              median_hours_to_publish: number
+              median_hours_to_review: number
+              owner_accepted: number
+              owner_no_response: number
+              owner_responded: number
+              published: number
+              repair_items: number
+              report_versions: number
+              versions_per_report: number
+            }[]
+          }
+        | {
+            Args: { p_market?: string }
+            Returns: {
+              assigned: number
+              client_amount: number
+              contractor_cost: number
+              executive_id: string
+              executive_name: string
+              inspections_with_items: number
+              inspections_with_versions: number
+              items_per_inspection: number
+              margin_pct: number
+              median_days_owner_response: number
+              median_hours_to_publish: number
+              median_hours_to_review: number
+              owner_accepted: number
+              owner_no_response: number
+              owner_responded: number
+              published: number
+              repair_items: number
+              report_versions: number
+              versions_per_report: number
+            }[]
+          }
+      get_inspector_performance:
+        | {
+            Args: never
+            Returns: {
+              assigned: number
+              avg_active_minutes: number
+              completed: number
+              fields_filled: number
+              in_progress: number
+              inspector_id: string
+              inspector_name: string
+              last_activity_at: string
+              median_active_minutes: number
+              median_hours_to_submit: number
+              photos: number
+              photos_per_inspection: number
+            }[]
+          }
+        | {
+            Args: { p_market?: string }
+            Returns: {
+              assigned: number
+              avg_active_minutes: number
+              completed: number
+              fields_filled: number
+              in_progress: number
+              inspector_id: string
+              inspector_name: string
+              last_activity_at: string
+              median_active_minutes: number
+              median_hours_to_submit: number
+              photos: number
+              photos_per_inspection: number
+            }[]
+          }
       get_published_report: {
         Args: { p_property_id: string; p_token: string }
         Returns: Json
@@ -1809,6 +1855,11 @@ export type Database = {
         }
         Returns: Json
       }
+      user_has_market: {
+        Args: { _market: string; _user_id: string }
+        Returns: boolean
+      }
+      user_markets: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

@@ -21,6 +21,7 @@ import {
 import type { RepairCatalogCategory, RepairCatalogItem, Contractor } from '@/lib/types';
 import { Plus, Pencil, Search, Tag, Package, HardHat, Trash2, DollarSign, Grid3X3, Check, Loader2, AlertCircle, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMarket } from '@/contexts/MarketContext';
 
 const PRICING_TYPES = [
   { value: 'fixed', label: 'Precio fijo' },
@@ -127,6 +128,7 @@ function MarginDisplay({ basePrice, contractorPrice }: { basePrice: number; cont
 // ═══════════════════════════════════════════════════════════════
 export default function AdminRepairCatalog() {
   const { profile } = useAuth();
+  const { matchesMarket } = useMarket();
   const { toast } = useToast();
   const [categories, setCategories] = useState<RepairCatalogCategory[]>([]);
   const [items, setItems] = useState<RepairCatalogItem[]>([]);
@@ -461,6 +463,7 @@ export default function AdminRepairCatalog() {
 
   // ── Filtered items (shared) ────────────────────────────────
   const filtered = items.filter((i) => {
+    if (i.market && !matchesMarket(i.market)) return false;
     if (search && !i.name.toLowerCase().includes(search.toLowerCase()) && !(i.owner_friendly_name ?? '').toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory !== 'all' && i.category_id !== filterCategory) return false;
     if (filterActive === 'active' && !i.is_active) return false;
@@ -468,7 +471,7 @@ export default function AdminRepairCatalog() {
     return true;
   });
 
-  const activeContractors = contractors.filter(c => c.is_active);
+  const activeContractors = contractors.filter(c => c.is_active && (!c.country || matchesMarket(c.country)));
 
   // Contractors not yet priced for current item (dialog)
   const availableContractorsForPricing = contractors.filter(

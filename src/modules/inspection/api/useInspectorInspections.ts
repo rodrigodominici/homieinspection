@@ -5,7 +5,9 @@
  * optionally batch-loads sections for progress calculation. Cached across
  * routes so navigating dashboard → detail → dashboard does NOT re-fetch.
  */
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useMarket } from '@/contexts/MarketContext';
 import { supabase } from '@/integrations/supabase/client';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import { measureOperation } from '@/lib/monitoring';
@@ -80,6 +82,7 @@ async function fetchInspectorInspections(
 export function useInspectorInspections(
   opts: InspectorInspectionsOptions = {},
 ): InspectorInspectionsResult {
+  const { matchesMarket } = useMarket();
   const query = useQuery({
     queryKey: inspectorInspectionsKey(opts),
     queryFn: () => fetchInspectorInspections(opts),
@@ -87,8 +90,14 @@ export function useInspectorInspections(
     gcTime: 5 * 60_000,
   });
 
+  const all = query.data?.inspections ?? [];
+  const inspections = useMemo(
+    () => all.filter((i) => matchesMarket(i.market)),
+    [all, matchesMarket],
+  );
+
   return {
-    inspections: query.data?.inspections ?? [],
+    inspections,
     sectionsByInspection: query.data?.sectionsByInspection ?? {},
     loading: query.isLoading,
   };

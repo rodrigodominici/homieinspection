@@ -1,59 +1,81 @@
 /**
- * Selector de país global de la app (Admin y Ejecutivo).
+ * Selector de país global de la app.
  *
  * El país no es un filtro por sección: se elige una vez en la barra superior y
- * todas las pantallas operativas (Inmuebles, Inspecciones, Agenda, Dashboard,
- * cola del Ejecutivo) filtran por él. Se persiste en localStorage.
+ * todas las pantallas operativas filtran por él. Cada usuario solo puede elegir
+ * entre los países asignados a su perfil (`profiles.markets`); el rol admin
+ * puede ver todos los países y además la opción "Todos los países".
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { normalizeMarket } from '@/lib/markets';
+import { MARKET_OPTIONS, normalizeMarket } from '@/lib/markets';
 
 export type MarketScope = 'all' | string;
 
 const STORAGE_KEY = 'homie.market-scope';
 
 interface MarketContextValue {
-  /** 'all' o código de país canónico ('CL', 'MX'). */
+  /** 'all' (solo admin) o código de país canónico ('CL', 'MX'). */
   market: MarketScope;
   setMarket: (m: MarketScope) => void;
+  /** Países que este usuario puede elegir (sin 'all'). */
+  availableMarkets: string[];
+  /** True si el usuario puede alternar de país. */
+  canSwitch: boolean;
+  /** True si el usuario puede ver todos los países a la vez (admin). */
+  canSeeAll: boolean;
   /** True si la inspección/inmueble entra en el ámbito elegido. */
   matchesMarket: (raw: string | null | undefined) => boolean;
 }
 
+const ALL_MARKETS = MARKET_OPTIONS.map((m) => m.value as string);
+
 const MarketContext = createContext<MarketContextValue>({
   market: 'all',
   setMarket: () => {},
+  availableMarkets: ALL_MARKETS,
+  canSwitch: true,
+  canSeeAll: true,
   matchesMarket: () => true,
 });
 
 export function MarketProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
+
+  const availableMarkets = useMemo<string[]>(() => {
+    if (isAdmin) return ALL_MARKETS;
+    const assigned = (profile?.markets ?? [])
+      .map((m) => normalizeMarket(m))
+      .filter((m): m is string => !!m);
+    if (assigned.length > 0) return Array.from(new Set(assigned));
+    const single = normalizeMarket(profile?.market);
+    return single ? [single] : ['CL'];
+  }, [isAdmin, profile?.markets, profile?.market]);
+
   const [market, setMarketState] = useState<MarketScope>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) || 'all';
+      return localStorage.getItem(STORAGE_KEY) || 'CL';
     } catch {
-      return 'all';
-    }
-  });
-  const [touched, setTouched] = useState(() => {
-    try {
-      return !!localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return false;
+      return 'CL';
     }
   });
 
-  // Primera carga sin elección previa: arranca en el país del perfil.
+  // Fuerza el valor a un país permitido. 'all' solo existe para admin.
   useEffect(() => {
-    if (touched) return;
-    const fromProfile = normalizeMarket(profile?.market);
-    if (fromProfile) setMarketState(fromProfile);
-  }, [profile?.market, touched]);
+    const allowed = new Set<string>(availableMarkets);
+    const valid = market === 'all' ? isAdmin : allowed.has(market);
+    if (!valid) {
+      const fallback =
+        (normalizeMarket(profile?.market) && allowed.has(normalizeMarket(profile?.market)!)
+          ? normalizeMarket(profile?.market)!
+          : availableMarkets[0]) ?? 'CL';
+      setMarketState(fallback);
+    }
+  }, [market, availableMarkets, isAdmin, profile?.market]);
 
   const setMarket = (m: MarketScope) => {
     setMarketState(m);
-    setTouched(true);
     try {
       localStorage.setItem(STORAGE_KEY, m);
     } catch {
@@ -65,9 +87,17 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
     () => ({
       market,
       setMarket,
-      matchesMarket: (raw) => market === 'all' || normalizeMarket(raw) === market,
+      availableMarkets,
+      canSwitch: availableMarkets.length > 1 || isAdmin,
+      canSeeAll: isAdmin,
+      matchesMarket: (raw) => {
+        const norm = normalizeMarket(raw);
+        if (market === 'all') return true;
+        if (!market) return true; // aún resolviendo el país del perfil
+        return norm === market;
+      },
     }),
-    [market],
+    [market, availableMarkets, isAdmin],
   );
 
   return <MarketContext.Provider value={value}>{children}</MarketContext.Provider>;

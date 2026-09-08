@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMarket } from '@/contexts/MarketContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,8 +41,8 @@ const METRIC_TABS: { key: MetricKey; label: string }[] = [
   { key: 'owner', label: 'Propietario' },
 ];
 
-async function fetchExecutivePerformance(): Promise<ExecPerformanceRow[]> {
-  const { data, error } = await supabase.rpc('get_executive_performance');
+async function fetchExecutivePerformance(market: string | null): Promise<ExecPerformanceRow[]> {
+  const { data, error } = await supabase.rpc('get_executive_performance', { p_market: market } as never);
   if (error) throw error;
   return (data ?? []) as unknown as ExecPerformanceRow[];
 }
@@ -109,10 +110,12 @@ function HeadCell({ label, hint }: { label: string; hint?: string }) {
 
 export default function ExecutivePerformancePanel() {
   const [metric, setMetric] = useState<MetricKey>('speed');
+  const { market } = useMarket();
+  const scope = market && market !== 'all' ? market : null;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'dashboard', 'executive-performance'],
-    queryFn: fetchExecutivePerformance,
+    queryKey: ['admin', 'dashboard', 'executive-performance', scope ?? 'all'],
+    queryFn: () => fetchExecutivePerformance(scope),
     staleTime: 60_000,
   });
 
