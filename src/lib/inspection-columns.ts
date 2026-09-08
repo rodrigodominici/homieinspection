@@ -71,6 +71,7 @@ export const PROFILE_LIST_COLUMNS = [
   'is_active',
   'approval_status',
   'market',
+  'markets',
   'country_code',
   'phone',
   'created_at',

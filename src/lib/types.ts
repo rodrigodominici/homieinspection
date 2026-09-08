@@ -59,6 +59,8 @@ export interface Profile {
   is_active: boolean;
   approval_status?: string;
   market: string | null;
+  /** Países que el usuario puede ver. Admin ve todos igualmente. */
+  markets?: string[] | null;
   country_code: string | null;
   phone: string | null;
   created_at: string;

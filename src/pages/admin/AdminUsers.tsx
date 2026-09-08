@@ -15,6 +15,7 @@ import type { Profile, UserRole } from '@/lib/types';
 import { Pencil, UserCheck, UserX, Plus, ShieldCheck, ShieldX, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
+import { useMarket } from '@/contexts/MarketContext';
 import {
   MARKET_OPTIONS,
   COUNTRY_CODE_OPTIONS,
@@ -34,6 +35,7 @@ const BUSINESS_ROLES: { value: string; label: string }[] = [
 
 export default function AdminUsers() {
   const { toast } = useToast();
+  const { matchesMarket } = useMarket();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -44,6 +46,7 @@ export default function AdminUsers() {
   const [editRole, setEditRole] = useState<UserRole>('inspector');
   const [editName, setEditName] = useState('');
   const [editMarket, setEditMarket] = useState<string>('CL');
+  const [editMarkets, setEditMarkets] = useState<string[]>(['CL']);
   const [editCountryCode, setEditCountryCode] = useState<string>('+56');
   const [editPhone, setEditPhone] = useState<string>('');
   const [editIsActive, setEditIsActive] = useState<boolean>(true);
@@ -57,6 +60,7 @@ export default function AdminUsers() {
   const [cuShowPassword, setCuShowPassword] = useState(false);
   const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial'>('inspector');
   const [cuMarket, setCuMarket] = useState<'CL' | 'MX'>('CL');
+  const [cuMarkets, setCuMarkets] = useState<string[]>(['CL']);
   const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
   const [cuPhone, setCuPhone] = useState<string>('');
   const [cuIsActive, setCuIsActive] = useState<boolean>(true);
@@ -70,10 +74,17 @@ export default function AdminUsers() {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const inScope = (p: Profile) => {
+    const list = (p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []);
+    if (p.role === 'admin') return true;
+    return list.some((m) => matchesMarket(m));
+  };
+
   const pendingProfiles = profiles.filter(p => (p.approval_status ?? 'pending') === 'pending');
-  const filtered = filterRole === 'all'
+  const filtered = (filterRole === 'all'
     ? profiles.filter(p => p.role !== 'pending')
-    : profiles.filter((p) => p.role === filterRole);
+    : profiles.filter((p) => p.role === filterRole)
+  ).filter(inScope);
 
 
   /* ─── User actions ─── */
@@ -120,6 +131,11 @@ export default function AdminUsers() {
     setEditRole(p.role === 'pending' ? 'inspector' : p.role);
     setEditName(p.full_name);
     setEditMarket((p.market === 'CL' || p.market === 'MX') ? p.market : 'CL');
+    setEditMarkets(
+      (p.markets ?? []).length > 0
+        ? p.markets!.filter((m) => m === 'CL' || m === 'MX')
+        : [(p.market === 'MX' ? 'MX' : 'CL')],
+    );
     setEditCountryCode(p.country_code ?? defaultCountryCodeForMarket(p.market));
     setEditPhone(p.phone ?? '');
     setEditIsActive(p.is_active);
@@ -127,12 +143,17 @@ export default function AdminUsers() {
 
   const handleEditSave = async () => {
     if (!editingProfile) return;
+    if (editMarkets.length === 0) {
+      toast({ title: 'Selecciona al menos un país', variant: 'destructive' });
+      return;
+    }
     const cleanPhone = normalizePhone(editPhone);
     setSaving(true);
     const updates = {
       role: editRole,
       full_name: editName,
-      market: editMarket || null,
+      market: editMarkets.includes(editMarket) ? editMarket : editMarkets[0],
+      markets: editMarkets,
       country_code: editCountryCode || null,
       phone: cleanPhone || null,
       is_active: editIsActive,
@@ -158,6 +179,7 @@ export default function AdminUsers() {
     setCuShowPassword(false);
     setCuRole('inspector');
     setCuMarket('CL');
+    setCuMarkets(['CL']);
     setCuCountryCode('+56');
     setCuPhone('');
     setCuIsActive(true);
@@ -185,7 +207,8 @@ export default function AdminUsers() {
         email,
         password: cuPassword,
         role: cuRole,
-        market: cuMarket,
+        market: cuMarkets.includes(cuMarket) ? cuMarket : cuMarkets[0],
+        markets: cuMarkets,
         country_code: cuCountryCode,
         phone,
         is_active: cuIsActive,
@@ -312,7 +335,7 @@ export default function AdminUsers() {
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nombre</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Rol</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Mercado</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Países</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Teléfono</th>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
                         <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
@@ -324,7 +347,11 @@ export default function AdminUsers() {
                           <td className="py-3 px-4 font-medium">{p.full_name}</td>
                           <td className="py-3 px-4 text-muted-foreground">{p.email}</td>
                           <td className="py-3 px-4">{roleBadge(p.role)}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{marketLabel(p.market)}</td>
+                          <td className="py-3 px-4 text-muted-foreground">
+                            {((p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []))
+                              .map((m) => marketLabel(m))
+                              .join(' · ') || '—'}
+                          </td>
                           <td className="py-3 px-4 text-muted-foreground">{formatPhoneDisplay(p.country_code, p.phone)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
@@ -389,11 +416,43 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Países con acceso</Label>
+                <div className="flex flex-wrap gap-2">
+                  {MARKET_OPTIONS.map((m) => {
+                    const on = editMarkets.includes(m.value);
+                    return (
+                      <Button
+                        key={m.value}
+                        type="button"
+                        size="sm"
+                        variant={on ? 'default' : 'outline'}
+                        onClick={() => {
+                          const next = on
+                            ? editMarkets.filter((x) => x !== m.value)
+                            : [...editMarkets, m.value];
+                          setEditMarkets(next);
+                          if (next.length > 0 && !next.includes(editMarket)) {
+                            setEditMarket(next[0]);
+                            if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(next[0]));
+                          }
+                        }}
+                      >
+                        {m.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-tiny text-muted-foreground">
+                  El usuario solo verá datos de los países seleccionados.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Mercado</Label>
+                  <Label>País principal</Label>
                   <Select value={editMarket} onValueChange={(v) => {
                     setEditMarket(v);
+                    if (!editMarkets.includes(v)) setEditMarkets([...editMarkets, v]);
                     if (!editPhone) setEditCountryCode(defaultCountryCodeForMarket(v));
                   }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -489,14 +548,41 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Países con acceso</Label>
+              <div className="flex flex-wrap gap-2">
+                {MARKET_OPTIONS.map((m) => {
+                  const on = cuMarkets.includes(m.value);
+                  return (
+                    <Button
+                      key={m.value}
+                      type="button"
+                      size="sm"
+                      variant={on ? 'default' : 'outline'}
+                      onClick={() => {
+                        const next = on ? cuMarkets.filter((x) => x !== m.value) : [...cuMarkets, m.value];
+                        setCuMarkets(next);
+                        if (next.length > 0 && !next.includes(cuMarket)) {
+                          setCuMarket(next[0] as 'CL' | 'MX');
+                          setCuCountryCode(defaultCountryCodeForMarket(next[0]));
+                        }
+                      }}
+                    >
+                      {m.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Mercado</Label>
+                <Label>País principal</Label>
                 <Select
                   value={cuMarket}
                   onValueChange={(v) => {
                     const next = v as 'CL' | 'MX';
                     setCuMarket(next);
+                    if (!cuMarkets.includes(next)) setCuMarkets([...cuMarkets, next]);
                     setCuCountryCode(defaultCountryCodeForMarket(next));
                   }}
                 >

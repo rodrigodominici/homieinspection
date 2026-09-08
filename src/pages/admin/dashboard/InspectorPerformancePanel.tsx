@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMarket } from '@/contexts/MarketContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,8 +34,8 @@ const METRIC_TABS: { key: MetricKey; label: string }[] = [
   { key: 'evidence', label: 'Evidencia' },
 ];
 
-async function fetchInspectorPerformance(): Promise<InspectorPerformanceRow[]> {
-  const { data, error } = await supabase.rpc('get_inspector_performance');
+async function fetchInspectorPerformance(market: string | null): Promise<InspectorPerformanceRow[]> {
+  const { data, error } = await supabase.rpc('get_inspector_performance', { p_market: market } as never);
   if (error) throw error;
   return (data ?? []) as unknown as InspectorPerformanceRow[];
 }
@@ -102,10 +103,12 @@ function HeadCell({ label, hint }: { label: string; hint?: string }) {
 
 export default function InspectorPerformancePanel() {
   const [metric, setMetric] = useState<MetricKey>('volume');
+  const { market } = useMarket();
+  const scope = market && market !== 'all' ? market : null;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'dashboard', 'inspector-performance'],
-    queryFn: fetchInspectorPerformance,
+    queryKey: ['admin', 'dashboard', 'inspector-performance', scope ?? 'all'],
+    queryFn: () => fetchInspectorPerformance(scope),
     staleTime: 60_000,
   });
 

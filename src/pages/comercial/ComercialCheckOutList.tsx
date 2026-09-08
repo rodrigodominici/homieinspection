@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection, Profile } from '@/lib/types';
+import { useMarket } from '@/contexts/MarketContext';
 import ComercialLayout from './ComercialLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,11 +28,6 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'accepted', label: 'Aceptada' },
 ];
 
-const MARKET_OPTIONS = [
-  { value: 'all', label: 'Todos los mercados' },
-  { value: 'CL', label: 'Chile' },
-  { value: 'MX', label: 'México' },
-];
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Todos los tipos' },
@@ -104,14 +100,14 @@ export default function ComercialCheckOutList() {
 
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<string>('all');
-  const [market, setMarket] = useState<string>('all');
   const [type, setType] = useState<string>('all');
+  const { matchesMarket } = useMarket();
 
   const rows = useMemo(() => {
     const list = inspections ?? [];
     return list.filter((i) => {
+      if (!matchesMarket(i.market)) return false;
       if (status !== 'all' && i.status !== status) return false;
-      if (market !== 'all' && i.market !== market) return false;
       if (type !== 'all' && i.inspection_type !== type) return false;
       if (query.trim()) {
         const inspectorName = i.inspector_id ? profileMap.get(i.inspector_id)?.full_name ?? null : null;
@@ -121,7 +117,7 @@ export default function ComercialCheckOutList() {
       }
       return true;
     });
-  }, [inspections, status, market, type, query, profileMap]);
+  }, [inspections, status, type, query, profileMap, matchesMarket]);
 
   return (
     <ComercialLayout>
@@ -158,14 +154,6 @@ export default function ComercialCheckOutList() {
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {STATUS_FILTER_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={market} onValueChange={setMarket}>
-            <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {MARKET_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
             </SelectContent>

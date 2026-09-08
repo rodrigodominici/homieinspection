@@ -9,9 +9,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllTaxConfigs, invalidateTaxCache, type MarketTaxSettings } from '@/lib/tax';
 import { marketLabel } from '@/lib/markets';
+import { useMarket } from '@/contexts/MarketContext';
 
 export function TaxSettingsCard() {
   const { toast } = useToast();
+  const { matchesMarket } = useMarket();
   const [rows, setRows] = useState<MarketTaxSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingMarket, setSavingMarket] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function TaxSettingsCard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
+              {rows.filter((r) => matchesMarket(r.market)).map((row) => (
                 <TableRow key={row.market}>
                   <TableCell className="font-medium">{marketLabel(row.market)}</TableCell>
                   <TableCell>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import MarketSwitcher from '@/components/MarketSwitcher';
 import { LogOut } from 'lucide-react';
 
 /**
@@ -23,6 +24,7 @@ export default function ComercialLayout({ children }: { children: React.ReactNod
           </div>
         </Link>
         <div className="flex items-center gap-3">
+          <MarketSwitcher />
           {profile && (
             <span className="text-tiny text-muted-foreground truncate max-w-[200px]">
               {profile.full_name}
