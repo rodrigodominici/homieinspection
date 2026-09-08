@@ -196,8 +196,8 @@ export function PublishView(props: PublishViewProps) {
         </div>
       )}
 
-      {/* Owner feedback panel */}
-      {isPublished && (
+      {/* Owner feedback panel — no aplica en check-in (sin cotización) */}
+      {isPublished && withQuotation && (
         <OwnerFeedbackPanel
           inspectionId={inspection.id}
           ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
