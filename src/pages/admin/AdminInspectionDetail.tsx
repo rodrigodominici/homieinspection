@@ -1168,6 +1168,15 @@ export default function AdminInspectionDetail() {
               />
             </div>
 
+            {/* Informe de entrega en PDF — solo check-in */}
+            {isCheckIn(inspection.inspection_type) && (
+              <div className="mt-4">
+                <ReportPdfCard inspectionId={inspection.id} />
+              </div>
+            )}
+
+
+
             {/* Post-publish info */}
             {isPublished && ownerUrl && (
               <div className="mt-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
