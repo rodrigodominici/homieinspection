@@ -16,11 +16,24 @@ export function defaultCountryCodeForMarket(market: string | null | undefined): 
   return '+56';
 }
 
-/** Display-friendly market label. Falls back to the raw code. */
+/**
+ * Normaliza cualquier valor de mercado histórico ("chile", "CL", "mexico", "MX")
+ * al código canónico de dos letras.
+ */
+export function normalizeMarket(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim().toLowerCase();
+  if (!v) return null;
+  if (v === 'cl' || v === 'chile' || v === 'cli') return 'CL';
+  if (v === 'mx' || v === 'mexico' || v === 'méxico') return 'MX';
+  return raw!.trim().toUpperCase();
+}
+
+/** Display-friendly market label. Falls back to the normalized code. */
 export function marketLabel(code: string | null | undefined): string {
-  if (!code) return '—';
-  const found = MARKET_OPTIONS.find((m) => m.value === code);
-  return found?.label ?? code;
+  const norm = normalizeMarket(code);
+  if (!norm) return '—';
+  const found = MARKET_OPTIONS.find((m) => m.value === norm);
+  return found?.label ?? norm;
 }
 
 /** Strip everything that isn't a digit. */
