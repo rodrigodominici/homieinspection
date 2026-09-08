@@ -218,6 +218,7 @@ export function PublishView(props: PublishViewProps) {
         status={inspection.status}
         ownerFeedbackStatus={inspection.owner_feedback_status ?? null}
         quienRepara={(inspection as any).quien_repara ?? null}
+        inspectionType={inspection.inspection_type}
         onFinalized={onRefresh}
       />
 
