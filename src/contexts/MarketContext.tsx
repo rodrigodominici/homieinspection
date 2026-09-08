@@ -22,8 +22,15 @@ interface MarketContextValue {
   availableMarkets: string[];
   /** True si el usuario puede alternar de país. */
   canSwitch: boolean;
+  /**
+   * True solo cuando el ámbito abarca varios países ('all'): en ese caso vale la
+   * pena mostrar la etiqueta de país en listas y fichas. Con un país concreto
+   * seleccionado la etiqueta es redundante con el selector global.
+   */
+  showMarketTag: boolean;
   /** True si la inspección/inmueble entra en el ámbito elegido. */
   matchesMarket: (raw: string | null | undefined) => boolean;
+
 }
 
 const ALL_MARKETS = MARKET_OPTIONS.map((m) => m.value as string);
