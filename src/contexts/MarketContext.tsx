@@ -41,7 +41,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = profile?.role === 'admin';
 
   const availableMarkets = useMemo<string[]>(() => {
-    if (isAdmin) return ALL_MARKETS;
+    if (isAdmin) return ['all', ...ALL_MARKETS];
     const assigned = (profile?.markets ?? [])
       .map((m) => normalizeMarket(m))
       .filter((m): m is string => !!m);
@@ -63,10 +63,11 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
     const allowed = new Set<string>(availableMarkets);
     const valid = allowed.has(market);
     if (!valid) {
-      const fallback =
-        (normalizeMarket(profile?.market) && allowed.has(normalizeMarket(profile?.market)!)
-          ? normalizeMarket(profile?.market)!
-          : availableMarkets[0]) ?? 'CL';
+      const fallback = isAdmin
+        ? 'all'
+        : ((normalizeMarket(profile?.market) && allowed.has(normalizeMarket(profile?.market)!)
+            ? normalizeMarket(profile?.market)!
+            : availableMarkets[0]) ?? 'CL');
       setMarketState(fallback);
     }
   }, [market, availableMarkets, isAdmin, profile?.market]);
@@ -89,6 +90,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       matchesMarket: (raw) => {
         const norm = normalizeMarket(raw);
         if (!market) return true; // aún resolviendo el país del perfil
+        if (market === 'all') return true; // admin viendo todos los países
         return norm === market;
       },
     }),
