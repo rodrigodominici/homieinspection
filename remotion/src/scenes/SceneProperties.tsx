@@ -79,7 +79,7 @@ export const SceneProperties: React.FC = () => {
     <AbsoluteFill style={{ ...base, padding: "100px 130px", justifyContent: "center" }}>
       <Eyebrow index="02" label="Nueva sección" />
       <Reveal delay={8} duration={30} style={{ marginTop: 24 }}>
-        <div style={{ fontSize: 82, fontWeight: 900, letterSpacing: -3, lineHeight: 1.02 }}>
+        <div style={{ fontSize: 74, fontWeight: 900, letterSpacing: -2.6, lineHeight: 1.05, maxWidth: 1300 }}>
           Inmuebles: todo el historial, <span style={{ color: COLORS.indigoBright }}>comparable</span>
         </div>
       </Reveal>
@@ -91,7 +91,7 @@ export const SceneProperties: React.FC = () => {
             <div style={{ fontSize: 25, fontWeight: 700 }}>San Isidro 337 · D 1207</div>
             <div style={{ fontSize: 19, color: COLORS.textMuted, marginTop: 6 }}>Santiago · RE0003835</div>
           </Reveal>
-          <div style={{ marginTop: 30, position: "relative", paddingLeft: 26 }}>
+          <div style={{ marginTop: 30, position: "relative", paddingLeft: 34 }}>
             <div
               style={{
                 position: "absolute",
@@ -109,7 +109,8 @@ export const SceneProperties: React.FC = () => {
                   key={t.label}
                   style={{
                     display: "flex",
-                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 18,
                     marginBottom: 26,
                     opacity: s,
                     transform: `translateX(${interpolate(s, [0, 1], [-24, 0])}px)`,
@@ -117,17 +118,19 @@ export const SceneProperties: React.FC = () => {
                 >
                   <div
                     style={{
-                      position: "absolute",
-                      left: 0,
                       width: 14,
                       height: 14,
                       borderRadius: 999,
-                      marginTop: 8,
+                      marginTop: 9,
+                      marginLeft: -32,
+                      flexShrink: 0,
                       background: i === 2 ? COLORS.accent : COLORS.indigoBright,
                     }}
                   />
-                  <div style={{ fontSize: 24, fontWeight: 700 }}>{t.label}</div>
-                  <div style={{ fontSize: 18, color: COLORS.textMuted }}>{t.date}</div>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 700 }}>{t.label}</div>
+                    <div style={{ fontSize: 18, color: COLORS.textMuted }}>{t.date}</div>
+                  </div>
                 </div>
               );
             })}
