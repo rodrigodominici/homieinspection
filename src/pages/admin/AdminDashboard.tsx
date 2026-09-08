@@ -198,7 +198,24 @@ export default function AdminDashboard() {
             className="h-8 w-[150px] bg-background"
             align="end"
           />
-          {dateFilterActive && (
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            value={types}
+            onValueChange={(v) => setTypes(v as CanonicalInspectionType[])}
+            className="flex-wrap gap-1"
+          >
+            {TYPE_FILTERS.map((t) => (
+              <ToggleGroupItem
+                key={t.value}
+                value={t.value}
+                className="h-8 rounded-lg bg-background px-3 text-caption data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+              >
+                {t.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {filtersActive && (
             <>
               <span className="text-caption text-muted-foreground">
                 {inspections.length} de {allInspections.length} inspecciones
@@ -207,13 +224,14 @@ export default function AdminDashboard() {
                 variant="ghost"
                 size="sm"
                 className="h-8"
-                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                onClick={() => { setDateFrom(''); setDateTo(''); setTypes([]); }}
               >
                 <X className="mr-1 h-3.5 w-3.5" /> Limpiar
               </Button>
             </>
           )}
         </div>
+
 
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
