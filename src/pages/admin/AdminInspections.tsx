@@ -299,7 +299,15 @@ export default function AdminInspections() {
     },
   });
 
-  const inspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
+  // Ámbito de país global: todo lo que se cuenta y se lista respeta el selector.
+  const allInspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
+  const inspections = useMemo(
+    () =>
+      marketFilter === 'all'
+        ? allInspections
+        : allInspections.filter((i) => normalizeMarket(i.market) === marketFilter),
+    [allInspections, marketFilter],
+  );
   const inspectors = adminData?.inspectors ?? EMPTY_PROFILES;
   const executives = adminData?.executives ?? EMPTY_PROFILES;
 
