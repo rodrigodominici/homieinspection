@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useMarket } from '@/contexts/MarketContext';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -122,7 +123,6 @@ export default function ExecutiveReviewQueue() {
     if (next !== 'all') setStatusFilter('all');
   };
 
-  const markets = useMemo(() => [...new Set(inspections.map(i => i.market).filter(Boolean))], [inspections]);
   const inspectors = useMemo(() => {
     const ids = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))] as string[];
     return ids.map(id => ({
@@ -145,7 +145,6 @@ export default function ExecutiveReviewQueue() {
   const filtered = useMemo(() => inspections.filter(i => {
     if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', search)) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
-    if (marketFilter !== 'all' && i.market !== marketFilter) return false;
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
     if (publishedFilter === 'published' && !i.published_at) return false;
     if (publishedFilter === 'not_published' && !!i.published_at) return false;
@@ -157,12 +156,11 @@ export default function ExecutiveReviewQueue() {
       if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
     }
     return true;
-  }), [inspections, haystackByInsp, search, statusFilter, marketFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
+  }), [inspections, haystackByInsp, search, statusFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const hasActiveFilter =
     search.trim() !== '' ||
     statusFilter !== 'all' ||
-    marketFilter !== 'all' ||
     inspectorFilter !== 'all' ||
     publishedFilter !== 'all' ||
     ownerFeedbackFilter !== 'all';
@@ -265,15 +263,6 @@ export default function ExecutiveReviewQueue() {
                   <SelectItem value="sent">Finalizada</SelectItem>
                 </SelectContent>
               </Select>
-              {markets.length > 1 && (
-                <Select value={marketFilter} onValueChange={setMarketFilter}>
-                  <SelectTrigger className="w-[130px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Mercado" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los mercados</SelectItem>
-                    {markets.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
               {inspectors.length > 0 && (
                 <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
                   <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
