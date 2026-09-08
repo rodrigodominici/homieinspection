@@ -17,8 +17,9 @@ const TONE: Record<CanonicalInspectionType, string> = {
     'bg-[hsl(var(--status-good))]/10 text-[hsl(var(--status-good))] border-[hsl(var(--status-good))]/20',
   check_out: 'bg-primary/5 text-primary border-primary/20',
   check_in:
-    'bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))]/20',
+    'bg-[hsl(var(--status-regular-bg))] text-[hsl(var(--status-regular))] border-[hsl(var(--status-regular))]/25',
 };
+
 
 /**
  * Chip visible del tipo de inspección (Captación / Check-out / Check-in).
