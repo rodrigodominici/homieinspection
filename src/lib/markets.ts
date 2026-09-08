@@ -3,16 +3,19 @@
 export const MARKET_OPTIONS = [
   { value: 'CL', label: 'Chile' },
   { value: 'MX', label: 'México' },
+  { value: 'PE', label: 'Perú' },
 ] as const;
 
 export const COUNTRY_CODE_OPTIONS = [
   { value: '+56', label: '+56 Chile' },
   { value: '+52', label: '+52 México' },
+  { value: '+51', label: '+51 Perú' },
 ] as const;
 
 /** Default country code matching a market code (CL → +56, MX → +52). */
 export function defaultCountryCodeForMarket(market: string | null | undefined): string {
   if (market === 'MX') return '+52';
+  if (market === 'PE') return '+51';
   return '+56';
 }
 
@@ -25,6 +28,7 @@ export function normalizeMarket(raw: string | null | undefined): string | null {
   if (!v) return null;
   if (v === 'cl' || v === 'chile' || v === 'cli') return 'CL';
   if (v === 'mx' || v === 'mexico' || v === 'méxico') return 'MX';
+  if (v === 'pe' || v === 'peru' || v === 'perú') return 'PE';
   return raw!.trim().toUpperCase();
 }
 
