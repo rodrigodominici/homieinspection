@@ -40,6 +40,7 @@ const MarketContext = createContext<MarketContextValue>({
   setMarket: () => {},
   availableMarkets: ALL_MARKETS,
   canSwitch: true,
+  showMarketTag: false,
   matchesMarket: () => true,
 });
 
@@ -94,6 +95,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       setMarket,
       availableMarkets,
       canSwitch: availableMarkets.length > 1,
+      showMarketTag: market === 'all',
       matchesMarket: (raw) => {
         const norm = normalizeMarket(raw);
         if (!market) return true; // aún resolviendo el país del perfil
