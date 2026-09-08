@@ -29,7 +29,7 @@ interface Props {
 }
 
 type FormState = {
-  inspection_type: 'check_out' | 'captacion';
+  inspection_type: 'check_out' | 'captacion' | 'check_in';
   market: string;
   property_id: string;
   property_name: string;
@@ -231,6 +231,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
                 <SelectContent>
                   <SelectItem value="check_out">{getInspectionTypeLabel('check_out')}</SelectItem>
                   <SelectItem value="captacion">{getInspectionTypeLabel('captacion')}</SelectItem>
+                  <SelectItem value="check_in">{getInspectionTypeLabel('check_in')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -360,7 +361,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
           <CardDescription>
             {form.inspection_type === 'captacion'
               ? 'ID del Deal (pipeline Publicaciones) — habilita la sincronización'
-              : 'ID del objeto Contrato de Locación — habilita la sincronización'}
+              : 'ID del objeto Contrato de Arriendo — habilita la sincronización'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
