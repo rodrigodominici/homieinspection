@@ -3,8 +3,8 @@ import type {
   InspectionPhoto,
   InspectionWorkOrder,
   InspectionWorkOrderItem,
-  WorkOrderStatus,
 } from '@/lib/types';
+import type { WorkOrderItemStatus } from '@/lib/work-order-status';
 
 /** Orden de trabajo con los datos mínimos del inmueble para el listado móvil. */
 export interface WorkOrderListRow extends InspectionWorkOrder {
