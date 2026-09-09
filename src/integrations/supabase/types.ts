@@ -1367,15 +1367,22 @@ export type Database = {
       }
       inspection_work_orders: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           assigned_at: string
           assigned_by: string | null
           contractor_id: string
+          contractor_rejection_reason: string | null
           contractor_signature_data: string | null
           contractor_signature_name: string | null
           contractor_signed_at: string | null
           created_at: string
           id: string
           inspection_id: string
+          keys_lock_code: string | null
+          keys_lock_number: string | null
+          keys_status: string | null
+          rejected_at: string | null
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -1384,15 +1391,22 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           assigned_at?: string
           assigned_by?: string | null
           contractor_id: string
+          contractor_rejection_reason?: string | null
           contractor_signature_data?: string | null
           contractor_signature_name?: string | null
           contractor_signed_at?: string | null
           created_at?: string
           id?: string
           inspection_id: string
+          keys_lock_code?: string | null
+          keys_lock_number?: string | null
+          keys_status?: string | null
+          rejected_at?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1401,15 +1415,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           assigned_at?: string
           assigned_by?: string | null
           contractor_id?: string
+          contractor_rejection_reason?: string | null
           contractor_signature_data?: string | null
           contractor_signature_name?: string | null
           contractor_signed_at?: string | null
           created_at?: string
           id?: string
           inspection_id?: string
+          keys_lock_code?: string | null
+          keys_lock_number?: string | null
+          keys_status?: string | null
+          rejected_at?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1954,9 +1975,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_work_order: { Args: { p_work_order_id: string }; Returns: Json }
       assign_work_order: {
         Args: { p_contractor_id: string; p_inspection_id: string }
         Returns: string
+      }
+      contractor_reject_work_order: {
+        Args: { p_reason: string; p_work_order_id: string }
+        Returns: Json
       }
       create_inspection_from_event: {
         Args: { p_event_id: string }
@@ -2070,6 +2096,10 @@ export type Database = {
         Args: { _inspection_id: string }
         Returns: boolean
       }
+      reassign_work_order: {
+        Args: { p_contractor_id: string; p_work_order_id: string }
+        Returns: Json
+      }
       review_work_order: {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }
         Returns: Json
@@ -2085,6 +2115,9 @@ export type Database = {
       }
       submit_work_order: {
         Args: {
+          p_keys_lock_code?: string
+          p_keys_lock_number?: string
+          p_keys_status?: string
           p_signature_data: string
           p_signer_name: string
           p_work_order_id: string
