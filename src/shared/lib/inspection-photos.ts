@@ -237,7 +237,7 @@ export async function uploadInspectionPhotos(
 async function uploadInspectionPhotosInternal(
   opts: UploadInspectionPhotosOpts,
 ): Promise<InspectionPhoto[]> {
-  const { inspectionId, sectionId, sectionKey, files, uploadedBy, startingSortOrder = 0, fieldKey = null } = opts;
+  const { inspectionId, sectionId, sectionKey, files, uploadedBy, startingSortOrder = 0, fieldKey = null, workOrderItemId = null, photoStage = null } = opts;
   const fileList = Array.from(files);
   if (fileList.length === 0) return [];
 
@@ -273,6 +273,8 @@ async function uploadInspectionPhotosInternal(
         inspection_id: inspectionId,
         inspection_section_id: sectionId,
         field_key: fieldKey,
+        work_order_item_id: workOrderItemId,
+        photo_stage: photoStage,
         group_key: 'photo',
         storage_bucket: 'inspection-photos',
         storage_path: path,
