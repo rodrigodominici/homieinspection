@@ -6,6 +6,7 @@ import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import { ReportPdfCard } from './ReportPdfCard';
+import WorkOrderPanel from '@/components/work-orders/WorkOrderPanel';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { isCheckIn, requiresQuotation } from '@/lib/inspection-type-labels';
 
@@ -233,6 +234,16 @@ export function PublishView(props: PublishViewProps) {
       {/* Informe de entrega en PDF — solo check-in */}
       {isCheckIn(inspection.inspection_type) && <ReportPdfCard inspectionId={inspection.id} />}
 
+
+      {/* Obra del contratista — solo cuando repara Homie */}
+      <WorkOrderPanel
+        inspectionId={inspection.id}
+        quienRepara={inspection.quien_repara ?? null}
+        inspectionStatus={inspection.status}
+        market={inspection.market}
+        workStatus={inspection.work_status ?? null}
+        onChanged={onRefresh}
+      />
 
       {/* Terminal close: approved/accepted → sent ("Finalizado") */}
       <FinalizeInspectionButton

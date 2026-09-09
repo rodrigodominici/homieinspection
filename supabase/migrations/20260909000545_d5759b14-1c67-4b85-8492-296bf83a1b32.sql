@@ -1,0 +1,10 @@
+REVOKE EXECUTE ON FUNCTION public.current_contractor_id() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.assign_work_order(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.submit_work_order(uuid, text, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.review_work_order(uuid, boolean, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.finalize_inspection(uuid, text) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.current_contractor_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.assign_work_order(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_work_order(uuid, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.review_work_order(uuid, boolean, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.finalize_inspection(uuid, text) TO authenticated, service_role;

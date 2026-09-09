@@ -56,6 +56,7 @@ import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quota
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
 import QuienReparaChip from '@/components/QuienReparaChip';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
+import WorkOrderPanel from '@/components/work-orders/WorkOrderPanel';
 import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
 import {
   PendingDecisionsBanner,
@@ -1157,6 +1158,18 @@ export default function AdminInspectionDetail() {
                   </Button>
                 </div>
               )}
+              {/* Obra del contratista — solo cuando repara Homie */}
+              <div className="mt-4">
+                <WorkOrderPanel
+                  inspectionId={inspection.id}
+                  quienRepara={inspection.quien_repara ?? null}
+                  inspectionStatus={inspection.status}
+                  market={inspection.market}
+                  workStatus={inspection.work_status ?? null}
+                  onChanged={fetchAll}
+                />
+              </div>
+
               {/* Terminal close: approved/accepted → sent ("Finalizado") */}
               <FinalizeInspectionButton
                 inspectionId={inspection.id}

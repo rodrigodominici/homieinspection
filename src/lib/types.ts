@@ -1,6 +1,6 @@
 // Core domain types for Homie Inspection
 
-export type UserRole = 'admin' | 'inspector' | 'executive' | 'comercial' | 'pending';
+export type UserRole = 'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor' | 'pending';
 
 export type InspectionStatus =
   | 'pending'
@@ -63,6 +63,8 @@ export interface Profile {
   markets?: string[] | null;
   country_code: string | null;
   phone: string | null;
+  /** Empresa contratista asociada (solo para el rol `contractor`). */
+  contractor_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,6 +130,8 @@ export interface Inspection {
   created_at: string;
   updated_at: string;
   quien_repara?: 'homie' | 'dueno' | 'ninguno' | null;
+  /** Etapa de obra: entre Aprobado y Finalizado cuando repara Homie. */
+  work_status?: 'not_applicable' | 'in_progress' | 'in_review' | 'done';
   owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted' | null;
   owner_feedback_last_submitted_at?: string | null;
   // Joined fields
@@ -181,6 +185,39 @@ export interface InspectionPhoto {
   sort_order: number;
   uploaded_by: string | null;
   created_at: string;
+  /** Reparación de la orden de trabajo a la que pertenece la evidencia. */
+  work_order_item_id?: string | null;
+  /** Evidencia antes / después del trabajo del contratista. */
+  photo_stage?: 'before' | 'after' | null;
+}
+
+export interface InspectionWorkOrder {
+  id: string;
+  inspection_id: string;
+  contractor_id: string;
+  status: 'open' | 'in_progress' | 'in_review' | 'approved' | 'rejected';
+  assigned_at: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  contractor_signature_name: string | null;
+  contractor_signature_data: string | null;
+  contractor_signed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InspectionWorkOrderItem {
+  id: string;
+  work_order_id: string;
+  repair_item_id: string;
+  status: 'pending' | 'in_progress' | 'done' | 'not_done';
+  not_done_reason: string | null;
+  comment: string | null;
+  actual_cost: number | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InspectionReview {

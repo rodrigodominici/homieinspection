@@ -31,7 +31,10 @@ const BUSINESS_ROLES: { value: string; label: string }[] = [
   { value: 'inspector', label: 'Inspector' },
   { value: 'executive', label: 'Executive' },
   { value: 'comercial', label: 'Comercial' },
+  { value: 'contractor', label: 'Contratista' },
 ];
+
+interface ContractorOption { id: string; name: string; country: string }
 
 export default function AdminUsers() {
   const { toast } = useToast();
@@ -50,6 +53,7 @@ export default function AdminUsers() {
   const [editCountryCode, setEditCountryCode] = useState<string>('+56');
   const [editPhone, setEditPhone] = useState<string>('');
   const [editIsActive, setEditIsActive] = useState<boolean>(true);
+  const [editContractorId, setEditContractorId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   // Create user dialog
@@ -58,7 +62,9 @@ export default function AdminUsers() {
   const [cuEmail, setCuEmail] = useState('');
   const [cuPassword, setCuPassword] = useState('');
   const [cuShowPassword, setCuShowPassword] = useState(false);
-  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial'>('inspector');
+  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor'>('inspector');
+  const [cuContractorId, setCuContractorId] = useState<string>('');
+  const [contractors, setContractors] = useState<ContractorOption[]>([]);
   const [cuMarket, setCuMarket] = useState<string>('CL');
   const [cuMarkets, setCuMarkets] = useState<string[]>(['CL']);
   const [cuCountryCode, setCuCountryCode] = useState<string>('+56');
@@ -73,6 +79,21 @@ export default function AdminUsers() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // Empresas contratistas disponibles para vincular a un usuario contratista.
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('contractors')
+      .select('id,name,country')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => { if (!cancelled) setContractors((data ?? []) as ContractorOption[]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const contractorName = (contractorId: string | null | undefined) =>
+    contractors.find((c) => c.id === contractorId)?.name ?? '—';
 
   const inScope = (p: Profile) => {
     const list = (p.markets ?? []).length > 0 ? p.markets! : (p.market ? [p.market] : []);
@@ -140,6 +161,7 @@ export default function AdminUsers() {
     setEditCountryCode(p.country_code ?? defaultCountryCodeForMarket(p.market));
     setEditPhone(p.phone ?? '');
     setEditIsActive(p.is_active);
+    setEditContractorId(p.contractor_id ?? '');
   };
 
   const handleEditSave = async () => {
@@ -148,6 +170,10 @@ export default function AdminUsers() {
     const effectiveMarkets = editRole === 'admin' ? allMarkets : editMarkets;
     if (effectiveMarkets.length === 0) {
       toast({ title: 'Selecciona al menos un país', variant: 'destructive' });
+      return;
+    }
+    if (editRole === 'contractor' && !editContractorId) {
+      toast({ title: 'Selecciona la empresa contratista', variant: 'destructive' });
       return;
     }
     const cleanPhone = normalizePhone(editPhone);
@@ -161,6 +187,7 @@ export default function AdminUsers() {
       country_code: editCountryCode || null,
       phone: cleanPhone || null,
       is_active: editIsActive,
+      contractor_id: editRole === 'contractor' ? editContractorId : null,
     };
     const { error } = await supabase
       .from('profiles')
@@ -187,6 +214,7 @@ export default function AdminUsers() {
     setCuCountryCode('+56');
     setCuPhone('');
     setCuIsActive(true);
+    setCuContractorId('');
     setCreateUserOpen(true);
   };
 
@@ -204,6 +232,9 @@ export default function AdminUsers() {
     if (!/^\d{6,15}$/.test(phone)) {
       toast({ title: 'Teléfono inválido', description: 'Solo dígitos, 6–15 caracteres.', variant: 'destructive' }); return;
     }
+    if (cuRole === 'contractor' && !cuContractorId) {
+      toast({ title: 'Selecciona la empresa contratista', variant: 'destructive' }); return;
+    }
     setCuSubmitting(true);
     const cuEffectiveMarkets = cuRole === 'admin' ? MARKET_OPTIONS.map((m) => m.value) : cuMarkets;
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
@@ -218,6 +249,7 @@ export default function AdminUsers() {
         country_code: cuCountryCode,
         phone,
         is_active: cuIsActive,
+        contractor_id: cuRole === 'contractor' ? cuContractorId : null,
       },
     });
     setCuSubmitting(false);
@@ -246,6 +278,7 @@ export default function AdminUsers() {
       inspector: 'bg-status-regular-bg text-status-regular',
       executive: 'bg-status-good-bg text-status-good',
       comercial: 'bg-accent/40 text-accent-foreground',
+      contractor: 'bg-status-na-bg text-status-na',
       pending: 'bg-muted text-muted-foreground',
     };
     return (
@@ -425,6 +458,22 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              {editRole === 'contractor' && (
+                <div className="space-y-2">
+                  <Label>Empresa contratista</Label>
+                  <Select value={editContractorId} onValueChange={setEditContractorId}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
+                    <SelectContent>
+                      {contractors.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-tiny text-muted-foreground">
+                    El usuario solo verá los trabajos asignados a esta empresa.
+                  </p>
+                </div>
+              )}
               {editRole === 'admin' ? (
                 <div className="space-y-2">
                   <Label>Países con acceso</Label>
@@ -561,13 +610,29 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label>Rol</Label>
-              <Select value={cuRole} onValueChange={(v) => setCuRole(v as 'admin' | 'inspector' | 'executive')}>
+              <Select value={cuRole} onValueChange={(v) => setCuRole(v as typeof cuRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {cuRole === 'contractor' && (
+              <div className="space-y-2">
+                <Label>Empresa contratista</Label>
+                <Select value={cuContractorId} onValueChange={setCuContractorId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
+                  <SelectContent>
+                    {contractors.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-tiny text-muted-foreground">
+                  El usuario solo verá los trabajos asignados a esta empresa.
+                </p>
+              </div>
+            )}
             {cuRole === 'admin' ? (
               <div className="space-y-2">
                 <Label>Países con acceso</Label>

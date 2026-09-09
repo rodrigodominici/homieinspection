@@ -14,12 +14,14 @@ interface CreateUserBody {
   email: string;
   password: string;
   full_name: string;
-  role: 'admin' | 'inspector' | 'executive' | 'comercial';
+  role: 'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor';
   market: string;
   markets: string[];
   country_code: string;
   phone: string;
   is_active: boolean;
+  /** Empresa contratista obligatoria cuando el rol es `contractor`. */
+  contractor_id: string | null;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -40,13 +42,15 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   const country_code = (body.country_code ?? '').trim();
   const phone = (body.phone ?? '').trim();
   const is_active = typeof body.is_active === 'boolean' ? body.is_active : true;
+  const contractor_id = typeof body.contractor_id === 'string' && body.contractor_id ? body.contractor_id : null;
   const rawMarkets = Array.isArray(body.markets) && body.markets.length > 0 ? body.markets : [market];
   const markets = Array.from(new Set(rawMarkets.filter((m) => VALID_MARKETS.includes(m ?? ''))));
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'invalid_email' };
   if (password.length < 8) return { ok: false, error: 'weak_password' };
   if (!full_name || full_name.length > 120) return { ok: false, error: 'invalid_full_name' };
-  if (!['admin', 'inspector', 'executive', 'comercial'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
+  if (!['admin', 'inspector', 'executive', 'comercial', 'contractor'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
+  if (role === 'contractor' && !contractor_id) return { ok: false, error: 'missing_contractor' };
   if (!VALID_MARKETS.includes(market ?? '')) return { ok: false, error: 'invalid_market' };
   if (markets.length === 0) return { ok: false, error: 'invalid_market' };
   if (!/^\+\d{1,4}$/.test(country_code)) return { ok: false, error: 'invalid_country_code' };
@@ -54,7 +58,10 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
 
   return {
     ok: true,
-    data: { email, password, full_name, role: role!, market: market!, markets, country_code, phone, is_active },
+    data: {
+      email, password, full_name, role: role!, market: market!, markets, country_code, phone, is_active,
+      contractor_id: role === 'contractor' ? contractor_id : null,
+    },
   };
 }
 
@@ -128,6 +135,7 @@ Deno.serve(async (req) => {
       country_code: body.country_code,
       phone: body.phone,
       is_active: body.is_active,
+      contractor_id: body.contractor_id,
       approval_status: 'approved',
     })
     .eq('id', newUserId);
