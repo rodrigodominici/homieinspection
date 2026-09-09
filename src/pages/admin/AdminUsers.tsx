@@ -278,7 +278,7 @@ export default function AdminUsers() {
       inspector: 'bg-status-regular-bg text-status-regular',
       executive: 'bg-status-good-bg text-status-good',
       comercial: 'bg-accent/40 text-accent-foreground',
-      contractor: 'bg-status-attention-bg text-status-attention',
+      contractor: 'bg-status-na-bg text-status-na',
       pending: 'bg-muted text-muted-foreground',
     };
     return (
@@ -458,6 +458,22 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              {editRole === 'contractor' && (
+                <div className="space-y-2">
+                  <Label>Empresa contratista</Label>
+                  <Select value={editContractorId} onValueChange={setEditContractorId}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
+                    <SelectContent>
+                      {contractors.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-tiny text-muted-foreground">
+                    El usuario solo verá los trabajos asignados a esta empresa.
+                  </p>
+                </div>
+              )}
               {editRole === 'admin' ? (
                 <div className="space-y-2">
                   <Label>Países con acceso</Label>
