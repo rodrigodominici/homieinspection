@@ -202,7 +202,7 @@ export default function WorkOrderPanel({
               </Select>
             </div>
             <Button onClick={handleAssign} disabled={busy}>
-              {busy ? <Loader4 /> : <Hammer className="h-4 w-4 mr-2" />}
+              {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Hammer className="h-4 w-4 mr-2" />}
               Asignar orden de trabajo
             </Button>
           </div>
