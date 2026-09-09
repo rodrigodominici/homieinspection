@@ -46,6 +46,7 @@ export async function fetchMyWorkOrders(): Promise<WorkOrderListRow[]> {
 export interface WorkOrderItemDetail extends InspectionWorkOrderItem {
   repair: {
     id: string;
+    inspection_section_id: string;
     title_snapshot: string;
     owner_friendly_name_snapshot: string | null;
     description_snapshot: string | null;
@@ -78,7 +79,7 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
        inspection:inspections(id,property_id,property_name,address,market,inspection_type),
        items:inspection_work_order_items(
          id,work_order_id,repair_item_id,status,not_done_reason,comment,actual_cost,completed_at,created_at,updated_at,
-         repair:inspection_repair_items(id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes)
+         repair:inspection_repair_items(id,inspection_section_id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes)
        )`,
     )
     .eq('id', workOrderId)
