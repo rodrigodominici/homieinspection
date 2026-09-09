@@ -610,13 +610,29 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label>Rol</Label>
-              <Select value={cuRole} onValueChange={(v) => setCuRole(v as 'admin' | 'inspector' | 'executive')}>
+              <Select value={cuRole} onValueChange={(v) => setCuRole(v as typeof cuRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {BUSINESS_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {cuRole === 'contractor' && (
+              <div className="space-y-2">
+                <Label>Empresa contratista</Label>
+                <Select value={cuContractorId} onValueChange={setCuContractorId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
+                  <SelectContent>
+                    {contractors.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-tiny text-muted-foreground">
+                  El usuario solo verá los trabajos asignados a esta empresa.
+                </p>
+              </div>
+            )}
             {cuRole === 'admin' ? (
               <div className="space-y-2">
                 <Label>Países con acceso</Label>
