@@ -10,7 +10,6 @@ import { Camera, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import ContractorLayout from './ContractorLayout';
 import SignedPhotoImg from '@/components/SignedPhotoImg';
-import { getSignedPhotoUrls } from '@/lib/photo-urls';
 import { uploadInspectionPhotos } from '@/shared/lib/inspection-photos';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -36,7 +35,6 @@ export default function ContractorItemDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingStage, setUploadingStage] = useState<'before' | 'after' | null>(null);
-  const [urls, setUrls] = useState<Record<string, string>>({});
 
   const [status, setStatus] = useState<WorkOrderItemStatus>('pending');
   const [comment, setComment] = useState('');
@@ -59,8 +57,6 @@ export default function ContractorItemDetail() {
         setComment(found.comment ?? '');
         setNotDoneReason(found.not_done_reason ?? '');
         setActualCost(found.actual_cost != null ? String(found.actual_cost) : '');
-        const paths = found.photos.map((p) => p.storage_path);
-        if (paths.length > 0) setUrls(await getSignedPhotoUrls(paths));
       }
     } catch {
       toast.error('No pudimos abrir esta reparación');
@@ -153,7 +149,7 @@ export default function ContractorItemDetail() {
           {photos.map((p) => (
             <SignedPhotoImg
               key={p.id}
-              url={urls[p.storage_path] ?? ''}
+              url=""
               storagePath={p.storage_path}
               alt={`Foto ${stage === 'before' ? 'antes' : 'después'} de la reparación`}
               loading="lazy"
