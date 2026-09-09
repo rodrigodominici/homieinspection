@@ -74,6 +74,7 @@ export const PROFILE_LIST_COLUMNS = [
   'markets',
   'country_code',
   'phone',
+  'contractor_id',
   'created_at',
   'updated_at',
 ].join(', ');

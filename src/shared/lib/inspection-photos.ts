@@ -165,6 +165,10 @@ export interface UploadInspectionPhotosOpts {
   uploadedBy?: string;
   startingSortOrder?: number;
   fieldKey?: string | null;
+  /** Evidencia de obra: reparación de la orden de trabajo. */
+  workOrderItemId?: string | null;
+  /** Evidencia antes / después del trabajo del contratista. */
+  photoStage?: 'before' | 'after' | null;
 }
 
 const UPLOAD_CONCURRENCY = 3;

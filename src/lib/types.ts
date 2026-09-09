@@ -130,6 +130,8 @@ export interface Inspection {
   created_at: string;
   updated_at: string;
   quien_repara?: 'homie' | 'dueno' | 'ninguno' | null;
+  /** Etapa de obra: entre Aprobado y Finalizado cuando repara Homie. */
+  work_status?: 'not_applicable' | 'in_progress' | 'in_review' | 'done';
   owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted' | null;
   owner_feedback_last_submitted_at?: string | null;
   // Joined fields

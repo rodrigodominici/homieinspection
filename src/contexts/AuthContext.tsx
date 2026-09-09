@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const res = await withTimeout(
             supabase
               .from('profiles')
-              .select('id,email,full_name,role,is_active,approval_status,market,markets,country_code,phone,created_at,updated_at')
+              .select('id,email,full_name,role,is_active,approval_status,market,markets,country_code,phone,contractor_id,created_at,updated_at')
               .eq('id', userId)
               .maybeSingle(),
             PROFILE_QUERY_TIMEOUT_MS,
