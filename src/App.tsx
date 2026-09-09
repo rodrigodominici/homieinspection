@@ -59,6 +59,7 @@ const OwnerReport = lazyWithRetry(() => import("./pages/public/OwnerReport"), "O
 const ContractorDashboard = lazyWithRetry(() => import("./pages/contractor/ContractorDashboard"), "ContractorDashboard");
 const ContractorWorkOrderDetail = lazyWithRetry(() => import("./pages/contractor/ContractorWorkOrderDetail"), "ContractorWorkOrderDetail");
 const ContractorItemDetail = lazyWithRetry(() => import("./pages/contractor/ContractorItemDetail"), "ContractorItemDetail");
+const ContractorFindingsReport = lazyWithRetry(() => import("./pages/contractor/ContractorFindingsReport"), "ContractorFindingsReport");
 const ContractorProfile = lazyWithRetry(() => import("./pages/contractor/ContractorProfile"), "ContractorProfile");
 const ComercialCheckOutList = lazyWithRetry(() => import("./pages/comercial/ComercialCheckOutList"), "ComercialCheckOutList");
 const ComercialCheckOutDetail = lazyWithRetry(() => import("./pages/comercial/ComercialCheckOutDetail"), "ComercialCheckOutDetail");
@@ -165,6 +166,7 @@ const App = () => (
               <Route path="/contratista/terminados" element={<ProtectedRoute allowedRoles={['contractor']}><ContractorDashboard view="done" /></ProtectedRoute>} />
               <Route path="/contratista/perfil" element={<ProtectedRoute allowedRoles={['contractor']}><ContractorProfile /></ProtectedRoute>} />
               <Route path="/contratista/orden/:id" element={<ProtectedRoute allowedRoles={['contractor']}><ContractorWorkOrderDetail /></ProtectedRoute>} />
+              <Route path="/contratista/orden/:id/informe" element={<ProtectedRoute allowedRoles={['contractor']}><ContractorFindingsReport /></ProtectedRoute>} />
               <Route path="/contratista/orden/:id/reparacion/:itemId" element={<ProtectedRoute allowedRoles={['contractor']}><ContractorItemDetail /></ProtectedRoute>} />
               <Route path="/comercial" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutList /></ProtectedRoute>} />
               <Route path="/comercial/check-out/:id" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutDetail /></ProtectedRoute>} />
