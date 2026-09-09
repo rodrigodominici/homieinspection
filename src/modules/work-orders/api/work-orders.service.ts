@@ -128,7 +128,7 @@ export async function fetchWorkOrderByInspection(inspectionId: string): Promise<
 export async function updateWorkOrderItem(
   itemId: string,
   patch: {
-    status?: WorkOrderStatus extends never ? never : InspectionWorkOrderItem['status'];
+    status?: WorkOrderItemStatus;
     not_done_reason?: string | null;
     comment?: string | null;
     actual_cost?: number | null;
