@@ -59,6 +59,13 @@ Frontend:
 - En `ExecutiveReviewDetail` / `AdminInspectionDetail`: panel de orden de trabajo con avance, fotos antes/después y acciones de revisión.
 - Reutiliza `SignedPhotoImg`, `ZoomableImage`, `PhotoUploadSheet` y el servicio de fotos existente.
 
+## Entrega para operaciones (pruebas)
+
+Al final se prepara todo listo para que el equipo pruebe:
+- Un **usuario contratista de prueba** creado y aprobado, vinculado a una empresa contratista existente de Chile, con credenciales para compartir.
+- Una **orden de trabajo de prueba** sobre un check-out ya aprobado con Quién repara = Homie (por ejemplo San Isidro 337 D 1207), con sus reparaciones cargadas y listas para registrar.
+- Un **documento breve** con: qué se implementó, el nuevo flujo de estados, qué hace cada rol, cómo entra el contratista desde el celular, paso a paso de la prueba y qué reportar.
+
 ## Fuera de alcance
 
 - Notificaciones por email/WhatsApp al contratista (se puede sumar después sobre `communication_rules`).
