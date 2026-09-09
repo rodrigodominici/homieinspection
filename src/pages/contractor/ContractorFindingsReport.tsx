@@ -12,7 +12,18 @@ import {
   type FindingsReport,
 } from '@/modules/work-orders/api/work-orders.service';
 
-/** Informe de hallazgos en solo lectura, sin precios ni datos del propietario. */
+/** Etiquetas de contacto que el contratista no debe ver (no tiene trato con inquilino ni propietario). */
+const HIDDEN_LABEL_PATTERNS = [
+  'correo', 'email', 'mail', 'tel', 'celular', 'whatsapp', 'rut', 'inquilin', 'propietari',
+  'arrendatari', 'contacto', 'receptor',
+];
+
+function isContactField(label: string): boolean {
+  const l = label.toLowerCase();
+  return HIDDEN_LABEL_PATTERNS.some((p) => l.includes(p));
+}
+
+/** Informe de hallazgos en solo lectura, sin precios ni datos de contacto. */
 export default function ContractorFindingsReport() {
   const { id } = useParams<{ id: string }>();
   const [report, setReport] = useState<FindingsReport | null>(null);
@@ -27,10 +38,14 @@ export default function ContractorFindingsReport() {
         const detail = await fetchWorkOrderDetail(id);
         const r = await fetchFindingsReport(detail.order.inspection_id);
         if (cancelled) return;
-        setReport(r);
-        setPropertyName(
-          detail.inspection?.property_name || detail.inspection?.address || 'Informe de hallazgos',
-        );
+        setReport({
+          ...r,
+          sections: r.sections.map((sec) => ({
+            ...sec,
+            fields: sec.fields.filter((f) => !isContactField(f.field_label)),
+          })),
+        });
+        setPropertyName(detail.inspection?.address || detail.inspection?.property_id || '');
       } catch {
         if (!cancelled) toast.error('No pudimos abrir el informe');
       } finally {
