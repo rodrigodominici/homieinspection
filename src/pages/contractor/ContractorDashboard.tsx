@@ -62,7 +62,7 @@ export default function ContractorDashboard({ view = 'active' }: Props) {
         <div className="space-y-3">
           {visible.map((row) => {
             const pct = row.total_items > 0 ? Math.round((row.done_items / row.total_items) * 100) : 0;
-            const name = row.inspection?.property_name || row.inspection?.address || row.inspection?.property_id || 'Inmueble';
+            const name = row.inspection?.address || row.inspection?.property_id || 'Inmueble';
             return (
               <Link key={row.id} to={`/contratista/orden/${row.id}`}>
                 <Card className="active:scale-[0.99] transition-transform">
@@ -72,7 +72,7 @@ export default function ContractorDashboard({ view = 'active' }: Props) {
                         <p className="font-semibold text-sm truncate">{name}</p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                           <MapPin className="h-3 w-3 shrink-0" />
-                          {row.inspection?.address || '—'}
+                          {row.inspection?.property_id || '—'}
                         </p>
                       </div>
                       <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${workOrderStatusToneClass(row.status)}`}>

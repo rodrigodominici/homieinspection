@@ -195,8 +195,15 @@ export interface InspectionWorkOrder {
   id: string;
   inspection_id: string;
   contractor_id: string;
-  status: 'open' | 'in_progress' | 'in_review' | 'approved' | 'rejected';
+  status: 'open' | 'in_progress' | 'in_review' | 'approved' | 'rejected' | 'contractor_rejected';
   assigned_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  rejected_at: string | null;
+  contractor_rejection_reason: string | null;
+  keys_status: string | null;
+  keys_lock_number: string | null;
+  keys_lock_code: string | null;
   submitted_at: string | null;
   reviewed_at: string | null;
   review_note: string | null;

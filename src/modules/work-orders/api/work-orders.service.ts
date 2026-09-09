@@ -21,7 +21,7 @@ export interface WorkOrderListRow extends InspectionWorkOrder {
 }
 
 const ORDER_COLUMNS =
-  'id,inspection_id,contractor_id,status,assigned_at,submitted_at,reviewed_at,review_note,contractor_signature_name,contractor_signature_data,contractor_signed_at,created_at,updated_at';
+  'id,inspection_id,contractor_id,status,assigned_at,accepted_at,accepted_by,rejected_at,contractor_rejection_reason,keys_status,keys_lock_number,keys_lock_code,submitted_at,reviewed_at,review_note,contractor_signature_name,contractor_signature_data,contractor_signed_at,created_at,updated_at';
 
 export async function fetchMyWorkOrders(): Promise<WorkOrderListRow[]> {
   const { data, error } = await supabase
@@ -145,13 +145,27 @@ export async function updateWorkOrderItem(
   if (error) throw error;
 }
 
-/** El contratista abre la orden al empezar a registrar trabajo. */
-export async function markWorkOrderInProgress(workOrderId: string): Promise<void> {
-  const { error } = await supabase
-    .from('inspection_work_orders')
-    .update({ status: 'in_progress' })
-    .eq('id', workOrderId)
-    .in('status', ['open', 'rejected']);
+/** El contratista acepta la orden completa antes de poder registrar trabajo. */
+export async function acceptWorkOrder(workOrderId: string): Promise<void> {
+  const { error } = await supabase.rpc('accept_work_order', { p_work_order_id: workOrderId });
+  if (error) throw error;
+}
+
+/** El contratista rechaza la orden completa con motivo obligatorio. */
+export async function rejectWorkOrderByContractor(workOrderId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('contractor_reject_work_order', {
+    p_work_order_id: workOrderId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+}
+
+/** Admin/Ejecutivo reasigna la orden a otra empresa contratista. */
+export async function reassignWorkOrder(workOrderId: string, contractorId: string): Promise<void> {
+  const { error } = await supabase.rpc('reassign_work_order', {
+    p_work_order_id: workOrderId,
+    p_contractor_id: contractorId,
+  });
   if (error) throw error;
 }
 
@@ -164,17 +178,124 @@ export async function assignWorkOrder(inspectionId: string, contractorId: string
   return data as unknown as string;
 }
 
+export interface KeysHandover {
+  keys_status: string;
+  keys_lock_number?: string | null;
+  keys_lock_code?: string | null;
+}
+
 export async function submitWorkOrder(
   workOrderId: string,
   signerName: string,
   signatureData: string | null,
+  keys: KeysHandover,
 ): Promise<void> {
   const { error } = await supabase.rpc('submit_work_order', {
     p_work_order_id: workOrderId,
     p_signer_name: signerName,
     p_signature_data: signatureData,
+    p_keys_status: keys.keys_status,
+    p_keys_lock_number: keys.keys_lock_number ?? null,
+    p_keys_lock_code: keys.keys_lock_code ?? null,
   });
   if (error) throw error;
+}
+
+/** Informe de hallazgos de la inspección, en solo lectura y sin precios al cliente. */
+export interface FindingsSection {
+  id: string;
+  section_title: string;
+  sort_order: number;
+  final_observation: string | null;
+  fields: { id: string; field_label: string; value: string }[];
+  photos: { id: string; storage_path: string; caption: string | null }[];
+}
+
+export interface FindingsReport {
+  sections: FindingsSection[];
+  repairs: {
+    id: string;
+    title_snapshot: string;
+    description_snapshot: string | null;
+    category_snapshot: string | null;
+    quantity: number;
+    unit: string;
+    notes: string | null;
+  }[];
+}
+
+function readableValue(text: string | null, json: unknown): string {
+  if (text && text.trim()) return text;
+  if (json == null) return '';
+  if (Array.isArray(json)) return json.map((v) => String(v)).join(', ');
+  if (typeof json === 'object') {
+    return Object.entries(json as Record<string, unknown>)
+      .filter(([, v]) => v != null && v !== '')
+      .map(([k, v]) => `${k}: ${String(v)}`)
+      .join(' · ');
+  }
+  return String(json);
+}
+
+export async function fetchFindingsReport(inspectionId: string): Promise<FindingsReport> {
+  const [sectionsRes, valuesRes, photosRes, repairsRes] = await Promise.all([
+    supabase
+      .from('inspection_sections')
+      .select('id,section_title,sort_order,final_observation,is_visible')
+      .eq('inspection_id', inspectionId)
+      .order('sort_order'),
+    supabase
+      .from('inspection_field_values')
+      .select('id,inspection_section_id,field_label,value_text,value_json,sort_order,is_visible')
+      .eq('inspection_id', inspectionId)
+      .order('sort_order'),
+    supabase
+      .from('inspection_photos')
+      .select('id,inspection_section_id,storage_path,caption,work_order_item_id,sort_order')
+      .eq('inspection_id', inspectionId)
+      .is('work_order_item_id', null)
+      .order('sort_order'),
+    supabase
+      .from('inspection_repair_items')
+      .select('id,title_snapshot,description_snapshot,category_snapshot,quantity,unit,notes,sort_order')
+      .eq('inspection_id', inspectionId)
+      .order('sort_order'),
+  ]);
+  if (sectionsRes.error) throw sectionsRes.error;
+
+  type Row = Record<string, unknown>;
+  const values = (valuesRes.data ?? []) as Row[];
+  const photos = (photosRes.data ?? []) as Row[];
+
+  const sections: FindingsSection[] = ((sectionsRes.data ?? []) as Row[])
+    .filter((s) => s.is_visible !== false)
+    .map((s) => ({
+      id: s.id as string,
+      section_title: s.section_title as string,
+      sort_order: (s.sort_order as number) ?? 0,
+      final_observation: (s.final_observation as string) ?? null,
+      fields: values
+        .filter((v) => v.inspection_section_id === s.id && v.is_visible !== false)
+        .map((v) => ({
+          id: v.id as string,
+          field_label: v.field_label as string,
+          value: readableValue((v.value_text as string) ?? null, v.value_json),
+        }))
+        .filter((f) => f.value !== ''),
+      photos: photos
+        .filter((p) => p.inspection_section_id === s.id)
+        .map((p) => ({
+          id: p.id as string,
+          storage_path: p.storage_path as string,
+          caption: (p.caption as string) ?? null,
+        })),
+    }))
+    .filter((s) => s.fields.length > 0 || s.photos.length > 0 || !!s.final_observation);
+
+  return {
+    sections,
+    repairs: (repairsRes.data ?? []) as unknown as FindingsReport['repairs'],
+  };
 }
 
 export async function reviewWorkOrder(

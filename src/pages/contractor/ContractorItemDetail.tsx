@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,7 +38,6 @@ export default function ContractorItemDetail() {
   const [status, setStatus] = useState<WorkOrderItemStatus>('pending');
   const [comment, setComment] = useState('');
   const [notDoneReason, setNotDoneReason] = useState('');
-  const [actualCost, setActualCost] = useState('');
 
   const beforeInput = useRef<HTMLInputElement>(null);
   const afterInput = useRef<HTMLInputElement>(null);
@@ -56,7 +54,6 @@ export default function ContractorItemDetail() {
         setStatus(found.status);
         setComment(found.comment ?? '');
         setNotDoneReason(found.not_done_reason ?? '');
-        setActualCost(found.actual_cost != null ? String(found.actual_cost) : '');
       }
     } catch {
       toast.error('No pudimos abrir esta reparación');
@@ -83,7 +80,6 @@ export default function ContractorItemDetail() {
         status,
         comment: comment.trim() || null,
         not_done_reason: status === 'not_done' ? notDoneReason.trim() : null,
-        actual_cost: actualCost.trim() ? Number(actualCost) : null,
       });
       toast.success('Registro guardado');
       await load();
@@ -212,11 +208,6 @@ export default function ContractorItemDetail() {
           <div className="space-y-1.5">
             <Label htmlFor="comment" className="text-sm">Comentario del trabajo</Label>
             <Textarea id="comment" value={comment} disabled={!editable} onChange={(e) => setComment(e.target.value)} rows={3} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="cost" className="text-sm">Costo real (opcional)</Label>
-            <Input id="cost" type="number" inputMode="decimal" value={actualCost} disabled={!editable} onChange={(e) => setActualCost(e.target.value)} />
           </div>
 
           {editable && (
