@@ -129,7 +129,7 @@ export default function ContractorWorkOrderDetail() {
   };
 
   const propertyName =
-    detail?.inspection?.property_name || detail?.inspection?.address || detail?.inspection?.property_id || 'Trabajo';
+    detail?.inspection?.address || detail?.inspection?.property_id || 'Trabajo';
 
   if (loading) {
     return (
@@ -142,7 +142,7 @@ export default function ContractorWorkOrderDetail() {
   }
 
   return (
-    <ContractorLayout title={propertyName} subtitle={detail?.inspection?.address ?? undefined} backTo="/contratista">
+    <ContractorLayout title={propertyName} subtitle={detail?.inspection?.property_id ?? undefined} backTo="/contratista">
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
