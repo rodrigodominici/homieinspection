@@ -135,11 +135,13 @@ export async function updateWorkOrderItem(
     actual_cost?: number | null;
   },
 ): Promise<void> {
-  const payload: Record<string, unknown> = { ...patch };
-  if (patch.status) {
-    payload.completed_at = patch.status === 'done' || patch.status === 'not_done' ? new Date().toISOString() : null;
-  }
-  const { error } = await supabase.from('inspection_work_order_items').update(payload).eq('id', itemId);
+  const completedAt = patch.status
+    ? (patch.status === 'done' || patch.status === 'not_done' ? new Date().toISOString() : null)
+    : undefined;
+  const { error } = await supabase
+    .from('inspection_work_order_items')
+    .update({ ...patch, ...(completedAt !== undefined ? { completed_at: completedAt } : {}) })
+    .eq('id', itemId);
   if (error) throw error;
 }
 
