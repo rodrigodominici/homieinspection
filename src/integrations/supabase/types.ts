@@ -569,12 +569,14 @@ export type Database = {
           id: string
           inspection_id: string
           inspection_section_id: string
+          photo_stage: string | null
           public_url: string | null
           sort_order: number
           storage_bucket: string
           storage_path: string
           uploaded_by: string | null
           visible_to_owner: boolean
+          work_order_item_id: string | null
         }
         Insert: {
           caption?: string | null
@@ -584,12 +586,14 @@ export type Database = {
           id?: string
           inspection_id: string
           inspection_section_id: string
+          photo_stage?: string | null
           public_url?: string | null
           sort_order?: number
           storage_bucket?: string
           storage_path: string
           uploaded_by?: string | null
           visible_to_owner?: boolean
+          work_order_item_id?: string | null
         }
         Update: {
           caption?: string | null
@@ -599,12 +603,14 @@ export type Database = {
           id?: string
           inspection_id?: string
           inspection_section_id?: string
+          photo_stage?: string | null
           public_url?: string | null
           sort_order?: number
           storage_bucket?: string
           storage_path?: string
           uploaded_by?: string | null
           visible_to_owner?: boolean
+          work_order_item_id?: string | null
         }
         Relationships: [
           {
@@ -626,6 +632,13 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_photos_work_order_item_id_fkey"
+            columns: ["work_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_order_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1298,6 +1311,143 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_work_order_items: {
+        Row: {
+          actual_cost: number | null
+          comment: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          not_done_reason: string | null
+          repair_item_id: string
+          status: string
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          comment?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          not_done_reason?: string | null
+          repair_item_id: string
+          status?: string
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          actual_cost?: number | null
+          comment?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          not_done_reason?: string | null
+          repair_item_id?: string
+          status?: string
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_work_order_items_repair_item_id_fkey"
+            columns: ["repair_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_repair_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_work_order_items_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_work_orders: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          contractor_id: string
+          contractor_signature_data: string | null
+          contractor_signature_name: string | null
+          contractor_signed_at: string | null
+          created_at: string
+          id: string
+          inspection_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          contractor_id: string
+          contractor_signature_data?: string | null
+          contractor_signature_name?: string | null
+          contractor_signed_at?: string | null
+          created_at?: string
+          id?: string
+          inspection_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          contractor_id?: string
+          contractor_signature_data?: string | null
+          contractor_signature_name?: string | null
+          contractor_signed_at?: string | null
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_work_orders_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_work_orders_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_work_orders_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: true
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_work_orders_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspections: {
         Row: {
           address: string | null
@@ -1339,6 +1489,7 @@ export type Database = {
           submitted_by: string | null
           template_id: string | null
           updated_at: string
+          work_status: string
         }
         Insert: {
           address?: string | null
@@ -1380,6 +1531,7 @@ export type Database = {
           submitted_by?: string | null
           template_id?: string | null
           updated_at?: string
+          work_status?: string
         }
         Update: {
           address?: string | null
@@ -1421,6 +1573,7 @@ export type Database = {
           submitted_by?: string | null
           template_id?: string | null
           updated_at?: string
+          work_status?: string
         }
         Relationships: [
           {
@@ -1521,6 +1674,7 @@ export type Database = {
       profiles: {
         Row: {
           approval_status: string
+          contractor_id: string | null
           country_code: string | null
           created_at: string
           email: string
@@ -1535,6 +1689,7 @@ export type Database = {
         }
         Insert: {
           approval_status?: string
+          contractor_id?: string | null
           country_code?: string | null
           created_at?: string
           email: string
@@ -1549,6 +1704,7 @@ export type Database = {
         }
         Update: {
           approval_status?: string
+          contractor_id?: string | null
           country_code?: string | null
           created_at?: string
           email?: string
@@ -1561,7 +1717,15 @@ export type Database = {
           role?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       repair_catalog_categories: {
         Row: {
@@ -1790,6 +1954,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_work_order: {
+        Args: { p_contractor_id: string; p_inspection_id: string }
+        Returns: string
+      }
       create_inspection_from_event: {
         Args: { p_event_id: string }
         Returns: {
@@ -1798,6 +1966,7 @@ export type Database = {
           inspection_id: string
         }[]
       }
+      current_contractor_id: { Args: never; Returns: string }
       executive_force_close_owner_feedback: {
         Args: { p_inspection_id: string; p_note?: string; p_reason: string }
         Returns: Json
@@ -1901,12 +2070,24 @@ export type Database = {
         Args: { _inspection_id: string }
         Returns: boolean
       }
+      review_work_order: {
+        Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }
+        Returns: Json
+      }
       submit_owner_feedback: {
         Args: {
           p_decisions: Json
           p_property_id: string
           p_submitter_name: string
           p_token: string
+        }
+        Returns: Json
+      }
+      submit_work_order: {
+        Args: {
+          p_signature_data: string
+          p_signer_name: string
+          p_work_order_id: string
         }
         Returns: Json
       }
