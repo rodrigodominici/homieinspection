@@ -56,6 +56,7 @@ export default function Index() {
     case 'admin':
       return <Navigate to="/admin" replace />;
     case 'inspector':
+    case 'property_advisor':
       return <Navigate to="/inspector" replace />;
     case 'executive':
       return <Navigate to="/executive" replace />;

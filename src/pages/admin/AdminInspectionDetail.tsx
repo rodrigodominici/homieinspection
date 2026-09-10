@@ -23,6 +23,7 @@ import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBa
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { eligibleReceivers } from '@/lib/receiver-roles';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
@@ -652,7 +653,7 @@ export default function AdminInspectionDetail() {
   };
 
   /* ─── Derived data ─── */
-  const inspectors = allProfiles.filter(p => p.role === 'inspector');
+  const inspectors = eligibleReceivers(allProfiles, inspection?.inspection_type);
   const executives = allProfiles.filter(p => p.role === 'executive');
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;

@@ -79,7 +79,10 @@ async function resolveAssignment(
   supabase: any,
   rawEmail: string | undefined | null,
   slot: 'inspector' | 'executive',
+  inspectionType?: string | null,
 ): Promise<SlotResolution> {
+  // El receptor de un check-in es un Property Advisor; el resto, un Inspector.
+  const roleForSlot = slot === 'inspector' && inspectionType === 'check_in' ? 'property_advisor' : slot;
   const email = (rawEmail ?? '').trim().toLowerCase();
   if (!email) {
     return { input_email: null, resolved_via: 'absent', resolved_profile_id: null, steps: [], warnings: [] };
@@ -93,7 +96,7 @@ async function resolveAssignment(
       .from('profiles')
       .select('id, role')
       .eq('is_active', true)
-      .eq('role', slot)
+      .eq('role', roleForSlot)
       .ilike('email', email)
       .limit(1);
 
@@ -242,7 +245,7 @@ Deno.serve(async (req: Request) => {
   // Resolve assignment ids from emails (does NOT decide status — RPC does)
   const inspectorEmail = extractSlotEmail(body.data, 'inspector');
   const executiveEmail = extractSlotEmail(body.data, 'executive');
-  const inspectorRes = await resolveAssignment(supabase, inspectorEmail, 'inspector');
+  const inspectorRes = await resolveAssignment(supabase, inspectorEmail, 'inspector', body.data?.inspection_type);
   const executiveRes = await resolveAssignment(supabase, executiveEmail, 'executive');
 
   // Preserve any pre-existing { id, email } blocks; only fill id when we resolved one.

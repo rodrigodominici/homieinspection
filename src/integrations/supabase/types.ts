@@ -2001,6 +2001,23 @@ export type Database = {
         Args: { p_inspection_id: string; p_note?: string }
         Returns: Json
       }
+      get_advisor_performance: {
+        Args: { p_market?: string }
+        Returns: {
+          assigned: number
+          avg_active_minutes: number
+          completed: number
+          fields_filled: number
+          in_progress: number
+          inspector_id: string
+          inspector_name: string
+          last_activity_at: string
+          median_active_minutes: number
+          median_hours_to_submit: number
+          photos: number
+          photos_per_inspection: number
+        }[]
+      }
       get_executive_performance:
         | {
             Args: never
@@ -2099,6 +2116,10 @@ export type Database = {
       reassign_work_order: {
         Args: { p_contractor_id: string; p_work_order_id: string }
         Returns: Json
+      }
+      receiver_type_allowed: {
+        Args: { _inspection_type: string }
+        Returns: boolean
       }
       review_work_order: {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }

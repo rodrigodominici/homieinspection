@@ -34,8 +34,11 @@ const METRIC_TABS: { key: MetricKey; label: string }[] = [
   { key: 'evidence', label: 'Evidencia' },
 ];
 
-async function fetchInspectorPerformance(market: string | null): Promise<InspectorPerformanceRow[]> {
-  const { data, error } = await supabase.rpc('get_inspector_performance', { p_market: market } as never);
+async function fetchInspectorPerformance(
+  rpc: 'get_inspector_performance' | 'get_advisor_performance',
+  market: string | null,
+): Promise<InspectorPerformanceRow[]> {
+  const { data, error } = await supabase.rpc(rpc as never, { p_market: market } as never);
   if (error) throw error;
   return (data ?? []) as unknown as InspectorPerformanceRow[];
 }
@@ -101,14 +104,32 @@ function HeadCell({ label, hint }: { label: string; hint?: string }) {
   );
 }
 
-export default function InspectorPerformancePanel() {
+export interface PerformancePanelProps {
+  /** RPC agregada a consultar. Por defecto, inspectores (captación y check-out). */
+  rpc?: 'get_inspector_performance' | 'get_advisor_performance';
+  title?: string;
+  description?: string;
+  /** Etiqueta de la primera columna. */
+  personLabel?: string;
+  emptyText?: string;
+  errorText?: string;
+}
+
+export default function InspectorPerformancePanel({
+  rpc = 'get_inspector_performance',
+  title = 'Desempeño por inspector',
+  description = 'Volumen asignado, tiempo activo en terreno, latencia de cierre y evidencia capturada.',
+  personLabel = 'Inspector',
+  emptyText = 'Aún no hay inspecciones asignadas a inspectores.',
+  errorText = 'No se pudieron cargar las métricas de inspectores.',
+}: PerformancePanelProps = {}) {
   const [metric, setMetric] = useState<MetricKey>('volume');
   const { market } = useMarket();
   const scope = market && market !== 'all' ? market : null;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'dashboard', 'inspector-performance', scope ?? 'all'],
-    queryFn: () => fetchInspectorPerformance(scope),
+    queryKey: ['admin', 'dashboard', rpc, scope ?? 'all'],
+    queryFn: () => fetchInspectorPerformance(rpc, scope),
     staleTime: 60_000,
   });
 
@@ -134,10 +155,10 @@ export default function InspectorPerformancePanel() {
           <div>
             <CardTitle className="text-sm flex items-center gap-2">
               <HardHat className="h-4 w-4 text-muted-foreground" />
-              Desempeño por inspector
+              {title}
             </CardTitle>
             <p className="text-caption text-muted-foreground pt-1">
-              Volumen asignado, tiempo activo en terreno, latencia de cierre y evidencia capturada.
+              {description}
             </p>
           </div>
           <Tabs value={metric} onValueChange={(v) => setMetric(v as MetricKey)}>
@@ -158,18 +179,18 @@ export default function InspectorPerformancePanel() {
           </div>
         ) : error ? (
           <p className="text-caption text-status-bad py-6 text-center">
-            No se pudieron cargar las métricas de inspectores.
+            {errorText}
           </p>
         ) : rows.length === 0 ? (
           <p className="text-caption text-muted-foreground py-6 text-center">
-            Aún no hay inspecciones asignadas a inspectores.
+            {emptyText}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse">
               <thead>
                 <tr className="border-b border-border">
-                  <HeadCell label="Inspector" />
+                  <HeadCell label={personLabel} />
                   <HeadCell label="Asignadas" />
                   <HeadCell label="Completadas" />
                   {metric === 'volume' && (

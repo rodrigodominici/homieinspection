@@ -144,14 +144,14 @@ const App = () => (
               <Route path="/admin/integrations/hubspot/outbound-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotOutboundLogs /></ProtectedRoute>} />
 
               {/* Inspector routes */}
-              <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorDashboard /></ProtectedRoute>} />
-              <Route path="/inspector/agenda" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorCalendar /></ProtectedRoute>} />
-              <Route path="/inspector/calendar" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorCalendar /></ProtectedRoute>} />
-              <Route path="/inspector/past" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorPastInspections /></ProtectedRoute>} />
-              <Route path="/inspector/all" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorAllInspections /></ProtectedRoute>} />
-              <Route path="/inspector/profile" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorProfile /></ProtectedRoute>} />
-              <Route path="/inspector/inspection/:id" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorInspectionDetail /></ProtectedRoute>} />
-              <Route path="/inspector/inspection/:id/section/:sectionId" element={<ProtectedRoute allowedRoles={['inspector']}><InspectorSectionComplete /></ProtectedRoute>} />
+              <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorDashboard /></ProtectedRoute>} />
+              <Route path="/inspector/agenda" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorCalendar /></ProtectedRoute>} />
+              <Route path="/inspector/calendar" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorCalendar /></ProtectedRoute>} />
+              <Route path="/inspector/past" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorPastInspections /></ProtectedRoute>} />
+              <Route path="/inspector/all" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorAllInspections /></ProtectedRoute>} />
+              <Route path="/inspector/profile" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorProfile /></ProtectedRoute>} />
+              <Route path="/inspector/inspection/:id" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorInspectionDetail /></ProtectedRoute>} />
+              <Route path="/inspector/inspection/:id/section/:sectionId" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorSectionComplete /></ProtectedRoute>} />
 
               {/* Executive routes */}
               <Route path="/executive" element={<ProtectedRoute allowedRoles={['executive']}><ExecutiveReviewQueue /></ProtectedRoute>} />
@@ -172,7 +172,7 @@ const App = () => (
               <Route path="/comercial/check-out/:id" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutDetail /></ProtectedRoute>} />
 
               {/* Shared role-aware entry point (used by Slack links, etc.) */}
-              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','comercial']}><InspectionRoleRedirect /></ProtectedRoute>} />
+              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','property_advisor','comercial']}><InspectionRoleRedirect /></ProtectedRoute>} />
 
               {/* Public routes */}
               <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />

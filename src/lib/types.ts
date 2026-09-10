@@ -1,6 +1,6 @@
 // Core domain types for Homie Inspection
 
-export type UserRole = 'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor' | 'pending';
+export type UserRole = 'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor' | 'pending';
 
 export type InspectionStatus =
   | 'pending'
