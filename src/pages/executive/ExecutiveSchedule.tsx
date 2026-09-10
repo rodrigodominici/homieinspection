@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { isReceiverRole } from '@/lib/receiver-roles';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -120,7 +121,7 @@ export default function ExecutiveSchedule() {
     return ids;
   }, [inspections]);
   const inspectorsList = useMemo(
-    () => profiles.filter(p => p.role === 'inspector' && linkedInspectorIds.has(p.id)),
+    () => profiles.filter(p => isReceiverRole(p.role) && linkedInspectorIds.has(p.id)),
     [profiles, linkedInspectorIds],
   );
   const uniqueExecutives = useMemo(() => {

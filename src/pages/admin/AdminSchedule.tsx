@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isReceiverRole } from '@/lib/receiver-roles';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -104,7 +105,7 @@ export default function AdminSchedule() {
     fetch();
   }, []);
 
-  const inspectorsList = profiles.filter(p => p.role === 'inspector');
+  const inspectorsList = profiles.filter(p => isReceiverRole(p.role));
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date().toDateString();
 
