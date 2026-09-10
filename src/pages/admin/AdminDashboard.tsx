@@ -314,6 +314,14 @@ export default function AdminDashboard() {
 
             <ExecutivePerformancePanel />
             <InspectorPerformancePanel />
+            <InspectorPerformancePanel
+              rpc="get_advisor_performance"
+              title="Desempeño por Property Advisor"
+              description="Actividad de los Property Advisors en inspecciones de check-in."
+              personLabel="Property Advisor"
+              emptyText="Aún no hay check-in asignados a Property Advisors."
+              errorText="No se pudieron cargar las métricas de Property Advisors."
+            />
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
