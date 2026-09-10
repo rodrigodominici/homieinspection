@@ -24,11 +24,13 @@ import {
   normalizePhone,
   formatPhoneDisplay,
 } from '@/lib/markets';
+import { ROLE_LABELS } from '@/lib/receiver-roles';
 
 
 const BUSINESS_ROLES: { value: string; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'inspector', label: 'Inspector' },
+  { value: 'property_advisor', label: 'Property Advisor' },
   { value: 'executive', label: 'Executive' },
   { value: 'comercial', label: 'Comercial' },
   { value: 'contractor', label: 'Contratista' },
@@ -62,7 +64,7 @@ export default function AdminUsers() {
   const [cuEmail, setCuEmail] = useState('');
   const [cuPassword, setCuPassword] = useState('');
   const [cuShowPassword, setCuShowPassword] = useState(false);
-  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor'>('inspector');
+  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor'>('inspector');
   const [cuContractorId, setCuContractorId] = useState<string>('');
   const [contractors, setContractors] = useState<ContractorOption[]>([]);
   const [cuMarket, setCuMarket] = useState<string>('CL');
@@ -276,6 +278,7 @@ export default function AdminUsers() {
     const colors: Record<string, string> = {
       admin: 'bg-primary/10 text-primary',
       inspector: 'bg-status-regular-bg text-status-regular',
+      property_advisor: 'bg-primary/15 text-primary',
       executive: 'bg-status-good-bg text-status-good',
       comercial: 'bg-accent/40 text-accent-foreground',
       contractor: 'bg-status-na-bg text-status-na',
@@ -283,7 +286,7 @@ export default function AdminUsers() {
     };
     return (
       <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-tiny font-medium', colors[role] ?? 'bg-muted text-muted-foreground')}>
-        {role === 'pending' ? 'Sin rol' : role}
+        {ROLE_LABELS[role] ?? role}
       </span>
     );
   };
@@ -753,6 +756,7 @@ function PendingUserRow({ profile, onApprove, onReject }: {
             <SelectContent>
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="inspector">Inspector</SelectItem>
+              <SelectItem value="property_advisor">Property Advisor</SelectItem>
               <SelectItem value="executive">Executive</SelectItem>
             </SelectContent>
           </Select>

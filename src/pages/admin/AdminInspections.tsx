@@ -15,6 +15,7 @@ import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES } from '@/lib/quien-repara';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import CreateInspectionForm from './create-inspection/CreateInspectionForm';
+import { eligibleReceivers, isReceiverRole } from '@/lib/receiver-roles';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { buildInspectionHaystack, matchesInspectionQuery } from '@/lib/inspection-search';
 import { INSPECTION_LIST_COLUMNS, PROFILE_LIST_COLUMNS } from '@/lib/inspection-columns';
@@ -293,7 +294,7 @@ export default function AdminInspections() {
 
       return {
         inspections: enriched,
-        inspectors: profiles.filter((p) => p.role === 'inspector'),
+        inspectors: profiles.filter((p) => isReceiverRole(p.role)),
         executives: profiles.filter((p) => p.role === 'executive'),
       };
     },
@@ -1004,7 +1005,7 @@ export default function AdminInspections() {
                               <Select value={assignInspector} onValueChange={setAssignInspector}>
                                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                 <SelectContent>
-                                  {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                                  {eligibleReceivers(inspectors, insp.inspection_type).map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
                             </div>

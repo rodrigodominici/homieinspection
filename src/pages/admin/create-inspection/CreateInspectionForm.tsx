@@ -420,8 +420,8 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Receptor *</Label>
-            {inspectors.length === 0 ? (
+            <Label>{receiverLabelForType(form.inspection_type)} *</Label>
+            {eligibleInspectors.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-status-regular">
                 <AlertCircle className="h-4 w-4" /> No hay receptores registrados
               </div>
@@ -429,7 +429,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
               <Select value={form.inspector_id} onValueChange={(v) => set('inspector_id', v)}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
-                  {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                  {eligibleInspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
