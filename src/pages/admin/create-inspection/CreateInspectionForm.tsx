@@ -229,7 +229,10 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
               <Label>Tipo de inspección</Label>
               <Select
                 value={form.inspection_type}
-                onValueChange={(v) => set('inspection_type', v as FormState['inspection_type'])}
+                onValueChange={(v) => {
+                  set('inspection_type', v as FormState['inspection_type']);
+                  set('inspector_id', '');
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

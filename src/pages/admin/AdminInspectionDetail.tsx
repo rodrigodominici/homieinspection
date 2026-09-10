@@ -652,7 +652,7 @@ export default function AdminInspectionDetail() {
   };
 
   /* ─── Derived data ─── */
-  const inspectors = allProfiles.filter(p => p.role === 'inspector');
+  const inspectors = eligibleReceivers(allProfiles, inspection?.inspection_type);
   const executives = allProfiles.filter(p => p.role === 'executive');
   const inspectorName = allProfiles.find(p => p.id === inspection?.inspector_id)?.full_name ?? null;
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;

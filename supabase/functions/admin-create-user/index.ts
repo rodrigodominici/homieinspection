@@ -14,7 +14,7 @@ interface CreateUserBody {
   email: string;
   password: string;
   full_name: string;
-  role: 'admin' | 'inspector' | 'executive' | 'comercial' | 'contractor';
+  role: 'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor';
   market: string;
   markets: string[];
   country_code: string;
@@ -49,7 +49,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'invalid_email' };
   if (password.length < 8) return { ok: false, error: 'weak_password' };
   if (!full_name || full_name.length > 120) return { ok: false, error: 'invalid_full_name' };
-  if (!['admin', 'inspector', 'executive', 'comercial', 'contractor'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
+  if (!['admin', 'inspector', 'property_advisor', 'executive', 'comercial', 'contractor'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
   if (role === 'contractor' && !contractor_id) return { ok: false, error: 'missing_contractor' };
   if (!VALID_MARKETS.includes(market ?? '')) return { ok: false, error: 'invalid_market' };
   if (markets.length === 0) return { ok: false, error: 'invalid_market' };
