@@ -23,6 +23,7 @@ import { InspectionStatusBadge, SectionStatusBadge } from '@/components/StatusBa
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { eligibleReceivers } from '@/lib/receiver-roles';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
