@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { lookupRealty } from '@/lib/homie-realty';
 import { createInspectionFromPayload } from '@/lib/inspection-service';
 import { getInspectionTypeLabel } from '@/lib/inspection-type-labels';
+import { eligibleReceivers, receiverLabelForType } from '@/lib/receiver-roles';
 import type { Inspection, Profile, PropertyPayload } from '@/lib/types';
 import { AlertCircle, Building2, CheckCircle2, Loader2, Search, Zap } from 'lucide-react';
 
@@ -97,6 +98,9 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // Check-in lo reciben Property Advisors; captación y check-out, Inspectores.
+  const eligibleInspectors = eligibleReceivers(inspectors, form.inspection_type);
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -141,7 +145,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
   if (form.bedrooms_count === '') missing.push('dormitorios');
   if (form.bathrooms_count === '') missing.push('baños');
   if (!form.hubspot_object_id.trim()) missing.push('ID de objeto de HubSpot');
-  if (!form.inspector_id) missing.push('receptor');
+  if (!form.inspector_id) missing.push(receiverLabelForType(form.inspection_type).toLowerCase());
   if (!form.executive_id) missing.push('ejecutivo');
 
   const handleCreate = async () => {
