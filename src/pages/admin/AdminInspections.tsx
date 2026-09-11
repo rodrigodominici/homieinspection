@@ -194,6 +194,13 @@ export default function AdminInspections() {
   const [publishedFilter, setPublishedFilter] = useState<string>(searchParams.get('published') ?? 'all');
   const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
   const [quienReparaFilter, setQuienReparaFilter] = useState<string>(searchParams.get('quien_repara') ?? 'all');
+  const [types, setTypes] = useState<CanonicalInspectionType[]>(() => {
+    const raw = searchParams.get('types');
+    if (!raw) return [];
+    return raw.split(',').filter((v): v is CanonicalInspectionType =>
+      TYPE_FILTERS.some((t) => t.value === v)
+    );
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') ?? 'priority');
   const [page, setPage] = useState<number>(() => {
