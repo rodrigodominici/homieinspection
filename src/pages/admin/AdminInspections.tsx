@@ -226,13 +226,14 @@ export default function AdminInspections() {
     setOrDelete('bucket', bucketFilter);
     setOrDelete('quien_repara', quienReparaFilter);
     setOrDelete('sort', sortBy, 'priority');
+    if (types.length > 0) next.set('types', types.join(',')); else next.delete('types');
     if (page > 1) next.set('page', String(page)); else next.delete('page');
     if (pageSize !== 25) next.set('pageSize', String(pageSize)); else next.delete('pageSize');
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, sortBy, page, pageSize]);
+  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, types, sortBy, page, pageSize]);
 
   // Reset to first page whenever filters / search / sort change.
   useEffect(() => {
