@@ -701,6 +701,23 @@ export default function AdminInspections() {
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
+              <ToggleGroup
+                type="multiple"
+                variant="outline"
+                value={types}
+                onValueChange={(v) => setTypes(v as CanonicalInspectionType[])}
+                className="flex-wrap gap-1"
+              >
+                {TYPE_FILTERS.map((t) => (
+                  <ToggleGroupItem
+                    key={t.value}
+                    value={t.value}
+                    className="h-8 rounded-lg bg-background px-3 text-caption data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                  >
+                    {t.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 gap-1.5 text-caption rounded-lg bg-card">
