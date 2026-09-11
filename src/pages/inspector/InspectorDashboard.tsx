@@ -127,7 +127,7 @@ export default function InspectorDashboard() {
       return a.scheduleDatetime.getTime() - b.scheduleDatetime.getTime();
     });
 
-  // Hero priority: in_progress → ready_to_submit → scheduled today/upcoming → to_coordinate → empty
+  // Hero priority: in_progress → ready_to_submit → scheduled today/upcoming → to_coordinate → any assigned
   const inProgressHero = inProgress[0] ?? null;
   const readyHero = readyToSend[0] ?? null;
   const scheduledHero = upcoming[0] ?? null;
@@ -136,7 +136,9 @@ export default function InspectorDashboard() {
     const bEnd = getContractEndDate(b)?.getTime() ?? Infinity;
     return aEnd - bEnd;
   })[0] ?? null;
-  const heroInspection = inProgressHero ?? readyHero ?? scheduledHero ?? toCoordinateHero ?? null;
+  // Fallback: assigned work with no schedule and no contract-end date (e.g. check-in)
+  const pendingHero = assigned[0] ?? null;
+  const heroInspection = inProgressHero ?? readyHero ?? scheduledHero ?? toCoordinateHero ?? pendingHero ?? null;
   const heroContext = inProgressHero
     ? 'En progreso ahora'
     : readyHero
@@ -145,7 +147,10 @@ export default function InspectorDashboard() {
         ? 'Próxima inspección'
         : toCoordinateHero
           ? 'Pendiente de coordinar'
-          : '';
+          : pendingHero
+            ? 'Asignada'
+            : '';
+
 
   const dateLabel = now.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
   const greeting = now.getHours() < 12 ? 'Buenos días' : now.getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
