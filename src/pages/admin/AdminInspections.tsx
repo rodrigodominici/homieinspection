@@ -318,14 +318,16 @@ export default function AdminInspections() {
     },
   });
 
-  // Ámbito de país global: todo lo que se cuenta y se lista respeta el selector.
+  // Ámbito de país global + tipo de inspección: todo lo que se cuenta y se lista respeta los filtros.
   const allInspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
   const inspections = useMemo(
     () =>
-      marketFilter === 'all'
-        ? allInspections
-        : allInspections.filter((i) => normalizeMarket(i.market) === marketFilter),
-    [allInspections, marketFilter],
+      allInspections.filter((i) => {
+        if (marketFilter !== 'all' && normalizeMarket(i.market) !== marketFilter) return false;
+        if (types.length > 0 && !types.includes(normalizeInspectionType(i.inspection_type))) return false;
+        return true;
+      }),
+    [allInspections, marketFilter, types],
   );
   const inspectors = adminData?.inspectors ?? EMPTY_PROFILES;
   const executives = adminData?.executives ?? EMPTY_PROFILES;
