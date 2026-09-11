@@ -27,7 +27,11 @@ import {
 import { marketLabel, normalizeMarket } from '@/lib/markets';
 import { useMarket } from '@/contexts/MarketContext';
 import { isStalled, evaluateStall, STALL_THRESHOLD_DAYS } from '@/lib/inspection-stalled';
-import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import {
+  getContractDateShortLabel,
+  normalizeInspectionType,
+  type CanonicalInspectionType,
+} from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
