@@ -27,7 +27,11 @@ import {
 import { marketLabel, normalizeMarket } from '@/lib/markets';
 import { useMarket } from '@/contexts/MarketContext';
 import { isStalled, evaluateStall, STALL_THRESHOLD_DAYS } from '@/lib/inspection-stalled';
-import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import {
+  getContractDateShortLabel,
+  normalizeInspectionType,
+  type CanonicalInspectionType,
+} from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -101,6 +105,12 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'accepted', label: 'Aprobados' },
   { value: 'finalized', label: 'Finalizados' },
   { value: 'incomplete', label: 'Incompletas' },
+];
+
+const TYPE_FILTERS: { value: CanonicalInspectionType; label: string }[] = [
+  { value: 'captacion', label: 'Captación' },
+  { value: 'check_in', label: 'Check-in' },
+  { value: 'check_out', label: 'Check-out' },
 ];
 
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
@@ -184,6 +194,13 @@ export default function AdminInspections() {
   const [publishedFilter, setPublishedFilter] = useState<string>(searchParams.get('published') ?? 'all');
   const [bucketFilter, setBucketFilter] = useState<Bucket>((searchParams.get('bucket') as Bucket) ?? 'all');
   const [quienReparaFilter, setQuienReparaFilter] = useState<string>(searchParams.get('quien_repara') ?? 'all');
+  const [types, setTypes] = useState<CanonicalInspectionType[]>(() => {
+    const raw = searchParams.get('types');
+    if (!raw) return [];
+    return raw.split(',').filter((v): v is CanonicalInspectionType =>
+      TYPE_FILTERS.some((t) => t.value === v)
+    );
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') ?? 'priority');
   const [page, setPage] = useState<number>(() => {
@@ -209,19 +226,20 @@ export default function AdminInspections() {
     setOrDelete('bucket', bucketFilter);
     setOrDelete('quien_repara', quienReparaFilter);
     setOrDelete('sort', sortBy, 'priority');
+    if (types.length > 0) next.set('types', types.join(',')); else next.delete('types');
     if (page > 1) next.set('page', String(page)); else next.delete('page');
     if (pageSize !== 25) next.set('pageSize', String(pageSize)); else next.delete('pageSize');
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, sortBy, page, pageSize]);
+  }, [inspectorFilter, executiveFilter, statusFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, types, sortBy, page, pageSize]);
 
   // Reset to first page whenever filters / search / sort change.
   useEffect(() => {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
+  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, types, searchQuery, sortBy]);
 
   const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
   const setViewMode = (v: 'cards' | 'table') => {
@@ -300,14 +318,16 @@ export default function AdminInspections() {
     },
   });
 
-  // Ámbito de país global: todo lo que se cuenta y se lista respeta el selector.
+  // Ámbito de país global + tipo de inspección: todo lo que se cuenta y se lista respeta los filtros.
   const allInspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
   const inspections = useMemo(
     () =>
-      marketFilter === 'all'
-        ? allInspections
-        : allInspections.filter((i) => normalizeMarket(i.market) === marketFilter),
-    [allInspections, marketFilter],
+      allInspections.filter((i) => {
+        if (marketFilter !== 'all' && normalizeMarket(i.market) !== marketFilter) return false;
+        if (types.length > 0 && !types.includes(normalizeInspectionType(i.inspection_type))) return false;
+        return true;
+      }),
+    [allInspections, marketFilter, types],
   );
   const inspectors = adminData?.inspectors ?? EMPTY_PROFILES;
   const executives = adminData?.executives ?? EMPTY_PROFILES;
@@ -681,6 +701,23 @@ export default function AdminInspections() {
                   <SelectItem value="not_published">Sin publicar</SelectItem>
                 </SelectContent>
               </Select>
+              <ToggleGroup
+                type="multiple"
+                variant="outline"
+                value={types}
+                onValueChange={(v) => setTypes(v as CanonicalInspectionType[])}
+                className="flex-wrap gap-1"
+              >
+                {TYPE_FILTERS.map((t) => (
+                  <ToggleGroupItem
+                    key={t.value}
+                    value={t.value}
+                    className="h-8 rounded-lg bg-background px-3 text-caption data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                  >
+                    {t.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 gap-1.5 text-caption rounded-lg bg-card">
