@@ -107,6 +107,12 @@ const BUCKET_FILTERS: { value: Bucket; label: string }[] = [
   { value: 'incomplete', label: 'Incompletas' },
 ];
 
+const TYPE_FILTERS: { value: CanonicalInspectionType; label: string }[] = [
+  { value: 'captacion', label: 'Captación' },
+  { value: 'check_in', label: 'Check-in' },
+  { value: 'check_out', label: 'Check-out' },
+];
+
 function nullSafeSort(a: Date | null, b: Date | null, asc: boolean): number {
   if (!a && !b) return 0;
   if (!a) return 1;
