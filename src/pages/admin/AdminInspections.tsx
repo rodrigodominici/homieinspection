@@ -239,7 +239,7 @@ export default function AdminInspections() {
   useEffect(() => {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
+  }, [statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, types, searchQuery, sortBy]);
 
   const viewMode: 'cards' | 'table' = (searchParams.get('view') === 'table' ? 'table' : 'cards');
   const setViewMode = (v: 'cards' | 'table') => {
