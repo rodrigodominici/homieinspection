@@ -80,6 +80,15 @@ const WORKFLOW_STAGES: { key: WorkflowStage; label: string; icon: React.ElementT
 
 const STAGE_ORDER: WorkflowStage[] = ['inspection', 'review', 'budget', 'share'];
 
+/**
+ * Check-in: solo se hace la inspección y de ahí se finaliza.
+ * No hay revisión, presupuesto ni publicación al propietario.
+ */
+const CHECKIN_STAGES: { key: WorkflowStage; label: string; icon: React.ElementType }[] = [
+  { key: 'inspection', label: 'Inspección', icon: Eye },
+  { key: 'share', label: 'Finalizado', icon: CheckCircle2 },
+];
+
 function stageIndex(s: WorkflowStage) {
   return STAGE_ORDER.indexOf(s);
 }
@@ -662,6 +671,9 @@ export default function AdminInspectionDetail() {
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
+  /** Check-in: sin ejecutivo, sin revisión ni cotización. */
+  const isCheckInInspection = isCheckIn(inspection?.inspection_type);
+  const stages = isCheckInInspection ? CHECKIN_STAGES : WORKFLOW_STAGES;
   const progress = calculateProgress(sections);
 
   const filteredCatalog = catalogItems.filter((i) =>
