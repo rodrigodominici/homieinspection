@@ -33,6 +33,7 @@ interface Props {
 }
 
 const FINALIZABLE = new Set(['approved', 'accepted']);
+const CHECKIN_FINALIZABLE = new Set(['submitted', 'in_review', 'approved', 'accepted', 'published']);
 
 export function FinalizeInspectionButton({
   inspectionId, status, ownerFeedbackStatus, quienRepara, inspectionType,
@@ -44,10 +45,13 @@ export function FinalizeInspectionButton({
   const [flag, setFlag] = useState<QuienRepara | null>(quienRepara ?? null);
   const [submitting, setSubmitting] = useState(false);
 
-  const finalizable =
-    !!status &&
-    (FINALIZABLE.has(status) ||
-      (status === 'published' && ownerFeedbackStatus === 'accepted'));
+  // Check-in: se finaliza directo tras la inspección, sin revisión ni cotización.
+  const finalizable = !!status && (
+    inspectionType === 'check_in'
+      ? CHECKIN_FINALIZABLE.has(status)
+      : FINALIZABLE.has(status) ||
+        (status === 'published' && ownerFeedbackStatus === 'accepted')
+  );
   if (!finalizable) return null;
 
   const canSubmit = !submitting && (!needsQuienRepara || !!flag);

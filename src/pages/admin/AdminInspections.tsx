@@ -335,24 +335,28 @@ export default function AdminInspections() {
 
 
   const handleAssign = async (inspectionId: string) => {
-    if (!assignInspector || !assignExecutive) {
-      toast({ title: 'Selecciona ambos roles', variant: 'destructive' });
+    // Check-in no lleva ejecutivo: solo Property Advisor.
+    const target = inspections.find((i) => i.id === inspectionId);
+    const isCheckInTarget = target?.inspection_type === 'check_in';
+    if (!assignInspector || (!isCheckInTarget && !assignExecutive)) {
+      toast({ title: isCheckInTarget ? 'Selecciona un Property Advisor' : 'Selecciona ambos roles', variant: 'destructive' });
       return;
     }
+    const nextExecutive = isCheckInTarget ? null : assignExecutive;
     const { error } = await supabase
       .from('inspections')
-      .update({ inspector_id: assignInspector, executive_id: assignExecutive, status: 'assigned' })
+      .update({ inspector_id: assignInspector, executive_id: nextExecutive, status: 'assigned' })
       .eq('id', inspectionId);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Inspección asignada' });
       const inspectorName = inspectors.find(p => p.id === assignInspector)?.full_name ?? null;
-      const executiveName = executives.find(p => p.id === assignExecutive)?.full_name ?? null;
+      const executiveName = nextExecutive ? executives.find(p => p.id === nextExecutive)?.full_name ?? null : null;
       patchInspections((prev) =>
         prev.map((i) =>
           i.id === inspectionId
-            ? { ...i, inspector_id: assignInspector, executive_id: assignExecutive, status: 'assigned' as const, inspectorName, executiveName }
+            ? { ...i, inspector_id: assignInspector, executive_id: nextExecutive, status: 'assigned' as const, inspectorName, executiveName }
             : i
         )
       );
@@ -363,7 +367,13 @@ export default function AdminInspections() {
 
 
 
-  const pendingAssignment = inspections.filter((i) => i.status === 'pending_assignment' || !i.inspector_id || !i.executive_id);
+  // Check-in no lleva ejecutivo: solo falta el Property Advisor.
+  const pendingAssignment = inspections.filter(
+    (i) =>
+      i.status === 'pending_assignment' ||
+      !i.inspector_id ||
+      (i.inspection_type !== 'check_in' && !i.executive_id),
+  );
 
   // Pre-compute priority bucket once per inspection (used by filters, sort, chips, KPIs).
   const bucketByInsp = useMemo(() => {

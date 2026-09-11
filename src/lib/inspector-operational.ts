@@ -161,6 +161,7 @@ export type PriorityBucket = 0 | 1 | 2 | 3 | 4 | 5;
 interface AdminInspectionLike {
   inspector_id: string | null;
   executive_id: string | null;
+  inspection_type?: string | null;
   status: string;
   owner_feedback_status?: string | null;
 }
@@ -171,7 +172,9 @@ export function priorityBucket(
 ): PriorityBucket {
   // IDs son la fuente de verdad. Un status legacy 'pending_assignment'
   // con ambos IDs asignados NO es "Sin asignar".
-  const missingAssign = !insp.inspector_id || !insp.executive_id;
+  // Check-in no lleva ejecutivo: basta el Property Advisor.
+  const needsExecutive = insp.inspection_type !== 'check_in';
+  const missingAssign = !insp.inspector_id || (needsExecutive && !insp.executive_id);
   if (missingAssign) return 0;
 
   const ownerFb = insp.owner_feedback_status ?? fullInspection?.owner_feedback_status ?? null;
@@ -225,7 +228,7 @@ export function priorityBucketLabel(b: PriorityBucket): { label: string; classNa
 
 export function missingAssignmentLabel(insp: AdminInspectionLike): string | null {
   const noI = !insp.inspector_id;
-  const noE = !insp.executive_id;
+  const noE = insp.inspection_type !== 'check_in' && !insp.executive_id;
   if (noI && noE) return 'Faltan ambos';
   if (noI) return 'Falta inspector';
   if (noE) return 'Falta ejecutivo';

@@ -146,7 +146,9 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
   if (form.bathrooms_count === '') missing.push('baños');
   if (!form.hubspot_object_id.trim()) missing.push('ID de objeto de HubSpot');
   if (!form.inspector_id) missing.push(receiverLabelForType(form.inspection_type).toLowerCase());
-  if (!form.executive_id) missing.push('ejecutivo');
+  // Check-in no lleva ejecutivo: lo recibe y cierra el Property Advisor.
+  const needsExecutive = form.inspection_type !== 'check_in';
+  if (needsExecutive && !form.executive_id) missing.push('ejecutivo');
 
   const handleCreate = async () => {
     if (missing.length > 0) return;
@@ -441,6 +443,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
               </Select>
             )}
           </div>
+          {needsExecutive && (
           <div className="space-y-2">
             <Label>Ejecutivo *</Label>
             {executives.length === 0 ? (
@@ -456,6 +459,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
               </Select>
             )}
           </div>
+          )}
         </CardContent>
       </Card>
 

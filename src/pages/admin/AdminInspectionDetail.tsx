@@ -80,6 +80,15 @@ const WORKFLOW_STAGES: { key: WorkflowStage; label: string; icon: React.ElementT
 
 const STAGE_ORDER: WorkflowStage[] = ['inspection', 'review', 'budget', 'share'];
 
+/**
+ * Check-in: solo se hace la inspección y de ahí se finaliza.
+ * No hay revisión, presupuesto ni publicación al propietario.
+ */
+const CHECKIN_STAGES: { key: WorkflowStage; label: string; icon: React.ElementType }[] = [
+  { key: 'inspection', label: 'Inspección', icon: Eye },
+  { key: 'share', label: 'Finalizado', icon: CheckCircle2 },
+];
+
 function stageIndex(s: WorkflowStage) {
   return STAGE_ORDER.indexOf(s);
 }
@@ -333,7 +342,7 @@ export default function AdminInspectionDetail() {
     };
     // Auto-heal: si ambos IDs quedan asignados y el status sigue en
     // 'pending_assignment' (legacy), transicionar a 'assigned'.
-    if (nextInspector && nextExecutive && inspection.status === 'pending_assignment') {
+    if (nextInspector && (nextExecutive || isCheckIn(inspection.inspection_type)) && inspection.status === 'pending_assignment') {
       updates.status = 'assigned';
     }
     const { error } = await supabase.from('inspections').update(updates as any).eq('id', inspection.id);
@@ -662,6 +671,9 @@ export default function AdminInspectionDetail() {
   const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
+  /** Check-in: sin ejecutivo, sin revisión ni cotización. */
+  const isCheckInInspection = isCheckIn(inspection?.inspection_type);
+  const stages = isCheckInInspection ? CHECKIN_STAGES : WORKFLOW_STAGES;
   const progress = calculateProgress(sections);
 
   const filteredCatalog = catalogItems.filter((i) =>
@@ -900,7 +912,9 @@ export default function AdminInspectionDetail() {
               <SummaryItem label="Property ID" value={inspection.property_id} />
               <SummaryItem label="Mercado" value={inspection.market} />
               <SummaryItem label="Inspector" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
-              <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
+              {!isCheckInInspection && (
+                <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
+              )}
               <SummaryItem label="Tipo" value={inspection.inspection_type} />
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight mb-1">¿Quién repara?</p>
@@ -1057,8 +1071,9 @@ export default function AdminInspectionDetail() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="flex items-center gap-0">
-              {WORKFLOW_STAGES.map((stage, i) => {
+              {stages.map((stage, i) => {
                 const currentIdx = stageIndex(currentStage);
+                const stageCount = stages.length;
                 const thisIdx = stageIndex(stage.key);
                 const isCompleted = thisIdx < currentIdx || (stage.key === 'share' && isPublished);
                 const isCurrent = stage.key === currentStage && !isPublished;
@@ -1105,7 +1120,7 @@ export default function AdminInspectionDetail() {
                         </span>
                       )}
                     </div>
-                    {i < WORKFLOW_STAGES.length - 1 && (
+                    {i < stageCount - 1 && (
                       <div className={cn(
                         'flex-1 h-0.5 mx-2 mt-[-2rem]',
                         thisIdx < currentIdx ? 'bg-primary' : 'bg-border'
@@ -1118,27 +1133,27 @@ export default function AdminInspectionDetail() {
 
             {/* Stage action buttons */}
             <div className="mt-6 flex flex-wrap gap-2">
-              {currentStage === 'inspection' && !isPublished && (
+              {!isCheckInInspection && currentStage === 'inspection' && !isPublished && (
                 <Button onClick={() => advanceStage('inspection', 'review', { status: 'in_review' })} disabled={saving} className="gap-2">
                   <CheckCircle2 className="h-4 w-4" /> Completar Inspección
                 </Button>
               )}
-              {currentStage === 'review' && !isPublished && (
+              {!isCheckInInspection && currentStage === 'review' && !isPublished && (
                 <Button onClick={() => advanceStage('review', 'budget')} disabled={saving} className="gap-2">
                   <CheckCircle2 className="h-4 w-4" /> Completar Revisión
                 </Button>
               )}
-              {currentStage === 'budget' && !isPublished && (
+              {!isCheckInInspection && currentStage === 'budget' && !isPublished && (
                 <Button onClick={() => advanceStage('budget', 'share')} disabled={saving} className="gap-2">
                   <CheckCircle2 className="h-4 w-4" /> Completar Presupuesto
                 </Button>
               )}
-              {currentStage === 'share' && !isPublished && !isAcceptedByOwner(inspection) && (
+              {!isCheckInInspection && currentStage === 'share' && !isPublished && !isAcceptedByOwner(inspection) && (
                 <Button onClick={handlePublish} disabled={publishing} className="gap-2">
                   <ExternalLink className="h-4 w-4" /> {publishing ? 'Publicando...' : 'Publicar y Generar URL'}
                 </Button>
               )}
-              {currentStage === 'share' && !isPublished && isAcceptedByOwner(inspection) && (
+              {!isCheckInInspection && currentStage === 'share' && !isPublished && isAcceptedByOwner(inspection) && (
                 <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="h-4 w-4 text-status-good" />
                   Ciclo cerrado por el propietario
@@ -1160,6 +1175,7 @@ export default function AdminInspectionDetail() {
                 </div>
               )}
               {/* Obra del contratista — solo cuando repara Homie */}
+              {!isCheckInInspection && (
               <div className="mt-4">
                 <WorkOrderPanel
                   inspectionId={inspection.id}
@@ -1170,6 +1186,7 @@ export default function AdminInspectionDetail() {
                   onChanged={fetchAll}
                 />
               </div>
+              )}
 
               {/* Terminal close: approved/accepted → sent ("Finalizado") */}
               <FinalizeInspectionButton
@@ -1234,6 +1251,7 @@ export default function AdminInspectionDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              {!isCheckInInspection && (
               <div className="space-y-2">
                 <Label>Ejecutivo</Label>
                 <Select value={editExecutive} onValueChange={setEditExecutive}>
@@ -1245,6 +1263,7 @@ export default function AdminInspectionDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -1369,10 +1388,14 @@ export default function AdminInspectionDetail() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="payload" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Payload</TabsTrigger>
             <TabsTrigger value="inspection" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Inspección</TabsTrigger>
-            <TabsTrigger value="review" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Revisión</TabsTrigger>
-            <TabsTrigger value="budget" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Presupuesto</TabsTrigger>
-            <TabsTrigger value="quotation" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Cotización</TabsTrigger>
-            <TabsTrigger value="publish" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Publicación</TabsTrigger>
+            {!isCheckInInspection && (
+              <>
+                <TabsTrigger value="review" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Revisión</TabsTrigger>
+                <TabsTrigger value="budget" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Presupuesto</TabsTrigger>
+                <TabsTrigger value="quotation" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Cotización</TabsTrigger>
+                <TabsTrigger value="publish" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Publicación</TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           {/* ── Payload tab ── */}
