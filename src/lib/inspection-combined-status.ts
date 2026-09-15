@@ -32,7 +32,7 @@ export interface CombinedStatus {
 }
 
 type Input = Pick<Inspection, "status" | "owner_feedback_status"> &
-  Partial<Pick<Inspection, "property_snapshot_json" | "property_overrides_json">>;
+  Partial<Pick<Inspection, "property_snapshot_json" | "property_overrides_json" | "inspection_type">>;
 
 /** True when the key-collection date is already agreed (coordinated). */
 function hasKeyCollectionDate(insp: Input): boolean {
@@ -125,11 +125,13 @@ export function getCombinedInspectionStatus(insp: Input): CombinedStatus {
         };
   }
 
+  // Check-in no tiene cotización: recibido del advisor queda "En espera de revisión".
+  const isCheckIn = insp.inspection_type === "check_in";
   const baseMap: Record<string, { label: string; tone: StatusTone }> = {
     pending_assignment: { label: "Sin asignar",              tone: "blocked" },
     in_progress:        { label: "En espera de Hallazgos",   tone: "in-progress" },
-    submitted:          { label: "En gestión de cotización", tone: "pending" },
-    in_review:          { label: "En gestión de cotización", tone: "in-progress" },
+    submitted:          { label: isCheckIn ? "En espera de revisión" : "En gestión de cotización", tone: "pending" },
+    in_review:          { label: isCheckIn ? "En espera de revisión" : "En gestión de cotización", tone: "in-progress" },
   };
   const fallback = baseMap[insp.status] ?? { label: insp.status, tone: "neutral" as StatusTone };
   return {

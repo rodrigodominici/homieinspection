@@ -119,17 +119,44 @@ export async function generateCheckinReportPdf(params: {
     id: string; inspection_section_id: string; storage_path: string; caption: string | null;
   }>;
 
-  const pdfSections: CheckinPdfSection[] = sections.map((s) => ({
-    id: s.id,
-    title: s.section_title,
-    final_observation: s.final_observation,
-    fields: fields
+  /**
+   * Los datos del inmueble se muestran en la app como contexto leído de la
+   * ficha del inmueble y no se guardan como respuestas, así que el PDF los
+   * toma del snapshot efectivo. Sin esto la sección sale vacía.
+   */
+  const propertyFacts: Array<{ field_label: string; value_text: string | null }> = [
+    { field_label: 'ID Inmueble', value_text: inspection.property_id },
+    { field_label: 'Dirección Inmueble', value_text: inspection.address ?? str(snapshot.address) },
+    { field_label: 'Tipo de Propiedad', value_text: inspection.property_type ?? str(snapshot.property_type) },
+    { field_label: 'Mercado', value_text: marketLabel(inspection.market) },
+    { field_label: 'Torre', value_text: str(snapshot.tower) ?? str(snapshot.torre) },
+    { field_label: 'Nº Dpto/Casa', value_text: str(snapshot.unit_number) ?? str(snapshot.numero_departamento) },
+    { field_label: 'Dormitorios', value_text: str(snapshot.bedrooms) ?? str(snapshot.dormitorios) },
+    { field_label: 'Baños', value_text: str(snapshot.bathrooms) ?? str(snapshot.banos) },
+    { field_label: 'Estacionamiento', value_text: str(snapshot.parking) ?? str(snapshot.estacionamiento) },
+    { field_label: 'Bodega', value_text: str(snapshot.storage) ?? str(snapshot.bodega) },
+    {
+      field_label: 'Recolección de llaves / inspección',
+      value_text: str(snapshot.fecha_recoleccion_llaves),
+    },
+    { field_label: 'Correo Receptora/o', value_text: str(snapshot.recipient_email) },
+  ].filter((f) => (f.value_text ?? '').trim().length > 0);
+
+  const pdfSections: CheckinPdfSection[] = sections.map((s) => {
+    const own = fields
       .filter((f) => f.inspection_section_id === s.id)
-      .map((f) => ({ field_label: f.field_label, value_text: f.value_text, group_key: f.group_key })),
-    photos: photos
-      .filter((p) => p.inspection_section_id === s.id)
-      .map((p) => ({ id: p.id, storage_path: p.storage_path, caption: p.caption })),
-  }));
+      .map((f) => ({ field_label: f.field_label, value_text: f.value_text, group_key: f.group_key }));
+
+    return {
+      id: s.id,
+      title: s.section_title,
+      final_observation: s.final_observation,
+      fields: s.section_type === 'reception_meta' ? propertyFacts : own,
+      photos: photos
+        .filter((p) => p.inspection_section_id === s.id)
+        .map((p) => ({ id: p.id, storage_path: p.storage_path, caption: p.caption })),
+    };
+  });
 
   const signature = signatureRes.data as
     | { signer_name: string | null; signature_data: string | null; signed_at: string | null; signature_status: string }
@@ -148,7 +175,9 @@ export async function generateCheckinReportPdf(params: {
     tenantName: str(snapshot.tenant_name) ?? str(snapshot.nombre_inquilino),
     tenantEmail: str(snapshot.recipient_email) ?? str(snapshot.tenant_email),
     inspectorName: inspection.inspector?.full_name ?? null,
-    executiveName: inspection.executive?.full_name ?? null,
+    receiverLabel: 'Property Advisor',
+    // En check-in no hay ejecutivo por diseño: la línea se omite.
+    executiveName: inspection.inspection_type === 'check_in' ? null : inspection.executive?.full_name ?? null,
     deliveryDate: inspection.completed_at ?? inspection.scheduled_at ?? null,
     versionNumber,
     generatedAt,
