@@ -17,6 +17,7 @@ import { calculateProgress } from '@/lib/inspection-utils';
 import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
 import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
+import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import SignaturePad from '@/components/SignaturePad';
 import {
   AlertDialog,
@@ -714,6 +715,12 @@ export default function InspectorInspectionDetail() {
             );
           })}
         </div>
+
+        {/* Informe de entrega en PDF: solo check-in ya enviado */}
+        {inspection.inspection_type === 'check_in' &&
+          ['submitted', 'in_review', 'approved', 'published', 'accepted', 'sent'].includes(inspection.status) && (
+            <ReportPdfCard inspectionId={inspection.id} />
+          )}
       </main>
 
       {/* Sticky bottom bar */}
