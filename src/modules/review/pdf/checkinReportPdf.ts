@@ -126,7 +126,10 @@ export interface CheckinPdfInput {
   tenantName: string | null;
   tenantEmail: string | null;
   inspectorName: string | null;
-  executiveName: string | null;
+  /** Etiqueta del receptor (Property Advisor en check-in). */
+  receiverLabel?: string;
+  /** Ejecutivo responsable; en check-in no existe y se omite. */
+  executiveName?: string | null;
   deliveryDate: string | null;
   versionNumber: number;
   generatedAt: string;
@@ -311,8 +314,8 @@ export async function buildCheckinReportPdf(input: CheckinPdfInput): Promise<Uin
   doc.keyValue('Fecha de entrega', fmtDate(input.deliveryDate));
   doc.keyValue('Inquilino', input.tenantName || '-');
   if (input.tenantEmail) doc.keyValue('Correo del inquilino', input.tenantEmail);
-  doc.keyValue('Receptor / inspector', input.inspectorName || '-');
-  doc.keyValue('Ejecutivo responsable', input.executiveName || '-');
+  doc.keyValue(input.receiverLabel || 'Receptor / inspector', input.inspectorName || '-');
+  if (input.executiveName) doc.keyValue('Ejecutivo responsable', input.executiveName);
   doc.keyValue('Versión del informe', `v${input.versionNumber}`);
   doc.keyValue('Generado', fmtDateTime(input.generatedAt));
   doc.gap(6);
