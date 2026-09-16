@@ -836,7 +836,7 @@ export default function OwnerReport() {
       }
     }
     await loadReport();
-  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport, report]);
+  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport, report, draftKey]);
 
   if (loading) {
     return (
