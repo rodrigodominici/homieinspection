@@ -648,6 +648,7 @@ export default function OwnerReport() {
   const [submitterName, setSubmitterName] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -661,6 +662,39 @@ export default function OwnerReport() {
   }, [propertyId, token]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  /**
+   * Local draft of the owner's answers. A dropped connection on submit must not
+   * cost the owner the work of re-deciding every repair.
+   */
+  const draftKey = report?.version_id
+    ? `owner-feedback:${propertyId}:${report.version_id}`
+    : null;
+
+  useEffect(() => {
+    if (!draftKey || report?.owner_feedback_locked) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { decisions?: DecisionState; submitterName?: string };
+      if (parsed.decisions) {
+        setDecisions((prev) => (Object.keys(prev).length ? prev : parsed.decisions!));
+      }
+      if (parsed.submitterName) setSubmitterName((prev) => prev || parsed.submitterName!);
+    } catch {
+      // A corrupt draft must never block the report.
+    }
+  }, [draftKey, report?.owner_feedback_locked]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    if (!Object.keys(decisions).length && !submitterName) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ decisions, submitterName }));
+    } catch {
+      // Private mode / quota — draft is best effort.
+    }
+  }, [draftKey, decisions, submitterName]);
 
   const audience: Audience = (report?.audience === 'tenant' ? 'tenant' : 'owner');
   const locked = !!report?.owner_feedback_locked;
