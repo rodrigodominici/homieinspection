@@ -94,7 +94,10 @@ export function getPublicPhotoUrl(
     pending.resolvers.set(photoId, list);
 
     if (!pending.timer) {
-      pending.timer = setTimeout(() => void flush(key, propertyId, token), BATCH_WINDOW_MS);
+      pending.timer = setTimeout(
+        () => void serialize(() => flush(key, propertyId, token)),
+        BATCH_WINDOW_MS,
+      );
     }
   });
 }
