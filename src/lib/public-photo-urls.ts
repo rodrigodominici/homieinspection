@@ -12,7 +12,19 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const BATCH_WINDOW_MS = 60;
-const MAX_BATCH = 100;
+const MAX_BATCH = 50;
+
+/**
+ * Signing runs strictly one request at a time. Reports with hundreds of photos
+ * used to keep several large requests in flight, which on iOS Safari starves
+ * the connection pool and makes the *next* fetch (the feedback submission)
+ * fail instantly with "TypeError: Load failed".
+ */
+let chain: Promise<void> = Promise.resolve();
+function serialize(task: () => Promise<void>): Promise<void> {
+  chain = chain.then(task, task);
+  return chain;
+}
 
 interface Pending {
   ids: Set<string>;
@@ -82,7 +94,10 @@ export function getPublicPhotoUrl(
     pending.resolvers.set(photoId, list);
 
     if (!pending.timer) {
-      pending.timer = setTimeout(() => void flush(key, propertyId, token), BATCH_WINDOW_MS);
+      pending.timer = setTimeout(
+        () => void serialize(() => flush(key, propertyId, token)),
+        BATCH_WINDOW_MS,
+      );
     }
   });
 }

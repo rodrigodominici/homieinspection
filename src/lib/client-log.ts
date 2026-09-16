@@ -23,6 +23,7 @@ export type ClientEventKind =
   | 'unhandled_rejection'
   | 'auth_boot_timeout'
   | 'profile_missing'
+  | 'owner_feedback_submit_failed'
   | 'app_boot_ok';
 
 interface LogParams {

@@ -54,6 +54,11 @@ import {
   Check, MessageSquare, X, CheckCircle2, AlertCircle, Send, Wrench,
 } from 'lucide-react';
 import { QUIEN_REPARA_LABELS } from '@/lib/quien-repara';
+import { logClientEvent } from '@/lib/client-log';
+
+/** Network-level fetch failures worth retrying (Safari: "Load failed"). */
+const NETWORK_ERROR_RE = /load failed|failed to fetch|network|networkerror|timeout|aborted|connection/i;
+const RETRY_DELAYS_MS = [0, 800, 2500];
 
 
 type Audience = 'owner' | 'tenant';
@@ -643,6 +648,7 @@ export default function OwnerReport() {
   const [submitterName, setSubmitterName] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -656,6 +662,39 @@ export default function OwnerReport() {
   }, [propertyId, token]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  /**
+   * Local draft of the owner's answers. A dropped connection on submit must not
+   * cost the owner the work of re-deciding every repair.
+   */
+  const draftKey = report?.version_id
+    ? `owner-feedback:${propertyId}:${report.version_id}`
+    : null;
+
+  useEffect(() => {
+    if (!draftKey || report?.owner_feedback_locked) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { decisions?: DecisionState; submitterName?: string };
+      if (parsed.decisions) {
+        setDecisions((prev) => (Object.keys(prev).length ? prev : parsed.decisions!));
+      }
+      if (parsed.submitterName) setSubmitterName((prev) => prev || parsed.submitterName!);
+    } catch {
+      // A corrupt draft must never block the report.
+    }
+  }, [draftKey, report?.owner_feedback_locked]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    if (!Object.keys(decisions).length && !submitterName) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ decisions, submitterName }));
+    } catch {
+      // Private mode / quota — draft is best effort.
+    }
+  }, [draftKey, decisions, submitterName]);
 
   const audience: Audience = (report?.audience === 'tenant' ? 'tenant' : 'owner');
   const locked = !!report?.owner_feedback_locked;
@@ -726,26 +765,60 @@ export default function OwnerReport() {
 
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
+    setSubmitError(null);
     const payload = decidableRepairs.map((r) => ({
       repair_item_id: r.id!,
       decision: decisions[r.id!]!.decision,
       comment: decisions[r.id!]!.comment.trim() || null,
     }));
-    const { data, error: err } = await supabase.rpc('submit_owner_feedback', {
-      p_property_id: propertyId!,
-      p_token: token!,
-      p_submitter_name: submitterName.trim() || null,
-      p_decisions: payload as any,
-    });
+
+    // The RPC replaces the previous answers for this version, so retrying is safe.
+    let data: unknown = null;
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
+      if (RETRY_DELAYS_MS[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      }
+      try {
+        const res = await supabase.rpc('submit_owner_feedback', {
+          p_property_id: propertyId!,
+          p_token: token!,
+          p_submitter_name: submitterName.trim() || null,
+          p_decisions: payload as any,
+        });
+        if (!res.error) { data = res.data; lastErr = null; break; }
+        lastErr = res.error;
+        if (!NETWORK_ERROR_RE.test(String(res.error.message ?? ''))) break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
     setSubmitting(false);
-    setConfirmOpen(false);
-    if (err) {
-      toast({
-        title: 'No pudimos enviar tu respuesta',
-        description: err.message ?? 'Intenta de nuevo en unos momentos.',
-        variant: 'destructive',
+
+    if (lastErr) {
+      const msg = String((lastErr as { message?: string })?.message ?? '');
+      setSubmitError(
+        NETWORK_ERROR_RE.test(msg) || !msg
+          ? 'La conexión se interrumpió y tu respuesta no llegó. Guardamos tus respuestas en este dispositivo: revisa tu señal y toca “Reintentar envío”.'
+          : 'No pudimos registrar tu respuesta. Toca “Reintentar envío”; si vuelve a fallar, avísanos.',
+      );
+      logClientEvent({
+        kind: 'owner_feedback_submit_failed',
+        message: msg,
+        context: {
+          inspection_id: (report as any)?.inspection_id ?? null,
+          version_id: report?.version_id ?? null,
+          attempts: RETRY_DELAYS_MS.length,
+          items: payload.length,
+        },
       });
       return;
+    }
+
+    setConfirmOpen(false);
+    if (draftKey) {
+      try { localStorage.removeItem(draftKey); } catch { /* best effort */ }
     }
     toast({
       title: (data as any)?.all_accepted ? '¡Reporte aceptado!' : 'Recibimos tu respuesta',
@@ -763,7 +836,7 @@ export default function OwnerReport() {
       }
     }
     await loadReport();
-  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport, report]);
+  }, [decidableRepairs, decisions, propertyId, token, submitterName, toast, loadReport, report, draftKey]);
 
   if (loading) {
     return (
@@ -1233,10 +1306,17 @@ export default function OwnerReport() {
               </p>
             )}
           </div>
+          {submitError && (
+            <div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
+              <p className="text-caption text-destructive">{submitError}</p>
+            </div>
+          )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancelar</Button>
             <Button disabled={submitting} onClick={handleSubmit} className="gap-1.5">
-              <Send className="h-3.5 w-3.5" /> {submitting ? 'Enviando…' : 'Confirmar envío'}
+              <Send className="h-3.5 w-3.5" />
+              {submitting ? 'Enviando…' : submitError ? 'Reintentar envío' : 'Confirmar envío'}
             </Button>
           </DialogFooter>
         </DialogContent>
