@@ -765,26 +765,60 @@ export default function OwnerReport() {
 
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
+    setSubmitError(null);
     const payload = decidableRepairs.map((r) => ({
       repair_item_id: r.id!,
       decision: decisions[r.id!]!.decision,
       comment: decisions[r.id!]!.comment.trim() || null,
     }));
-    const { data, error: err } = await supabase.rpc('submit_owner_feedback', {
-      p_property_id: propertyId!,
-      p_token: token!,
-      p_submitter_name: submitterName.trim() || null,
-      p_decisions: payload as any,
-    });
+
+    // The RPC replaces the previous answers for this version, so retrying is safe.
+    let data: unknown = null;
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
+      if (RETRY_DELAYS_MS[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      }
+      try {
+        const res = await supabase.rpc('submit_owner_feedback', {
+          p_property_id: propertyId!,
+          p_token: token!,
+          p_submitter_name: submitterName.trim() || null,
+          p_decisions: payload as any,
+        });
+        if (!res.error) { data = res.data; lastErr = null; break; }
+        lastErr = res.error;
+        if (!NETWORK_ERROR_RE.test(String(res.error.message ?? ''))) break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
     setSubmitting(false);
-    setConfirmOpen(false);
-    if (err) {
-      toast({
-        title: 'No pudimos enviar tu respuesta',
-        description: err.message ?? 'Intenta de nuevo en unos momentos.',
-        variant: 'destructive',
+
+    if (lastErr) {
+      const msg = String((lastErr as { message?: string })?.message ?? '');
+      setSubmitError(
+        NETWORK_ERROR_RE.test(msg) || !msg
+          ? 'La conexión se interrumpió y tu respuesta no llegó. Guardamos tus respuestas en este dispositivo: revisa tu señal y toca “Reintentar envío”.'
+          : 'No pudimos registrar tu respuesta. Toca “Reintentar envío”; si vuelve a fallar, avísanos.',
+      );
+      logClientEvent({
+        kind: 'owner_feedback_submit_failed',
+        message: msg,
+        context: {
+          inspection_id: (report as any)?.inspection_id ?? null,
+          version_id: report?.version_id ?? null,
+          attempts: RETRY_DELAYS_MS.length,
+          items: payload.length,
+        },
       });
       return;
+    }
+
+    setConfirmOpen(false);
+    if (draftKey) {
+      try { localStorage.removeItem(draftKey); } catch { /* best effort */ }
     }
     toast({
       title: (data as any)?.all_accepted ? '¡Reporte aceptado!' : 'Recibimos tu respuesta',
