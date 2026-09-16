@@ -54,6 +54,11 @@ import {
   Check, MessageSquare, X, CheckCircle2, AlertCircle, Send, Wrench,
 } from 'lucide-react';
 import { QUIEN_REPARA_LABELS } from '@/lib/quien-repara';
+import { logClientEvent } from '@/lib/client-log';
+
+/** Network-level fetch failures worth retrying (Safari: "Load failed"). */
+const NETWORK_ERROR_RE = /load failed|failed to fetch|network|networkerror|timeout|aborted|connection/i;
+const RETRY_DELAYS_MS = [0, 800, 2500];
 
 
 type Audience = 'owner' | 'tenant';
