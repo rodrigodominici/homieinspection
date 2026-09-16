@@ -310,6 +310,9 @@ export default function ContractorWorkOrderDetail() {
           </DialogHeader>
           {signing ? (
             <SignaturePad
+              title="Conformidad del contratista"
+              signerLabel="Nombre de quien firma"
+              allowSkip={false}
               onCancel={() => setSigning(false)}
               onConfirm={async ({ signer_name, signature_data }) => {
                 await handleSubmit(signer_name, signature_data);

@@ -42,7 +42,12 @@ export default function ContractorItemDetail() {
   const beforeInput = useRef<HTMLInputElement>(null);
   const afterInput = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
+  /**
+   * `resetForm` en false conserva lo que el contratista está editando (estado,
+   * comentario, motivo) — necesario al refrescar luego de subir fotos, para no
+   * descartar una selección todavía sin guardar.
+   */
+  const load = useCallback(async (resetForm = true) => {
     if (!id || !itemId) return;
     try {
       const detail = await fetchWorkOrderDetail(id);
@@ -50,7 +55,7 @@ export default function ContractorItemDetail() {
       setItem(found);
       setInspectionId(detail.order.inspection_id);
       setOrderStatus(detail.order.status);
-      if (found) {
+      if (found && resetForm) {
         setStatus(found.status);
         setComment(found.comment ?? '');
         setNotDoneReason(found.not_done_reason ?? '');
@@ -105,7 +110,7 @@ export default function ContractorItemDetail() {
         photoStage: stage,
       });
       toast.success('Fotos subidas');
-      await load();
+      await load(false);
     } catch {
       toast.error('No pudimos subir las fotos');
     } finally {

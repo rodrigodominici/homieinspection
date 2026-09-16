@@ -17,9 +17,22 @@ interface SignaturePadProps {
   onCancel: () => void;
   /** When true, shows a warning that confirming will overwrite the existing signature. */
   hasExistingSignature?: boolean;
+  /** Título del bloque. Por defecto la firma del inquilino (uso del inspector). */
+  title?: string;
+  /** Etiqueta del campo de nombre del firmante. */
+  signerLabel?: string;
+  /** Oculta la opción "No puede firmar" (el contratista siempre firma). */
+  allowSkip?: boolean;
 }
 
-export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature = false }: SignaturePadProps) {
+export default function SignaturePad({
+  onConfirm,
+  onCancel,
+  hasExistingSignature = false,
+  title = 'Firma del Inquilino',
+  signerLabel = 'Nombre del inquilino',
+  allowSkip = true,
+}: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -129,7 +142,7 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
     <div className="space-y-4">
       <Card className="border-0 ring-1 ring-border shadow-sm rounded-2xl">
         <CardContent className="p-4 space-y-4">
-          <h3 className="text-body-lg font-semibold">Firma del Inquilino</h3>
+          <h3 className="text-body-lg font-semibold">{title}</h3>
 
           {hasExistingSignature && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
@@ -141,18 +154,20 @@ export default function SignaturePad({ onConfirm, onCancel, hasExistingSignature
           )}
 
           {/* Mode toggle */}
-          <div className="flex gap-2">
-            <Button variant={mode === 'sign' ? 'default' : 'outline'} size="sm" onClick={() => setMode('sign')}>
-              Firmar
-            </Button>
-            <Button variant={mode === 'skip' ? 'default' : 'outline'} size="sm" onClick={() => setMode('skip')}>
-              No puede firmar
-            </Button>
-          </div>
+          {allowSkip && (
+            <div className="flex gap-2">
+              <Button variant={mode === 'sign' ? 'default' : 'outline'} size="sm" onClick={() => setMode('sign')}>
+                Firmar
+              </Button>
+              <Button variant={mode === 'skip' ? 'default' : 'outline'} size="sm" onClick={() => setMode('skip')}>
+                No puede firmar
+              </Button>
+            </div>
+          )}
 
           {/* Signer name */}
           <div className="space-y-2">
-            <Label>Nombre del inquilino</Label>
+            <Label>{signerLabel}</Label>
             <Input value={signerName} onChange={(e) => setSignerName(e.target.value)}
               placeholder="Nombre completo" />
           </div>
