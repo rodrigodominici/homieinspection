@@ -1306,10 +1306,17 @@ export default function OwnerReport() {
               </p>
             )}
           </div>
+          {submitError && (
+            <div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
+              <p className="text-caption text-destructive">{submitError}</p>
+            </div>
+          )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancelar</Button>
             <Button disabled={submitting} onClick={handleSubmit} className="gap-1.5">
-              <Send className="h-3.5 w-3.5" /> {submitting ? 'Enviando…' : 'Confirmar envío'}
+              <Send className="h-3.5 w-3.5" />
+              {submitting ? 'Enviando…' : submitError ? 'Reintentar envío' : 'Confirmar envío'}
             </Button>
           </DialogFooter>
         </DialogContent>
