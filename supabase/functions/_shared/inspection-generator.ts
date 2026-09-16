@@ -59,14 +59,29 @@ export interface GeneratedField {
   options_json?: unknown;
 }
 
+/**
+ * Normaliza cualquier valor de mercado ("chile", "CL", "mexico", "perú")
+ * al código canónico de dos letras usado por RLS y filtros.
+ */
+export function normalizeMarketValue(raw: unknown): string | null {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (!v) return null;
+  if (v === 'cl' || v === 'chile' || v === 'cli') return 'CL';
+  if (v === 'mx' || v === 'mexico' || v === 'méxico') return 'MX';
+  if (v === 'pe' || v === 'peru' || v === 'perú') return 'PE';
+  return String(raw).trim().toUpperCase();
+}
+
 export function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
   let propertyType = raw.property_type?.toLowerCase()?.trim() || null;
   if (propertyType === 'estudio_loft') propertyType = 'estudio';
 
   return {
     ...raw,
+    market: normalizeMarketValue(raw.market) ?? raw.market,
     property_type: propertyType ?? raw.property_type,
     scheduled_at: normalizeDateValue((raw as any).scheduled_at),
+
     fecha_recoleccion_llaves: normalizeDateValue((raw as any).fecha_recoleccion_llaves),
     recipient_email: raw.recipient_email ?? (raw as any).correo_receptora ?? undefined,
     tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? undefined,
