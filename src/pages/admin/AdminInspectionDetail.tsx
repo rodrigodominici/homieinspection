@@ -957,7 +957,7 @@ export default function AdminInspectionDetail() {
                     setInspection({ ...inspection, property_overrides_json: mergedOverrides });
                     setKeyEditorOpen(false);
                     // Honest local-save toast — does NOT claim HubSpot success.
-                    toast({ title: 'Recolección guardada', description: 'Fecha/hora actualizada.' });
+                    toast({ title: `${getKeyEventNoun(inspection.inspection_type)} guardada`, description: 'Fecha/hora actualizada.' });
                     // Await sync; surface HubSpot outcome only on failure.
                     const syncRes = await triggerKeyCollectionSync(inspection.id);
                     if (!syncRes.ok) {
