@@ -314,8 +314,8 @@ export default function InspectorInspectionDetail() {
   const handleStart = async () => {
     if (blockStart) {
       toast({
-        title: 'Fecha de recolección requerida',
-        description: 'Debes cargar la fecha de recolección de llaves antes de iniciar la inspección.',
+        title: `${getKeyEventDateLabel(inspection.inspection_type)} requerida`,
+        description: `Debes cargar la fecha de ${getKeyEventLabel(inspection.inspection_type).toLowerCase()} antes de iniciar la inspección.`,
         variant: 'destructive',
       });
       openKeyForm();
