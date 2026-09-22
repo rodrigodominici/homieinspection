@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { getContractDateMicroLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
+import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
