@@ -546,7 +546,9 @@ export default function InspectorInspectionDetail() {
                 </div>
               ) : (
                 <>
-                  <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Primero coordina con el {getPrimaryContactLabel(inspection.inspection_type).toLowerCase()} y luego registra fecha/hora acordada.
+                  </p>
                   {(() => {
                     const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
                     if (!contractEndDate) return null;
