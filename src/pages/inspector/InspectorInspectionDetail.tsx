@@ -294,7 +294,7 @@ export default function InspectorInspectionDetail() {
     setInspection({ ...inspection, property_overrides_json: mergedOverrides });
     setSavingKeyCollection(false);
     setKeyFormOpen(false);
-    toast({ title: 'Recolección guardada', description: 'La fecha/hora quedó registrada para esta inspección.' });
+    toast({ title: `${getKeyEventNoun(inspection.inspection_type)} guardada`, description: 'La fecha/hora quedó registrada para esta inspección.' });
 
     // Outbound HubSpot sync — awaited so failures are visible (still non-blocking for the save).
     const syncRes = await triggerKeyCollectionSync(inspection.id);
