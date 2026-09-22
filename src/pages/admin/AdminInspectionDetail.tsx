@@ -988,7 +988,7 @@ export default function AdminInspectionDetail() {
                 return (
                   <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Recolección de llaves
+                      {getKeyEventLabel(inspection.inspection_type)}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Popover open={keyEditorOpen} onOpenChange={setKeyEditorOpen}>
