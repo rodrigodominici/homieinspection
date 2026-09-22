@@ -171,6 +171,10 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
   let order = 0;
   const studio = isStudio(payload);
   const isCasa = payload.property_type?.toLowerCase() === 'casa';
+  // Check-in: el inquilino RECIBE el inmueble; captación/check-out: lo ENTREGA.
+  const isCheckIn = payload.inspection_type === 'check_in';
+  const handoverVerb = isCheckIn ? 'Quien Recibe' : 'Quien Entrega';
+  const keysEventLabel = isCheckIn ? 'Entrega de llaves / inspección' : 'Recolección de llaves / inspección';
 
   // ── 1. Introducción (briefing screen — optional observation only) ─────
   // Cleaning / removal / fumigation moved to Otros Generales (Step 12).
@@ -204,7 +208,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     { field_key: 'ctx_tower', field_label: 'Torre', field_type: 'text', group_key: 'context', sort_order: 4, required: false },
     { field_key: 'ctx_parking', field_label: 'Estacionamiento', field_type: 'text', group_key: 'context', sort_order: 5, required: false },
     { field_key: 'ctx_storage', field_label: 'Bodega', field_type: 'text', group_key: 'context', sort_order: 6, required: false },
-    { field_key: 'ctx_fecha_recoleccion', field_label: 'Recolección de llaves / inspección', field_type: 'text', group_key: 'context', sort_order: 7, required: false },
+    { field_key: 'ctx_fecha_recoleccion', field_label: keysEventLabel, field_type: 'text', group_key: 'context', sort_order: 7, required: false },
     { field_key: 'ctx_recipient_email', field_label: 'Correo Receptora/o', field_type: 'email', group_key: 'context', sort_order: 8, required: false },
     { field_key: 'ctx_inspection_type', field_label: 'Tipo de Recepción', field_type: 'text', group_key: 'context', sort_order: 9, required: false },
     { field_key: 'ctx_property_type', field_label: 'Tipo de Propiedad', field_type: 'text', group_key: 'context', sort_order: 10, required: false },
@@ -223,14 +227,14 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
   // ── 3. Datos del inquilino / quien entrega ─────────────────────────────
   sections.push({
     section_key: 'handover_person',
-    section_title: 'Datos del Inquilino / Quien Entrega',
+    section_title: `Datos del Inquilino / ${handoverVerb}`,
     section_type: 'handover_meta',
     sort_order: order++,
     fields: [
       { field_key: 'handover_tenant_name', field_label: 'Nombre y Apellido del Inquilino', field_type: 'text', group_key: 'info', sort_order: 0, required: false },
-      { field_key: 'handover_name', field_label: 'Nombre y Apellido de Quien Entrega', field_type: 'text', group_key: 'info', sort_order: 1, required: true },
-      { field_key: 'handover_email', field_label: 'Email de Quien Entrega', field_type: 'email', group_key: 'info', sort_order: 2, required: false },
-      { field_key: 'handover_phone', field_label: 'Teléfono de Quien Entrega', field_type: 'phone', group_key: 'info', sort_order: 3, required: false },
+      { field_key: 'handover_name', field_label: `Nombre y Apellido de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'text', group_key: 'info', sort_order: 1, required: true },
+      { field_key: 'handover_email', field_label: `Email de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'email', group_key: 'info', sort_order: 2, required: false },
+      { field_key: 'handover_phone', field_label: `Teléfono de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'phone', group_key: 'info', sort_order: 3, required: false },
     ],
   });
 
