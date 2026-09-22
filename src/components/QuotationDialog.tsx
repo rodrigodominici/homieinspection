@@ -203,6 +203,11 @@ export function QuotationDialog({
     }
     lines.push(`Subtotal recomendadas: ${fmtCurrency(requiredTotal)}`);
     lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
+    if (discountValue > 0) {
+      lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
+      lines.push(`Descuento comercial${discountLabel ? ` (${discountLabel})` : ''}: −${fmtCurrency(discountValue)}${discount?.reason ? ` · ${discount.reason}` : ''}`);
+      lines.push(`Base: ${fmtCurrency(base)}`);
+    }
     if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
