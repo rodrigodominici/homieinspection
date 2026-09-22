@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
-import { getContractDateMicroLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
+import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -245,7 +245,7 @@ export default function InspectorInspectionDetail() {
     const hasError = results.some((res) => (res as { error?: { message?: string } }).error);
 
     if (hasError) {
-      toast({ title: 'Error al guardar', description: 'No se pudo guardar la recolección de llaves.', variant: 'destructive' });
+      toast({ title: 'Error al guardar', description: `No se pudo guardar la ${getKeyEventLabel(inspection.inspection_type).toLowerCase()}.`, variant: 'destructive' });
       setSavingKeyCollection(false);
       return;
     }
@@ -294,7 +294,7 @@ export default function InspectorInspectionDetail() {
     setInspection({ ...inspection, property_overrides_json: mergedOverrides });
     setSavingKeyCollection(false);
     setKeyFormOpen(false);
-    toast({ title: 'Recolección guardada', description: 'La fecha/hora quedó registrada para esta inspección.' });
+    toast({ title: `${getKeyEventNoun(inspection.inspection_type)} guardada`, description: 'La fecha/hora quedó registrada para esta inspección.' });
 
     // Outbound HubSpot sync — awaited so failures are visible (still non-blocking for the save).
     const syncRes = await triggerKeyCollectionSync(inspection.id);
@@ -314,8 +314,8 @@ export default function InspectorInspectionDetail() {
   const handleStart = async () => {
     if (blockStart) {
       toast({
-        title: 'Fecha de recolección requerida',
-        description: 'Debes cargar la fecha de recolección de llaves antes de iniciar la inspección.',
+        title: `${getKeyEventDateLabel(inspection.inspection_type)} requerida`,
+        description: `Debes cargar la fecha de ${getKeyEventLabel(inspection.inspection_type).toLowerCase()} antes de iniciar la inspección.`,
         variant: 'destructive',
       });
       openKeyForm();
@@ -523,7 +523,7 @@ export default function InspectorInspectionDetail() {
             <CardContent className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold">Recolección de llaves</p>
+                  <p className="text-sm font-semibold">{getKeyEventLabel(inspection.inspection_type)}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
                   </p>
@@ -546,7 +546,9 @@ export default function InspectorInspectionDetail() {
                 </div>
               ) : (
                 <>
-                  <p className="text-xs text-muted-foreground">Primero coordina con el inquilino y luego registra fecha/hora acordada.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Primero coordina con el {getPrimaryContactLabel(inspection.inspection_type).toLowerCase()} y luego registra fecha/hora acordada.
+                  </p>
                   {(() => {
                     const contractEndDate = (snapshot?.fecha_de_termino_real_de_contrato as string) ?? null;
                     if (!contractEndDate) return null;
@@ -577,7 +579,7 @@ export default function InspectorInspectionDetail() {
               {keyFormOpen && (
                 <div className="space-y-3 rounded-2xl border border-border p-3.5">
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
+                    <p className="text-xs font-medium text-muted-foreground">{getKeyEventDateLabel(inspection.inspection_type)}</p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">

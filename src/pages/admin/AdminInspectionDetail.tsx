@@ -28,7 +28,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
-import { getContractDateShortLabel, isCheckIn } from '@/lib/inspection-type-labels';
+import { getContractDateShortLabel, isCheckIn, getKeyEventLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
@@ -957,7 +957,7 @@ export default function AdminInspectionDetail() {
                     setInspection({ ...inspection, property_overrides_json: mergedOverrides });
                     setKeyEditorOpen(false);
                     // Honest local-save toast — does NOT claim HubSpot success.
-                    toast({ title: 'Recolección guardada', description: 'Fecha/hora actualizada.' });
+                    toast({ title: `${getKeyEventNoun(inspection.inspection_type)} guardada`, description: 'Fecha/hora actualizada.' });
                     // Await sync; surface HubSpot outcome only on failure.
                     const syncRes = await triggerKeyCollectionSync(inspection.id);
                     if (!syncRes.ok) {
@@ -988,7 +988,7 @@ export default function AdminInspectionDetail() {
                 return (
                   <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Recolección de llaves
+                      {getKeyEventLabel(inspection.inspection_type)}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Popover open={keyEditorOpen} onOpenChange={setKeyEditorOpen}>

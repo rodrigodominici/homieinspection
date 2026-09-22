@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import type { Inspection } from '@/lib/types';
-import { getContractDateShortLabel, getPrimaryContactLabel } from '@/lib/inspection-type-labels';
+import { getContractDateShortLabel, getPrimaryContactLabel, getKeyEventLabel } from '@/lib/inspection-type-labels';
 import {
   MapPin, Building, Home, Landmark, CalendarClock, Navigation,
   Hash, MessageCircle, User, Phone, FileText, Warehouse, Car,
@@ -115,7 +115,7 @@ export default function PropertyBriefingCard({ inspection }: Props) {
                   <CalendarClock className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Recolección de llaves</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{getKeyEventLabel(inspection.inspection_type)}</p>
                   <p className="text-body font-semibold">{fechaLlaves}{horaLlaves ? ` · ${horaLlaves}` : ''}</p>
                 </div>
               </div>

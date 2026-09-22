@@ -58,6 +58,25 @@ export const getContractDateMicroLabel = (t: InspectionType): string =>
 export const getPrimaryContactLabel = (t: InspectionType): string =>
   isCaptacion(t) ? 'Propietario' : 'Inquilino';
 
+/**
+ * Evento de llaves coordinado con el contacto principal.
+ * En check-in las llaves se ENTREGAN al inquilino; en captación/check-out se RECOLECTAN.
+ */
+const KEY_EVENT_LABELS: Record<CanonicalInspectionType, { long: string; date: string; noun: string }> = {
+  check_out: { long: 'Recolección de llaves', date: 'Fecha de recolección', noun: 'Recolección' },
+  captacion: { long: 'Recolección de llaves', date: 'Fecha de recolección', noun: 'Recolección' },
+  check_in: { long: 'Entrega de llaves', date: 'Fecha de entrega', noun: 'Entrega' },
+};
+
+export const getKeyEventLabel = (t: InspectionType): string =>
+  KEY_EVENT_LABELS[normalizeInspectionType(t)].long;
+
+export const getKeyEventDateLabel = (t: InspectionType): string =>
+  KEY_EVENT_LABELS[normalizeInspectionType(t)].date;
+
+export const getKeyEventNoun = (t: InspectionType): string =>
+  KEY_EVENT_LABELS[normalizeInspectionType(t)].noun;
+
 const TYPE_LABELS: Record<CanonicalInspectionType, string> = {
   check_out: 'Check-out',
   captacion: 'Captación',

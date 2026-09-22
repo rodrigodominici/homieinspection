@@ -19,7 +19,7 @@ import {
   isCompletedToday,
   isToCoordinate,
 } from '@/lib/inspector-operational';
-import { getContractDateShortLabel } from '@/lib/inspection-type-labels';
+import { getContractDateShortLabel, getKeyEventLabel } from '@/lib/inspection-type-labels';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
 import InspectionTypeChip from '@/components/inspector/InspectionTypeChip';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -239,7 +239,7 @@ export default function InspectorDashboard() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   const cleaned = tenantWhatsapp.replace(/[^+\d]/g, '');
-                                  const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar la recolección de llaves de la propiedad${insp.property_name ? ` ${insp.property_name}` : ''}.`);
+                                  const msg = encodeURIComponent(`Hola, soy de Homie. Te contacto para coordinar la ${getKeyEventLabel(insp.inspection_type).toLowerCase()} de la propiedad${insp.property_name ? ` ${insp.property_name}` : ''}.`);
                                   window.open(`https://wa.me/${cleaned}?text=${msg}`, '_blank');
                                 }}
                               >
