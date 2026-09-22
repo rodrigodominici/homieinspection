@@ -20,6 +20,10 @@ interface QuotationDialogProps {
   inspection: Inspection;
   repairs: InspectionRepairItem[];
   operationalSections: InspectionSection[];
+  /** Descuento comercial activo (tipo/valor/motivo). */
+  discount?: QuotationDiscountInput | null;
+  /** Monto de descuento ya prorrateado para este payer. */
+  discountAmount?: number;
 }
 
 interface SectionGroup {
