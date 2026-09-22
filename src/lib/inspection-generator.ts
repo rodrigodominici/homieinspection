@@ -232,9 +232,9 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     sort_order: order++,
     fields: [
       { field_key: 'handover_tenant_name', field_label: 'Nombre y Apellido del Inquilino', field_type: 'text', group_key: 'info', sort_order: 0, required: false },
-      { field_key: 'handover_name', field_label: `Nombre y Apellido de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'text', group_key: 'info', sort_order: 1, required: true },
-      { field_key: 'handover_email', field_label: `Email de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'email', group_key: 'info', sort_order: 2, required: false },
-      { field_key: 'handover_phone', field_label: `Teléfono de ${handoverVerb.replace('Quien ','')==='Recibe' ? 'Quien Recibe' : 'Quien Entrega'}`, field_type: 'phone', group_key: 'info', sort_order: 3, required: false },
+      { field_key: 'handover_name', field_label: `Nombre y Apellido de ${handoverVerb}`, field_type: 'text', group_key: 'info', sort_order: 1, required: true },
+      { field_key: 'handover_email', field_label: `Email de ${handoverVerb}`, field_type: 'email', group_key: 'info', sort_order: 2, required: false },
+      { field_key: 'handover_phone', field_label: `Teléfono de ${handoverVerb}`, field_type: 'phone', group_key: 'info', sort_order: 3, required: false },
     ],
   });
 
