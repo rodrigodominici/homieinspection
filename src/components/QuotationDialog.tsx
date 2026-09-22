@@ -286,8 +286,23 @@ export function QuotationDialog({
                   <span>Subtotal opcionales</span>
                   <MoneyDisplay value={optionalTotal} market={inspection.market} />
                 </div>
+                {discountValue > 0 && (
+                  <>
+                    <div className="flex justify-between pt-1 border-t border-border/60">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <MoneyDisplay value={subtotal} market={inspection.market} />
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-primary">
+                        Descuento comercial{discountLabel ? ` (${discountLabel})` : ''}
+                        {discount?.reason ? <span className="text-muted-foreground"> · {discount.reason}</span> : null}
+                      </span>
+                      <span className="font-mono text-primary">−{fmtCurrency(discountValue)}</span>
+                    </div>
+                  </>
+                )}
                 <TaxBreakdown
-                  net={subtotal}
+                  net={base}
                   market={inspection.market}
                   config={taxConfig}
                   className="pt-2 mt-1"

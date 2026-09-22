@@ -678,6 +678,8 @@ export default function ExecutiveReviewDetail() {
         inspection={inspection}
         repairs={allRepairs}
         operationalSections={operationalSections}
+        discount={activeDiscountInput}
+        discountAmount={quotationDialog.payer === 'owner' ? discountBreakdown.discountOwner : discountBreakdown.discountTenant}
       />
 
       {/* ── Contractor quotation (confidential) ──────── */}
