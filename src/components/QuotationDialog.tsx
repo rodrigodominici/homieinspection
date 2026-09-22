@@ -6,6 +6,7 @@ import { Printer, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { fetchTaxConfig, applyVat, type MarketTaxSettings } from '@/lib/tax';
+import type { QuotationDiscountInput } from '@/lib/quotation-discount';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { TaxBreakdown } from '@/shared/ui/TaxBreakdown';
 
@@ -19,6 +20,10 @@ interface QuotationDialogProps {
   inspection: Inspection;
   repairs: InspectionRepairItem[];
   operationalSections: InspectionSection[];
+  /** Descuento comercial activo (tipo/valor/motivo). */
+  discount?: QuotationDiscountInput | null;
+  /** Monto de descuento ya prorrateado para este payer. */
+  discountAmount?: number;
 }
 
 interface SectionGroup {
@@ -52,7 +57,10 @@ function groupBySection(
   return groups;
 }
 
-export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs, operationalSections }: QuotationDialogProps) {
+export function QuotationDialog({
+  open, onOpenChange, payer, inspection, repairs, operationalSections,
+  discount = null, discountAmount = 0,
+}: QuotationDialogProps) {
   const { toast } = useToast();
   const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
 
@@ -63,7 +71,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
 
   const title = payer === 'owner' ? 'Cotización Propietario' : 'Cotización Inquilino';
 
-  const { groups, requiredTotal, optionalTotal, subtotal, vat } = useMemo(() => {
+  const { groups, requiredTotal, optionalTotal, subtotal, discountValue, base, vat } = useMemo(() => {
     const filtered = repairs.filter(r => r.payer_role === payer);
     const groups = groupBySection(filtered, operationalSections);
     const requiredTotal = filtered
@@ -73,9 +81,14 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       .filter(r => r.payment_nature === 'optional')
       .reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
     const subtotal = requiredTotal + optionalTotal;
-    return { groups, requiredTotal, optionalTotal, subtotal, vat: applyVat(subtotal, taxConfig) };
-  }, [repairs, payer, operationalSections, taxConfig]);
+    const discountValue = Math.min(Math.max(Math.round(Number(discountAmount) || 0), 0), subtotal);
+    const base = Math.max(0, subtotal - discountValue);
+    return { groups, requiredTotal, optionalTotal, subtotal, discountValue, base, vat: applyVat(base, taxConfig) };
+  }, [repairs, payer, operationalSections, taxConfig, discountAmount]);
   const total = vat.total;
+  const discountLabel = discount
+    ? (discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo')
+    : null;
 
   const today = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -154,6 +167,10 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       <div class="totals">
         <div class="totals-row"><span class="totals-label">Subtotal recomendadas</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
         <div class="totals-row optional"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
+        ${discountValue > 0 ? `
+        <div class="totals-row"><span class="totals-label">Subtotal</span><span class="totals-value">${fmtCurrency(subtotal)}</span></div>
+        <div class="totals-row"><span class="totals-label">Descuento comercial${discountLabel ? ` (${esc(discountLabel)})` : ''}${discount?.reason ? ` · ${esc(discount.reason)}` : ''}</span><span class="totals-value">−${fmtCurrency(discountValue)}</span></div>
+        <div class="totals-row"><span class="totals-label">Base</span><span class="totals-value">${fmtCurrency(base)}</span></div>` : ''}
         ${vat.enabled ? `<div class="totals-row"><span class="totals-label">${esc(vat.label)} ${vat.percentage}%</span><span class="totals-value">${fmtCurrency(vat.vatAmount)}</span></div>` : ''}
         <div class="totals-row grand-line"><span class="totals-label">Total</span><span class="totals-value">${fmtCurrency(total)}</span></div>
       </div>`;
@@ -186,6 +203,11 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
     }
     lines.push(`Subtotal recomendadas: ${fmtCurrency(requiredTotal)}`);
     lines.push(`Subtotal opcionales: ${fmtCurrency(optionalTotal)}`);
+    if (discountValue > 0) {
+      lines.push(`Subtotal: ${fmtCurrency(subtotal)}`);
+      lines.push(`Descuento comercial${discountLabel ? ` (${discountLabel})` : ''}: −${fmtCurrency(discountValue)}${discount?.reason ? ` · ${discount.reason}` : ''}`);
+      lines.push(`Base: ${fmtCurrency(base)}`);
+    }
     if (vat.enabled) lines.push(`${vat.label} ${vat.percentage}%: ${fmtCurrency(vat.vatAmount)}`);
     lines.push(`Total: ${fmtCurrency(total)}`);
     navigator.clipboard.writeText(lines.join('\n'));
@@ -264,8 +286,23 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
                   <span>Subtotal opcionales</span>
                   <MoneyDisplay value={optionalTotal} market={inspection.market} />
                 </div>
+                {discountValue > 0 && (
+                  <>
+                    <div className="flex justify-between pt-1 border-t border-border/60">
+                      <span className="text-muted-foreground">Subtotal sin descuento</span>
+                      <MoneyDisplay value={subtotal} market={inspection.market} />
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-primary">
+                        Descuento comercial{discountLabel ? ` (${discountLabel})` : ''}
+                        {discount?.reason ? <span className="text-muted-foreground"> · {discount.reason}</span> : null}
+                      </span>
+                      <span className="font-mono text-primary">−{fmtCurrency(discountValue)}</span>
+                    </div>
+                  </>
+                )}
                 <TaxBreakdown
-                  net={subtotal}
+                  net={base}
                   market={inspection.market}
                   config={taxConfig}
                   className="pt-2 mt-1"

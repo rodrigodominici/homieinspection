@@ -1999,6 +1999,8 @@ export default function AdminInspectionDetail() {
             inspection={inspection}
             repairs={allRepairs}
             operationalSections={operationalSections}
+            discount={activeDiscountInput}
+            discountAmount={quotationDialog.payer === 'owner' ? discountBreakdown.discountOwner : discountBreakdown.discountTenant}
           />
           <ContractorQuotationDialog
             open={contractorQuotationOpen}
