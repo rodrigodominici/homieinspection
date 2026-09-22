@@ -6,6 +6,7 @@ import { Printer, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Inspection, InspectionRepairItem, InspectionSection } from '@/lib/types';
 import { fetchTaxConfig, applyVat, type MarketTaxSettings } from '@/lib/tax';
+import type { QuotationDiscountInput } from '@/lib/quotation-discount';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { TaxBreakdown } from '@/shared/ui/TaxBreakdown';
 
