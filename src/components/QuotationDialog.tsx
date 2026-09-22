@@ -57,7 +57,10 @@ function groupBySection(
   return groups;
 }
 
-export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs, operationalSections }: QuotationDialogProps) {
+export function QuotationDialog({
+  open, onOpenChange, payer, inspection, repairs, operationalSections,
+  discount = null, discountAmount = 0,
+}: QuotationDialogProps) {
   const { toast } = useToast();
   const [taxConfig, setTaxConfig] = useState<MarketTaxSettings | null>(null);
 
@@ -68,7 +71,7 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
 
   const title = payer === 'owner' ? 'Cotización Propietario' : 'Cotización Inquilino';
 
-  const { groups, requiredTotal, optionalTotal, subtotal, vat } = useMemo(() => {
+  const { groups, requiredTotal, optionalTotal, subtotal, discountValue, base, vat } = useMemo(() => {
     const filtered = repairs.filter(r => r.payer_role === payer);
     const groups = groupBySection(filtered, operationalSections);
     const requiredTotal = filtered
@@ -78,9 +81,14 @@ export function QuotationDialog({ open, onOpenChange, payer, inspection, repairs
       .filter(r => r.payment_nature === 'optional')
       .reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
     const subtotal = requiredTotal + optionalTotal;
-    return { groups, requiredTotal, optionalTotal, subtotal, vat: applyVat(subtotal, taxConfig) };
-  }, [repairs, payer, operationalSections, taxConfig]);
+    const discountValue = Math.min(Math.max(Math.round(Number(discountAmount) || 0), 0), subtotal);
+    const base = Math.max(0, subtotal - discountValue);
+    return { groups, requiredTotal, optionalTotal, subtotal, discountValue, base, vat: applyVat(base, taxConfig) };
+  }, [repairs, payer, operationalSections, taxConfig, discountAmount]);
   const total = vat.total;
+  const discountLabel = discount
+    ? (discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo')
+    : null;
 
   const today = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 
