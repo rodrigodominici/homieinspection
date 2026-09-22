@@ -1,22 +1,19 @@
 project_id = "qlbprsnnjbzfixjrvfuh"
 
-[functions.hubspot-inspection-intake]
-verify_jwt = false
-
-[functions.retry-source-event]
-verify_jwt = false
-
-[functions.recover-stalled-events]
-verify_jwt = false
-
-[functions.hubspot-update-inspection]
-verify_jwt = false
-
-[functions.sign-public-photo]
-verify_jwt = false
-
-[functions.retry-hubspot-sync]
-verify_jwt = false
-
-[functions.health-check]
-verify_jwt = false
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.health-check]
+    verify_jwt = false
+  [functions.hubspot-inspection-intake]
+    verify_jwt = false
+  [functions.hubspot-update-inspection]
+    verify_jwt = false
+  [functions.recover-stalled-events]
+    verify_jwt = false
+  [functions.retry-hubspot-sync]
+    verify_jwt = false
+  [functions.retry-source-event]
+    verify_jwt = false
+  [functions.sign-public-photo]
+    verify_jwt = false
