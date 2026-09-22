@@ -523,7 +523,7 @@ export default function InspectorInspectionDetail() {
             <CardContent className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold">Recolección de llaves</p>
+                  <p className="text-sm font-semibold">{getKeyEventLabel(inspection.inspection_type)}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {keyCollectionCoordinated ? 'Coordinada' : 'Pendiente de coordinar'}
                   </p>
