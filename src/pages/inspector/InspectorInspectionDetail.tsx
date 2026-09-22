@@ -245,7 +245,7 @@ export default function InspectorInspectionDetail() {
     const hasError = results.some((res) => (res as { error?: { message?: string } }).error);
 
     if (hasError) {
-      toast({ title: 'Error al guardar', description: 'No se pudo guardar la recolección de llaves.', variant: 'destructive' });
+      toast({ title: 'Error al guardar', description: `No se pudo guardar la ${getKeyEventLabel(inspection.inspection_type).toLowerCase()}.`, variant: 'destructive' });
       setSavingKeyCollection(false);
       return;
     }
