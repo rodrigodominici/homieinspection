@@ -289,7 +289,7 @@ export function QuotationDialog({
                 {discountValue > 0 && (
                   <>
                     <div className="flex justify-between pt-1 border-t border-border/60">
-                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="text-muted-foreground">Subtotal sin descuento</span>
                       <MoneyDisplay value={subtotal} market={inspection.market} />
                     </div>
                     <div className="flex justify-between">
