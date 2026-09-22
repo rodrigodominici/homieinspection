@@ -167,6 +167,10 @@ export function QuotationDialog({
       <div class="totals">
         <div class="totals-row"><span class="totals-label">Subtotal recomendadas</span><span class="totals-value">${fmtCurrency(requiredTotal)}</span></div>
         <div class="totals-row optional"><span class="totals-label">Subtotal opcionales</span><span class="totals-value">${fmtCurrency(optionalTotal)}</span></div>
+        ${discountValue > 0 ? `
+        <div class="totals-row"><span class="totals-label">Subtotal</span><span class="totals-value">${fmtCurrency(subtotal)}</span></div>
+        <div class="totals-row"><span class="totals-label">Descuento comercial${discountLabel ? ` (${esc(discountLabel)})` : ''}${discount?.reason ? ` · ${esc(discount.reason)}` : ''}</span><span class="totals-value">−${fmtCurrency(discountValue)}</span></div>
+        <div class="totals-row"><span class="totals-label">Base</span><span class="totals-value">${fmtCurrency(base)}</span></div>` : ''}
         ${vat.enabled ? `<div class="totals-row"><span class="totals-label">${esc(vat.label)} ${vat.percentage}%</span><span class="totals-value">${fmtCurrency(vat.vatAmount)}</span></div>` : ''}
         <div class="totals-row grand-line"><span class="totals-label">Total</span><span class="totals-value">${fmtCurrency(total)}</span></div>
       </div>`;
