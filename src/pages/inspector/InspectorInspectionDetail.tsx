@@ -579,7 +579,7 @@ export default function InspectorInspectionDetail() {
               {keyFormOpen && (
                 <div className="space-y-3 rounded-2xl border border-border p-3.5">
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Fecha de recolección</p>
+                    <p className="text-xs font-medium text-muted-foreground">{getKeyEventDateLabel(inspection.inspection_type)}</p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl">
