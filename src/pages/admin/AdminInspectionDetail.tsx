@@ -28,7 +28,7 @@ import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
-import { getContractDateShortLabel, isCheckIn } from '@/lib/inspection-type-labels';
+import { getContractDateShortLabel, isCheckIn, getKeyEventLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
