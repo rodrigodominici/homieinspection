@@ -256,13 +256,31 @@ export default function AdminUsers() {
     });
     setCuSubmitting(false);
     if (error) {
-      const ctx = (error as { context?: { error?: string; detail?: string } }).context;
+      let ctx: { error?: string; detail?: string } | undefined;
+      const rawCtx = (error as { context?: unknown }).context;
+      if (rawCtx instanceof Response) {
+        try { ctx = await rawCtx.clone().json(); } catch { ctx = undefined; }
+      } else if (rawCtx && typeof rawCtx === 'object') {
+        ctx = rawCtx as { error?: string; detail?: string };
+      }
       const code = ctx?.error;
+      const detailMap: Record<string, string> = {
+        invalid_email: 'email inválido',
+        weak_password: 'contraseña de mínimo 8 caracteres',
+        invalid_full_name: 'nombre inválido',
+        invalid_role: 'rol inválido',
+        missing_contractor: 'falta seleccionar la empresa contratista',
+        invalid_market: 'país inválido',
+        invalid_country_code: 'código de país inválido',
+        invalid_phone: 'teléfono inválido (6 a 15 dígitos)',
+      };
       const msg =
         code === 'email_exists' ? 'Ya existe un usuario con ese email.' :
-        code === 'weak_password' ? 'Contraseña muy débil (mín. 8 caracteres).' :
         code === 'forbidden' ? 'No tienes permisos para crear usuarios.' :
-        code === 'validation' ? `Datos inválidos (${ctx?.detail ?? 'campo'}).` :
+        code === 'unauthorized' ? 'Tu sesión expiró. Vuelve a iniciar sesión.' :
+        code === 'validation' ? `Datos inválidos: ${detailMap[ctx?.detail ?? ''] ?? ctx?.detail ?? 'revisa los campos'}.` :
+        code === 'create_failed' ? `No se pudo crear: ${ctx?.detail ?? 'error desconocido'}` :
+        code === 'profile_update_failed' ? `Error guardando el perfil: ${ctx?.detail ?? ''}` :
         error.message;
       toast({ title: 'No se pudo crear el usuario', description: msg, variant: 'destructive' });
       return;
