@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
   if (!row.inspection_id || !row.action) {
     return jsonResponse({ error: 'incomplete_log_row' }, 409);
   }
-  const action = row.action as 'key_collection_date' | 'checkout_received';
-  if (action !== 'key_collection_date' && action !== 'checkout_received') {
+  const action = row.action as 'key_collection_date' | 'checkout_received' | 'checkin_completed';
+  if (action !== 'key_collection_date' && action !== 'checkout_received' && action !== 'checkin_completed') {
     return jsonResponse({ error: 'unsupported_action', action: row.action }, 409);
   }
 
