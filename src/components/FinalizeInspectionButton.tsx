@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2 } from 'lucide-react';
 import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES, type QuienRepara } from '@/lib/quien-repara';
 import { toast } from '@/hooks/use-toast';
+import { triggerCheckinCompletedSync } from '@/lib/hubspot-sync';
 
 interface Props {
   inspectionId: string;
@@ -73,6 +74,9 @@ export function FinalizeInspectionButton({
       });
       if (error) throw error;
       const result = (data as any)?.status;
+      if (inspectionType === 'check_in' && result !== 'noop') {
+        void triggerCheckinCompletedSync(inspectionId);
+      }
       toast({
         title: result === 'noop' ? 'Sin cambios' : 'Inspección finalizada',
         description: result === 'noop'

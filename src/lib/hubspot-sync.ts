@@ -28,6 +28,11 @@ export function triggerCheckoutSync(inspectionId: string, eventTimeIso: string):
   return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'checkout_received', event_time: eventTimeIso });
 }
 
+/** Marks checkin_hi_completo = "Sí" on the HubSpot lease contract after a check-in is finalized. */
+export function triggerCheckinCompletedSync(inspectionId: string): Promise<SyncResult> {
+  return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'checkin_completed' });
+}
+
 /**
  * Manual retry of a previously failed outbound sync log row.
  * Admin-only on the server side. Returns the new log id on success.
