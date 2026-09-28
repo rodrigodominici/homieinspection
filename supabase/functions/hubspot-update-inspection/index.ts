@@ -19,11 +19,12 @@ const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación (check_out)
 const DEAL_OBJECT_TYPE_ID = '0-3';            // Deal estándar (captacion → pipeline Publicaciones CL)
 
-type Action = 'key_collection_date' | 'checkout_received';
+type Action = 'key_collection_date' | 'checkout_received' | 'checkin_completed';
 
 const HUBSPOT_PROPERTY_MAP = {
   key_collection_date: 'fecha_de_recoleccion_de_llaves',
   checkout_received: 'fecha_de_recepcion_del_checkout',
+  checkin_completed: 'checkin_hi_completo',
 } as const;
 type LogStatus = 'success' | 'error' | 'skipped';
 
@@ -155,7 +156,7 @@ Deno.serve(async (req: Request) => {
       retried_from_log_id: triggeredRetryFrom,
     });
   }
-  if (action !== 'key_collection_date' && action !== 'checkout_received') {
+  if (action !== 'key_collection_date' && action !== 'checkout_received' && action !== 'checkin_completed') {
     return logAndRespond(400, { ok: false, error: 'invalid_action' }, {
       status: 'error',
       error_message: `invalid_action:${String(action)}`,
@@ -217,6 +218,19 @@ Deno.serve(async (req: Request) => {
         retried_from_log_id: triggeredRetryFrom,
       });
     }
+  } else if (action === 'checkin_completed') {
+    if (inspection.inspection_type !== 'check_in' || inspection.status !== 'sent') {
+      return logAndRespond(200, { ok: true, skipped: true, reason: 'not_finalized_checkin' }, {
+        status: 'skipped',
+        action,
+        inspection_id: inspectionId,
+        triggered_by: triggeredBy,
+        error_message: `not_finalized_checkin:${inspection.inspection_type}:${inspection.status}`,
+        retried_from_log_id: triggeredRetryFrom,
+      });
+    }
+    eventTimeIso = new Date().toISOString();
+    hubspotDateValue = 'Sí';
   } else {
     const candidate = body.event_time ?? inspection.inspection_completed_at ?? new Date().toISOString();
     eventTimeIso = candidate;
