@@ -1,40 +1,18 @@
-# Etiquetas y colores del check-in como "Captación" en toda la UX
+# Marcar "checkin_hi_completo = Sí" en HubSpot al finalizar un check-in
 
-## Alcance
+## Qué cambia
+Cuando un Property Advisor, un Ejecutivo o un Admin finaliza una inspección de **check-in**, la app avisa a HubSpot y marca el campo **checkin_hi_completo** con el valor **"Sí"** en el contrato de arriendo vinculado. Esto no aplica a captación ni a check-out.
 
-Solo etiquetas, chips y copys. Sin cambios de datos, estados ni lógica de envío.
+- El envío no frena la finalización: si HubSpot falla, la inspección queda finalizada igual, el error queda en el registro de sincronización y se puede reintentar desde el panel actual.
+- Cada envío queda registrado igual que los de hoy (fecha de recolección de llaves y recepción del checkout).
 
-Nota importante (ya comentada en el chat): "Captación" ya es otro tipo de inspección existente. Con este cambio, check-in y captación se llamarán igual ("Captación") y se diferenciarán solo por color (check-in en violeta, captación mantiene su verde). Los filtros del tablero y de Inspecciones mostrarán dos botones "Captación".
+## Por confirmar
+- El valor interno del campo en HubSpot: asumo que es **"Sí"** tal cual (si es una casilla o un desplegable con valor interno `true`/`si`, lo ajusto).
+- El objeto: asumo que es el **Contrato de Locación** (el mismo al que ya se vincula el check-in al llegar desde HubSpot).
 
-## 1. Etiquetas centralizadas (`src/lib/inspection-type-labels.ts`)
-
-- `TYPE_LABELS.check_in`: "Check-in" → "Captación".
-- `TYPE_LABELS.check_out`: "Check-out" → "Checkout".
-- Todo lo que ya usa `getInspectionTypeLabel` (formulario de creación, chips del inspector, propiedades, comercial) se actualiza solo.
-
-## 2. Color violeta para check-in
-
-- `src/components/inspector/InspectionTypeChip.tsx`: tono de `check_in` pasa de ámbar a violeta (fondo/texto/borde con variables semánticas nuevas).
-- `src/index.css`: agregar tokens semánticos violeta para el tipo check-in (evita colores hardcodeados y respeta dark mode).
-- `src/lib/schedule-helpers.ts`: `CHECK_IN_TOKENS` pasa de teal a violeta (banner, anillo de tarjeta, chip y fondos de agenda Admin/Ejecutivo).
-
-## 3. Envío desde el inspector (`src/pages/inspector/InspectorInspectionDetail.tsx`)
-
-Cuando `inspection_type === 'check_in'`:
-
-- Botón principal: "Completar Captación" (los demás tipos mantienen "Revisar y enviar").
-- Diálogo de confirmación: título "¿Completar Captación?" y acción "Completar" (los demás mantienen "¿Enviar inspección?" / "Enviar").
-- Toast de éxito: "Captación completada y sincronizada con HubSpot" (los demás mantienen "Inspección enviada"). El aviso de fallo de sync HubSpot se mantiene igual.
-
-## 4. Admin: chip en lista y detalle
-
-Hoy la lista y el detalle muestran el tipo como texto crudo (`check_in`, `check_out`):
-
-- `src/pages/admin/AdminInspections.tsx` (filas de tabla y cards, ~líneas 850 y 943): reemplazar el texto crudo por `InspectionTypeChip` con el label nuevo.
-- `src/pages/admin/AdminInspectionDetail.tsx` (resumen "Tipo", ~línea 918): ídem.
-- Filtros de tipo con etiquetas hardcodeadas en `AdminInspections.tsx` (~111) y `AdminDashboard.tsx` (~34): pasar a `getInspectionTypeLabel` para que digan "Captación · Captación · Checkout".
-
-## 5. Verificación
-
-- Test de paridad del generador intacto (no toca etiquetas de tipo).
-- Build OK + revisión con Playwright: formulario de creación con check_in seleccionado, detalle del inspector (botón, diálogo y toast al enviar la inspección DEMO), y lista/detalle de admin con chip violeta "Captación".
+## Detalles técnicos
+- `supabase/functions/hubspot-update-inspection/index.ts`: nueva acción `checkin_completed`, que envía `{ properties: { checkin_hi_completo: 'Sí' } }` y no usa fecha. Solo se acepta si `inspection_type = 'check_in'` y el estado es `sent`. Usa el objeto de contrato `2-47492934` con el id `hs_contrato_<id>` que ya viene en `inspection_external_references`.
+- `retry-hubspot-sync`: aceptar la nueva acción para poder reintentar.
+- `src/lib/hubspot-sync.ts`: nueva función `triggerCheckinCompletedSync(inspectionId)`, que no bloquea.
+- `FinalizeInspectionButton.tsx` (y cualquier otro camino que finalice un check-in): llamarla cuando el RPC `finalize_inspection` responde bien en un check-in.
+- Desplegar las funciones y probar con la inspección DEMO de check-in: revisar la fila en `hubspot_sync_log`.
