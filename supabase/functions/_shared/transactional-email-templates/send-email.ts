@@ -15,6 +15,12 @@ const SENDER_DOMAIN = "notify.homie.mx"
 // Can be the root domain when display_from_root is enabled — this is cosmetic only.
 const FROM_DOMAIN = "homie.mx"
 
+// Per-market sender: Chile sends from homierent.com, Mexico from homie.mx.
+const MARKET_DOMAINS: Record<string, { sender: string; from: string }> = {
+  CL: { sender: "notify.homierent.com", from: "homierent.com" },
+  MX: { sender: "notify.homie.mx", from: "homie.mx" },
+}
+
 export type SendTemplateEmailResult =
   | { sent: true }
   | { sent: false; reason: 'recipient_suppressed' }
@@ -24,6 +30,8 @@ export interface SendTemplateEmailOptions {
   /** Dedupes retries of the same logical send; defaults to a random UUID (no dedupe). */
   idempotencyKey?: string
   replyTo?: string
+  /** Market code (CL, MX, PE) selecting the sender domain. */
+  market?: string | null
 }
 
 /**
@@ -66,12 +74,14 @@ export async function sendTemplateEmail(
       ? template.subject(templateData)
       : template.subject
 
+  const domains = MARKET_DOMAINS[String(options.market ?? '').trim().toUpperCase()] ?? { sender: SENDER_DOMAIN, from: FROM_DOMAIN }
+
   try {
     await sendLovableEmail(
       {
         to: recipient,
-        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-        sender_domain: SENDER_DOMAIN,
+        from: `${SITE_NAME} <noreply@${domains.from}>`,
+        sender_domain: domains.sender,
         subject,
         html,
         text,

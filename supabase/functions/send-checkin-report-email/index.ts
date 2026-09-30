@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
         reportUrl: signed.signedUrl,
         linkDays: LINK_DAYS,
       },
+      market: insp.market,
       idempotencyKey: isTest
         ? `checkin-report-test-${inspectionId}-${Date.now()}`
         : resend
