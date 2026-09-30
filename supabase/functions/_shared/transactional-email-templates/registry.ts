@@ -17,7 +17,10 @@ export interface TemplateEntry {
  *   import { template as welcomeTemplate } from './welcome.tsx'
  *   // then add to TEMPLATES: 'welcome': welcomeTemplate
  */
+import { template as checkinReportReady } from './checkin-report-ready.tsx'
+
 export const TEMPLATES: Record<string, TemplateEntry> = {
+  'checkin-report-ready': checkinReportReady,
   // Add templates here as they are created, e.g.:
   // 'welcome': welcomeTemplate,
 }
