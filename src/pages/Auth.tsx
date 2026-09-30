@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,26 @@ export default function Auth() {
   }
 
   if (session) return <Navigate to="/" replace />;
+
+  const handleGoogleSignIn = async () => {
+    setSubmitting(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
+        extraParams: {
+          // Solo cuentas corporativas (Google Workspace), excluye Gmail personales.
+          hd: '*',
+          prompt: 'select_account',
+        },
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return; // El navegador redirige a Google
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No se pudo iniciar sesión con Google';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +132,36 @@ export default function Auth() {
                   : 'Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña'}
               </p>
             </div>
+
+            {mode === 'login' && (
+              <div className="space-y-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-11"
+                  onClick={handleGoogleSignIn}
+                  disabled={submitting}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+                    />
+                  </svg>
+                  Continuar con Google
+                </Button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-background px-2 text-tiny text-muted-foreground">
+                      o continúa con email
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
