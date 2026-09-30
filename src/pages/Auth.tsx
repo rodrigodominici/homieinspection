@@ -34,6 +34,26 @@ export default function Auth() {
 
   if (session) return <Navigate to="/" replace />;
 
+  const handleGoogleSignIn = async () => {
+    setSubmitting(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
+        extraParams: {
+          // Solo cuentas corporativas (Google Workspace), excluye Gmail personales.
+          hd: '*',
+          prompt: 'select_account',
+        },
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return; // El navegador redirige a Google
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No se pudo iniciar sesión con Google';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
