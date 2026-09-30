@@ -75,8 +75,9 @@ export function getInspectorDisplayState(
 
 
 
-  if (inspection.status === 'submitted') return { key: 'submitted', label: 'En gestión de cotización', tone: 'good' };
-  if (inspection.status === 'in_review') return { key: 'in_review', label: 'En gestión de cotización', tone: 'primary' };
+  const isCheckIn = (inspection as { inspection_type?: string | null }).inspection_type === 'check_in';
+  if (inspection.status === 'submitted') return { key: 'submitted', label: isCheckIn ? 'En espera de revisión' : 'En gestión de cotización', tone: 'good' };
+  if (inspection.status === 'in_review') return { key: 'in_review', label: isCheckIn ? 'En espera de revisión' : 'En gestión de cotización', tone: 'primary' };
   if (inspection.status === 'approved') return { key: 'approved', label: 'En gestión de aprobación', tone: 'good' };
   if (inspection.status === 'published') return { key: 'published', label: 'En gestión de aprobación', tone: 'good' };
   if (inspection.status === 'sent') return { key: 'sent', label: 'Finalizado', tone: 'good' };
