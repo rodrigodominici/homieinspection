@@ -5,10 +5,13 @@
  * los datos actuales. Se usa tanto en la revisión del ejecutivo como en la
  * ficha de administración.
  */
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileDown, Loader2, RefreshCw } from 'lucide-react';
+import { Download, FileDown, Loader2, Mail, RefreshCw } from 'lucide-react';
 import { useCheckinReport } from '@/modules/review/api/useCheckinReport';
+import { describeCheckinEmailResult, sendCheckinReportEmail } from '@/modules/review/api/checkin-report.service';
 
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
@@ -18,6 +21,19 @@ const fmtSize = (bytes: number) =>
 
 export function ReportPdfCard({ inspectionId }: { inspectionId: string }) {
   const { file, loading, generating, progress, generate, download } = useCheckinReport(inspectionId);
+  const [sending, setSending] = useState(false);
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const r = await sendCheckinReportEmail(inspectionId, true);
+      const d = describeCheckinEmailResult(r);
+      if (r.reason === 'not_chile') toast.info('El envío automático al inquilino está activo solo para Chile.');
+      else if (d.ok) toast.success(d.message);
+      else toast.error(d.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="rounded-lg border bg-card">
@@ -64,12 +80,15 @@ export function ReportPdfCard({ inspectionId }: { inspectionId: string }) {
           </p>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <Button size="sm" className="gap-1.5" onClick={download} disabled={!file || generating}>
             <Download className="h-3.5 w-3.5" /> Descargar PDF
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={generate} disabled={generating}>
             <RefreshCw className="h-3.5 w-3.5" /> {file ? 'Regenerar' : 'Generar PDF'}
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={handleSend} disabled={!file || generating || sending}>
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />} Enviar al inquilino
           </Button>
         </div>
       </div>

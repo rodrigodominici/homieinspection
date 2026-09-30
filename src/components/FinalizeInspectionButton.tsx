@@ -19,6 +19,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES, type QuienRepara } from '@/lib/quien-repara';
 import { toast } from '@/hooks/use-toast';
 import { triggerCheckinCompletedSync } from '@/lib/hubspot-sync';
+import { describeCheckinEmailResult, ensurePdfAndEmailTenant } from '@/modules/review/api/checkin-report.service';
 
 interface Props {
   inspectionId: string;
@@ -76,6 +77,13 @@ export function FinalizeInspectionButton({
       const result = (data as any)?.status;
       if (inspectionType === 'check_in' && result !== 'noop') {
         void triggerCheckinCompletedSync(inspectionId);
+        // Envío automático del informe al inquilino (solo Chile; no bloquea el cierre).
+        void ensurePdfAndEmailTenant(inspectionId)
+          .then((r) => {
+            const d = describeCheckinEmailResult(r);
+            if (d.message) toast({ title: d.ok ? 'Correo enviado' : 'Correo no enviado', description: d.message, variant: d.ok ? undefined : 'destructive' });
+          })
+          .catch((e) => toast({ variant: 'destructive', title: 'Correo no enviado', description: e?.message ?? 'No se pudo preparar el informe.' }));
       }
       toast({
         title: result === 'noop' ? 'Sin cambios' : 'Inspección finalizada',

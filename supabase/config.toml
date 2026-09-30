@@ -17,3 +17,7 @@ project_id = "qlbprsnnjbzfixjrvfuh"
     verify_jwt = false
   [functions.sign-public-photo]
     verify_jwt = false
+  [functions.preview-transactional-email]
+    verify_jwt = false
+  [functions.send-checkin-report-email]
+    verify_jwt = false

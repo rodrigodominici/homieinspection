@@ -213,3 +213,42 @@ export async function generateCheckinReportPdf(params: {
 
   return inserted as unknown as ReportFileRecord;
 }
+
+export interface CheckinEmailResult {
+  ok: boolean; sent?: boolean; skipped?: boolean; reason?: string; error?: string; recipient?: string;
+}
+
+/** Pide al servidor enviar el informe al inquilino (el destinatario lo resuelve el servidor). */
+export async function sendCheckinReportEmail(inspectionId: string, resend = false): Promise<CheckinEmailResult> {
+  const { data, error } = await supabase.functions.invoke('send-checkin-report-email', {
+    body: { inspection_id: inspectionId, resend },
+  });
+  if (error) {
+    const ctx: any = (error as any).context;
+    if (ctx instanceof Response) {
+      try { return await ctx.json(); } catch { /* ignore */ }
+    }
+    return { ok: false, error: error.message };
+  }
+  return data as CheckinEmailResult;
+}
+
+/** Asegura que exista el PDF (lo genera si falta) y lo envía al inquilino. */
+export async function ensurePdfAndEmailTenant(inspectionId: string, profileId?: string | null) {
+  const existing = await getLatestReportFile(inspectionId);
+  if (!existing) await generateCheckinReportPdf({ inspectionId, profileId });
+  return sendCheckinReportEmail(inspectionId);
+}
+
+export function describeCheckinEmailResult(r: CheckinEmailResult): { ok: boolean; message: string } {
+  if ((r as any).sent) return { ok: true, message: `Informe enviado al inquilino (${(r as any).recipient}).` };
+  switch (r.reason ?? r.error) {
+    case 'not_chile': case 'not_checkin': return { ok: true, message: '' };
+    case 'no_recipient': return { ok: false, message: 'No se envió: la inspección no tiene email del inquilino.' };
+    case 'no_pdf': return { ok: false, message: 'No se envió: falta generar el PDF del informe.' };
+    case 'not_finalized': return { ok: false, message: 'El informe se envía cuando el check-in está finalizado.' };
+    case 'recipient_suppressed': return { ok: false, message: 'No se envió: ese correo está bloqueado (rebote o baja).' };
+    case 'forbidden': return { ok: false, message: 'No tienes permisos para enviar este informe.' };
+    default: return { ok: false, message: 'No se pudo enviar el correo al inquilino. Intenta de nuevo.' };
+  }
+}
