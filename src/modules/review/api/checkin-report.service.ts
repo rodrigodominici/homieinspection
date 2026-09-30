@@ -214,9 +214,9 @@ export async function generateCheckinReportPdf(params: {
   return inserted as unknown as ReportFileRecord;
 }
 
-export type CheckinEmailResult =
-  | { ok: true; sent: true; recipient: string }
-  | { ok: boolean; skipped?: boolean; reason?: string; error?: string; recipient?: string };
+export interface CheckinEmailResult {
+  ok: boolean; sent?: boolean; skipped?: boolean; reason?: string; error?: string; recipient?: string;
+}
 
 /** Pide al servidor enviar el informe al inquilino (el destinatario lo resuelve el servidor). */
 export async function sendCheckinReportEmail(inspectionId: string, resend = false): Promise<CheckinEmailResult> {
