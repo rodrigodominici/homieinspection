@@ -1,0 +1,1 @@
+UPDATE inspections SET inspector_id = '1a35ab79-a9e7-4b69-a88a-963f0a96c378', status = 'assigned', updated_at = now() WHERE id IN ('2ff4fd62-ef61-407b-bef9-3133b0b56389','51b16c89-b584-4758-808b-3b6927fa55c8','6abcc47e-7091-4f3d-b121-108c778188ad') AND status = 'pending_assignment'
