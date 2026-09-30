@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 /**
- * Auth screen — login only.
+ * Auth screen — login + password recovery.
  *
  * Internal app: admin-created users are the primary supported path.
  * Self-signup has been removed from this UI. The backend `signUp` capability
@@ -16,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
  */
 export default function Auth() {
   const { session, loading, signIn } = useAuth();
+  const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +37,20 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      if (mode === 'forgot') {
+        // Neutro a propósito: no revela si el email existe o no en el sistema.
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast({
+          title: 'Correo enviado',
+          description: 'Te enviamos un correo para restablecer tu contraseña. Revisa tu bandeja (y spam).',
+        });
+        setMode('login');
+      } else {
+        await signIn(email, password);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
       if (message.includes('API key')) {
@@ -87,9 +102,13 @@ export default function Auth() {
         <div className="flex-1 flex items-center justify-center px-4 py-8">
           <div className="w-full max-w-md space-y-6">
             <div className="space-y-2">
-              <h1 className="text-h2">Iniciar sesión</h1>
+              <h1 className="text-h2">
+                {mode === 'login' ? 'Iniciar sesión' : 'Recuperar contraseña'}
+              </h1>
               <p className="text-caption text-muted-foreground">
-                Accede a tu cuenta de Homie Inspection
+                {mode === 'login'
+                  ? 'Accede a tu cuenta de Homie Inspection'
+                  : 'Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña'}
               </p>
             </div>
 
@@ -105,26 +124,45 @@ export default function Auth() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                />
-              </div>
+              {mode === 'login' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              )}
               <Button type="submit" className="w-full h-11" disabled={submitting}>
-                {submitting ? 'Espera...' : 'Iniciar Sesión'}
+                {submitting
+                  ? 'Espera...'
+                  : mode === 'login'
+                    ? 'Iniciar Sesión'
+                    : 'Enviar correo de recuperación'}
               </Button>
             </form>
 
-            <p className="text-center text-tiny text-muted-foreground">
-              ¿No tienes cuenta? Solicita acceso a un administrador.
-            </p>
+            <div className="text-center space-y-2">
+              <button
+                type="button"
+                className="text-tiny text-muted-foreground underline-offset-2 hover:underline"
+                onClick={() => setMode(mode === 'login' ? 'forgot' : 'login')}
+              >
+                {mode === 'login'
+                  ? '¿Olvidaste tu contraseña?'
+                  : 'Volver a iniciar sesión'}
+              </button>
+              {mode === 'login' && (
+                <p className="text-tiny text-muted-foreground">
+                  ¿No tienes cuenta? Solicita acceso a un administrador.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

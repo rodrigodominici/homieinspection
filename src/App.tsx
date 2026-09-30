@@ -66,6 +66,7 @@ const ComercialCheckOutDetail = lazyWithRetry(() => import("./pages/comercial/Co
 
 // ── Lazy — Shared ─────────────────────────────────────────────────────────────
 const InspectionRoleRedirect = lazyWithRetry(() => import("./pages/InspectionRoleRedirect"), "InspectionRoleRedirect");
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"), "ResetPassword");
 
 // ── QueryClient with sensible cache defaults ──────────────────────────────────
 const queryClient = new QueryClient({
@@ -126,6 +127,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Admin routes */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
