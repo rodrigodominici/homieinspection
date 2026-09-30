@@ -34,6 +34,8 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { return json({ ok: false, error: 'invalid_json' }, 400) }
   const inspectionId = body?.inspection_id
   const resend = body?.resend === true
+  const testTo = typeof body?.test_to === 'string' ? body.test_to.trim().toLowerCase() : null
+  if (testTo && !EMAIL_RE.test(testTo)) return json({ ok: false, error: 'invalid_test_to' }, 400)
   if (typeof inspectionId !== 'string' || !UUID_RE.test(inspectionId)) {
     return json({ ok: false, error: 'invalid_inspection_id' }, 400)
   }
@@ -54,7 +56,10 @@ Deno.serve(async (req) => {
 
   if (insp.inspection_type !== 'check_in') return json({ ok: true, skipped: true, reason: 'not_checkin' })
   if (String(insp.market ?? '').toUpperCase() !== 'CL') return json({ ok: true, skipped: true, reason: 'not_chile' })
-  if (insp.status !== 'sent') return json({ ok: true, skipped: true, reason: 'not_finalized' })
+  // Envío de prueba: solo Admin, a un correo indicado, sin exigir finalización.
+  const isTest = !!testTo && profile?.role === 'admin'
+  if (testTo && !isTest) return json({ ok: false, error: 'forbidden' }, 403)
+  if (!isTest && insp.status !== 'sent') return json({ ok: true, skipped: true, reason: 'not_finalized' })
 
   // Destinatario: email capturado en la inspección ("Email de Quien Recibe"), luego snapshot.
   const { data: fv } = await admin.from('inspection_field_values')
@@ -67,7 +72,7 @@ Deno.serve(async (req) => {
     fv?.find((f) => f.field_key === 'ctx_recipient_email')?.value_text,
     snap.tenant_email, snap.recipient_email,
   ].map(clean).filter((e): e is string => !!e && EMAIL_RE.test(e))
-  const recipient = candidates[0]?.toLowerCase()
+  const recipient = isTest ? testTo! : candidates[0]?.toLowerCase()
 
   const logAudit = (action: string, note: string) =>
     admin.from('inspection_audit_log').insert({
@@ -103,7 +108,9 @@ Deno.serve(async (req) => {
         reportUrl: signed.signedUrl,
         linkDays: LINK_DAYS,
       },
-      idempotencyKey: resend
+      idempotencyKey: isTest
+        ? `checkin-report-test-${inspectionId}-${Date.now()}`
+        : resend
         ? `checkin-report-${inspectionId}-${file.id}-resend-${Date.now()}`
         : `checkin-report-${inspectionId}-${file.id}`,
     })
@@ -111,7 +118,7 @@ Deno.serve(async (req) => {
       await logAudit('checkin_report_email_suppressed', `Destinatario bloqueado: ${recipient}`)
       return json({ ok: false, reason: 'recipient_suppressed', recipient })
     }
-    await logAudit(resend ? 'checkin_report_email_resent' : 'checkin_report_email_sent', `Enviado a ${recipient}`)
+    if (!isTest) await logAudit(resend ? 'checkin_report_email_resent' : 'checkin_report_email_sent', `Enviado a ${recipient}`)
     return json({ ok: true, sent: true, recipient })
   } catch (e: any) {
     console.error('send-checkin-report-email failed', e?.code, e?.message)
