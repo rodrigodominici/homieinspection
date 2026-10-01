@@ -63,6 +63,7 @@ export default function InspectorInspectionDetail() {
   const [keyDateInput, setKeyDateInput] = useState<Date | undefined>();
   const [keyTimeInput, setKeyTimeInput] = useState('');
   const [savingKeyCollection, setSavingKeyCollection] = useState(false);
+  const [reportEmailSentAt, setReportEmailSentAt] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,6 +74,15 @@ export default function InspectorInspectionDetail() {
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
         supabase.from('inspection_photos').select('id, inspection_section_id').eq('inspection_id', id!),
       ]);
+      // Último envío del informe al inquilino (solo check-in; visible para el advisor asignado)
+      const { data: emailLog } = await supabase
+        .from('inspection_audit_log')
+        .select('created_at')
+        .eq('inspection_id', id!)
+        .in('action', ['checkin_report_email_sent', 'checkin_report_email_resent'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+      setReportEmailSentAt(emailLog?.[0]?.created_at ?? null);
       let inspObj = insp as unknown as Inspection;
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
