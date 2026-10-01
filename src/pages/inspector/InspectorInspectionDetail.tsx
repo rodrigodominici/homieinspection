@@ -33,7 +33,7 @@ import {
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
@@ -766,7 +766,22 @@ export default function InspectorInspectionDetail() {
         {/* Informe de entrega en PDF: solo check-in ya enviado */}
         {inspection.inspection_type === 'check_in' &&
           ['submitted', 'in_review', 'approved', 'published', 'accepted', 'sent'].includes(inspection.status) && (
-            <ReportPdfCard inspectionId={inspection.id} />
+            <>
+              <ReportPdfCard inspectionId={inspection.id} />
+              {reportEmailSentAt && (
+                <Card className="mt-3 border-[hsl(var(--status-good))]/40 bg-[hsl(var(--status-good))]/5">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <MailCheck className="h-5 w-5 text-[hsl(var(--status-good))] shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Informe enviado al inquilino</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(reportEmailSentAt).toLocaleString('es-CL', { dateStyle: 'long', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
       </main>
 
