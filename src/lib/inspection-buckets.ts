@@ -29,6 +29,7 @@ export interface InspectionKpis {
 export function bucketOf(insp: Inspection): PriorityBucket {
   return priorityBucket(
     {
+      inspection_type: insp.inspection_type,
       inspector_id: insp.inspector_id,
       executive_id: insp.executive_id,
       status: insp.status,
