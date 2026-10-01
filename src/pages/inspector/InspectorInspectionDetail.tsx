@@ -37,7 +37,8 @@ import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock
 import { cn } from '@/lib/utils';
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
-import { triggerKeyCollectionSync, syncCheckoutIfApplicable } from '@/lib/hubspot-sync';
+import { triggerKeyCollectionSync, syncCheckoutIfApplicable, triggerCheckinCompletedSync } from '@/lib/hubspot-sync';
+import { ensurePdfAndEmailTenant, describeCheckinEmailResult } from '@/modules/review/api/checkin-report.service';
 
 export default function InspectorInspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -389,6 +390,7 @@ export default function InspectorInspectionDetail() {
 
     await ensureInspectionStatusConsistency(inspection!.id);
     const now = new Date().toISOString();
+    const isCheckIn = inspection!.inspection_type === 'check_in';
     const { error } = await supabase
       .from('inspections')
       .update({
@@ -402,26 +404,59 @@ export default function InspectorInspectionDetail() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      // Outbound HubSpot sync — transition-gated, same canonical timestamp as inspection_completed_at.
-      const syncRes = await syncCheckoutIfApplicable({
-        inspectionId: inspection!.id,
-        previousStatus: inspection!.status,
-        newStatus: 'submitted',
-        eventTimeIso: now,
-      });
-      if (syncRes && !syncRes.ok) {
-        toast({
-          title: 'Sync HubSpot pendiente',
-          description: 'La inspección se envió pero el checkout no llegó a HubSpot. Revisa los logs salientes.',
-          variant: 'destructive',
+      let checkinFinalized = false;
+
+      if (isCheckIn) {
+        // Check-in sin revisión: enviar = finalizar. PDF, correo al inquilino y
+        // sincronización con HubSpot se disparan solos.
+        const { data: fin, error: finErr } = await supabase.rpc('finalize_inspection' as any, {
+          p_inspection_id: inspection!.id,
+          p_note: null,
         });
+        if (finErr) {
+          toast({
+            title: 'Enviado, pero falta finalizar',
+            description: 'El check-in se envió, pero no se pudo finalizar automáticamente. Un admin puede finalizarlo para disparar el informe.',
+            variant: 'destructive',
+          });
+        } else if ((fin as any)?.status === 'finalized') {
+          checkinFinalized = true;
+        }
       } else {
-        toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
+        // Outbound HubSpot sync — transition-gated, same canonical timestamp as inspection_completed_at.
+        const syncRes = await syncCheckoutIfApplicable({
+          inspectionId: inspection!.id,
+          previousStatus: inspection!.status,
+          newStatus: 'submitted',
+          eventTimeIso: now,
+        });
+        if (syncRes && !syncRes.ok) {
+          toast({
+            title: 'Sync HubSpot pendiente',
+            description: 'La inspección se envió pero el checkout no llegó a HubSpot. Revisa los logs salientes.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({ title: 'Inspección enviada', description: 'Enviada para revisión del ejecutivo asignado' });
+        }
       }
-      // Slack notification to assigned executive — fire and forget
-      supabase.functions
-        .invoke('notify-executive-slack', { body: { inspection_id: inspection!.id, event_type: 'submitted' } })
-        .catch((e) => console.warn('slack notify failed', e));
+
+      if (checkinFinalized) {
+        toast({ title: 'Check-in finalizado', description: 'Generando el informe PDF y enviándolo al inquilino.' });
+        void triggerCheckinCompletedSync(inspection!.id);
+        void ensurePdfAndEmailTenant(inspection!.id, profile?.id)
+          .then((r) => {
+            const d = describeCheckinEmailResult(r);
+            if (d.message) toast({ title: d.ok ? 'Correo enviado' : 'Correo no enviado', description: d.message, variant: d.ok ? undefined : 'destructive' });
+          })
+          .catch((e) => toast({ variant: 'destructive', title: 'Informe no enviado', description: e?.message ?? 'No se pudo preparar el informe.' }));
+      } else if (!isCheckIn) {
+        // Slack notification to assigned executive — fire and forget
+        supabase.functions
+          .invoke('notify-executive-slack', { body: { inspection_id: inspection!.id, event_type: 'submitted' } })
+          .catch((e) => console.warn('slack notify failed', e));
+      }
+
       navigate('/inspector');
     }
   };
