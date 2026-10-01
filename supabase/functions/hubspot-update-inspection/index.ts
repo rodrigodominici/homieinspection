@@ -230,7 +230,8 @@ Deno.serve(async (req: Request) => {
       });
     }
     eventTimeIso = new Date().toISOString();
-    hubspotDateValue = 'Sí';
+    // HubSpot define checkin_hi_completo como opciones "true"/"false": "Sí" devuelve INVALID_OPTION.
+    hubspotDateValue = 'true';
   } else {
     const candidate = body.event_time ?? inspection.inspection_completed_at ?? new Date().toISOString();
     eventTimeIso = candidate;
