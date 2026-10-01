@@ -1,8 +1,29 @@
 // Lookup de inmuebles en la API de Homie por reference-id (ej. RE0003927).
 // Se ejecuta server-side para no exponer el token de la API al navegador.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const API_BASE = 'https://api.homierent.com/real-estate/realties/reference-id';
+const DEFAULT_API_BASE = 'https://api.homierent.com/real-estate/realties/reference-id';
+
+function normMarket(raw: string): string {
+  const v = raw.trim().toLowerCase();
+  if (v === 'cl' || v === 'chile') return 'CL';
+  if (v === 'mx' || v === 'mexico' || v === 'méxico') return 'MX';
+  if (v === 'pe' || v === 'peru' || v === 'perú') return 'PE';
+  return v.toUpperCase() || 'CL';
+}
+
+async function loadMarketConfig(market: string) {
+  try {
+    const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data } = await sb.from('market_realty_api_settings')
+      .select('base_url, business_unit, is_active').eq('market', market).maybeSingle();
+    return data as { base_url: string; business_unit: string | null; is_active: boolean } | null;
+  } catch (e) {
+    console.error('[homie-realty-lookup] config load failed', e);
+    return null;
+  }
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -56,15 +77,20 @@ Deno.serve(async (req) => {
 
   let referenceId = '';
   let unit = businessUnit;
+  let unitExplicit = false;
+  let market = 'CL';
   try {
     if (req.method === 'GET') {
       const url = new URL(req.url);
       referenceId = url.searchParams.get('reference_id') ?? '';
-      unit = url.searchParams.get('business_unit') ?? businessUnit;
+      const u = url.searchParams.get('business_unit');
+      if (u) { unit = u; unitExplicit = true; }
+      market = normMarket(url.searchParams.get('market') ?? 'CL');
     } else {
       const body = await req.json();
       referenceId = String(body?.reference_id ?? '');
-      unit = String(body?.business_unit ?? businessUnit);
+      if (body?.business_unit) { unit = String(body.business_unit); unitExplicit = true; }
+      market = normMarket(String(body?.market ?? 'CL'));
     }
   } catch {
     return json({ error: 'invalid_body' }, 400);
@@ -75,9 +101,14 @@ Deno.serve(async (req) => {
     return json({ error: 'invalid_reference_id' }, 400);
   }
 
+  const cfg = await loadMarketConfig(market);
+  if (cfg && !cfg.is_active) return json({ error: 'market_disabled', market }, 400);
+  const apiBase = (cfg?.base_url || DEFAULT_API_BASE).replace(/\/+$/, '');
+  if (!unitExplicit && cfg?.business_unit) unit = cfg.business_unit;
+
   let upstream: Response;
   try {
-    upstream = await fetch(`${API_BASE}/${encodeURIComponent(referenceId)}`, {
+    upstream = await fetch(`${apiBase}/${encodeURIComponent(referenceId)}`, {
       method: 'GET',
       headers: {
         authorization: `Bearer ${token}`,
