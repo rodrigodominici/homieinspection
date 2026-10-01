@@ -6,6 +6,7 @@ import AdminLayout from '@/components/AdminLayout';
 import { Info, Repeat, Eye, GitBranch, BookOpen, CheckCircle, AlertTriangle, ListOrdered, Camera } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TaxSettingsCard } from '@/components/TaxSettingsCard';
+import { RealtyApiSettingsCard } from '@/components/RealtyApiSettingsCard';
 
 /**
  * Admin Settings — Generation Rules Documentation
@@ -85,6 +86,7 @@ export default function AdminSettings() {
         </Alert>
 
         <TaxSettingsCard />
+        <RealtyApiSettingsCard />
         {/* Section Order */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
           <CardHeader className="pb-3">

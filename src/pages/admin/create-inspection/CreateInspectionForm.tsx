@@ -111,7 +111,7 @@ export default function CreateInspectionForm({ inspectors, executives, createdBy
     setLookupError(null);
     setLookupOk(false);
     try {
-      const r = await lookupRealty(id);
+      const r = await lookupRealty(id, form.market);
       setForm((prev) => ({
         ...prev,
         property_id: r.property_id || id,
