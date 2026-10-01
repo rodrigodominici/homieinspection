@@ -28,9 +28,9 @@ export interface HomieRealty {
   status: string | null;
 }
 
-export async function lookupRealty(referenceId: string): Promise<HomieRealty> {
+export async function lookupRealty(referenceId: string, market?: string): Promise<HomieRealty> {
   const { data, error } = await supabase.functions.invoke('homie-realty-lookup', {
-    body: { reference_id: referenceId.trim().toUpperCase() },
+    body: { reference_id: referenceId.trim().toUpperCase(), market },
   });
 
   if (error) {
@@ -42,6 +42,9 @@ export async function lookupRealty(referenceId: string): Promise<HomieRealty> {
         if (parsed?.error === 'upstream_error' && parsed?.status === 404) {
           throw new Error(`No se encontró el inmueble ${referenceId} en la API de Homie.`);
         }
+        if (parsed?.error === 'market_disabled') {
+          throw new Error('La consulta de inmuebles está desactivada para este país (Configuración).');
+        }
         if (parsed?.error === 'invalid_reference_id') {
           throw new Error('El ID de inmueble no tiene un formato válido (ej. RE0003927).');
         }
@@ -49,6 +52,7 @@ export async function lookupRealty(referenceId: string): Promise<HomieRealty> {
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('No se encontró')) throw e;
         if (e instanceof Error && e.message.startsWith('El ID')) throw e;
+        if (e instanceof Error && e.message.startsWith('La consulta')) throw e;
       }
     }
     throw new Error(`No se pudo consultar el inmueble: ${details}`);
