@@ -155,6 +155,7 @@ const EMPTY_PROFILES: Profile[] = [];
 
 function priorityBucket(insp: EnrichedInspection): 0 | 1 | 2 | 3 | 4 | 5 {
   return sharedPriorityBucket({
+    inspection_type: insp.inspection_type,
     inspector_id: insp.inspector_id,
     executive_id: insp.executive_id,
     status: insp.status,
