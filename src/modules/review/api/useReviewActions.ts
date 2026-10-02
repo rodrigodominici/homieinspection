@@ -134,7 +134,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
     try {
-      const items = await repairsService.fetchActiveCatalog();
+      const items = await repairsService.fetchActiveCatalog(inspection?.market);
       setCatalogItems(items);
       setCatalogOpen(true);
     } catch (e: any) {

@@ -1,3 +1,4 @@
+import { sameMarket } from '@/lib/markets';
 /**
  * Loads everything the Executive review workstation needs for a single
  * inspection: header data, sections, field values, photos, reviews,
@@ -254,7 +255,7 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
     reviewsBySection: reviewsQ.data?.bySection ?? EMPTY_RECORD,
     repairsBySection: repairsQ.data ?? EMPTY_RECORD,
     signatureRecord: signatureQ.data ?? null,
-    contractors: contractorsQ.data ?? [],
+    contractors: (contractorsQ.data ?? []).filter((c) => !inspectionQ.data?.market || sameMarket((c as any).country, inspectionQ.data.market)),
     initialInternalNotes: reviewsQ.data?.initialInternalNotes ?? EMPTY_RECORD,
     loading,
     refetch,

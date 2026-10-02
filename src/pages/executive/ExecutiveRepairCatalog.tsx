@@ -1,3 +1,4 @@
+import { useMarket } from '@/contexts/MarketContext';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
@@ -25,6 +26,7 @@ export default function ExecutiveRepairCatalog() {
   const [priceMatrix, setPriceMatrix] = useState<Map<string, Map<string, number>>>(new Map());
   const [loading, setLoading] = useState(true);
 
+  const { matchesMarket } = useMarket();
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -57,6 +59,7 @@ export default function ExecutiveRepairCatalog() {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return items.filter((it) => {
+      if (!it.market || !matchesMarket(it.market)) return false;
       if (filterCategory !== 'all' && it.category_id !== filterCategory) return false;
       if (!s) return true;
       return (
@@ -65,7 +68,7 @@ export default function ExecutiveRepairCatalog() {
         (it.description ?? '').toLowerCase().includes(s)
       );
     });
-  }, [items, search, filterCategory]);
+  }, [items, search, filterCategory, matchesMarket]);
 
   return (
     <ExecutiveLayout>

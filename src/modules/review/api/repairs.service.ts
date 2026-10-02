@@ -4,16 +4,18 @@
  * UI feedback and refetch.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { sameMarket } from '@/lib/markets';
 import type { InspectionRepairItem, RepairCatalogItem } from '@/lib/types';
 
-export async function fetchActiveCatalog(): Promise<RepairCatalogItem[]> {
+export async function fetchActiveCatalog(market?: string | null): Promise<RepairCatalogItem[]> {
   const { data, error } = await supabase
     .from('repair_catalog_items')
     .select('*, repair_catalog_categories(*)')
     .eq('is_active', true)
     .order('name');
   if (error) throw error;
-  return (data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[];
+  const all = (data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[];
+  return market ? all.filter((i) => sameMarket(i.market, market)) : all;
 }
 
 export async function lookupContractorPrice(

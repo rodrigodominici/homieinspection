@@ -32,6 +32,20 @@ export function normalizeMarket(raw: string | null | undefined): string | null {
   return raw!.trim().toUpperCase();
 }
 
+/** Moneda local por país (CL → CLP, MX → MXN, PE → PEN). */
+export function currencyForMarket(market: string | null | undefined): string {
+  const m = normalizeMarket(market);
+  if (m === 'MX') return 'MXN';
+  if (m === 'PE') return 'PEN';
+  return 'CLP';
+}
+
+/** True si el registro pertenece al país (sin país = no pertenece). */
+export function sameMarket(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = normalizeMarket(a); const nb = normalizeMarket(b);
+  return !!na && !!nb && na === nb;
+}
+
 /** Display-friendly market label. Falls back to the normalized code. */
 export function marketLabel(code: string | null | undefined): string {
   const norm = normalizeMarket(code);
