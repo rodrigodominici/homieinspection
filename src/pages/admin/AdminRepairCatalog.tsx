@@ -1,3 +1,4 @@
+import { currencyForMarket, sameMarket, marketLabel } from '@/lib/markets';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -128,7 +129,8 @@ function MarginDisplay({ basePrice, contractorPrice }: { basePrice: number; cont
 // ═══════════════════════════════════════════════════════════════
 export default function AdminRepairCatalog() {
   const { profile } = useAuth();
-  const { matchesMarket } = useMarket();
+  const { market: currentMarket, matchesMarket } = useMarket();
+  const scopedMarket = currentMarket && currentMarket !== 'all' ? currentMarket : null;
   const { toast } = useToast();
   const [categories, setCategories] = useState<RepairCatalogCategory[]>([]);
   const [items, setItems] = useState<RepairCatalogItem[]>([]);
@@ -236,7 +238,7 @@ export default function AdminRepairCatalog() {
       setItemForm({
         name: '', owner_friendly_name: '', category_id: categories[0]?.id ?? '',
         description: '', unit: 'unit', pricing_type: 'fixed', base_price: '0',
-        currency: 'MXN', market: '', internal_notes: '', is_active: true,
+        currency: currencyForMarket(scopedMarket), market: scopedMarket ?? '', internal_notes: '', is_active: true,
       });
       setContractorPrices([]);
     }
@@ -246,8 +248,8 @@ export default function AdminRepairCatalog() {
   };
 
   const saveItem = async () => {
-    if (!itemForm.name.trim() || !itemForm.category_id) {
-      toast({ title: 'Nombre y categoría son requeridos', variant: 'destructive' });
+    if (!itemForm.name.trim() || !itemForm.category_id || !itemForm.market) {
+      toast({ title: 'Nombre, categoría y país son requeridos', variant: 'destructive' });
       return;
     }
     const payload = {
@@ -320,7 +322,8 @@ export default function AdminRepairCatalog() {
   const addContractor = async () => {
     const name = newContractorName.trim();
     if (!name) return;
-    const { error } = await supabase.from('contractors').insert({ name, country: newContractorCountry });
+    if (!scopedMarket) { toast({ title: 'Elige un país arriba antes de crear contratistas', variant: 'destructive' }); return; }
+    const { error } = await supabase.from('contractors').insert({ name, country: scopedMarket });
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
@@ -379,7 +382,8 @@ export default function AdminRepairCatalog() {
           .eq('contractor_id', dupSource.id);
         if (readErr) throw readErr;
 
-        const rows = (srcPrices ?? []).map((p: any) => ({
+        const sameCountryItems = new Set(items.filter((i) => sameMarket(i.market, dupCountry)).map((i) => i.id));
+        const rows = (srcPrices ?? []).filter((p: any) => sameCountryItems.has(p.repair_catalog_item_id)).map((p: any) => ({
           repair_catalog_item_id: p.repair_catalog_item_id,
           contractor_id: created.id,
           price: p.price,
@@ -439,7 +443,7 @@ export default function AdminRepairCatalog() {
           repair_catalog_item_id: itemId,
           contractor_id: contractorId,
           price: newPrice,
-          currency: item?.currency ?? 'MXN',
+          currency: item?.currency ?? currencyForMarket(item?.market),
         });
       if (error) throw error;
     }
@@ -453,7 +457,7 @@ export default function AdminRepairCatalog() {
         repair_catalog_item_id: itemId,
         contractor_id: contractorId,
         price: newPrice,
-        currency: items.find(i => i.id === itemId)?.currency ?? 'MXN',
+        currency: items.find(i => i.id === itemId)?.currency ?? currencyForMarket(items.find(i => i.id === itemId)?.market),
         ...( existing ? { id: existing.id } : {}),
       });
       next.set(itemId, itemMap);
@@ -463,7 +467,7 @@ export default function AdminRepairCatalog() {
 
   // ── Filtered items (shared) ────────────────────────────────
   const filtered = items.filter((i) => {
-    if (i.market && !matchesMarket(i.market)) return false;
+    if (!i.market || !matchesMarket(i.market)) return false;
     if (search && !i.name.toLowerCase().includes(search.toLowerCase()) && !(i.owner_friendly_name ?? '').toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory !== 'all' && i.category_id !== filterCategory) return false;
     if (filterActive === 'active' && !i.is_active) return false;
@@ -471,11 +475,12 @@ export default function AdminRepairCatalog() {
     return true;
   });
 
-  const activeContractors = contractors.filter(c => c.is_active && (!c.country || matchesMarket(c.country)));
+  const marketContractors = contractors.filter(c => !!c.country && matchesMarket(c.country));
+  const activeContractors = marketContractors.filter(c => c.is_active);
 
   // Contractors not yet priced for current item (dialog)
   const availableContractorsForPricing = contractors.filter(
-    (c) => c.is_active && !contractorPrices.some((p) => p.contractor_id === c.id)
+    (c) => c.is_active && sameMarket(c.country, editingItem?.market ?? itemForm.market) && !contractorPrices.some((p) => p.contractor_id === c.id)
   );
 
   // ── Filter bar (reusable) ─────────────────────────────────
@@ -761,22 +766,18 @@ export default function AdminRepairCatalog() {
                   </div>
                   <div className="w-28">
                     <label className="text-tiny font-medium text-muted-foreground mb-1 block">País</label>
-                    <Select value={newContractorCountry} onValueChange={setNewContractorCountry}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CL">Chile</SelectItem>
-                        <SelectItem value="MX">México</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex h-10 items-center rounded-md border px-3 text-caption text-muted-foreground">
+                      {scopedMarket ? marketLabel(scopedMarket) : 'Elige país'}
+                    </div>
                   </div>
-                  <Button onClick={addContractor} disabled={!newContractorName.trim()}>
+                  <Button onClick={addContractor} disabled={!newContractorName.trim() || !scopedMarket}>
                     <Plus className="mr-1 h-4 w-4" /> Agregar
                   </Button>
                 </div>
 
                 {loadingContractors ? (
                   <p className="text-caption text-muted-foreground py-4 text-center">Cargando...</p>
-                ) : contractors.length === 0 ? (
+                ) : marketContractors.length === 0 ? (
                   <p className="text-caption text-muted-foreground py-4 text-center">No hay contratistas registrados</p>
                 ) : (
                   <Table>
@@ -789,7 +790,7 @@ export default function AdminRepairCatalog() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {contractors.map((c) => (
+                      {marketContractors.map((c) => (
                         <TableRow key={c.id}>
                           <TableCell className="font-medium">{c.name}</TableCell>
                           <TableCell>
@@ -947,9 +948,9 @@ export default function AdminRepairCatalog() {
                 <Select value={itemForm.market || 'none'} onValueChange={(v) => setItemForm((p) => ({ ...p, market: v === 'none' ? '' : v }))}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar mercado" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sin mercado</SelectItem>
-                    <SelectItem value="MX">MX</SelectItem>
-                    <SelectItem value="CL">CL</SelectItem>
+                    <SelectItem value="CL">Chile</SelectItem>
+                    <SelectItem value="MX">México</SelectItem>
+                    <SelectItem value="PE">Perú</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

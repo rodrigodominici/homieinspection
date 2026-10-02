@@ -1,3 +1,4 @@
+import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -201,7 +202,7 @@ export default function AdminInspectionDetail() {
     setInspection(insp);
     setSections(secs);
     setAllProfiles(profs);
-    setContractors((contractorRes.data ?? []) as any);
+    setContractors(((contractorRes.data ?? []) as any[]).filter((c) => !insp?.market || sameMarket(c.country, insp.market)) as any);
     setSelectedContractorId((insp as any)?.contractor_id ?? null);
 
     if (insp) {
@@ -580,7 +581,7 @@ export default function AdminInspectionDetail() {
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
     const { data } = await supabase.from('repair_catalog_items').select('*, repair_catalog_categories(*)').eq('is_active', true).order('name');
-    setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[]);
+    setCatalogItems((data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })).filter((i: any) => !inspection?.market || sameMarket(i.market, inspection.market)) as unknown as RepairCatalogItem[]);
     setCatalogOpen(true);
   };
 
