@@ -4,18 +4,22 @@
  * UI feedback and refetch.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { sameMarket } from '@/lib/markets';
+import { sameMarket, normalizeMarket } from '@/lib/markets';
 import type { InspectionRepairItem, RepairCatalogItem } from '@/lib/types';
 
 export async function fetchActiveCatalog(market?: string | null): Promise<RepairCatalogItem[]> {
+  // Cada inspección solo ve el catálogo de su país; sin país no se mezcla nada.
+  const norm = normalizeMarket(market);
+  if (!norm) return [];
   const { data, error } = await supabase
     .from('repair_catalog_items')
     .select('*, repair_catalog_categories(*)')
     .eq('is_active', true)
+    .eq('market', norm)
     .order('name');
   if (error) throw error;
   const all = (data ?? []).map((i: any) => ({ ...i, category: i.repair_catalog_categories })) as unknown as RepairCatalogItem[];
-  return market ? all.filter((i) => sameMarket(i.market, market)) : all;
+  return all.filter((i) => sameMarket(i.market, norm));
 }
 
 export async function lookupContractorPrice(
