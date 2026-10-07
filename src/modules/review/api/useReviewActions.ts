@@ -130,17 +130,22 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   }, [patchPhoto, invalidatePhotos, toast]);
 
 
+  const inspectionMarket = inspection?.market ?? null;
   const openCatalog = useCallback(async (sectionId: string) => {
+    if (!inspectionMarket) {
+      toast({ title: 'Cargando la inspección…', description: 'Intenta de nuevo en un momento.' });
+      return;
+    }
     setCatalogSectionId(sectionId);
     setCatalogSearch('');
     try {
-      const items = await repairsService.fetchActiveCatalog(inspection?.market);
+      const items = await repairsService.fetchActiveCatalog(inspectionMarket);
       setCatalogItems(items);
       setCatalogOpen(true);
     } catch (e: any) {
       toast({ title: 'No se pudo cargar el catálogo', description: e?.message, variant: 'destructive' });
     }
-  }, [toast]);
+  }, [toast, inspectionMarket]);
 
   const addRepairFromCatalog = useCallback(async (catalogItem: RepairCatalogItem) => {
     if (!catalogSectionId || !id) return;
