@@ -1,18 +1,29 @@
-# Captación MX: enviar la fecha de recolección de llaves a "Fecha de visita técnica" en HubSpot
-
-## Qué encontré
-- La captación (México) tiene cargada la fecha de recolección de llaves: 9/10/2026.
-- No hay ningún intento de envío a HubSpot registrado para esta inspección. Ni exitoso ni con error: la app nunca intentó mandarla.
-- Además, aunque se hubiera enviado, hoy iría al campo "Fecha de recolección de llaves" (el de Chile), no a "Fecha de visita técnica".
+# Cargar la matriz de precios de México 2026
 
 ## Qué haremos
-1. Revisar por qué guardar la fecha no disparó el envío en esta pantalla de admin. Si el guardado desde admin no llama al envío, lo agregamos (igual que en la vista del inspector).
-2. Para captaciones de México, enviar la fecha al campo "Fecha de visita técnica" del negocio. Chile sigue igual.
-3. Antes de escribir el cambio, leer en HubSpot el nombre interno real del campo "Fecha de visita técnica". No lo vamos a adivinar.
-4. Reenviar la fecha de esta inspección (9/10) y confirmar que aparece en el negocio 63732298614.
-5. Revisar las otras captaciones MX con fecha cargada y reenviarlas también.
+1. **Reemplazar el catálogo de México.** Las 128 partidas copiadas de Chile, todas en $0, quedan inactivas. No se borran, así las cotizaciones viejas no se rompen. Chile no se toca.
+2. **Cargar las partidas de la hoja "OFICIAL Q3 2025"** (unas 65), con:
+   - nombre y unidad tal como están en la planilla;
+   - precio al cliente = "Precio Homie sin IVA", en MXN. El IVA lo suma la app.
+   - categoría: se toma de la hoja "HOMIE" cuando el nombre coincide. Si no coincide, queda en "General".
+3. **Contratistas de México:**
+   - Crom y RDA (R-DAZA) ya existen: se cargan sus costos desde las columnas de la hoja oficial.
+   - Diamante y Arquipaq se crean y se cargan sus costos desde la misma hoja.
+   - Iván Varela se crea y su costo se toma de su propia hoja, cruzando por nombre de partida.
+4. **Reporte de coincidencias.** Antes de guardar, te muestro:
+   - partidas sin precio Homie;
+   - partidas repetidas (por ejemplo, "Barniz de puertas" aparece dos veces);
+   - partidas de Iván Varela que no están en la lista oficial;
+   - costos de contratista mayores al precio al cliente.
+
+   Tú decides qué hacer con cada caso y recién ahí cargo.
+
+## Fuera de alcance
+- La columna "NUEVO PROVEEDOR" no se carga, porque no tiene nombre.
+- No hay cambios de pantallas: solo se cargan datos.
 
 ## Detalles técnicos
-- `hubspot-update-inspection`: el nombre de la propiedad para `key_collection_date` pasa a depender del país (MX → la propiedad de visita técnica; CL → `fecha_de_recoleccion_de_llaves`).
-- Revisar la llamada a `syncKeyCollectionDate` (src/lib/hubspot-sync.ts) en AdminInspectionDetail al guardar las fechas.
-- Reintentos: retry-hubspot-sync usa la misma función, así que hereda el cambio.
+- La planilla se lee con pandas y se cruza por nombre normalizado (minúsculas, sin espacios dobles ni tildes).
+- Datos: `repair_catalog_items` queda con is_active=false para market='MX'. Se insertan partidas nuevas (market MX, currency MXN, pricing_type igual al existente). Las categorías faltantes se crean en `repair_catalog_categories`.
+- Los costos por contratista van en `repair_catalog_item_contractor_prices` (MXN), y los contratistas nuevos se crean en `contractors` con country MX.
+- Verificación: se cuentan los registros cargados y se abre el buscador en una cotización de México.
