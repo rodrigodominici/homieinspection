@@ -181,7 +181,7 @@ Deno.serve(async (req: Request) => {
   // ── Load inspection ──
   const { data: inspection, error: inspErr } = await admin
     .from('inspections')
-    .select('id, inspection_type, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
+    .select('id, inspection_type, market, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
     .eq('id', inspectionId)
     .maybeSingle();
   if (inspErr || !inspection) {
@@ -306,7 +306,11 @@ Deno.serve(async (req: Request) => {
   // ── PATCH HubSpot directly ──
   // captacion → endpoint /deals/{id} (URL-friendly alias para object type 0-3);
   // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
-  const propertyName = HUBSPOT_PROPERTY_MAP[action];
+  // Captaciones MX: la fecha de recolección de llaves va a "Fecha de visita técnica".
+  const propertyName =
+    action === 'key_collection_date' && isCaptacion && inspection.market === 'MX'
+      ? 'fecha_de_visita_tecnica'
+      : HUBSPOT_PROPERTY_MAP[action];
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
   const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
