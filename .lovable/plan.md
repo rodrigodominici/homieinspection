@@ -1,7 +1,7 @@
 # Cargar la matriz de precios de México 2026
 
 ## Qué haremos
-1. **Reemplazar el catálogo de México.** Las 128 partidas copiadas de Chile, todas en $0, quedan inactivas. No se borran, así las cotizaciones viejas no se rompen. Chile no se toca.
+1. **Reemplazar el catálogo de México.** Se borran las 128 partidas copiadas de Chile, todas en $0, junto con sus precios de contratista. Chile no se toca. Si alguna ya se usó en una cotización de México, esa cotización conserva su nombre y su precio, y solo se suelta el vínculo con el catálogo.
 2. **Cargar las partidas de la hoja "OFICIAL Q3 2025"** (unas 65), con:
    - nombre y unidad tal como están en la planilla;
    - precio al cliente = "Precio Homie sin IVA", en MXN. El IVA lo suma la app.
