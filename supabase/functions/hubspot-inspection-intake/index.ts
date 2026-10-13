@@ -374,7 +374,14 @@ Deno.serve(async (req: Request) => {
             // El tipo de objeto externo depende del tipo de inspección:
             // check_out / check_in → Contrato Arriendo (custom 2-47492934)
             // captacion → Deal estándar (0-3, pipeline Publicaciones CL)
-            const isCaptacion = body.inspection_type === 'captacion';
+            // Captaciones MX: el tipo viene dentro de data, así que se lee de la inspección creada.
+            const { data: createdInsp } = await supabase
+              .from('inspections')
+              .select('inspection_type, market')
+              .eq('id', row.inspection_id as string)
+              .maybeSingle();
+            const isMxCaptacion = createdInsp?.inspection_type === 'captacion' && createdInsp?.market === 'MX';
+            const isCaptacion = body.inspection_type === 'captacion' || isMxCaptacion;
             const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
             const externalObjectTypeId = isCaptacion ? '0-3' : '2-47492934';
             const objectIdStr = String(body.external_object_id);
