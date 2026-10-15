@@ -29,8 +29,10 @@ export interface HomieRealty {
 }
 
 export async function lookupRealty(referenceId: string, market?: string): Promise<HomieRealty> {
+  const trimmed = referenceId.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
   const { data, error } = await supabase.functions.invoke('homie-realty-lookup', {
-    body: { reference_id: referenceId.trim().toUpperCase(), market },
+    body: { reference_id: isUuid ? trimmed : trimmed.toUpperCase(), market },
   });
 
   if (error) {
@@ -46,7 +48,7 @@ export async function lookupRealty(referenceId: string, market?: string): Promis
           throw new Error('La consulta de inmuebles está desactivada para este país (Configuración).');
         }
         if (parsed?.error === 'invalid_reference_id') {
-          throw new Error('El ID de inmueble no tiene un formato válido (ej. RE0003927).');
+          throw new Error('El ID de inmueble no tiene un formato válido (ej. RE0003927 o el ID del Rent Manager).');
         }
         details = parsed?.details ?? parsed?.error ?? details;
       } catch (e) {
