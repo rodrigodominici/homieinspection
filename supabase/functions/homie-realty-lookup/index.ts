@@ -68,6 +68,78 @@ function buildAddress(r: Record<string, unknown>): string {
   return int ? `${base} D ${int}` : base;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Inmuebles nuevos del Rent Manager (ID uuid).
+async function lookupRentManager(id: string): Promise<Response> {
+  const secret = Deno.env.get('RENT_MANAGER_AGENT_SECRET');
+  if (!secret) return json({ error: 'RENT_MANAGER_AGENT_SECRET is not configured' }, 500);
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `https://manager.homierent.com/api/agent/listings/${encodeURIComponent(id)}?includeUnpublished=1`,
+      { method: 'GET', headers: { 'x-homie-agent-secret': secret, Accept: 'application/json' } },
+    );
+  } catch (e) {
+    console.error('[homie-realty-lookup] rent manager network error', e);
+    return json({ error: 'upstream_unreachable', details: String(e) }, 502);
+  }
+
+  const text = await upstream.text();
+  if (!upstream.ok) {
+    console.error(`[homie-realty-lookup] rent manager ${upstream.status}: ${text}`);
+    return json(
+      { error: 'upstream_error', status: upstream.status, details: text },
+      upstream.status === 404 ? 404 : 502,
+    );
+  }
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return json({ error: 'invalid_upstream_payload', details: text.slice(0, 500) }, 502);
+  }
+
+  const a = attrMap(raw.attributes);
+  const bedrooms = num(a.BEDROOMS);
+  const parkingLots = num(a.PARKING_LOTS);
+  const loc = (raw.location ?? {}) as Record<string, unknown>;
+  const price = (raw.price ?? {}) as Record<string, unknown>;
+  const address = typeof loc.address === 'string' ? loc.address.trim() : '';
+  let comuna: string | null = null;
+  const first = address.indexOf(',');
+  const last = address.lastIndexOf(',');
+  if (first >= 0 && last > first) comuna = address.slice(first + 1, last).trim() || null;
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+  const property = {
+    property_id: id,
+    property_name: str(loc.street),
+    address: address || null,
+    property_type: mapRealtyType(raw.realtyType as string | undefined, bedrooms),
+    bedrooms_count: bedrooms ?? null,
+    bathrooms_count: num(a.FULL_BATHROOMS) ?? null,
+    unit_number: null,
+    comuna,
+    city: str(loc.city),
+    state: str(loc.state),
+    country: str(loc.country),
+    apartment_floor: null,
+    has_parking: parkingLots === undefined ? null : parkingLots > 0,
+    parking_number: null,
+    has_storage: null,
+    storage_number: null,
+    total_area: num(a.TOTAL_AREA) ?? null,
+    price: (price.value as number | undefined) ?? null,
+    currency: (price.currency as string | undefined) ?? null,
+    status: (raw.listingStatus as string | undefined) ?? null,
+  };
+
+  return json({ property, raw });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -96,7 +168,9 @@ Deno.serve(async (req) => {
     return json({ error: 'invalid_body' }, 400);
   }
 
-  referenceId = referenceId.trim().toUpperCase();
+  referenceId = referenceId.trim();
+  if (UUID_RE.test(referenceId)) return lookupRentManager(referenceId);
+  referenceId = referenceId.toUpperCase();
   if (!/^[A-Z0-9._-]{3,32}$/.test(referenceId)) {
     return json({ error: 'invalid_reference_id' }, 400);
   }
