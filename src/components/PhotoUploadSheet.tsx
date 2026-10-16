@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { Camera, Image, FileUp, Plus } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ContinuousCamera from '@/components/photos/ContinuousCamera';
 import {
   Sheet,
   SheetContent,
@@ -18,6 +19,16 @@ export default function PhotoUploadSheet({ onFiles, disabled }: Props) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const cameraUnavailable = useCallback(() => {
+    setCameraOpen(false);
+    cameraRef.current?.click();
+  }, []);
+  const cameraDone = useCallback((files: File[]) => {
+    const dt = new DataTransfer();
+    files.forEach((f) => dt.items.add(f));
+    onFiles(dt.files);
+  }, [onFiles]);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -81,6 +92,12 @@ export default function PhotoUploadSheet({ onFiles, disabled }: Props) {
     return (
       <>
         {hiddenInputs}
+        <ContinuousCamera
+          open={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          onDone={cameraDone}
+          onUnavailable={cameraUnavailable}
+        />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <button
@@ -99,11 +116,14 @@ export default function PhotoUploadSheet({ onFiles, disabled }: Props) {
             </SheetHeader>
 
             <div className="space-y-1">
-              <ActionRow
-                icon={Camera}
-                label="Tomar foto"
-                onClick={() => cameraRef.current?.click()}
-              />
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setCameraOpen(true); }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-4 mb-2 rounded-xl bg-primary text-primary-foreground text-body font-medium active:opacity-90"
+              >
+                <Camera className="h-5 w-5" />
+                Tomar fotos
+              </button>
               <ActionRow
                 icon={Image}
                 label="Elegir de galería"
