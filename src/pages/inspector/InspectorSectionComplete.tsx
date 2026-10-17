@@ -225,8 +225,6 @@ export default function InspectorSectionComplete() {
         // (Any photo already uploaded in this batch is reloaded from the server.)
         try {
           const { data } = await supabase.from('inspection_photos').select('*').eq('inspection_section_id', sectionId).order('sort_order');
-          const done = new Set(((data ?? []) as unknown as InspectionPhoto[]).length - photos.length);
-          void done;
           if (data) setPhotos(data as unknown as InspectionPhoto[]);
         } catch { /* offline */ }
         try { await queueAll(fileArray); } catch { /* shown below */ }
@@ -504,6 +502,12 @@ export default function InspectorSectionComplete() {
             {!readOnly && (
               <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
             )}
+            {pendingPhotos.filter((p) => p.fieldKey === uploadFieldKey).map((p) => (
+              <div key={p.id} className="aspect-square rounded-2xl overflow-hidden relative">
+                <img src={pendingUrls[p.id] ?? ''} alt="Foto por subir" className="w-full h-full object-cover opacity-70" />
+                <span className="absolute bottom-1.5 left-1.5 rounded-full bg-foreground/80 px-2 py-0.5 text-tiny text-background">Por subir</span>
+              </div>
+            ))}
             {cardPhotos.map((photo) => (
               <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                 <img
@@ -817,6 +821,12 @@ export default function InspectorSectionComplete() {
                     {!readOnly && (
                       <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
                     )}
+                    {pendingPhotos.filter((p) => p.fieldKey === uploadFieldKey).map((p) => (
+                      <div key={p.id} className="aspect-square rounded-2xl overflow-hidden relative">
+                        <img src={pendingUrls[p.id] ?? ''} alt="Foto por subir" className="w-full h-full object-cover opacity-70" />
+                        <span className="absolute bottom-1.5 left-1.5 rounded-full bg-foreground/80 px-2 py-0.5 text-tiny text-background">Por subir</span>
+                      </div>
+                    ))}
                     {cardPhotos.map((photo) => (
                       <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                         <img
