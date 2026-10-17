@@ -1,3 +1,4 @@
+import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -68,7 +69,24 @@ export default function InspectorInspectionDetail() {
   const [reportEmailSentAt, setReportEmailSentAt] = useState<string | null>(null);
 
   useEffect(() => {
+    const fromSnapshot = async () => {
+      const snap = await readSnapshot(id!);
+      if (!snap) { setLoading(false); return; }
+      const secList = (snap.sections as unknown as InspectionSection[]).filter((x) => x.is_visible);
+      setSections(secList);
+      setFieldValues((snap.fields as unknown as InspectionFieldValue[]).filter((f) => ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves'].includes(f.field_key)));
+      setSignatureRecord(snap.signature as typeof signatureRecord);
+      setSignatureResolved(!!snap.signature);
+      const counts: Record<string, number> = {};
+      for (const p of snap.photos as { inspection_section_id: string }[]) {
+        counts[p.inspection_section_id] = (counts[p.inspection_section_id] ?? 0) + 1;
+      }
+      setPhotoCounts(counts);
+      setInspection(snap.inspection as unknown as Inspection);
+      setLoading(false);
+    };
     const fetchData = async () => {
+      if (isOffline()) { await fromSnapshot(); return; }
       const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
         supabase.from('inspections').select(INSPECTION_DETAIL_COLUMNS).eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
@@ -85,6 +103,8 @@ export default function InspectorInspectionDetail() {
         .order('created_at', { ascending: false })
         .limit(1);
       setReportEmailSentAt(emailLog?.[0]?.created_at ?? null);
+      if (!insp) { await fromSnapshot(); return; }
+      void refreshSnapshot(id!, insp as unknown as Record<string, unknown>);
       let inspObj = insp as unknown as Inspection;
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
@@ -110,7 +130,7 @@ export default function InspectorInspectionDetail() {
       setInspection(inspObj);
       setLoading(false);
     };
-    fetchData();
+    fetchData().catch(() => fromSnapshot());
     // location.key changes on every navigation (including returning from a sub-route),
     // so signature/section state stays fresh after signing inside the section view.
   }, [id, location.key]);

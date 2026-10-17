@@ -1,3 +1,4 @@
+import { readSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,8 +112,23 @@ export default function InspectorSectionComplete() {
   }, [pendingPhotos.length, sectionId]);
 
   useEffect(() => {
+    const fromSnapshot = async () => {
+      const snap = await readSnapshot(inspectionId!);
+      if (snap) {
+        const sec = snap.sections.find((x) => x.id === sectionId) ?? null;
+        setSection(sec as unknown as InspectionSection);
+        setAllSections((snap.sections as unknown as InspectionSection[]).filter((x) => x.is_visible));
+        setFields((snap.fields as unknown as InspectionFieldValue[]).filter((f) => f.inspection_section_id === sectionId));
+        setPhotos((snap.photos as unknown as InspectionPhoto[]).filter((p) => p.inspection_section_id === sectionId));
+        setInspectionStatus(((snap.inspection as { status?: string }).status) ?? null);
+        setPersistedSignature(snap.signature as typeof persistedSignature);
+        if (snap.signature) setSignatureHandled(true);
+      }
+      setLoading(false);
+    };
     const fetch = async () => {
       setLoading(true);
+      if (isOffline()) { await fromSnapshot(); return; }
       const [secRes, allSecRes, fieldRes, photoRes, reviewRes, inspRes, sigRes] = await Promise.all([
         supabase.from('inspection_sections').select('*').eq('id', sectionId!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId!).eq('is_visible', true).order('sort_order'),
@@ -122,6 +138,7 @@ export default function InspectorSectionComplete() {
         supabase.from('inspections').select('status').eq('id', inspectionId!).single(),
         supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name').eq('inspection_id', inspectionId!).order('created_at', { ascending: false }).limit(1),
       ]);
+      if (secRes.error || !secRes.data) { await fromSnapshot(); return; }
       setSection(secRes.data as unknown as InspectionSection);
       setAllSections((allSecRes.data ?? []) as unknown as InspectionSection[]);
       setFields((fieldRes.data ?? []) as unknown as InspectionFieldValue[]);
@@ -133,11 +150,11 @@ export default function InspectorSectionComplete() {
       if (sigRecord) setSignatureHandled(true);
       setLoading(false);
     };
-    fetch();
+    fetch().catch(() => fromSnapshot());
   }, [inspectionId, sectionId]);
 
   useEffect(() => {
-    if (sectionId && inspectionId) {
+    if (sectionId && inspectionId && navigator.onLine) {
       supabase
         .from('inspections')
         .update({ last_active_section_id: sectionId, last_active_at: new Date().toISOString() })
