@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { VitePWA } from "vite-plugin-pwa";
 
 // Build identity. Injected into the bundle and also emitted as `/version.json`
 // so a long-lived tab (or the installed PWA) can detect it is running a stale
@@ -40,6 +41,44 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     versionFilePlugin(),
+    // Offline app shell. Manifest stays in public/; registration lives only in
+    // src/lib/register-sw.ts (guarded against dev/preview).
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: null,
+      manifest: false,
+      filename: "sw.js",
+      devOptions: { enabled: false },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        globIgnores: ["**/version.json"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/version\.json/],
+        runtimeCaching: [
+          {
+            // HTML always from network first so online users get the new build.
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: { cacheName: "homie-pages", networkTimeoutSeconds: 4 },
+          },
+          {
+            // Last-seen inspection data, used only when there is no signal.
+            urlPattern: ({ url, request }) => request.method === "GET" && url.pathname.startsWith("/rest/v1/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "homie-api",
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 800, maxAgeSeconds: 14 * 24 * 3600 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
+      },
+    }),
   ].filter(Boolean),
   define: {
     // Build identity, sent with every diagnostic event so we can tell whether a

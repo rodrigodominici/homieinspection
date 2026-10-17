@@ -28,7 +28,9 @@ import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/in
 import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
-import { compressImage, uploadInspectionPhotos, photoUploadErrorLabel } from '@/shared/lib/inspection-photos';
+import { uploadInspectionPhotos, photoUploadErrorLabel, PhotoUploadError } from '@/shared/lib/inspection-photos';
+import { saveOrQueueUpdate, queuePhotos, type PhotoOp } from '@/shared/lib/offline-queue';
+import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 
 // ─── Group labels ────────────────────────────────────────────────────────
 const PROPERTY_GROUP_LABELS: Record<string, string> = {
@@ -86,6 +88,28 @@ export default function InspectorSectionComplete() {
 
   const readOnly = isInspectorReadOnly(inspectionStatus);
 
+  // Photos waiting in the offline outbox for this section.
+  const { ops: queuedOps } = useOfflineQueue();
+  const pendingPhotos = queuedOps.filter((o): o is PhotoOp => o.kind === 'photo' && o.sectionId === sectionId);
+  const [pendingUrls, setPendingUrls] = useState<Record<string, string>>({});
+  const pendingKey = pendingPhotos.map((p) => p.id).join(',');
+  useEffect(() => {
+    const m: Record<string, string> = {};
+    pendingPhotos.forEach((p) => { m[p.id] = URL.createObjectURL(p.blob); });
+    setPendingUrls(m);
+    return () => Object.values(m).forEach((u) => URL.revokeObjectURL(u));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey]);
+  // When queued photos finish uploading, reload the section's photos.
+  const prevPending = useRef(0);
+  useEffect(() => {
+    if (pendingPhotos.length < prevPending.current && sectionId) {
+      supabase.from('inspection_photos').select('*').eq('inspection_section_id', sectionId).order('sort_order')
+        .then(({ data }) => { if (data) setPhotos(data as unknown as InspectionPhoto[]); });
+    }
+    prevPending.current = pendingPhotos.length;
+  }, [pendingPhotos.length, sectionId]);
+
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
@@ -123,10 +147,9 @@ export default function InspectorSectionComplete() {
 
   const saveField = useCallback(async (fieldId: string, value: string | null) => {
     setSaveStatus('saving');
-    const { error } = await supabase
-      .from('inspection_field_values')
-      .update({ value_text: value, updated_by: profile?.id, updated_at: new Date().toISOString() })
-      .eq('id', fieldId);
+    const res = await saveOrQueueUpdate('inspection_field_values', fieldId,
+      { value_text: value, updated_by: profile?.id, updated_at: new Date().toISOString() });
+    const error = res === 'error';
     setSaveStatus(error ? 'error' : 'saved');
     if (error) toast({ title: 'Error guardando', variant: 'destructive' });
     setTimeout(() => setSaveStatus('idle'), 2000);
@@ -138,7 +161,7 @@ export default function InspectorSectionComplete() {
     setUnansweredFields((prev) => { const n = new Set(prev); n.delete(fieldId); return n; });
     saveField(fieldId, value);
     if (section?.status === 'not_started') {
-      supabase.from('inspection_sections').update({ status: 'in_progress' }).eq('id', sectionId!);
+      void saveOrQueueUpdate('inspection_sections', sectionId!, { status: 'in_progress' });
       setSection((prev) => prev ? { ...prev, status: 'in_progress' } : prev);
     }
     if (inspectionId) ensureInspectionStatusConsistency(inspectionId);
@@ -167,6 +190,22 @@ export default function InspectorSectionComplete() {
     const batchId = crypto.randomUUID();
     setUploading((prev) => new Set(prev).add(batchId));
 
+    const queueAll = async (list: File[]) => {
+      await queuePhotos({
+        files: list, inspectionId, sectionId, sectionKey: section.section_key,
+        fieldKey: fieldKey ?? null, uploadedBy: profile?.id ?? null,
+        startingSortOrder: photos.length + pendingPhotos.length,
+      });
+      toast({ title: 'Fotos guardadas en el celular', description: 'Se subirán solas cuando vuelva la señal.' });
+    };
+
+    if (!navigator.onLine) {
+      try { await queueAll(fileArray); }
+      catch (e) { const { title, description } = photoUploadErrorLabel(e); toast({ title, description, variant: 'destructive' }); }
+      finally { setUploading((prev) => { const n = new Set(prev); n.delete(batchId); return n; }); }
+      return;
+    }
+
     try {
       const inserted = await uploadInspectionPhotos({
         inspectionId,
@@ -181,8 +220,18 @@ export default function InspectorSectionComplete() {
         setPhotos((prev) => [...prev, ...(inserted as InspectionPhoto[])]);
       }
     } catch (e) {
-      const { title, description } = photoUploadErrorLabel(e);
-      toast({ title, description, variant: 'destructive' });
+      if (e instanceof PhotoUploadError && (e.kind === 'offline' || e.kind === 'network')) {
+        // Signal dropped mid-batch: keep the photos on the phone and retry later.
+        // (Any photo already uploaded in this batch is reloaded from the server.)
+        try {
+          const { data } = await supabase.from('inspection_photos').select('*').eq('inspection_section_id', sectionId).order('sort_order');
+          if (data) setPhotos(data as unknown as InspectionPhoto[]);
+        } catch { /* offline */ }
+        try { await queueAll(fileArray); } catch { /* shown below */ }
+      } else {
+        const { title, description } = photoUploadErrorLabel(e);
+        toast({ title, description, variant: 'destructive' });
+      }
     } finally {
       setUploading((prev) => { const n = new Set(prev); n.delete(batchId); return n; });
     }
@@ -200,7 +249,7 @@ export default function InspectorSectionComplete() {
       section?.section_type ?? '',
       fields,
       section?.section_key,
-      photos.length,
+      photos.length + pendingPhotos.length,
     );
     if (!result.valid) {
       setValidationError(result.reason ?? 'Completa los campos requeridos');
@@ -217,16 +266,13 @@ export default function InspectorSectionComplete() {
     setValidationError(null);
     setUnansweredFields(new Set());
 
-    const { error } = await supabase
-      .from('inspection_sections')
-      .update({ status: 'completed' })
-      .eq('id', sectionId!);
+    const error = (await saveOrQueueUpdate('inspection_sections', sectionId!, { status: 'completed' })) === 'error';
     if (error) {
       toast({ title: 'Error', variant: 'destructive' });
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
-      if (inspectionId) await ensureInspectionStatusConsistency(inspectionId);
+      if (inspectionId && navigator.onLine) await ensureInspectionStatusConsistency(inspectionId).catch(() => {});
       if (nextSection) {
         goNext();
       } else {
@@ -456,6 +502,12 @@ export default function InspectorSectionComplete() {
             {!readOnly && (
               <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
             )}
+            {pendingPhotos.filter((p) => p.fieldKey === uploadFieldKey).map((p) => (
+              <div key={p.id} className="aspect-square rounded-2xl overflow-hidden relative">
+                <img src={pendingUrls[p.id] ?? ''} alt="Foto por subir" className="w-full h-full object-cover opacity-70" />
+                <span className="absolute bottom-1.5 left-1.5 rounded-full bg-foreground/80 px-2 py-0.5 text-tiny text-background">Por subir</span>
+              </div>
+            ))}
             {cardPhotos.map((photo) => (
               <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                 <img
@@ -769,6 +821,12 @@ export default function InspectorSectionComplete() {
                     {!readOnly && (
                       <PhotoUploadSheet onFiles={(files) => handlePhotoUpload(files, uploadFieldKey)} />
                     )}
+                    {pendingPhotos.filter((p) => p.fieldKey === uploadFieldKey).map((p) => (
+                      <div key={p.id} className="aspect-square rounded-2xl overflow-hidden relative">
+                        <img src={pendingUrls[p.id] ?? ''} alt="Foto por subir" className="w-full h-full object-cover opacity-70" />
+                        <span className="absolute bottom-1.5 left-1.5 rounded-full bg-foreground/80 px-2 py-0.5 text-tiny text-background">Por subir</span>
+                      </div>
+                    ))}
                     {cardPhotos.map((photo) => (
                       <div key={photo.id} className="aspect-square rounded-2xl overflow-hidden relative group">
                         <img

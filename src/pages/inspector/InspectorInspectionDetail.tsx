@@ -1,3 +1,4 @@
+import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ import { triggerKeyCollectionSync, syncCheckoutIfApplicable, triggerCheckinCompl
 import { ensurePdfAndEmailTenant, describeCheckinEmailResult } from '@/modules/review/api/checkin-report.service';
 
 export default function InspectorInspectionDetail() {
+  const offline = useOfflineQueue();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -388,6 +390,10 @@ export default function InspectorInspectionDetail() {
   };
 
   const doSubmit = async () => {
+    if (offline.total > 0 || !navigator.onLine) {
+      toast({ title: 'Hay cambios por subir', description: 'Espera a tener señal para enviar la inspección.', variant: 'destructive' });
+      return;
+    }
     // Final photo validation
     if (!finalizationResult.valid) {
       toast({
@@ -791,6 +797,10 @@ export default function InspectorInspectionDetail() {
           <div className="flex items-center justify-center gap-2 h-12 rounded-xl bg-muted/40 text-sm text-muted-foreground font-medium">
             <Lock className="h-4 w-4" /> Inspección enviada — solo lectura
           </div>
+        ) : allCompleted && canSubmit && signatureResolved && (offline.total > 0 || !offline.online) ? (
+          <Button disabled className="w-full h-12 rounded-xl text-body" size="lg">
+            {offline.online ? 'Subiendo cambios pendientes…' : 'Sin conexión — envía cuando vuelva la señal'}
+          </Button>
         ) : allCompleted && canSubmit && signatureResolved ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>

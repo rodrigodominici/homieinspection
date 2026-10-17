@@ -161,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    try { if ('caches' in window) await caches.delete('homie-api'); } catch { /* ignore */ }
     await supabase.auth.signOut();
     setProfile(null);
     resetUser();

@@ -1,3 +1,5 @@
+import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
+import { clearQueue } from '@/shared/lib/offline-queue';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { Button } from '@/components/ui/button';
@@ -7,6 +9,7 @@ import { CheckCircle2, Download, LogOut, Mail, Share2, Shield, Smartphone, User 
 
 export default function InspectorProfile() {
   const { profile, signOut } = useAuth();
+  const offline = useOfflineQueue();
   const { canInstall, install, installed, isIOS, isStandalone } = usePWAInstall();
 
   return (
@@ -89,7 +92,11 @@ export default function InspectorProfile() {
           </Card>
         )}
 
-        <Button variant="outline" className="w-full h-12 rounded-xl gap-2" onClick={signOut}>
+        <Button variant="outline" className="w-full h-12 rounded-xl gap-2" onClick={async () => {
+          if (offline.total > 0 && !window.confirm(`Tienes ${offline.total} cambios o fotos sin subir. Si cierras sesión se perderán. ¿Cerrar sesión igual?`)) return;
+          await clearQueue();
+          await signOut();
+        }}>
           <LogOut className="h-4 w-4" /> Cerrar Sesión
         </Button>
       </main>

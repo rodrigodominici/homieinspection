@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import NewVersionPrompt from "@/components/NewVersionPrompt";
+import OfflineBanner from "@/components/OfflineBanner";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { syncSessionRecording } from "@/lib/monitoring";
 // Health banner is non-critical for first paint → deferred out of the main chunk.
@@ -121,6 +122,7 @@ const App = () => (
         <BrowserRouter>
           <SessionRecordingGate />
           <NewVersionPrompt />
+          <OfflineBanner />
 
           <RouteBoundary>
           <Suspense fallback={<PageLoader />}>
