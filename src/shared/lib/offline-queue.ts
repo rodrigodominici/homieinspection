@@ -40,20 +40,51 @@ function db(): Promise<IDBDatabase> {
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const conn = req.result;
+        // iOS Safari closes idle connections (app in background, low memory).
+        // Forget the closed one so the next call reopens it.
+        conn.onclose = () => { dbPromise = null; };
+        conn.onversionchange = () => { conn.close(); dbPromise = null; };
+        resolve(conn);
+      };
+      req.onerror = () => { dbPromise = null; reject(req.error); };
+      req.onblocked = () => { dbPromise = null; reject(new Error('indexeddb_blocked')); };
     });
   }
   return dbPromise;
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const d = await db();
+function runTx<T>(d: IDBDatabase, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    const t = d.transaction(STORE, mode);
-    const r = fn(t.objectStore(STORE));
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
+    try {
+      const t = d.transaction(STORE, mode);
+      const r = fn(t.objectStore(STORE));
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      t.onabort = () => reject(t.error ?? new Error('transaction_aborted'));
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  try {
+    return await runTx(await db(), mode, fn);
+  } catch {
+    // Connection was closing / internal IDB error: reopen once and retry.
+    try { (await dbPromise)?.close(); } catch { /* ignore */ }
+    dbPromise = null;
+    return runTx(await db(), mode, fn);
+  }
+}
+
+/** Rejects after `ms` so a hanging request on weak signal does not freeze the screen. */
+export function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('network timeout')), ms);
+    Promise.resolve(p).then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
   });
 }
 
@@ -91,7 +122,7 @@ export async function saveOrQueueUpdate(
 ): Promise<'saved' | 'queued' | 'error'> {
   if (navigator.onLine) {
     try {
-      const { error } = await supabase.from(table).update(patch as never).eq('id', rowId);
+      const { error } = await withTimeout(supabase.from(table).update(patch as never).eq('id', rowId), 8000);
       if (!error) return 'saved';
       if (!isNetworkError(error)) return 'error';
     } catch (e) {
@@ -146,15 +177,15 @@ export async function queuePhotos(opts: {
 
 async function runOp(op: QueueOp) {
   if (op.kind === 'update') {
-    const { error } = await supabase.from(op.table).update(op.patch as never).eq('id', op.rowId);
+    const { error } = await withTimeout(supabase.from(op.table).update(op.patch as never).eq('id', op.rowId), 15000);
     if (error) throw error;
     return;
   }
   const path = `inspections/${op.inspectionId}/${op.sectionKey}/${op.id}.jpg`;
-  const up = await supabase.storage.from('inspection-photos')
-    .upload(path, op.blob, { contentType: 'image/jpeg', upsert: true });
+  const up = await withTimeout(supabase.storage.from('inspection-photos')
+    .upload(path, op.blob, { contentType: 'image/jpeg', upsert: true }), 60000);
   if (up.error) throw up.error;
-  const { error } = await supabase.from('inspection_photos').insert({
+  const { error } = await withTimeout(supabase.from('inspection_photos').insert({
     inspection_id: op.inspectionId,
     inspection_section_id: op.sectionId,
     field_key: op.fieldKey,
@@ -163,7 +194,7 @@ async function runOp(op: QueueOp) {
     storage_path: path,
     uploaded_by: op.uploadedBy,
     sort_order: op.sortOrder,
-  });
+  }), 15000);
   if (error) throw error;
 }
 
