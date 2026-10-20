@@ -566,7 +566,9 @@ export default function InspectorInspectionDetail() {
             <span>
               {offlineReady === 'ready'
                 ? 'Lista para usar sin conexión.'
-                : 'Todavía no está lista para usar sin conexión. Mantén la señal y vuelve a abrir la inspección.'}
+                : typeof navigator !== 'undefined' && !('serviceWorker' in navigator)
+                  ? 'Este navegador no permite usar la app sin conexión. En iPhone abre la app desde Safari o desde su ícono en la pantalla de inicio.'
+                  : 'Todavía no está lista para usar sin conexión. Mantén la señal y vuelve a abrir la inspección.'}
             </span>
           </div>
         )}
