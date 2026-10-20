@@ -10,7 +10,7 @@ const toneClass: Record<InspectorDisplayState['tone'], string> = {
 
 export default function InspectorStatusBadge({ state }: { state: InspectorDisplayState }) {
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', toneClass[state.tone])}>
+    <span className={cn('inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', toneClass[state.tone])}>
       {state.label}
     </span>
   );
