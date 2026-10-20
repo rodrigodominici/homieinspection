@@ -37,7 +37,7 @@ import {
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck, CloudCheck, CloudOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
@@ -552,6 +552,30 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-6">
+        {/* Offline readiness: tells the receptor when it is safe to lose signal */}
+        {offline.online && !readOnly && offlineReady !== 'checking' && (
+          <div
+            className={cn(
+              'flex items-start gap-2 rounded-2xl px-3 py-2 text-xs',
+              offlineReady === 'ready'
+                ? 'bg-[hsl(var(--status-good)/0.12)] text-[hsl(var(--status-good))]'
+                : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {offlineReady === 'ready' ? <CloudCheck className="h-4 w-4 shrink-0" /> : <CloudOff className="h-4 w-4 shrink-0" />}
+            <span>
+              {offlineReady === 'ready'
+                ? 'Lista para usar sin conexión.'
+                : 'Todavía no está lista para usar sin conexión. Mantén la señal y vuelve a abrir la inspección.'}
+            </span>
+          </div>
+        )}
+        {offline.online && !readOnly && offlineReady === 'checking' && (
+          <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            <span>Preparando para usar sin conexión… no quites la señal todavía.</span>
+          </div>
+        )}
         {/* Signature step overlay */}
         {showSignature && (
           <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">
