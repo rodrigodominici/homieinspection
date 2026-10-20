@@ -1,4 +1,5 @@
 import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
+import { preloadInspectorScreens, isAppShellReady } from '@/lib/offline-readiness';
 import { withTimeout } from '@/shared/lib/offline-queue';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
@@ -36,7 +37,7 @@ import {
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck, CloudOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
@@ -68,8 +69,25 @@ export default function InspectorInspectionDetail() {
   const [keyTimeInput, setKeyTimeInput] = useState('');
   const [savingKeyCollection, setSavingKeyCollection] = useState(false);
   const [reportEmailSentAt, setReportEmailSentAt] = useState<string | null>(null);
+  // Whether this inspection can be used without signal on this phone.
+  const [offlineReady, setOfflineReady] = useState<'checking' | 'ready' | 'not_ready'>('checking');
 
   useEffect(() => {
+    let cancelled = false;
+    const prepareOffline = async (insp: Record<string, unknown>) => {
+      setOfflineReady('checking');
+      const [snapOk, screensOk] = await Promise.all([
+        refreshSnapshot(id!, insp),
+        preloadInspectorScreens(),
+      ]);
+      if (!snapOk || !screensOk) { if (!cancelled) setOfflineReady('not_ready'); return; }
+      // Wait (up to ~90s) for the offline copy of the app to finish installing.
+      for (let i = 0; i < 30 && !cancelled; i++) {
+        if (await isAppShellReady()) { setOfflineReady('ready'); return; }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      if (!cancelled) setOfflineReady('not_ready');
+    };
     const fromSnapshot = async () => {
       const snap = await readSnapshot(id!).catch(() => null);
       if (!snap) { setLoading(false); return; }
@@ -106,7 +124,7 @@ export default function InspectorInspectionDetail() {
         .limit(1), 8000).catch(() => ({ data: null }));
       setReportEmailSentAt(emailLog?.[0]?.created_at ?? null);
       if (!insp) { await fromSnapshot(); return; }
-      void refreshSnapshot(id!, insp as unknown as Record<string, unknown>);
+      void prepareOffline(insp as unknown as Record<string, unknown>);
       let inspObj = insp as unknown as Inspection;
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
@@ -133,6 +151,7 @@ export default function InspectorInspectionDetail() {
       setLoading(false);
     };
     fetchData().catch(() => fromSnapshot());
+    return () => { cancelled = true; };
     // location.key changes on every navigation (including returning from a sub-route),
     // so signature/section state stays fresh after signing inside the section view.
   }, [id, location.key]);
@@ -533,6 +552,30 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-6">
+        {/* Offline readiness: tells the receptor when it is safe to lose signal */}
+        {offline.online && !readOnly && offlineReady !== 'checking' && (
+          <div
+            className={cn(
+              'flex items-start gap-2 rounded-2xl px-3 py-2 text-xs',
+              offlineReady === 'ready'
+                ? 'bg-[hsl(var(--status-good)/0.12)] text-[hsl(var(--status-good))]'
+                : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {offlineReady === 'ready' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <CloudOff className="h-4 w-4 shrink-0" />}
+            <span>
+              {offlineReady === 'ready'
+                ? 'Lista para usar sin conexión.'
+                : 'Todavía no está lista para usar sin conexión. Mantén la señal y vuelve a abrir la inspección.'}
+            </span>
+          </div>
+        )}
+        {offline.online && !readOnly && offlineReady === 'checking' && (
+          <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            <span>Preparando para usar sin conexión… no quites la señal todavía.</span>
+          </div>
+        )}
         {/* Signature step overlay */}
         {showSignature && (
           <div className="fixed inset-0 z-50 bg-background/95 overflow-y-auto p-4 pt-16">

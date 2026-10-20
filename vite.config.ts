@@ -60,6 +60,17 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/, /^\/version\.json/],
         runtimeCaching: [
           {
+            // Any screen file loaded with signal stays on the phone, even if the
+            // full offline copy of a new version has not finished downloading.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/assets/"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "homie-assets",
+              expiration: { maxEntries: 400, maxAgeSeconds: 30 * 24 * 3600 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             // HTML always from network first so online users get the new build.
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
