@@ -30,7 +30,7 @@ import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSel
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
 import { uploadInspectionPhotos, photoUploadErrorLabel, PhotoUploadError } from '@/shared/lib/inspection-photos';
-import { saveOrQueueUpdate, queuePhotos, type PhotoOp } from '@/shared/lib/offline-queue';
+import { saveOrQueueUpdate, queuePhotos, withTimeout, type PhotoOp } from '@/shared/lib/offline-queue';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 
 // ─── Group labels ────────────────────────────────────────────────────────
@@ -111,9 +111,18 @@ export default function InspectorSectionComplete() {
     prevPending.current = pendingPhotos.length;
   }, [pendingPhotos.length, sectionId]);
 
+  // Bumped when signal returns while the section could not be shown.
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    if (loading || section) return;
+    const retry = () => setReloadKey((k) => k + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [loading, section]);
+
   useEffect(() => {
     const fromSnapshot = async () => {
-      const snap = await readSnapshot(inspectionId!);
+      const snap = await readSnapshot(inspectionId!).catch(() => null);
       if (snap) {
         const sec = snap.sections.find((x) => x.id === sectionId) ?? null;
         setSection(sec as unknown as InspectionSection);
@@ -129,7 +138,8 @@ export default function InspectorSectionComplete() {
     const fetch = async () => {
       setLoading(true);
       if (isOffline()) { await fromSnapshot(); return; }
-      const [secRes, allSecRes, fieldRes, photoRes, reviewRes, inspRes, sigRes] = await Promise.all([
+      // Weak signal can leave requests hanging: fall back to the local copy.
+      const [secRes, allSecRes, fieldRes, photoRes, reviewRes, inspRes, sigRes] = await withTimeout(Promise.all([
         supabase.from('inspection_sections').select('*').eq('id', sectionId!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_field_values').select('*').eq('inspection_section_id', sectionId!).order('sort_order'),
@@ -137,7 +147,7 @@ export default function InspectorSectionComplete() {
         supabase.from('inspection_reviews').select('*').eq('inspection_section_id', sectionId!).eq('comment_type', 'revision_request').order('created_at', { ascending: false }),
         supabase.from('inspections').select('status').eq('id', inspectionId!).single(),
         supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name').eq('inspection_id', inspectionId!).order('created_at', { ascending: false }).limit(1),
-      ]);
+      ]), 10000);
       if (secRes.error || !secRes.data) { await fromSnapshot(); return; }
       setSection(secRes.data as unknown as InspectionSection);
       setAllSections((allSecRes.data ?? []) as unknown as InspectionSection[]);
@@ -151,7 +161,7 @@ export default function InspectorSectionComplete() {
       setLoading(false);
     };
     fetch().catch(() => fromSnapshot());
-  }, [inspectionId, sectionId]);
+  }, [inspectionId, sectionId, reloadKey]);
 
   useEffect(() => {
     if (sectionId && inspectionId && navigator.onLine) {
@@ -181,7 +191,7 @@ export default function InspectorSectionComplete() {
       void saveOrQueueUpdate('inspection_sections', sectionId!, { status: 'in_progress' });
       setSection((prev) => prev ? { ...prev, status: 'in_progress' } : prev);
     }
-    if (inspectionId) ensureInspectionStatusConsistency(inspectionId);
+    if (inspectionId && navigator.onLine) void ensureInspectionStatusConsistency(inspectionId).catch(() => {});
   };
 
   const handleTextChange = (fieldId: string, value: string) => {
@@ -289,7 +299,8 @@ export default function InspectorSectionComplete() {
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
-      if (inspectionId && navigator.onLine) await ensureInspectionStatusConsistency(inspectionId).catch(() => {});
+      // Never block moving on: on weak signal this request can hang.
+      if (inspectionId && navigator.onLine) void ensureInspectionStatusConsistency(inspectionId).catch(() => {});
       if (nextSection) {
         goNext();
       } else {
@@ -329,7 +340,21 @@ export default function InspectorSectionComplete() {
     );
   }
 
-  if (!section) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Sección no encontrada</div>;
+  if (!section) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-body text-muted-foreground">
+          {navigator.onLine
+            ? 'No pudimos cargar esta sección.'
+            : 'Esta sección no está guardada en el celular. Vuelve a abrirla cuando tengas señal.'}
+        </p>
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button onClick={() => setReloadKey((k) => k + 1)}>Reintentar</Button>
+          <Button variant="outline" onClick={() => navigate(`/inspector/inspection/${inspectionId}`)}>Volver a la inspección</Button>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Group fields by group_key for flexible rendering ───────────────────
   const fieldsByGroup = fields.reduce<Record<string, InspectionFieldValue[]>>((acc, f) => {

@@ -1,4 +1,5 @@
 import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
+import { withTimeout } from '@/shared/lib/offline-queue';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -70,7 +71,7 @@ export default function InspectorInspectionDetail() {
 
   useEffect(() => {
     const fromSnapshot = async () => {
-      const snap = await readSnapshot(id!);
+      const snap = await readSnapshot(id!).catch(() => null);
       if (!snap) { setLoading(false); return; }
       const secList = (snap.sections as unknown as InspectionSection[]).filter((x) => x.is_visible);
       setSections(secList);
@@ -87,21 +88,22 @@ export default function InspectorInspectionDetail() {
     };
     const fetchData = async () => {
       if (isOffline()) { await fromSnapshot(); return; }
-      const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await Promise.all([
+      // Weak signal can leave requests hanging: fall back to the local copy.
+      const [{ data: insp }, { data: secs }, { data: sig }, { data: fvData }, { data: photoData }] = await withTimeout(Promise.all([
         supabase.from('inspections').select(INSPECTION_DETAIL_COLUMNS).eq('id', id!).single(),
         supabase.from('inspection_sections').select('*').eq('inspection_id', id!).eq('is_visible', true).order('sort_order'),
         supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name, skip_reason').eq('inspection_id', id!).order('created_at', { ascending: false }).limit(1),
         supabase.from('inspection_field_values').select('*').eq('inspection_id', id!).in('field_key', ['fecha_recoleccion_llaves', 'hora_recoleccion_llaves']),
         supabase.from('inspection_photos').select('id, inspection_section_id').eq('inspection_id', id!),
-      ]);
+      ]), 10000);
       // Último envío del informe al inquilino (solo check-in; visible para el advisor asignado)
-      const { data: emailLog } = await supabase
+      const { data: emailLog } = await withTimeout(supabase
         .from('inspection_audit_log')
         .select('created_at')
         .eq('inspection_id', id!)
         .in('action', ['checkin_report_email_sent', 'checkin_report_email_resent'])
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1), 8000).catch(() => ({ data: null }));
       setReportEmailSentAt(emailLog?.[0]?.created_at ?? null);
       if (!insp) { await fromSnapshot(); return; }
       void refreshSnapshot(id!, insp as unknown as Record<string, unknown>);
@@ -121,7 +123,7 @@ export default function InspectorInspectionDetail() {
       setPhotoCounts(counts);
 
       if (inspObj) {
-        const newStatus = await ensureInspectionStatusConsistency(id!);
+        const newStatus = await withTimeout(ensureInspectionStatusConsistency(id!), 8000).catch(() => null);
         if (newStatus && newStatus !== inspObj.status) {
           inspObj = { ...inspObj, status: newStatus as Inspection['status'] };
         }
