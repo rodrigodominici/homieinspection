@@ -68,8 +68,25 @@ export default function InspectorInspectionDetail() {
   const [keyTimeInput, setKeyTimeInput] = useState('');
   const [savingKeyCollection, setSavingKeyCollection] = useState(false);
   const [reportEmailSentAt, setReportEmailSentAt] = useState<string | null>(null);
+  // Whether this inspection can be used without signal on this phone.
+  const [offlineReady, setOfflineReady] = useState<'checking' | 'ready' | 'not_ready'>('checking');
 
   useEffect(() => {
+    let cancelled = false;
+    const prepareOffline = async (insp: Record<string, unknown>) => {
+      setOfflineReady('checking');
+      const [snapOk, screensOk] = await Promise.all([
+        refreshSnapshot(id!, insp),
+        preloadInspectorScreens(),
+      ]);
+      if (!snapOk || !screensOk) { if (!cancelled) setOfflineReady('not_ready'); return; }
+      // Wait (up to ~90s) for the offline copy of the app to finish installing.
+      for (let i = 0; i < 30 && !cancelled; i++) {
+        if (await isAppShellReady()) { setOfflineReady('ready'); return; }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      if (!cancelled) setOfflineReady('not_ready');
+    };
     const fromSnapshot = async () => {
       const snap = await readSnapshot(id!).catch(() => null);
       if (!snap) { setLoading(false); return; }
@@ -106,7 +123,7 @@ export default function InspectorInspectionDetail() {
         .limit(1), 8000).catch(() => ({ data: null }));
       setReportEmailSentAt(emailLog?.[0]?.created_at ?? null);
       if (!insp) { await fromSnapshot(); return; }
-      void refreshSnapshot(id!, insp as unknown as Record<string, unknown>);
+      void prepareOffline(insp as unknown as Record<string, unknown>);
       let inspObj = insp as unknown as Inspection;
       const secList = (secs ?? []) as unknown as InspectionSection[];
       setSections(secList);
