@@ -70,6 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
       }
+      // Without signal keep the last known profile so the receptor is not
+      // kicked out of the inspection mid-way.
+      const cacheKey = `homie:profile:${userId}`;
+      if (data) {
+        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch { /* ignore */ }
+      } else if (failed) {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (raw) data = JSON.parse(raw) as Profile;
+        } catch { /* ignore */ }
+      }
       setProfile(data);
       setProfileError(failed && !data);
       // Associate telemetry with the user (opaque id + role only, no PII).
