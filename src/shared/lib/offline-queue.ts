@@ -185,6 +185,10 @@ async function runOp(op: QueueOp) {
   const up = await withTimeout(supabase.storage.from('inspection-photos')
     .upload(path, op.blob, { contentType: 'image/jpeg', upsert: true }), 60000);
   if (up.error) throw up.error;
+  // A previous attempt may have saved the row before timing out.
+  const existing = await withTimeout(supabase.from('inspection_photos').select('id').eq('storage_path', path).limit(1), 15000);
+  if (existing.error) throw existing.error;
+  if ((existing.data ?? []).length) return;
   const { error } = await withTimeout(supabase.from('inspection_photos').insert({
     inspection_id: op.inspectionId,
     inspection_section_id: op.sectionId,
