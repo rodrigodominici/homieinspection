@@ -9,7 +9,9 @@ import { useBackendHealth } from "@/hooks/useBackendHealth";
 export default function BackendStatusBanner() {
   const { health, offline, retry } = useBackendHealth();
 
-  if (health === "ok" && !offline) return null;
+  // Without signal the offline bar (OfflineBanner) already tells the user;
+  // a second fixed bar here would cover the page header and its back button.
+  if (offline || health === "ok") return null;
 
   const isOffline = offline;
 
