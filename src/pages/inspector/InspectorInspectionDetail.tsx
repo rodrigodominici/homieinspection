@@ -1,4 +1,5 @@
 import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
+import { withTimeout } from '@/shared/lib/offline-queue';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
