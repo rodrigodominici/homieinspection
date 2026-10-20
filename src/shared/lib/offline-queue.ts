@@ -235,6 +235,9 @@ export function startOfflineSync() {
   if (started || typeof window === 'undefined' || !('indexedDB' in window)) return;
   started = true;
   window.addEventListener('online', () => void flushQueue());
-  window.setInterval(() => { if (navigator.onLine) void flushQueue(); }, 60_000);
+  window.setInterval(() => { if (navigator.onLine) void flushQueue(); }, 20_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) void flushQueue();
+  });
   void flushQueue();
 }
