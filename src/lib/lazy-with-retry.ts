@@ -75,7 +75,10 @@ async function clearStaleCaches(): Promise<void> {
 export async function recoverFromStaleBuild(reason: string): Promise<void> {
   // Without signal a failed load is not a stale build: clearing the offline
   // copy and reloading would leave the receptor on a blank screen.
-  if (isOfflineNow()) return;
+  if (isOfflineNow()) {
+    logClientEvent({ kind: 'chunk_load_failed', message: reason, context: { action: 'offline_skip_reload' } });
+    return;
+  }
   if (reloadedRecently()) return;
   markReloaded();
   logClientEvent({ kind: 'chunk_load_failed', message: reason, context: { action: 'reload' } });
@@ -97,6 +100,7 @@ export function lazyWithRetry<T extends ComponentType<unknown>>(
         return await factory();
       } catch (err) {
         if (isOfflineNow()) {
+          logClientEvent({ kind: 'chunk_load_failed', message: `${name}: ${String((err as Error)?.message ?? err)}`, context: { action: 'offline_wait' } });
           // Wait for signal and try again instead of reloading into nothing.
           await waitForOnline();
           return await factory();
