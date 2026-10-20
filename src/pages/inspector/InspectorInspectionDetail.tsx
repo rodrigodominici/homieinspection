@@ -1,4 +1,5 @@
 import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
+import { preloadInspectorScreens, isAppShellReady } from '@/lib/offline-readiness';
 import { withTimeout } from '@/shared/lib/offline-queue';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 import { useEffect, useState } from 'react';
@@ -150,6 +151,7 @@ export default function InspectorInspectionDetail() {
       setLoading(false);
     };
     fetchData().catch(() => fromSnapshot());
+    return () => { cancelled = true; };
     // location.key changes on every navigation (including returning from a sub-route),
     // so signature/section state stays fresh after signing inside the section view.
   }, [id, location.key]);
