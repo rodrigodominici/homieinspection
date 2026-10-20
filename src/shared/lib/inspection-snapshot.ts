@@ -22,7 +22,7 @@ export function isOffline() {
 }
 
 /** Download everything for the inspection and keep it on the phone. */
-export async function refreshSnapshot(inspectionId: string, inspection: Record<string, unknown>) {
+export async function refreshSnapshot(inspectionId: string, inspection: Record<string, unknown>): Promise<boolean> {
   try {
     const [secs, fields, photos, sig] = await Promise.all([
       supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId).order('sort_order'),
@@ -30,7 +30,7 @@ export async function refreshSnapshot(inspectionId: string, inspection: Record<s
       supabase.from('inspection_photos').select('*').eq('inspection_id', inspectionId).order('sort_order'),
       supabase.from('inspection_signatures').select('signature_data, signature_status, signer_name, skip_reason').eq('inspection_id', inspectionId).order('created_at', { ascending: false }).limit(1),
     ]);
-    if (secs.error || fields.error || photos.error) return;
+    if (secs.error || fields.error || photos.error) return false;
     const snap: InspectionSnapshot = {
       inspection,
       sections: secs.data ?? [],
@@ -40,7 +40,13 @@ export async function refreshSnapshot(inspectionId: string, inspection: Record<s
       savedAt: Date.now(),
     };
     localStorage.setItem(key(inspectionId), JSON.stringify(snap));
-  } catch { /* storage full or offline: keep previous copy */ }
+    return true;
+  } catch { /* storage full or offline: keep previous copy */ return false; }
+}
+
+/** True when a local copy of this inspection exists on the phone. */
+export function hasSnapshot(inspectionId: string): boolean {
+  try { return !!localStorage.getItem(key(inspectionId)); } catch { return false; }
 }
 
 /** Read the local copy with pending offline edits applied. */
