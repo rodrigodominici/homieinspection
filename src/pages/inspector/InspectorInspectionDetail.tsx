@@ -37,7 +37,7 @@ import {
 import { getEffectiveSnapshot } from '@/lib/inspection-utils';
 import { getContractDateMicroLabel, getPrimaryContactLabel, getKeyEventLabel, getKeyEventDateLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import type { Inspection, InspectionFieldValue, InspectionSection, InspectionPhoto } from '@/lib/types';
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck, CloudCheck, CloudOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, MessageCircle, CalendarClock, Edit3, Clock, Camera, Lock, MailCheck, CloudDownload, CloudOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INSPECTION_DETAIL_COLUMNS } from '@/lib/inspection-columns';
 import { getInspectorDisplayState } from '@/lib/inspector-operational';
@@ -562,7 +562,7 @@ export default function InspectorInspectionDetail() {
                 : 'bg-muted text-muted-foreground',
             )}
           >
-            {offlineReady === 'ready' ? <CloudCheck className="h-4 w-4 shrink-0" /> : <CloudOff className="h-4 w-4 shrink-0" />}
+            {offlineReady === 'ready' ? <CloudDownload className="h-4 w-4 shrink-0" /> : <CloudOff className="h-4 w-4 shrink-0" />}
             <span>
               {offlineReady === 'ready'
                 ? 'Lista para usar sin conexión.'
