@@ -113,6 +113,12 @@ export default function InspectorSectionComplete() {
 
   // Bumped when signal returns while the section could not be shown.
   const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    if (loading || section) return;
+    const retry = () => setReloadKey((k) => k + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [loading, section]);
 
   useEffect(() => {
     const fromSnapshot = async () => {
