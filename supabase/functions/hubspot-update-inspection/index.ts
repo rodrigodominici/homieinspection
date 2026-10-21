@@ -195,6 +195,18 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // ── Check-in nunca escribe fechas de salida (recolección de llaves / recepción de check-out) ──
+  if (inspection.inspection_type === 'check_in' && action !== 'checkin_completed') {
+    return logAndRespond(200, { ok: true, skipped: true, reason: 'checkin_no_checkout_dates' }, {
+      status: 'skipped',
+      action,
+      inspection_id: inspectionId,
+      triggered_by: triggeredBy,
+      error_message: 'checkin_no_checkout_dates',
+      retried_from_log_id: triggeredRetryFrom,
+    });
+  }
+
   // ── Derive event_time + HubSpot date value per action ──
   let eventTimeIso: string | null = null;
   let hubspotDateValue: string | null = null;
