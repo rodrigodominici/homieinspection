@@ -1,22 +1,27 @@
-# Partida "Por cotizar" en la cotización
+## Enviar a Slack el resumen de las 5 unidades
 
-## Qué se construye
-En la cotización, el ejecutivo puede agregar una partida **"Por cotizar"**. Sirve para los casos en que el precio todavía no está definido o se está validando el tamaño del trabajo.
+Enviar al canal C0ASXHA7JK1, con la conexión de Slack del espacio de trabajo (de preferencia el bot), este mensaje:
 
-- Botón nuevo **"Agregar partida por cotizar"**, al lado de "Agregar partida del catálogo". El ejecutivo escribe la descripción, la sección y la cantidad, sin precio.
-- En la cotización, el informe al inversionista y el PDF, la partida muestra **"Por cotizar"** en lugar del monto.
-- **No suma al total.** Debajo del total aparece la nota "Incluye N partidas por cotizar, no consideradas en el total".
-- **Inversionista:** ve la partida, pero no tiene que aprobarla ni rechazarla. Su respuesta se pide recién cuando la partida tenga precio.
-- **Orden de trabajo:** las partidas por cotizar no se envían al contratista. Cuando el ejecutivo les pone precio, pasan a ser partidas normales y siguen el flujo de siempre: se publica una nueva versión al inversionista y, con su aprobación, se incluyen en la OT.
-- Al ponerle precio, la partida puede quedar como texto libre o reemplazarse por una partida del catálogo.
+---
 
-## Fuera de alcance
-- El historial de cambios de la cotización (punto 2) se hace por separado, después de este.
+*Unidades nuevas que no aparecen en HI*
 
-## Detalles técnicos
-- Migración: agregar a `inspection_repair_items` la columna `is_pending_quote boolean not null default false`. Con la partida por cotizar, `unit_price` y `contractor_unit_price` quedan en 0 y no se calcula `subtotal`.
-- Cotización (ejecutivo): nueva acción en `useReviewActions` para crear la partida, y un badge "Por cotizar" en la fila. Al cargar un precio, `is_pending_quote` pasa a false.
-- Totales: excluir las partidas pendientes en todos los totales (vista del ejecutivo, informe, PDF, `get_executive_performance`). Hoy ya suman 0; se agrega el contador para la nota.
-- Informe publicado: `normalized_payload` incluye `pending_quote: true` por partida. `submit_owner_feedback` deja de exigir decisiones para esas partidas (se excluyen de `v_expected_ids`), y la pantalla del inversionista no muestra botones de aprobar o rechazar en ellas.
-- OT: `assign_work_order` inserta solo partidas con `is_pending_quote = false`.
-- Prueba: agregar una partida por cotizar, publicar, confirmar que el inversionista puede responder sin decidir sobre ella, y que no entra en la OT ni en el total.
+Revisé las 5 unidades en HubSpot. Homie Inspection funciona bien: no llegaron porque HubSpot todavía no las envió.
+
+*Por qué:* HubSpot envía una captación a HI cuando el negocio pasa a la etapa *"Recolección de llaves"*. Por ejemplo, Apóstol Santiago 32 pasó a esa etapa el 19/10 y apareció en HI 4 segundos después. Ninguna de estas 5 está todavía en esa etapa:
+
+• Av. Buzeta 4502, D 1002 (Mario Alejandro Meneses), se recibe hoy 26/10
+• Francisco de Paula 2024, D 1102, Ñuñoa (Héctor Rojas Beltrán)
+• Francisco de Paula 2024, D 1103, Ñuñoa (Héctor Rojas Beltrán)
+• Av. Vicuña Mackenna 2362, D 1607 A, Ñuñoa (Javiera Gutiérrez), se recibe hoy 26/10
+• Av. Vicuña Mackenna 2362, D 1918 A, Ñuñoa (Javiera Gutiérrez), se recibe hoy 26/10
+
+*Qué hacer:* quien lleva cada negocio tiene que pasarlo a *"Recolección de llaves"* en HubSpot. A los pocos segundos aparece en HI como captación para asignar al receptor. Conviene empezar por las 3 que se reciben hoy: Buzeta D 1002, Vicuña Mackenna D 1607 A y D 1918 A.
+
+---
+
+### Pasos
+1. Revisar qué conexión de Slack está disponible. Si no hay ninguna, abrir la tarjeta para conectar Slack.
+2. Enviar el mensaje y confirmar que Slack lo aceptó. Si el bot no está en el canal (por ejemplo, porque es privado), avisar que hay que invitarlo.
+
+No se cambia nada en la app ni en HubSpot.
