@@ -1,3 +1,4 @@
+import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { readSnapshot, refreshSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
 import { preloadInspectorScreens, isAppShellReady } from '@/lib/offline-readiness';
 import { withTimeout } from '@/shared/lib/offline-queue';
