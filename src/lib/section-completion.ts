@@ -10,6 +10,16 @@
 
 import type { InspectionFieldValue } from './types';
 
+/** Captación: fotos para publicar el inmueble en portales. */
+export const MARKETING_PHOTOS_KEY = 'marketing_photos';
+export const MARKETING_PHOTOS_MIN = 10;
+
+/** Minimum photos a section needs to finalize the inspection. */
+export function minPhotosFor(sectionKey: string): number {
+  if (sectionKey === MARKETING_PHOTOS_KEY) return MARKETING_PHOTOS_MIN;
+  return requiresPhotoEvidence(sectionKey) ? 1 : 0;
+}
+
 export interface CompletionResult {
   valid: boolean;
   /** User-facing reason when `valid` is false */
@@ -50,6 +60,13 @@ export function canCompleteSection(
   _sectionKey?: string,
   _photoCount?: number,
 ): CompletionResult {
+  if (_sectionKey === MARKETING_PHOTOS_KEY) {
+    const n = _photoCount ?? 0;
+    if (n < MARKETING_PHOTOS_MIN) {
+      return { valid: false, reason: `Faltan ${MARKETING_PHOTOS_MIN - n} foto(s): se requieren mínimo ${MARKETING_PHOTOS_MIN} fotos de comercialización.` };
+    }
+    return { valid: true };
+  }
   const mandatory = fieldValues.filter(f => isMatrixField(f) || isOperationalSelect(f));
 
   if (mandatory.length === 0) {
@@ -78,7 +95,7 @@ export function isSectionCompleted(sectionStatus: string): boolean {
 /** Section types exempt from requiring a final observation before publish. */
 const EXEMPT_FROM_FINAL_OBS = new Set([
   'property_meta', 'reception_meta', 'handover_meta', 'admin_meta',
-  'introduction', 'signature', 'closing_operational',
+  'introduction', 'signature', 'closing_operational', 'marketing_photos',
 ]);
 
 /**
@@ -124,6 +141,7 @@ export function getPhotoRequiredLabel(sectionKey: string, sectionTitle?: string)
     kitchen_appliances: 'Cocina / Electrodomésticos',
     bodega: 'Bodega',
     estacionamiento: 'Estacionamiento',
+    marketing_photos: 'Fotos de comercialización (mín. 10)',
   };
   if (map[sectionKey]) return map[sectionKey];
   const bedroomMatch = sectionKey.match(/^bedroom_(\d+)$/);
@@ -153,9 +171,10 @@ export function canFinalizeInspection(
 
   for (const section of sections) {
     if (!section.is_visible) continue;
-    if (!requiresPhotoEvidence(section.section_key)) continue;
+    const min = minPhotosFor(section.section_key);
+    if (min === 0) continue;
     const count = photoCounts[section.id] ?? 0;
-    if (count === 0) {
+    if (count < min) {
       missingSections.push(section.section_key);
       missingLabels.push(getPhotoRequiredLabel(section.section_key, section.section_title));
     }

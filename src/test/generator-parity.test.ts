@@ -28,3 +28,26 @@ describe('inspection-generator parity', () => {
     expect(b).toEqual(a);
   });
 });
+
+import { canCompleteSection, canFinalizeInspection } from '@/lib/section-completion';
+
+describe('marketing photos (captación)', () => {
+  const base = { ...departamento2D1B };
+  it('captación gets marketing_photos right before the signature; check-in/out do not', () => {
+    for (const gen of [generateClient, generateShared]) {
+      const keys = gen({ ...base, inspection_type: 'captacion' } as any).map((s: any) => s.section_key);
+      expect(keys.slice(-2)).toEqual(['marketing_photos', 'tenant_signature']);
+      expect(gen({ ...base, inspection_type: 'check_out' } as any).some((s: any) => s.section_key === 'marketing_photos')).toBe(false);
+      expect(gen({ ...base, inspection_type: 'check_in' } as any).some((s: any) => s.section_key === 'marketing_photos')).toBe(false);
+    }
+  });
+  it('section needs at least 10 photos to complete', () => {
+    expect(canCompleteSection('marketing_photos', [], 'marketing_photos', 9).valid).toBe(false);
+    expect(canCompleteSection('marketing_photos', [], 'marketing_photos', 10).valid).toBe(true);
+  });
+  it('inspection cannot be submitted with 9 marketing photos', () => {
+    const sections = [{ id: 'm', section_key: 'marketing_photos', is_visible: true }];
+    expect(canFinalizeInspection(sections, { m: 9 }).valid).toBe(false);
+    expect(canFinalizeInspection(sections, { m: 10 }).valid).toBe(true);
+  });
+});

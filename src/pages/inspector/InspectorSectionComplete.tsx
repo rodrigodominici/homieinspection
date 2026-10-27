@@ -26,7 +26,8 @@ import { ArrowLeft, ArrowRight, Loader2, Trash2, AlertCircle, MessageCircle, Key
 import PhotoUploadSheet from '@/components/PhotoUploadSheet';
 import { cn } from '@/lib/utils';
 import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/inspection-status-guard';
-import { canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
+import { MarketingPhotoTips } from '@/components/photos/MarketingPhotoTips';
+import { MARKETING_PHOTOS_MIN, canCompleteSection, isSectionCompleted, isMatrixField, isOperationalSelect } from '@/lib/section-completion';
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
 import { uploadInspectionPhotos, photoUploadErrorLabel, PhotoUploadError } from '@/shared/lib/inspection-photos';
@@ -819,6 +820,7 @@ export default function InspectorSectionComplete() {
         {sectionType === 'space_kitchen' && renderKitchenSection()}
         {sectionType === 'signature' && renderSignatureSection()}
         {sectionType === 'closing_operational' && renderClosingOperational()}
+        {sectionType === 'marketing_photos' && !readOnly && <MarketingPhotoTips />}
         {(sectionType === 'space_standard' || sectionType === 'space_secondary' || sectionType === 'handover_meta' || sectionType === 'closing_summary') && renderStandardSection()}
 
         {/* Inline validation error */}
@@ -912,6 +914,14 @@ export default function InspectorSectionComplete() {
           }
 
           // Single-bucket section — unchanged behavior, just contextual title
+          if (sectionType === 'marketing_photos') {
+            const total = photos.length + pendingPhotos.length;
+            return renderPhotoCard(
+              `Fotos de comercialización · ${total} de ${MARKETING_PHOTOS_MIN}${total < MARKETING_PHOTOS_MIN ? ' mínimo' : ' ✓'}`,
+              photos,
+              'marketing_photos',
+            );
+          }
           return renderPhotoCard(`Fotos ${section.section_title}`, photos, null);
         })()}
       </main>
