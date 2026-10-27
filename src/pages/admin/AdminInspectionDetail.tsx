@@ -905,6 +905,7 @@ export default function AdminInspectionDetail() {
           </div>
           <InspectionStatusBadge status={inspection.status} />
         </div>
+        <HubSpotDealLink inspectionId={inspection.id} />
 
         {/* ─── Top Summary Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
