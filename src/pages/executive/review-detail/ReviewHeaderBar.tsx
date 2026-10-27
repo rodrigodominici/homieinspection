@@ -85,6 +85,7 @@ export const ReviewHeaderBar = memo(function ReviewHeaderBar(props: ReviewHeader
             <div className="flex items-center gap-2">
               <p className="font-semibold truncate">{inspection.property_name ?? inspection.property_id}</p>
               <StatusBadge inspection={inspection} />
+              <HubSpotDealLink inspectionId={inspection.id} />
             </div>
             <InspectorProgressCard
               inspectorProgressLabel={inspectorProgressLabel}
