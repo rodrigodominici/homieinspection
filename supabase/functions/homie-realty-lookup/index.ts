@@ -2,6 +2,7 @@
 // Se ejecuta server-side para no exponer el token de la API al navegador.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { rentManagerUnit } from '../_shared/rent-manager-unit.ts';
 
 const DEFAULT_API_BASE = 'https://api.homierent.com/real-estate/realties/reference-id';
 
@@ -121,7 +122,7 @@ async function lookupRentManager(id: string): Promise<Response> {
     property_type: mapRealtyType(raw.realtyType as string | undefined, bedrooms),
     bedrooms_count: bedrooms ?? null,
     bathrooms_count: num(a.FULL_BATHROOMS) ?? null,
-    unit_number: null,
+    unit_number: rentManagerUnit(loc),
     comuna,
     city: str(loc.city),
     state: str(loc.state),
