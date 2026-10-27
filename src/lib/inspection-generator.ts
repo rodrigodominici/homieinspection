@@ -63,7 +63,9 @@ function normalizeIncomingPayload(raw: PropertyPayload): PropertyPayload {
     recipient_email: raw.recipient_email ?? (raw as any).correo_receptora ?? null,
     tenant_name: raw.tenant_name ?? (raw as any).nombre_inquilino ?? null,
     tenant_whatsapp: raw.tenant_whatsapp ?? (raw as any).whatsapp_inquilino ?? null,
-    unit_number: raw.unit_number ?? (raw as any).numero_depto ?? null,
+    unit_number: [raw.unit_number, (raw as any).numero_depto, (raw as any).numero_de_departamento]
+      .map((value) => typeof value === 'string' ? value.trim() : typeof value === 'number' && Number.isFinite(value) ? String(value) : '')
+      .find(Boolean) || null,
     parking_number: raw.parking_number ?? (raw as any).numero_estacionamiento ?? null,
     storage_number: raw.storage_number ?? (raw as any).numero_bodega ?? null,
     fecha_de_termino_real_de_contrato: normalizeDateValue(

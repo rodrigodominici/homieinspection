@@ -6,6 +6,7 @@
 // - Returns 202 fast; processes via EdgeRuntime.waitUntil
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { generateSections, normalizeIncomingPayload } from '../_shared/inspection-generator.ts';
+import { enrichCaptacionUnit } from '../_shared/hubspot-unit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -210,11 +211,21 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // Preserve the original webhook for audit; enrich only normalized inspection data.
+  let intakeData = body.data;
+  let unitRecoveryWarning: string | undefined;
+  try {
+    intakeData = await enrichCaptacionUnit(body.data, body.external_object_id, Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN'));
+  } catch (error) {
+    unitRecoveryWarning = (error as Error).message;
+    console.warn('[intake] apartment recovery failed:', unitRecoveryWarning);
+  }
+
   // 5. Generate full structure (Fix A: real generator, not placeholder)
   let generatedStructure: { sections: unknown[] };
   let structurePrecomputed = false;
   try {
-    const built = buildGeneratedStructure(body.data);
+    const built = buildGeneratedStructure(intakeData);
     generatedStructure = { sections: built.sections };
     structurePrecomputed = built.precomputed;
   } catch (err) {
@@ -264,7 +275,7 @@ Deno.serve(async (req: Request) => {
   };
 
   // Normalizamos alias y fechas (HubSpot manda epoch ms) antes de persistir.
-  const normalizedData = normalizeIncomingPayload(body.data as any) as any;
+  const normalizedData = normalizeIncomingPayload(intakeData as any) as any;
 
   const normalized = {
     ...normalizedData,
@@ -272,6 +283,7 @@ Deno.serve(async (req: Request) => {
     executive: Object.keys(normalizedExecutive).length ? normalizedExecutive : undefined,
     __generated__: generatedStructure,
     __snapshot__: normalizedData,
+    ...(unitRecoveryWarning ? { __unit_recovery_warning__: unitRecoveryWarning } : {}),
     __assignment__: {
       inspector: inspectorRes,
       executive: executiveRes,

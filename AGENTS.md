@@ -1,4 +1,5 @@
 # Architecture rules
+- Chilean HubSpot captación intake recovers missing unit_number from the verified deal property numero_de_departamento before saving the normalized snapshot, while retaining the raw webhook. Why: incoming deal events omit the apartment even when HubSpot has it.
 
 - Offline app shell uses `vite-plugin-pwa` (generateSW → `/sw.js`, NetworkFirst for HTML and REST GETs) registered only from `src/lib/register-sw.ts`, which refuses dev/preview/iframe/`?sw=off`. Why: the old unguarded worker trapped installed devices on stale builds.
 - Opening an inspection online must save its snapshot and preload every inspector screen (`src/lib/offline-readiness.ts`) before showing "Lista para usar sin conexión"; `/assets/` also has a CacheFirst runtime cache. Why: screen files never fetched online made offline navigation hang on iPhone.
