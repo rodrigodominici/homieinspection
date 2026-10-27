@@ -15,6 +15,13 @@
       "when": 1793135390394,
       "tag": "0001_marketing_photos_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793136055783,
+      "tag": "0002_hubspot_deal_url_rpc",
+      "breakpoints": true
     }
   ]
 }

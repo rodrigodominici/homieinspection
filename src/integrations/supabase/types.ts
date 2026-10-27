@@ -2094,6 +2094,10 @@ export type Database = {
               versions_per_report: number
             }[]
           }
+      get_inspection_hubspot_deal_url: {
+        Args: { p_inspection_id: string }
+        Returns: string
+      }
       get_inspector_performance:
         | {
             Args: never
