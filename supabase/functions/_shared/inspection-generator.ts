@@ -476,6 +476,19 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
+  // ── Fotos de comercialización (solo captación, obligatoria, antes de la firma) ──
+  if (payload.inspection_type === 'captacion') {
+    sections.push({
+      section_key: 'marketing_photos',
+      section_title: 'Fotos de comercialización',
+      section_type: 'marketing_photos',
+      sort_order: order++,
+      fields: [
+        { field_key: 'marketing_photos', field_label: 'Fotos de comercialización', field_type: 'photo_upload', group_key: 'photo', sort_order: 0, required: true },
+      ],
+    });
+  }
+
   // 15. Firma de inquilino
   sections.push({
     section_key: 'tenant_signature',
