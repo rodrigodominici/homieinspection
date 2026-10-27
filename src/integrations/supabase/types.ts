@@ -2177,6 +2177,10 @@ export type Database = {
         Returns: boolean
       }
       user_markets: { Args: { _user_id: string }; Returns: string[] }
+      with_unit_in_address: {
+        Args: { _text: string; _unit: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
