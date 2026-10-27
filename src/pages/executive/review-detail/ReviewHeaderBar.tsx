@@ -1,3 +1,4 @@
+import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/shared/ui';
