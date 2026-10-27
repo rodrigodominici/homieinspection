@@ -1,3 +1,4 @@
+import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';

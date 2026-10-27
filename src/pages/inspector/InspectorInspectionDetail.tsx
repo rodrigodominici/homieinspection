@@ -552,6 +552,7 @@ export default function InspectorInspectionDetail() {
       </header>
 
       <main className="px-4 py-4 space-y-6">
+        {offline.online && <HubSpotDealLink inspectionId={inspection.id} />}
         {/* Offline readiness: tells the receptor when it is safe to lose signal */}
         {offline.online && !readOnly && offlineReady !== 'checking' && (
           <div
