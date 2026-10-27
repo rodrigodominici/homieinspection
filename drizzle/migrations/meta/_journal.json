@@ -8,6 +8,13 @@
       "when": 1793134132281,
       "tag": "0000_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793135390394,
+      "tag": "0001_marketing_photos_stage",
+      "breakpoints": true
     }
   ]
 }
