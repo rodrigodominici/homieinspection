@@ -108,6 +108,7 @@ export default function WorkOrderPanel({
       .from('inspection_repair_items')
       .select('id,title_snapshot,quantity,unit,unit_price,subtotal,sort_order')
       .eq('inspection_id', inspectionId)
+      .eq('is_pending_quote', false)
       .order('sort_order')
       .then(({ data }) => { if (!cancelled) setQuoted((data ?? []) as unknown as QuotedRepair[]); });
     return () => { cancelled = true; };
