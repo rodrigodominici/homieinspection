@@ -1,3 +1,4 @@
+import { quotedAmount, canQuoteRepair } from '@/lib/repair-pricing';
 /**
  * Audience-aware public report renderer.
  *
@@ -67,6 +68,7 @@ type PaymentNature = 'required' | 'optional';
 type Decision = 'accepted' | 'observed' | 'rejected';
 
 interface PayloadRepair {
+  is_pending_quote?: boolean;
   id?: string;
   name: string;
   description: string | null;
@@ -271,7 +273,7 @@ function groupSectionsByPayer(sections: PayloadSection[]): {
 }
 
 const repairAmount = (r: PayloadRepair) =>
-  Number(r.subtotal ?? r.quantity * r.unit_price);
+  quotedAmount(r);
 
 const sumRepairs = (rs: PayloadRepair[]) =>
   rs.reduce((s, r) => s + repairAmount(r), 0);
@@ -389,7 +391,7 @@ function RepairRow({
   onChange?: (next: { decision: Decision | null; comment: string }) => void;
   lockedDecision?: OwnerDecision;
 }) {
-  const subtotal = Number(r.subtotal ?? r.quantity * r.unit_price);
+  const subtotal = quotedAmount(r);
   const decision = interactive ? state?.decision ?? null : lockedDecision?.decision ?? null;
 
   const wrapperByDecision: Record<string, string> = {
@@ -418,20 +420,20 @@ function RepairRow({
             {r.payment_nature === 'optional' ? 'Opcional' : 'Recomendada'}
           </Badge>
           <p className={`text-tiny font-mono tabular-nums text-muted-foreground mt-1 ${isRejected ? 'line-through' : ''}`}>
-            {r.quantity} × {fmt(Number(r.unit_price))} = {fmt(subtotal)}
+            {r.is_pending_quote ? `${r.quantity} · Por cotizar` : `${r.quantity} × ${fmt(Number(r.unit_price))} = ${fmt(subtotal)}`}
           </p>
         </div>
         <div className="sm:text-right shrink-0">
-          <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{fmt(subtotal)}</p>
+          <p className={`text-body font-mono tabular-nums font-medium whitespace-nowrap ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{r.is_pending_quote ? 'Por cotizar' : fmt(subtotal)}</p>
         </div>
       </div>
 
 
-      {interactive && state && onChange && r.id && (
+      {!r.is_pending_quote && interactive && state && onChange && r.id && (
         <RepairDecisionControl state={state} onChange={onChange} />
       )}
 
-      {!interactive && lockedDecision && (
+      {!r.is_pending_quote && !interactive && lockedDecision && (
         <div className="mt-2 space-y-1.5">
           <DecisionBadge decision={lockedDecision.decision} />
           {lockedDecision.comment && (
@@ -703,7 +705,7 @@ export default function OwnerReport() {
   // Flat list of owner-decidable repairs (only owner audience).
   const decidableRepairs = useMemo(() => {
     if (!report || !isOwnerAudience) return [] as PayloadRepair[];
-    return report.sections.flatMap((s) => s.repairs).filter((r) => !!r.id);
+    return report.sections.flatMap((s) => s.repairs).filter((r) => !!r.id && canQuoteRepair(r));
   }, [report, isOwnerAudience]);
 
   const lockedMap = useMemo(() => {
@@ -1093,6 +1095,7 @@ export default function OwnerReport() {
 
           {/* ── Budget Tab ── */}
           <TabsContent value="budget" className="space-y-5">
+            {(audience === 'owner' ? [...ownerItems, ...tenantItems] : tenantItems).some(r => r.is_pending_quote) && <p className="text-sm text-muted-foreground">{(audience === 'owner' ? [...ownerItems, ...tenantItems] : tenantItems).filter(r => r.is_pending_quote).length} partidas por cotizar, no consideradas en el total.</p>}
             {/* Interactive instructions */}
             {interactive && (
               <div className="rounded-xl border border-primary/30 bg-primary-soft px-3.5 py-3">
@@ -1106,8 +1109,8 @@ export default function OwnerReport() {
             )}
             {(() => {
               if (!buckets) return null;
-              const empty = (audience === 'owner' && grandTotalFull === 0)
-                || (audience === 'tenant' && tenantTotalFull === 0);
+              const empty = (audience === 'owner' && ownerItems.length + tenantItems.length === 0)
+                || (audience === 'tenant' && tenantItems.length === 0);
               if (empty) {
                 return <p className="text-center text-muted-foreground py-12">No hay reparaciones presupuestadas.</p>;
               }

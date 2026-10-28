@@ -5,6 +5,7 @@ import { fmtCurrency } from './helpers';
 import type { QuotationDiscountBreakdown, QuotationDiscountInput } from '@/lib/quotation-discount';
 
 interface QuotationViewProps {
+  pendingQuoteCount?: number;
   budgetBreakdown: {
     ownerRequired: number; ownerOptional: number; ownerTotal: number;
     tenantRequired: number; tenantOptional: number; tenantTotal: number;
@@ -39,7 +40,7 @@ export function QuotationView({
   warrantyDeposit, depositDiff, hasRepairs,
   onOpenQuotation, onOpenContractorQuotation, onOpenWorkOrderDetails,
   onGoToRepairs, onGoToPublish,
-  ownerPendingFeedbackCount = 0, ownerFeedbackVersionNumber = null,
+  pendingQuoteCount = 0, ownerPendingFeedbackCount = 0, ownerFeedbackVersionNumber = null,
 }: QuotationViewProps) {
   return (
     <div className="h-full overflow-y-auto p-6 max-w-5xl mx-auto space-y-6">
@@ -76,6 +77,7 @@ export function QuotationView({
         </div>
       )}
 
+      {pendingQuoteCount > 0 && <p className="text-sm text-muted-foreground">{pendingQuoteCount} partidas por cotizar, no consideradas en el total.</p>}
       {/* Side-by-side: owner vs tenant */}
       <div className="grid md:grid-cols-2 gap-4">
         <PayerCard

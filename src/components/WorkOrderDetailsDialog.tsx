@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 /**
  * WorkOrderDetailsDialog — internal OT details grouped by category.
  *
@@ -57,12 +58,12 @@ export function WorkOrderDetailsDialog({
 }: WorkOrderDetailsDialogProps) {
   const categoryRows = useMemo(() => {
     const map = new Map<string, { venta: number; costo: number }>();
-    for (const r of allRepairs) {
+    for (const r of allRepairs.filter(r => !r.is_pending_quote)) {
       const cat = r.category_snapshot || 'Sin categoría';
       const prev = map.get(cat) ?? { venta: 0, costo: 0 };
       map.set(cat, {
-        venta: prev.venta + r.quantity * r.unit_price,
-        costo: prev.costo + r.quantity * r.contractor_unit_price,
+        venta: prev.venta + quotedAmount(r),
+        costo: prev.costo + contractorAmount(r),
       });
     }
     return [...map.entries()]

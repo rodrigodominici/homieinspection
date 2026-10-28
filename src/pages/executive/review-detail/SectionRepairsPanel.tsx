@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +51,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
 }: SectionRepairsPanelProps) {
   const subtotalClient = repairs
     .filter((r) => r.visible_to_owner)
-    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+    .reduce((s, r) => s + quotedAmount(r), 0);
 
   return (
     <div className={cn('flex flex-col h-full bg-card', variant === 'inline' && 'border-l')}>
@@ -130,7 +131,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                     <span>{repair.payment_nature === 'optional' ? 'Opcional' : 'Recomendada'}</span>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-medium shrink-0">{fmtCurrency(itemSubtotal)}</span>
+                <span className="text-xs font-mono font-medium shrink-0">{repair.is_pending_quote ? 'Por cotizar' : fmtCurrency(itemSubtotal)}</span>
               </button>
 
               {/* Owner feedback callout — visible siempre que haya feedback pendiente */}
@@ -208,14 +209,14 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                     </div>
                     <div>
                       <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Cliente</Label>
-                      <NumberInput value={repair.unit_price}
+                      <NumberInput aria-label="Precio cliente" placeholder={repair.is_pending_quote ? 'Por cotizar' : undefined} value={repair.is_pending_quote ? undefined : repair.unit_price}
                         onChange={(v) => onUpdateRepair(repair.id, 'unit_price', v)}
                         className="h-8 text-xs font-mono" />
                     </div>
                     {hasContractor && (
                       <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Contratista</Label>
-                        <NumberInput value={(repair as any).contractor_unit_price ?? 0}
+                        <NumberInput disabled={repair.is_pending_quote} value={(repair as any).contractor_unit_price ?? 0}
                           onChange={(v) => onUpdateRepair(repair.id, 'contractor_unit_price', v)}
                           className="h-8 text-xs font-mono" />
                       </div>
@@ -223,7 +224,7 @@ export const SectionRepairsPanel = memo(function SectionRepairsPanel({
                     <div>
                       <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 block">Subtotal</Label>
                       <p className="h-8 flex items-center justify-end text-xs font-mono font-medium">
-                        {fmtCurrency(itemSubtotal)}
+                        {repair.is_pending_quote ? 'Por cotizar' : fmtCurrency(itemSubtotal)}
                       </p>
                     </div>
                     {hasContractor && (
