@@ -29,6 +29,13 @@
       "when": 1793136510862,
       "tag": "0003_hubspot_deal_url_exec_admin_only",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793154656932,
+      "tag": "0004_pending_quotation_items",
+      "breakpoints": true
     }
   ]
 }
