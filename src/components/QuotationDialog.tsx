@@ -109,7 +109,7 @@ export function QuotationDialog({
           </td>
           <td class="r">${r.quantity}</td>
           <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)}</td>
-          <td class="r">${fmtCurrencyquotedAmount(r)}</td>
+          <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</td>
         </tr>`).join('');
       return `
         <div class="section-header">${esc(g.section.section_title)}</div>
@@ -199,7 +199,7 @@ export function QuotationDialog({
       lines.push(g.section.section_title.toUpperCase());
       g.items.forEach(r => {
         const tag = r.payment_nature === 'required' ? '[Recomendada]' : '[Opcional]';
-        lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)} = ${fmtCurrencyquotedAmount(r)}`);
+        lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)} = ${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}`);
       });
       lines.push(`Subtotal sección: ${fmtCurrency(g.subtotal)}`);
       lines.push('');
@@ -267,7 +267,7 @@ export function QuotationDialog({
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)}</td>
-                          <td className="text-right px-2 py-1.5 font-mono font-medium">{fmtCurrencyquotedAmount(r)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono font-medium">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</td>
                         </tr>
                       ))}
                     </tbody>
