@@ -507,7 +507,7 @@ export default function AdminInspectionDetail() {
             payment_nature: r.payment_nature,
           })),
       })),
-      budget_total: visibleRepairs.reduce((sum, r) => sum + NumberquotedAmount(r), 0),
+      budget_total: visibleRepairs.reduce((sum, r) => sum + quotedAmount(r), 0),
       published_at: new Date().toISOString(),
     };
 
