@@ -1,3 +1,4 @@
+import { quotedAmount } from '@/lib/repair-pricing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -154,7 +155,7 @@ export function MobileReviewView({
                   </div>
                 )}
                 {(() => {
-                  const sSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + r.quantity * r.unit_price, 0);
+                  const sSubtotal = sRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + quotedAmount(r), 0);
                   return (
                     <div className="rounded-lg border border-border bg-card overflow-hidden">
                       <div className="flex flex-col gap-2 px-3 py-2 border-b border-border/60 bg-muted/30">
@@ -181,7 +182,7 @@ export function MobileReviewView({
                           {sRepairs.map(r => (
                             <li key={r.id} className="flex items-center gap-2 px-3 py-1.5 text-caption">
                               <span className="flex-1 min-w-0 truncate">{r.title_snapshot}</span>
-                              <span className="font-mono shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                              <span className="font-mono shrink-0">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</span>
                             </li>
                           ))}
                         </ul>

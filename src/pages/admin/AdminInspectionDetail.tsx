@@ -1,3 +1,6 @@
+import { quotedAmount, contractorAmount, repairUpdate } from '@/lib/repair-pricing';
+import { RepairCatalogSheet } from '@/modules/review/components/RepairCatalogSheet';
+import { addPendingRepair } from '@/modules/review/api/repairs.service';
 import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -497,12 +500,14 @@ export default function AdminInspectionDetail() {
             unit: r.unit,
             quantity: r.quantity,
             unit_price: r.unit_price,
-            subtotal: r.subtotal,
+            id: r.id,
+            is_pending_quote: !!r.is_pending_quote,
+            subtotal: quotedAmount(r),
             payer_role: r.payer_role,
             payment_nature: r.payment_nature,
           })),
       })),
-      budget_total: visibleRepairs.reduce((sum, r) => sum + Number(r.subtotal ?? r.quantity * r.unit_price), 0),
+      budget_total: visibleRepairs.reduce((sum, r) => sum + NumberquotedAmount(r), 0),
       published_at: new Date().toISOString(),
     };
 
@@ -613,7 +618,7 @@ export default function AdminInspectionDetail() {
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    await supabase.from('inspection_repair_items').update({ [field]: value, updated_by: profile?.id } as any).eq('id', repairId);
+    await supabase.from('inspection_repair_items').update({ ...repairUpdate(field, value), updated_by: profile?.id } as any).eq('id', repairId);
     await refreshRepairs();
   };
 
@@ -670,7 +675,7 @@ export default function AdminInspectionDetail() {
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
   const operationalSections = useMemo(() => sections.filter(isRepairableSection), [sections]);
-  const budgetTotal = repairItems.reduce((sum, r) => sum + (r.subtotal ?? r.quantity * r.unit_price), 0);
+  const budgetTotal = repairItems.reduce((sum, r) => sum + quotedAmount(r), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
   /** Check-in: sin ejecutivo, sin revisión ni cotización. */
@@ -685,18 +690,18 @@ export default function AdminInspectionDetail() {
   /* ─── Executive-aligned derived data (budget breakdown, discount, owner feedback) ─── */
   const allRepairs = repairItems;
   const clientTotal = useMemo(
-    () => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0),
+    () => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + quotedAmount(r), 0),
     [allRepairs]
   );
   const contractorTotal = useMemo(
-    () => allRepairs.reduce((s, r) => s + (r.quantity * Number((r as any).contractor_unit_price ?? 0)), 0),
+    () => allRepairs.reduce((s, r) => s + contractorAmount(r), 0),
     [allRepairs]
   );
 
   const budgetBreakdown = useMemo(() => {
     const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
     for (const r of allRepairs) {
-      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      const amount = quotedAmount(r);
       if (r.payer_role === 'tenant') {
         if (r.payment_nature === 'optional') acc.tenantOptional += amount;
         else acc.tenantRequired += amount;
@@ -1865,6 +1870,7 @@ export default function AdminInspectionDetail() {
                   warrantyDeposit={warrantyDeposit}
                   depositDiff={depositDiff}
                   hasRepairs={allRepairs.length > 0}
+                  pendingQuoteCount={allRepairs.filter(r => r.is_pending_quote).length}
                   onOpenQuotation={(payer) => setQuotationDialog({ open: true, payer })}
                   onOpenContractorQuotation={() => setContractorQuotationOpen(true)}
                   onOpenWorkOrderDetails={() => setWorkOrderDetailsOpen(true)}
@@ -1961,36 +1967,14 @@ export default function AdminInspectionDetail() {
       </div>
 
       {/* ─── Catalog Sheet ─── */}
-      <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Catálogo de Reparaciones</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar reparación..." value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)} className="pl-9" />
-            </div>
-            <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {filteredCatalog.map((item) => (
-                <button key={item.id} onClick={() => addRepairFromCatalog(item)}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors space-y-1">
-                  <p className="text-xs font-medium">{item.name}</p>
-                  {item.owner_friendly_name && <p className="text-[10px] text-muted-foreground">{item.owner_friendly_name}</p>}
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <Badge variant="secondary" className="text-[10px]">{item.category?.name}</Badge>
-                    <span className="font-mono">${Number(item.base_price).toFixed(2)} / {item.unit}</span>
-                  </div>
-                </button>
-              ))}
-              {filteredCatalog.length === 0 && (
-                <p className="text-center text-muted-foreground text-xs py-8">No se encontraron reparaciones</p>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <RepairCatalogSheet open={catalogOpen} onOpenChange={setCatalogOpen}
+        search={catalogSearch} onSearchChange={setCatalogSearch}
+        items={catalogItems} onSelect={addRepairFromCatalog}
+        onAddPending={async (title, quantity) => {
+          if (!id || !catalogSectionId) throw new Error('Selecciona una sección.');
+          await addPendingRepair(id, catalogSectionId, title, quantity, profile?.id);
+          await refreshRepairs(); setCatalogOpen(false);
+        }} />
 
       {/* ─── Quotation dialogs (owner / tenant / contractor / work order) ─── */}
       {inspection && (
