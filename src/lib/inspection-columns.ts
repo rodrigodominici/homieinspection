@@ -136,6 +136,7 @@ export const REVIEW_COLUMNS = [
  * Projection for `inspection_repair_items`.
  */
 export const REPAIR_COLUMNS = [
+  'is_pending_quote',
   'id',
   'inspection_id',
   'inspection_section_id',

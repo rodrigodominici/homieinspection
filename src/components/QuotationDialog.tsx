@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ function groupBySection(
   for (const section of sorted) {
     const items = repairs.filter(r => r.inspection_section_id === section.id);
     if (items.length === 0) continue;
-    const subtotal = items.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+    const subtotal = items.reduce((s, r) => s + quotedAmount(r), 0);
     groups.push({ section, items, subtotal });
   }
   // Orphans (section not found in operationalSections — defensive)
@@ -51,7 +52,7 @@ function groupBySection(
     groups.push({
       section: { id: '__orphan__', section_title: 'Otros', sort_order: 9999 } as InspectionSection,
       items: orphans,
-      subtotal: orphans.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0),
+      subtotal: orphans.reduce((s, r) => s + quotedAmount(r), 0),
     });
   }
   return groups;
@@ -76,15 +77,16 @@ export function QuotationDialog({
     const groups = groupBySection(filtered, operationalSections);
     const requiredTotal = filtered
       .filter(r => r.payment_nature === 'required')
-      .reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+      .reduce((s, r) => s + quotedAmount(r), 0);
     const optionalTotal = filtered
       .filter(r => r.payment_nature === 'optional')
-      .reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+      .reduce((s, r) => s + quotedAmount(r), 0);
     const subtotal = requiredTotal + optionalTotal;
     const discountValue = Math.min(Math.max(Math.round(Number(discountAmount) || 0), 0), subtotal);
     const base = Math.max(0, subtotal - discountValue);
     return { groups, requiredTotal, optionalTotal, subtotal, discountValue, base, vat: applyVat(base, taxConfig) };
   }, [repairs, payer, operationalSections, taxConfig, discountAmount]);
+  const pendingCount = repairs.filter(r => r.payer_role === payer && r.is_pending_quote).length;
   const total = vat.total;
   const discountLabel = discount
     ? (discount.type === 'percentage' ? `${discount.value}%` : 'monto fijo')
@@ -106,8 +108,8 @@ export function QuotationDialog({
             </span>
           </td>
           <td class="r">${r.quantity}</td>
-          <td class="r">${fmtCurrency(r.unit_price)}</td>
-          <td class="r">${fmtCurrency(r.quantity * r.unit_price)}</td>
+          <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)}</td>
+          <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</td>
         </tr>`).join('');
       return `
         <div class="section-header">${esc(g.section.section_title)}</div>
@@ -181,6 +183,7 @@ export function QuotationDialog({
       <div class="doc-date">${today}</div>
       ${sectionsHtml}
       ${summary}
+      ${pendingCount ? `<p>${pendingCount} partidas por cotizar, no consideradas en el total.</p>` : ''}
     </body></html>`);
     win.document.close();
     setTimeout(() => { win.print(); }, 300);
@@ -196,7 +199,7 @@ export function QuotationDialog({
       lines.push(g.section.section_title.toUpperCase());
       g.items.forEach(r => {
         const tag = r.payment_nature === 'required' ? '[Recomendada]' : '[Opcional]';
-        lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${fmtCurrency(r.unit_price)} = ${fmtCurrency(r.quantity * r.unit_price)}`);
+        lines.push(`- ${r.title_snapshot} ${tag} · ${r.quantity} × ${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)} = ${r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}`);
       });
       lines.push(`Subtotal sección: ${fmtCurrency(g.subtotal)}`);
       lines.push('');
@@ -221,6 +224,7 @@ export function QuotationDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div id="quotation-print-area" className="space-y-4">
+          {pendingCount > 0 && <p className="text-sm text-muted-foreground">{pendingCount} partidas por cotizar, no consideradas en el total.</p>}
           <div>
             <h1 className="text-body-lg font-semibold">{inspection.property_name ?? inspection.property_id}</h1>
             {inspection.address && <p className="text-caption text-muted-foreground">{inspection.address}</p>}
@@ -262,8 +266,8 @@ export function QuotationDialog({
                             </Badge>
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
-                          <td className="text-right px-2 py-1.5 font-mono">{fmtCurrency(r.unit_price)}</td>
-                          <td className="text-right px-2 py-1.5 font-mono font-medium">{fmtCurrency(r.quantity * r.unit_price)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(r.unit_price)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono font-medium">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</td>
                         </tr>
                       ))}
                     </tbody>

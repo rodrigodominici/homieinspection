@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 /**
  * ContractorQuotationDialog — quotation for the contractor.
  *
@@ -35,7 +36,7 @@ function groupBySection(repairs: InspectionRepairItem[], sections: InspectionSec
   for (const section of sorted) {
     const items = repairs.filter(r => r.inspection_section_id === section.id);
     if (items.length === 0) continue;
-    const subtotal = items.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.contractor_unit_price) || 0), 0);
+    const subtotal = items.reduce((s, r) => s + contractorAmount(r), 0);
     groups.push({ section, items, subtotal });
   }
   return groups;
@@ -92,8 +93,8 @@ export function ContractorQuotationDialog({
             ${r.description_snapshot ? `<div class="repair-desc">${esc(r.description_snapshot)}</div>` : ''}
           </td>
           <td class="r">${r.quantity}</td>
-          <td class="r">${fmtNum(r.contractor_unit_price)}</td>
-          <td class="r">${fmtNum(r.quantity * r.contractor_unit_price)}</td>
+          <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtNum(r.contractor_unit_price)}</td>
+          <td class="r">${r.is_pending_quote ? 'Por cotizar' : fmtNum(contractorAmount(r))}</td>
         </tr>`).join('');
       return `
         <div class="section-header">${esc(g.section.section_title)}</div>
@@ -183,8 +184,8 @@ export function ContractorQuotationDialog({
                             {r.description_snapshot && <div className="text-[10px] text-muted-foreground">{r.description_snapshot}</div>}
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono">{r.quantity}</td>
-                          <td className="text-right px-2 py-1.5 font-mono">{fmtNum(r.contractor_unit_price)}</td>
-                          <td className="text-right px-2 py-1.5 font-mono font-semibold">{fmtNum(r.quantity * r.contractor_unit_price)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono">{r.is_pending_quote ? 'Por cotizar' : fmtNum(r.contractor_unit_price)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono font-semibold">{r.is_pending_quote ? 'Por cotizar' : fmtNum(contractorAmount(r))}</td>
                         </tr>
                       ))}
                     </tbody>

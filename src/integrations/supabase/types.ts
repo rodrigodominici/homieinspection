@@ -709,6 +709,7 @@ export type Database = {
           id: string
           inspection_id: string
           inspection_section_id: string
+          is_pending_quote: boolean
           notes: string | null
           owner_friendly_name_snapshot: string | null
           payer_role: string
@@ -734,6 +735,7 @@ export type Database = {
           id?: string
           inspection_id: string
           inspection_section_id: string
+          is_pending_quote?: boolean
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
           payer_role?: string
@@ -759,6 +761,7 @@ export type Database = {
           id?: string
           inspection_id?: string
           inspection_section_id?: string
+          is_pending_quote?: boolean
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
           payer_role?: string

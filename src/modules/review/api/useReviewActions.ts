@@ -8,6 +8,7 @@ import * as inspectionActions from './inspection-actions.service';
 import { generateCheckinReportPdf } from './checkin-report.service';
 import { checkinReportKey } from './useCheckinReport';
 import { isCheckIn } from '@/lib/inspection-type-labels';
+import { repairUpdate } from '@/lib/repair-pricing';
 import type { PublishedUrls } from '@/modules/review/components';
 import type {
   Inspection, InspectionPhoto, InspectionRepairItem, InspectionSection, RepairCatalogItem,
@@ -175,7 +176,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   const updateRepairItem = useCallback(async (repairId: string, field: string, value: any) => {
     // Optimistic: price/qty/visibility edits reflect immediately; totals recompute
     // from the same cache, so no round-trip wait for the executive.
-    const revert = patchRepair(repairId, { [field]: value });
+    const revert = patchRepair(repairId, repairUpdate(field, value));
     try {
       await repairsService.updateRepairItem(repairId, field, value, profileId);
       await invalidateRepairs();
@@ -285,6 +286,13 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   }, [inspection, id, invalidateInspection, toast]);
 
   return {
+    addPendingRepair: async (title: string, quantity: number) => {
+      if (!id || !catalogSectionId) throw new Error('Selecciona una sección.');
+      await repairsService.addPendingRepair(id, catalogSectionId, title, quantity, profileId);
+      await invalidateRepairs();
+      setCatalogOpen(false);
+      toast({ title: 'Partida por cotizar agregada' });
+    },
     submitting,
     catalog: {
       open: catalogOpen, setOpen: setCatalogOpen,

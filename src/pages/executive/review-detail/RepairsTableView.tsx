@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import { useState, useMemo, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,7 +81,7 @@ export const RepairsTableView = memo(function RepairsTableView({
     });
   }, [allRepairs, payerFilter, natureFilter, sectionFilter, feedbackFilter, feedbackByRepairId, search, sections]);
 
-  const filteredTotal = filtered.reduce((s, r) => s + r.quantity * r.unit_price, 0);
+  const filteredTotal = filtered.reduce((s, r) => s + quotedAmount(r), 0);
   const hasContractor = !!selectedContractorId;
 
   return (
@@ -207,7 +208,7 @@ export const RepairsTableView = memo(function RepairsTableView({
         ) : (
           <ul className="divide-y divide-border/60">
             {filtered.map((r) => {
-              const subtotal = r.quantity * r.unit_price;
+              const subtotal = quotedAmount(r);
               const fb = feedbackByRepairId?.get(r.id);
               const pendingFb = fb && fb.decision !== 'accepted' ? fb : null;
               const accent = feedbackAccentClasses(pendingFb?.decision);
@@ -245,10 +246,12 @@ export const RepairsTableView = memo(function RepairsTableView({
                     <option value="optional">Opcional</option>
                   </select>
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
-                    {r.quantity} × {fmtCurrency(r.unit_price)}
+                    {r.is_pending_quote ? <Input aria-label={`Definir precio de ${r.title_snapshot}`} placeholder="Por cotizar" type="number" min="0" step="any" className="h-8 text-xs" onBlur={e => {
+                      if (e.target.value.trim() && Number(e.target.value) >= 0) onUpdateRepair(r.id, 'unit_price', Number(e.target.value));
+                    }} /> : `${r.quantity} × ${fmtCurrency(r.unit_price)}`}
                   </span>
                   <span className="text-right font-mono text-sm font-medium tabular-nums">
-                    {fmtCurrency(subtotal)}
+                    {r.is_pending_quote ? 'Por cotizar' : fmtCurrency(subtotal)}
                   </span>
                   <button
                     type="button"

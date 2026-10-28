@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -139,7 +140,7 @@ export default function ExecutiveReviewDetail() {
     const acc = { ownerRequired: 0, ownerOptional: 0, tenantRequired: 0, tenantOptional: 0 };
     const bySection: Record<string, { owner: number; tenant: number; total: number }> = {};
     for (const r of allRepairs) {
-      const amount = (Number(r.quantity) || 0) * (Number(r.unit_price) || 0);
+      const amount = quotedAmount(r);
       if (r.payer_role === 'tenant') {
         if (r.payment_nature === 'optional') acc.tenantOptional += amount;
         else acc.tenantRequired += amount;
@@ -163,8 +164,8 @@ export default function ExecutiveReviewDetail() {
   }, [allRepairs]);
 
 
-  const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + (r.quantity * r.unit_price), 0), [allRepairs]);
-  const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + (r.quantity * (r as any).contractor_unit_price), 0), [allRepairs]);
+  const clientTotal = useMemo(() => allRepairs.filter(r => r.visible_to_owner).reduce((s, r) => s + quotedAmount(r), 0), [allRepairs]);
+  const contractorTotal = useMemo(() => allRepairs.reduce((s, r) => s + contractorAmount(r), 0), [allRepairs]);
   const utility = budgetBreakdown.grandTotal - contractorTotal;
 
   // Tax config for the inspection market (loaded once, cached in tax.ts).
@@ -558,6 +559,7 @@ export default function ExecutiveReviewDetail() {
             warrantyDeposit={warrantyDeposit}
             depositDiff={depositDiff}
             hasRepairs={allRepairs.length > 0}
+            pendingQuoteCount={allRepairs.filter(r => r.is_pending_quote).length}
             onOpenQuotation={handleOpenQuotation}
             onOpenContractorQuotation={handleOpenContractorQuotation}
             onOpenWorkOrderDetails={handleOpenWorkOrderDetails}
@@ -651,6 +653,7 @@ export default function ExecutiveReviewDetail() {
         onSearchChange={catalog.setSearch}
         items={catalog.items}
         onSelect={actions.addRepairFromCatalog}
+        onAddPending={actions.addPendingRepair}
       />
 
       {/* ── Published URL dialog (dual: owner + tenant) ──── */}

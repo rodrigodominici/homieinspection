@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { quotedAmount } from '@/lib/repair-pricing';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -50,7 +51,7 @@ export const SectionWorkspace = memo(function SectionWorkspace({
   );
   const sectionSubtotalClient = repairs
     .filter((r) => r.visible_to_owner)
-    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+    .reduce((s, r) => s + quotedAmount(r), 0);
 
   const finalObsAutosave = useDebouncedAutosave(
     finalObservation,
@@ -195,7 +196,7 @@ export const SectionWorkspace = memo(function SectionWorkspace({
                   className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-muted/40 transition-colors"
                 >
                   <span className="flex-1 min-w-0 text-caption truncate">{r.title_snapshot}</span>
-                  <span className="font-mono text-caption shrink-0">{fmtCurrency(r.quantity * r.unit_price)}</span>
+                  <span className="font-mono text-caption shrink-0">{r.is_pending_quote ? 'Por cotizar' : fmtCurrency(quotedAmount(r))}</span>
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 </button>
               </li>

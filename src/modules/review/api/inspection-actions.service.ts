@@ -1,3 +1,4 @@
+import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 /**
  * High-level inspection lifecycle actions for the Executive workstation:
  * start review, approve, request changes, publish.
@@ -92,10 +93,10 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
   // owner actually sees in the budget tab.
   const visibleSubtotalOwner = visibleRepairs
     .filter((r) => r.payer_role !== 'tenant')
-    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+    .reduce((s, r) => s + quotedAmount(r), 0);
   const visibleSubtotalTenant = visibleRepairs
     .filter((r) => r.payer_role === 'tenant')
-    .reduce((s, r) => s + r.quantity * r.unit_price, 0);
+    .reduce((s, r) => s + quotedAmount(r), 0);
 
   const discountBreakdown = applyQuotationDiscount({
     subtotalOwner: visibleSubtotalOwner,
@@ -125,13 +126,14 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
         .filter((r) => r.inspection_section_id === s.id)
         .map((r) => ({
           id: r.id,
+          is_pending_quote: !!r.is_pending_quote,
           name: r.owner_friendly_name_snapshot || r.title_snapshot,
           description: r.description_snapshot,
           category: r.category_snapshot,
           unit: r.unit,
           quantity: r.quantity,
           unit_price: r.unit_price,
-          subtotal: r.quantity * r.unit_price,
+          subtotal: quotedAmount(r),
           payer_role: r.payer_role,
           payment_nature: r.payment_nature,
         })),

@@ -303,6 +303,7 @@ export interface RepairCatalogItem {
 }
 
 export interface InspectionRepairItem {
+  is_pending_quote?: boolean;
   id: string;
   inspection_id: string;
   inspection_section_id: string;
