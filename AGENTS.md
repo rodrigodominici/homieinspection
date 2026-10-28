@@ -1,4 +1,5 @@
 # Architecture rules
+- Pending quotation items use an explicit is_pending_quote flag across pricing, published snapshots, owner decisions and work-order eligibility; zero price alone never means pending. Why: unpaid estimates must not be confused with free approved work.
 - Rent Manager listing lookup maps location.unit to unit_number without parsing street addresses. Why: the upstream response includes apartments separately from the address.
 - Chilean HubSpot captación intake recovers missing unit_number from the verified deal property numero_de_departamento before saving the normalized snapshot, while retaining the raw webhook. Why: incoming deal events omit the apartment even when HubSpot has it.
 

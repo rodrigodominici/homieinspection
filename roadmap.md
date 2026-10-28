@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Implement and verify approved first quotation stage: explicit pending-price items, totals, public decisions, downloads and OT exclusion.
 - [x] Verified Rent Manager includes location.unit (707, 217, 213); fixed and deployed lookup mapping, verified live results and 11 passing tests.
 - [x] Fix missing apartment numbers in Chilean HubSpot captación intake; deployed recovery from numero_de_departamento, corrected today's three units (707, 217, 213), verified real HubSpot lookup and authenticated HI display.
 - [x] Identify what sent key collection and checkout receipt dates for HubSpot contract 61527264411: historical check-in sends on September 12; current server lacks inspection-type restrictions for these actions.
