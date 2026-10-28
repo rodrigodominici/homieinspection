@@ -10,6 +10,7 @@
  * `public_token` for older versions.
  */
 import { useMemo, useState } from 'react';
+import { quotedAmount } from '@/lib/repair-pricing';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,7 +105,7 @@ function SnapshotView({ version }: { version: ReportVersionHistoryEntry }) {
     let tenantTotal = 0;
     for (const s of sections) {
       for (const r of s.repairs ?? []) {
-        const amount = Number(r.subtotal ?? (Number(r.quantity || 0) * Number(r.unit_price || 0)));
+        const amount = quotedAmount(r);
         repairs += 1;
         total += amount;
         if (r.payer_role === 'tenant') tenantTotal += amount;
@@ -144,7 +145,7 @@ function SnapshotView({ version }: { version: ReportVersionHistoryEntry }) {
           {sections.map((s) => {
             const repairs = (s.repairs ?? []) as any[];
             if (repairs.length === 0) return null;
-            const subtotal = repairs.reduce((acc, r) => acc + Number(r.subtotal ?? (Number(r.quantity || 0) * Number(r.unit_price || 0))), 0);
+            const subtotal = repairs.reduce((acc, r) => acc + quotedAmount(r), 0);
             return (
               <div key={s.id} className="rounded-md border">
                 <div className="px-3 py-2 border-b flex items-center justify-between bg-muted/30">
@@ -157,13 +158,13 @@ function SnapshotView({ version }: { version: ReportVersionHistoryEntry }) {
                       <div className="min-w-0">
                         <p className="text-sm leading-snug">{r.name}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {Number(r.quantity || 0)} {r.unit ?? ''} · {fmtMoney(Number(r.unit_price || 0))}
+                          {Number(r.quantity || 0)} {r.unit ?? ''} · {r.is_pending_quote ? 'Por cotizar' : fmtMoney(Number(r.unit_price || 0))}
                           {r.payer_role === 'tenant' ? ' · Inquilino' : ' · Propietario'}
                           {r.payment_nature === 'optional' ? ' · Opcional' : ''}
                         </p>
                       </div>
                       <span className="text-sm font-mono tabular-nums shrink-0">
-                        {fmtMoney(Number(r.subtotal ?? (Number(r.quantity || 0) * Number(r.unit_price || 0))))}
+                        {r.is_pending_quote ? 'Por cotizar' : fmtMoney(quotedAmount(r))}
                       </span>
                     </li>
                   ))}
