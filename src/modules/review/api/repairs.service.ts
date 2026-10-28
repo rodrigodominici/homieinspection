@@ -5,6 +5,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { sameMarket, normalizeMarket } from '@/lib/markets';
+import { repairUpdate } from '@/lib/repair-pricing';
 import type { InspectionRepairItem, RepairCatalogItem } from '@/lib/types';
 
 export async function fetchActiveCatalog(market?: string | null): Promise<RepairCatalogItem[]> {
@@ -88,7 +89,7 @@ export async function updateRepairItem(
 ): Promise<void> {
   const { error } = await supabase
     .from('inspection_repair_items')
-    .update({ [field]: value, updated_by: profileId } as any)
+    .update({ ...repairUpdate(field, value), updated_by: profileId } as any)
     .eq('id', repairId);
   if (error) throw error;
 }
@@ -131,7 +132,7 @@ export async function rebindContractorPrices(
   let updatedCount = 0;
   await Promise.all(
     repairs
-      .filter((r) => (r as any).repair_catalog_item_id)
+      .filter((r) => !r.is_pending_quote && r.repair_catalog_item_id)
       .map(async (r) => {
         const catalogId = (r as any).repair_catalog_item_id as string;
         const newPrice = newContractorId ? (priceMap.get(catalogId) ?? 0) : 0;
@@ -144,4 +145,17 @@ export async function rebindContractorPrices(
       }),
   );
   return updatedCount;
+}
+
+export async function addPendingRepair(inspectionId: string, sectionId: string, title: string, quantity: number, profileId?: string) {
+  if (!title.trim() || !Number.isFinite(quantity) || quantity <= 0) throw new Error('Ingresa una descripción y cantidad válida.');
+  const { error } = await supabase.from('inspection_repair_items').insert({
+    inspection_id: inspectionId, inspection_section_id: sectionId,
+    title_snapshot: title.trim(), description_snapshot: title.trim(),
+    unit: 'serv', pricing_type: 'fixed', quantity, unit_price: 0,
+    contractor_unit_price: 0, is_pending_quote: true,
+    visible_to_owner: true, payer_role: 'owner', payment_nature: 'required',
+    created_by: profileId, updated_by: profileId,
+  });
+  if (error) throw error;
 }
