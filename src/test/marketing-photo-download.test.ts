@@ -1,5 +1,5 @@
-// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
+import { Blob as NodeBlob } from 'node:buffer';
 const { download } = vi.hoisted(() => ({ download: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { storage: { from: () => ({ download }) } } }));
 import { buildMarketingZip, photoFilename, type MarketingPhoto } from '@/lib/marketing-photo-download';
@@ -7,7 +7,8 @@ import JSZip from 'jszip';
 const photo = (id: string): MarketingPhoto => ({ id, inspection_id: 'captacion', storage_bucket: 'inspection-photos', storage_path: 'same-name.jpg', caption: null, created_at: '', captacion_date: '' });
 describe('marketing photo exports', () => {
   it('keeps every original even when their source filenames match', async () => {
-    download.mockResolvedValue({ data: new Blob(['original bytes'], { type: 'image/jpeg' }), error: null });
+    vi.stubGlobal('Blob', NodeBlob);
+    download.mockResolvedValue({ data: new NodeBlob(['original bytes'], { type: 'image/jpeg' }), error: null });
     const blob = await buildMarketingZip([photo('one'), photo('two')]);
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     expect(Object.keys(zip.files)).toEqual(['001-one.jpg', '002-two.jpg']);
