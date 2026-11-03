@@ -1855,9 +1855,9 @@ export default function AdminInspectionDetail() {
       <RepairCatalogSheet open={catalogOpen} onOpenChange={setCatalogOpen}
         search={catalogSearch} onSearchChange={setCatalogSearch}
         items={catalogItems} onSelect={addRepairFromCatalog}
-        onAddPending={async (title, quantity) => {
+        onAddPending={async (title, quantity, payer) => {
           if (!id || !catalogSectionId) throw new Error('Selecciona una sección.');
-          await addPendingRepair(id, catalogSectionId, title, quantity, profile?.id);
+          await addPendingRepair(id, catalogSectionId, title, quantity, payer, profile?.id);
           await refreshRepairs(); setCatalogOpen(false);
         }} />
 
