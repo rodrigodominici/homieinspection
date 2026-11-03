@@ -6,6 +6,7 @@ import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -483,6 +484,7 @@ export default function AdminInspectionDetail() {
         profileId: profile?.id,
       });
       toast({ title: `Reporte v${result.versionNumber} publicado (Propietario + Inquilino)` });
+      await historyQueryClient.invalidateQueries({ queryKey: ['report-versions', inspection.id] });
       await fetchAll();
     } catch (error) {
       toast({ title: 'Error al publicar', description: error instanceof Error ? error.message : 'No se pudo publicar', variant: 'destructive' });
