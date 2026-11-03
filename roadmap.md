@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Allow explicit owner/tenant selection when adding pending quotation items; verify persistence and payer-specific quotation display.
+- [x] Allow explicit owner/tenant selection when adding pending quotation items in admin and executive forms. Verified tenant persistence and quotation readback with authenticated UI, cleaned up temporary item, 10 tests passed and build OK. Not published; existing payer assignments unchanged.
 - [x] Add immutable sent quotation history, adjacent-version comparison, per-version owner decisions and PDF download. Verified authenticated publication/readback, price/payer changes, rejected work, original PDF contents, desktop/mobile layout, 13 passing tests and cleanup of the test inspection. Not published; historical edits never recorded cannot be reconstructed. OT modifications and additional quotations remain separate stages.
 - [x] Implement first quotation stage: explicit pending-price items, totals, public decisions, downloads and OT exclusion. Verified authenticated creation/readback/pricing, real public mixed report, server exclusions and 7 tests; actual OT assignment and physical PDF printing remain untested.
 - [x] Verified Rent Manager includes location.unit (707, 217, 213); fixed and deployed lookup mapping, verified live results and 11 passing tests.
