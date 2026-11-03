@@ -200,6 +200,7 @@ export function useReviewDetail(inspectionId: string | undefined): UseReviewDeta
           .from('inspection_repair_items')
           .select(REPAIR_COLUMNS)
           .eq('inspection_id', inspectionId!)
+          .eq('is_archived', false)
           .order('sort_order');
         return groupBy((data ?? []) as unknown as InspectionRepairItem[]);
       }),

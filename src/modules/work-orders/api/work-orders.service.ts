@@ -246,7 +246,6 @@ export async function fetchFindingsReport(inspectionId: string): Promise<Finding
       .from('inspection_sections')
       .select('id,section_title,sort_order,final_observation,is_visible')
       .eq('inspection_id', inspectionId)
-      .eq('is_archived', false)
       .order('sort_order'),
     supabase
       .from('inspection_field_values')
@@ -263,6 +262,7 @@ export async function fetchFindingsReport(inspectionId: string): Promise<Finding
       .from('inspection_repair_items')
       .select('id,title_snapshot,description_snapshot,category_snapshot,quantity,unit,notes,sort_order')
       .eq('inspection_id', inspectionId)
+      .eq('is_archived', false)
       .order('sort_order'),
   ]);
   if (sectionsRes.error) throw sectionsRes.error;

@@ -1,4 +1,5 @@
 # Architecture rules
+- Quotation revisions with an existing OT use a separate draft/change ledger and transactional investor decisions; approved changes update the same OT, affected items pause during review, and removals archive rather than erase evidence. Why: edits must not bypass approval or rewrite completed work.
 - Sent quotation history reuses immutable inspection_report_versions snapshots; admin and executive publication use publish_quotation_version transactionally, while comparison and PDF read only captured pricing/tax/discount and per-version owner decisions. Why: republication must not rewrite evidence or race version allocation; destructive inspection deletion remains the explicit admin exception.
 - Pending quotation items use an explicit is_pending_quote flag across pricing, published snapshots, owner decisions and work-order eligibility; zero price alone never means pending. Why: unpaid estimates must not be confused with free approved work.
 - Rent Manager listing lookup maps location.unit to unit_number without parsing street addresses. Why: the upstream response includes apartments separately from the address.

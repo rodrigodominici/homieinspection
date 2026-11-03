@@ -257,7 +257,7 @@ export default function AdminInspectionDetail() {
       }
 
       promises.push(
-        Promise.resolve(supabase.from('inspection_repair_items').select('*').eq('inspection_id', id).order('sort_order'))
+        Promise.resolve(supabase.from('inspection_repair_items').select('*').eq('inspection_id', id).eq('is_archived', false).order('sort_order'))
           .then(r => {
             const rps = (r.data ?? []) as unknown as InspectionRepairItem[];
             setRepairItems(rps);
@@ -570,7 +570,7 @@ export default function AdminInspectionDetail() {
   };
 
   const refreshRepairs = async () => {
-    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).order('sort_order');
+    const { data } = await supabase.from('inspection_repair_items').select('*').eq('inspection_id', id!).eq('is_archived', false).order('sort_order');
     const rps = (data ?? []) as unknown as InspectionRepairItem[];
     setRepairItems(rps);
     setRepairsBySection(groupBy(rps));
