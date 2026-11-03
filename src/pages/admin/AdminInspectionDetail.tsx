@@ -1,6 +1,7 @@
 import { quotedAmount, contractorAmount, repairUpdate } from '@/lib/repair-pricing';
 import { RepairCatalogSheet } from '@/modules/review/components/RepairCatalogSheet';
 import { addPendingRepair } from '@/modules/review/api/repairs.service';
+import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -471,86 +472,23 @@ export default function AdminInspectionDetail() {
     if (!inspection) return;
     setPublishing(true);
 
-    const visibleRepairs = repairItems.filter(r => r.visible_to_owner);
-    const visiblePhotos = photos.filter((p: any) => p.visible_to_owner !== false);
-
-    const payload = {
-      property: {
-        property_id: inspection.property_id,
-        property_name: inspection.property_name,
-        address: inspection.address,
-        market: inspection.market,
-        property_type: inspection.property_type,
-        inspection_type: inspection.inspection_type,
-      },
-      sections: sections.filter(s => s.is_visible).map(s => ({
-        id: s.id,
-        title: s.section_title,
-        type: s.section_type,
-        final_observation: finalObservations[s.id]?.trim() || s.final_observation || null,
-        photos: visiblePhotos
-          .filter(p => p.inspection_section_id === s.id)
-          .map(p => ({ id: p.id, url: null, caption: p.caption })),
-        repairs: visibleRepairs
-          .filter(r => r.inspection_section_id === s.id)
-          .map(r => ({
-            name: r.owner_friendly_name_snapshot || r.title_snapshot,
-            description: r.description_snapshot,
-            category: r.category_snapshot,
-            unit: r.unit,
-            quantity: r.quantity,
-            unit_price: r.unit_price,
-            id: r.id,
-            is_pending_quote: !!r.is_pending_quote,
-            subtotal: quotedAmount(r),
-            payer_role: r.payer_role,
-            payment_nature: r.payment_nature,
-          })),
-      })),
-      budget_total: visibleRepairs.reduce((sum, r) => sum + quotedAmount(r), 0),
-      published_at: new Date().toISOString(),
-    };
-
-    const { data: existing } = await supabase
-      .from('inspection_report_versions')
-      .select('version_number')
-      .eq('inspection_id', id!)
-      .order('version_number', { ascending: false })
-      .limit(1);
-    const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
-
-    // Atomic-in-practice publish: clear previous latest rows, then insert
-    // owner + tenant rows in one batch so the RPC always finds exactly one
-    // is_latest=true row per (inspection, audience).
-    await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', id!);
-
-    const ownerToken = crypto.randomUUID();
-    const tenantToken = crypto.randomUUID();
-    const { error } = await supabase.from('inspection_report_versions').insert([
-      { inspection_id: id!, version_number: nextVersion, status: 'published',
-        audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true },
-      { inspection_id: id!, version_number: nextVersion, status: 'published',
-        audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true },
-    ]);
-
-    if (error) {
-      toast({ title: 'Error al publicar', description: error.message, variant: 'destructive' });
+    try {
+      const result = await inspectionActionsService.publishInspection({
+        inspection,
+        operationalSections,
+        allRepairs: repairItems,
+        photosBySection: groupBy(photos, p => p.inspection_section_id),
+        finalObservations,
+        clientTotal,
+        profileId: profile?.id,
+      });
+      toast({ title: `Reporte v${result.versionNumber} publicado (Propietario + Inquilino)` });
+      await fetchAll();
+    } catch (error) {
+      toast({ title: 'Error al publicar', description: error instanceof Error ? error.message : 'No se pudo publicar', variant: 'destructive' });
+    } finally {
       setPublishing(false);
-      return;
     }
-
-    await supabase.from('inspections').update({
-      status: 'published',
-      published_at: new Date().toISOString(),
-      owner_url_generated_at: new Date().toISOString(),
-      approved_at: new Date().toISOString(),
-      approved_by: profile?.id,
-    }).eq('id', inspection.id);
-
-    await logAudit('publish', inspection.status, 'published', `v${nextVersion} (owner+tenant)`);
-    toast({ title: `Reporte v${nextVersion} publicado (Propietario + Inquilino)` });
-    await fetchAll();
-    setPublishing(false);
   };
 
   /* ─── Review/Budget executive functions ─── */
@@ -1780,7 +1718,8 @@ export default function AdminInspectionDetail() {
                     contractorTotal={contractorTotal}
                     clientTotal={clientTotal}
                     utility={utility}
-                    budgetBreakdown={budgetBreakdown}
+                    inspectionId={inspection.id}
+                  budgetBreakdown={budgetBreakdown}
                     warrantyDeposit={warrantyDeposit}
                     depositDiff={depositDiff}
                     onOpenCatalog={openCatalog}
@@ -1791,64 +1730,7 @@ export default function AdminInspectionDetail() {
                 </div>
               </Card>
 
-              {/* Published versions — grouped by version_number (one row per version, two audience links) */}
-              <Card className="border-0 ring-1 ring-border shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Versiones Publicadas</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {reportVersions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay versiones publicadas.</p>
-                  ) : (
-                    Array.from(
-                      reportVersions.reduce((map, v) => {
-                        const arr = map.get(v.version_number) ?? [];
-                        arr.push(v);
-                        map.set(v.version_number, arr);
-                        return map;
-                      }, new Map<number, InspectionReportVersion[]>()).entries()
-                    )
-                      .sort(([a], [b]) => b - a)
-                      .map(([version, rows]) => {
-                        const owner = rows.find(r => r.audience === 'owner');
-                        const tenant = rows.find(r => r.audience === 'tenant');
-                        const isLatest = rows.some(r => r.is_latest);
-                        const createdAt = rows[0].created_at;
-                        const copyUrl = (token: string | null, label: string) => {
-                          if (!token || !inspection) return;
-                          const url = `${window.location.origin}/reportes/${inspection.property_id}/${token}`;
-                          navigator.clipboard.writeText(url);
-                          toast({ title: `URL ${label} copiada` });
-                        };
-                        return (
-                          <div key={version} className="flex flex-wrap items-center gap-3 py-2 border-b last:border-0">
-                            <span className={cn('text-sm font-medium', isLatest && 'text-primary')}>
-                              v{version}
-                            </span>
-                            {isLatest && <span className="text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">Última</span>}
-                            <span className="text-xs text-muted-foreground flex-1 min-w-[120px]">
-                              {format(new Date(createdAt), 'dd MMM yyyy HH:mm', { locale: es })}
-                            </span>
-                            <Button
-                              variant="ghost" size="sm" disabled={!owner?.public_token}
-                              className="h-7 gap-1 text-xs"
-                              onClick={() => copyUrl(owner?.public_token ?? null, 'Propietario')}
-                            >
-                              <Copy className="h-3 w-3" /> Propietario
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" disabled={!tenant?.public_token}
-                              className="h-7 gap-1 text-xs"
-                              onClick={() => copyUrl(tenant?.public_token ?? null, 'Inquilino')}
-                            >
-                              <Copy className="h-3 w-3" /> Inquilino
-                            </Button>
-                          </div>
-                        );
-                      })
-                  )}
-                </CardContent>
-              </Card>
+              <PublishedVersionsTimeline inspectionId={inspection.id} />
             </div>
           </TabsContent>
 
@@ -1857,6 +1739,7 @@ export default function AdminInspectionDetail() {
             <Card className="border-0 ring-1 ring-border shadow-sm overflow-hidden">
               <div className="min-h-[60vh]">
                 <QuotationView
+                  inspectionId={inspection.id}
                   budgetBreakdown={budgetBreakdown}
                   discountBreakdown={discountBreakdown}
                   activeDiscount={activeDiscountInput}
