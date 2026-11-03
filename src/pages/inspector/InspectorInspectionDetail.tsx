@@ -837,7 +837,7 @@ export default function InspectorInspectionDetail() {
           })}
         </div>
 
-        {readOnly && inspection.inspection_type !== 'check_in' && !offline.isOffline && (
+        {readOnly && inspection.inspection_type !== 'check_in' && offline.online && (
           <PublishedVersionsTimeline inspectionId={inspection.id} />
         )}
 
