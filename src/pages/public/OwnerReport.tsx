@@ -143,6 +143,8 @@ interface ReportPayload {
   /** Feedback loop fields injected by `get_published_report`. */
   version_id?: string;
   owner_feedback_locked?: boolean;
+  quotation_revision_id?: string;
+  quotation_revision_status?: string;
   owner_decisions?: OwnerDecision[];
   inspection_status?: string;
   owner_feedback_status?: 'none' | 'pending_executive_review' | 'accepted';
@@ -933,7 +935,6 @@ export default function OwnerReport() {
 
   return (
     <div className="min-h-screen bg-background">
-      {propertyId && token && <div className="max-w-3xl mx-auto px-4 sm:px-6"><PublicQuotationRevision propertyId={propertyId} token={token} onChanged={() => void loadReport()} /></div>}
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -996,7 +997,7 @@ export default function OwnerReport() {
           </div>
 
           {/* Locked / status banner (owner only) */}
-          {showLockedBanner && (
+          {showLockedBanner && !report.quotation_revision_id && (
             <div
               className={`no-print mt-4 rounded-xl border px-3.5 py-3 flex items-start gap-2.5 ${
                 acceptedFinal
@@ -1026,6 +1027,7 @@ export default function OwnerReport() {
 
       {/* ── Content ──────────────────────────── */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6 pb-32">
+        {propertyId && token && <PublicQuotationRevision propertyId={propertyId} token={token} onChanged={() => void loadReport()} />}
         <Tabs defaultValue="report" className="space-y-5">
           <TabsList className="w-full grid grid-cols-2 sticky top-0 z-10">
             <TabsTrigger value="report" className="gap-1.5">
