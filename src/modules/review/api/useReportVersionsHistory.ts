@@ -7,6 +7,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { HistoricalDecision, QuotationSnapshot } from '@/lib/quotation-history';
 
 export interface ReportVersionHistoryEntry {
   id: string;
@@ -15,7 +16,8 @@ export interface ReportVersionHistoryEntry {
   is_latest: boolean;
   published_by: string | null;
   published_by_name: string | null;
-  normalized_payload: any;
+  normalized_payload: QuotationSnapshot;
+  decisions: HistoricalDecision[];
   owner_decision_summary_json: any;
   approved_by_name: string | null;
   approved_at: string | null;
@@ -28,6 +30,7 @@ async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryE
     .select('id, version_number, created_at, is_latest, published_by, normalized_payload, owner_decision_summary_json')
     .eq('inspection_id', inspectionId)
     .eq('audience', 'owner')
+    .eq('status', 'published')
     .order('version_number', { ascending: false });
   if (error) throw error;
   const rows = (versions ?? []) as any[];
@@ -44,6 +47,17 @@ async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryE
 
   // Approval evidence per version (last accepted submission)
   const versionIds = rows.map((r) => r.id);
+  const decisionsByVersion = new Map<string, HistoricalDecision[]>();
+  if (versionIds.length > 0) {
+    const { data: decisions, error: decisionsError } = await supabase.from('inspection_owner_feedback')
+      .select('report_version_id, repair_item_id, decision, comment, submitter_name, submitted_at')
+      .in('report_version_id', versionIds);
+    if (decisionsError) throw decisionsError;
+    for (const d of decisions ?? []) {
+      const list = decisionsByVersion.get(d.report_version_id) ?? [];
+      list.push(d); decisionsByVersion.set(d.report_version_id, list);
+    }
+  }
   const approvalByVersion = new Map<string, { name: string | null; at: string; kind: 'owner' | 'manual' }>();
   if (versionIds.length > 0) {
     const { data: subs } = await supabase
@@ -71,8 +85,9 @@ async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryE
       created_at: r.created_at,
       is_latest: r.is_latest,
       published_by: r.published_by ?? null,
-      published_by_name: r.published_by ? (nameById.get(r.published_by) ?? null) : null,
+      published_by_name: r.normalized_payload?.published_by_name ?? (r.published_by ? (nameById.get(r.published_by) ?? null) : null),
       normalized_payload: r.normalized_payload,
+      decisions: decisionsByVersion.get(r.id) ?? [],
       owner_decision_summary_json: r.owner_decision_summary_json,
       approved_by_name: ap?.name ?? null,
       approved_at: ap?.at ?? null,
@@ -85,7 +100,7 @@ async function fetchHistory(inspectionId: string): Promise<ReportVersionHistoryE
 export function useReportVersionsHistory(inspectionId: string | undefined) {
   return useQuery({
     queryKey: ['report-versions', inspectionId],
-    queryFn: () => fetchHistory(inspectionId!),
+    queryFn: () => inspectionId ? fetchHistory(inspectionId) : Promise.resolve([]),
     enabled: !!inspectionId,
     staleTime: 60_000,
   });
