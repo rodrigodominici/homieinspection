@@ -477,7 +477,7 @@ export default function AdminInspectionDetail() {
         inspection,
         operationalSections,
         allRepairs: repairItems,
-        photosBySection: groupBy(photos, p => p.inspection_section_id),
+        photosBySection: groupBy(photos),
         finalObservations,
         clientTotal,
         profileId: profile?.id,
@@ -1718,8 +1718,7 @@ export default function AdminInspectionDetail() {
                     contractorTotal={contractorTotal}
                     clientTotal={clientTotal}
                     utility={utility}
-                    inspectionId={inspection.id}
-                  budgetBreakdown={budgetBreakdown}
+                    budgetBreakdown={budgetBreakdown}
                     warrantyDeposit={warrantyDeposit}
                     depositDiff={depositDiff}
                     onOpenCatalog={openCatalog}

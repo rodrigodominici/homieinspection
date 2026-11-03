@@ -1,4 +1,5 @@
 # Architecture rules
+- Sent quotation history reuses immutable inspection_report_versions snapshots; admin and executive publication use publish_quotation_version transactionally, while comparison and PDF read only captured pricing/tax/discount and per-version owner decisions. Why: republication must not rewrite evidence or race version allocation; destructive inspection deletion remains the explicit admin exception.
 - Pending quotation items use an explicit is_pending_quote flag across pricing, published snapshots, owner decisions and work-order eligibility; zero price alone never means pending. Why: unpaid estimates must not be confused with free approved work.
 - Rent Manager listing lookup maps location.unit to unit_number without parsing street addresses. Why: the upstream response includes apartments separately from the address.
 - Chilean HubSpot captación intake recovers missing unit_number from the verified deal property numero_de_departamento before saving the normalized snapshot, while retaining the raw webhook. Why: incoming deal events omit the apartment even when HubSpot has it.
