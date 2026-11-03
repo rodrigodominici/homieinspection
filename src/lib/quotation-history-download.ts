@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { snapshotRepairs, snapshotTotals, historicalAmount, decisionLabel, type QuotationSnapshot, type HistoricalDecision } from './quotation-history';
 
-export async function downloadQuotationHistory(version: { version_number: number; created_at: string; published_by_name: string | null; normalized_payload: QuotationSnapshot; decisions: HistoricalDecision[] }) {
+export async function downloadQuotationHistory(version: { version_number: number; created_at: string; published_by_name: string | null; normalized_payload: QuotationSnapshot; decisions: HistoricalDecision[]; document_title?: string; file_name?: string }) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const payload = version.normalized_payload;
@@ -9,7 +9,7 @@ export async function downloadQuotationHistory(version: { version_number: number
   const currency = payload.tax_config?.currency ?? (payload.property?.market === 'MX' ? 'MXN' : 'CLP');
   const money = (n: number) => `${currency} ${n.toLocaleString('es-CL', { maximumFractionDigits: 2 })}`;
   const lines = [
-    `Homie - Cotización v${version.version_number}`,
+    version.document_title ?? `Homie - Cotización v${version.version_number}`,
     payload.property?.property_name ?? payload.property?.property_id ?? 'Inmueble',
     payload.property?.address ?? '',
     `Publicada: ${new Date(version.created_at).toLocaleString('es-CL')}`,
@@ -49,6 +49,6 @@ export async function downloadQuotationHistory(version: { version_number: number
   const bytes = await pdf.save();
   const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `cotizacion-v${version.version_number}.pdf`; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = version.file_name ?? `cotizacion-v${version.version_number}.pdf`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

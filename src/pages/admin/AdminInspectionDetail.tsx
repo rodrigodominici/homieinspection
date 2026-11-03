@@ -537,7 +537,7 @@ export default function AdminInspectionDetail() {
   const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
     if (!catalogSectionId) return;
     const existingRepairs = repairsBySection[catalogSectionId] ?? [];
-    await supabase.from('inspection_repair_items').insert({
+    const { error } = await supabase.from('inspection_repair_items').insert({
       inspection_id: id!,
       inspection_section_id: catalogSectionId,
       repair_catalog_item_id: catalogItem.id,
@@ -555,6 +555,7 @@ export default function AdminInspectionDetail() {
       created_by: profile?.id,
       updated_by: profile?.id,
     });
+    if (error) { toast({ title: revisionError(error), variant: 'destructive' }); return; }
     setCatalogOpen(false);
     toast({ title: 'Reparación agregada' });
     await refreshRepairs();

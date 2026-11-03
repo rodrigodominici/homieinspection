@@ -27,13 +27,13 @@ export async function fetchMyWorkOrders(): Promise<WorkOrderListRow[]> {
   const { data, error } = await supabase
     .from('inspection_work_orders')
     .select(
-      `${ORDER_COLUMNS}, inspection:inspections(id,property_id,property_name,address,market,inspection_type), items:inspection_work_order_items(id,status)`,
+      `${ORDER_COLUMNS}, inspection:inspections(id,property_id,property_name,address,market,inspection_type), items:inspection_work_order_items(id,status,is_archived)`,
     )
     .order('assigned_at', { ascending: false });
   if (error) throw error;
 
   return (data ?? []).map((row) => {
-    const items = ((row as { items?: { status: string }[] }).items ?? []);
+    const items = ((row as { items?: { status: string; is_archived?: boolean }[] }).items ?? []).filter(item => !item.is_archived);
     return {
       ...(row as unknown as InspectionWorkOrder),
       inspection: (row as { inspection?: WorkOrderListRow['inspection'] }).inspection ?? null,
