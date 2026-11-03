@@ -50,6 +50,13 @@
       "when": 1793731615600,
       "tag": "0006_quotation_work_order_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793731950439,
+      "tag": "0007_quotation_revision_snapshot_safety",
+      "breakpoints": true
     }
   ]
 }
