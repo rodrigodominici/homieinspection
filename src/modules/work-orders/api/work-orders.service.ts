@@ -44,6 +44,8 @@ export async function fetchMyWorkOrders(): Promise<WorkOrderListRow[]> {
 }
 
 export interface WorkOrderItemDetail extends InspectionWorkOrderItem {
+  is_archived?: boolean;
+  quotation_paused?: boolean;
   repair: {
     id: string;
     inspection_section_id: string;
@@ -78,7 +80,7 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
       `${ORDER_COLUMNS},
        inspection:inspections(id,property_id,property_name,address,market,inspection_type),
        items:inspection_work_order_items(
-         id,work_order_id,repair_item_id,status,not_done_reason,comment,actual_cost,completed_at,created_at,updated_at,
+         id,work_order_id,repair_item_id,status,not_done_reason,comment,actual_cost,completed_at,created_at,updated_at,is_archived,quotation_paused,
          repair:inspection_repair_items(id,inspection_section_id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes)
        )`,
     )
@@ -102,6 +104,7 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
   }
 
   const items = rawItems
+    .filter(item => !item.is_archived)
     .map((item) => ({
       ...item,
       photos: photos.filter((p) => p.work_order_item_id === item.id),
@@ -243,6 +246,7 @@ export async function fetchFindingsReport(inspectionId: string): Promise<Finding
       .from('inspection_sections')
       .select('id,section_title,sort_order,final_observation,is_visible')
       .eq('inspection_id', inspectionId)
+      .eq('is_archived', false)
       .order('sort_order'),
     supabase
       .from('inspection_field_values')

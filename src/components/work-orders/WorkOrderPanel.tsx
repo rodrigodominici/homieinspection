@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 import SignedPhotoImg from '@/components/SignedPhotoImg';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { supabase } from '@/integrations/supabase/client';
+import QuotationRevisionPanel from './QuotationRevisionPanel';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -108,6 +110,7 @@ export default function WorkOrderPanel({
       .from('inspection_repair_items')
       .select('id,title_snapshot,quantity,unit,unit_price,subtotal,sort_order')
       .eq('inspection_id', inspectionId)
+      .eq('is_archived', false)
       .eq('is_pending_quote', false)
       .order('sort_order')
       .then(({ data }) => { if (!cancelled) setQuoted((data ?? []) as unknown as QuotedRepair[]); });
@@ -289,6 +292,7 @@ export default function WorkOrderPanel({
                     <div key={item.id} className="rounded-lg border p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium">{item.repair?.title_snapshot ?? 'Reparación'}</p>
+                        {item.quotation_paused && <Badge variant="outline">Pausada · aprobación pendiente</Badge>}
                         <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${workOrderItemToneClass(item.status)}`}>
                           {workOrderItemStatusLabel(item.status)}
                         </span>
@@ -377,6 +381,7 @@ export default function WorkOrderPanel({
                 </Button>
               </div>
             )}
+            <QuotationRevisionPanel inspectionId={inspectionId} detail={detail} market={market} onChanged={() => { void load(); onChanged?.(); }} />
           </>
         )}
       </CardContent>
