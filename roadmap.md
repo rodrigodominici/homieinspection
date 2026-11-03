@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Enable assigned-property marketing photo viewing and individual/ZIP downloads for PA, reusing existing HI photos; verify assignment access and downloads. No publication or Rent Manager integration.
 - [x] Validate quotation revisions with separate authenticated executive and contractor accounts: executive assigned a real test OT; pending-price item excluded; contractor accepted, paused item blocked by UI and server, unchanged item saved and read back; investor approval resumed the same OT and retained unchanged work. Contractor could not read revision price snapshots. Pending-item PDF downloaded and checked (total CLP 0). 25 quotation tests passed; no browser errors; temporary inspections removed. Not published.
 - [ ] Operations acceptance and physical PDF printing — require the team's real-device review and printer; automated download/content checks are complete.
 - [ ] Publish quotation improvements — requires an explicit request to publish.
