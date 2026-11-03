@@ -1731,6 +1731,41 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_photo_notifications: {
+        Row: {
+          claimed_at: string
+          error_message: string | null
+          inspection_id: string
+          message_ts: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          claimed_at?: string
+          error_message?: string | null
+          inspection_id: string
+          message_ts?: string | null
+          sent_at?: string | null
+          status: string
+        }
+        Update: {
+          claimed_at?: string
+          error_message?: string | null
+          inspection_id?: string
+          message_ts?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_photo_notifications_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: true
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           approval_status: string
@@ -2157,6 +2192,10 @@ export type Database = {
       authorize_quotation_revision: {
         Args: { p_inspection_id: string }
         Returns: undefined
+      }
+      claim_marketing_photo_notification: {
+        Args: { p_inspection_id: string }
+        Returns: boolean
       }
       contractor_reject_work_order: {
         Args: { p_reason: string; p_work_order_id: string }
