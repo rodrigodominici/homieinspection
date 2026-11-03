@@ -22,6 +22,7 @@ import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/in
 import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
+import { AssignedMarketingGallery } from '@/components/photos/AssignedMarketingGallery';
 import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import SignaturePad from '@/components/SignaturePad';
 import {
@@ -606,6 +607,9 @@ export default function InspectorInspectionDetail() {
 
         {/* Property Briefing Card — read-only payload data */}
         <PropertyBriefingCard inspection={inspection} />
+        {profile?.role === 'property_advisor' && inspection.inspection_type === 'check_in' && (
+          <AssignedMarketingGallery checkinId={inspection.id} propertyId={inspection.property_id} />
+        )}
 
         {/* Progress */}
         <Card className="border-0 shadow-sm rounded-3xl bg-card">

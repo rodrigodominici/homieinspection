@@ -85,6 +85,13 @@
       "when": 1793736645924,
       "tag": "0011_advisor_assigned_property_marketing_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793736683642,
+      "tag": "0012_advisor_marketing_storage_scope",
+      "breakpoints": true
     }
   ]
 }

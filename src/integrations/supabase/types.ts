@@ -2142,6 +2142,10 @@ export type Database = {
     }
     Functions: {
       accept_work_order: { Args: { p_work_order_id: string }; Returns: Json }
+      advisor_can_read_marketing_object: {
+        Args: { p_bucket: string; p_path: string }
+        Returns: boolean
+      }
       advisor_can_read_marketing_photo: {
         Args: { p_inspection_id: string }
         Returns: boolean
