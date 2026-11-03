@@ -546,6 +546,7 @@ export default function ExecutiveReviewDetail() {
       {mode === 'quotation' && (
         <div className="hidden lg:block h-[calc(100vh-7rem)]">
           <QuotationView
+            inspectionId={inspection.id}
             budgetBreakdown={budgetBreakdown}
             discountBreakdown={discountBreakdown}
             activeDiscount={activeDiscountInput}

@@ -139,6 +139,14 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
         })),
     })),
     budget_total: clientTotal,
+    quotation_totals: {
+      subtotal: discountBreakdown.subtotalTotal,
+      owner: discountBreakdown.subtotalOwner,
+      tenant: discountBreakdown.subtotalTenant,
+      discount: discountBreakdown.discountAmount,
+      tax: discountBreakdown.vatTotal,
+      total: discountBreakdown.grandTotal,
+    },
     tax_config: taxConfig
       ? {
           enabled: taxConfig.vat_enabled,
@@ -164,54 +172,17 @@ export async function publishInspection(args: PublishArgs): Promise<PublishResul
     signature: signaturePayload,
   };
 
-  const { data: existing } = await supabase
-    .from('inspection_report_versions')
-    .select('version_number')
-    .eq('inspection_id', inspection.id)
-    .order('version_number', { ascending: false })
-    .limit(1);
-  const nextVersion = ((existing?.[0] as any)?.version_number ?? 0) + 1;
-
-  // Reuse prior public tokens so the owner/tenant link stays stable across re-publishes.
-  const { data: priorTokens } = await supabase
-    .from('inspection_report_versions')
-    .select('audience, public_token')
-    .eq('inspection_id', inspection.id)
-    .in('audience', ['owner', 'tenant']);
-  const priorOwner = priorTokens?.find((r: any) => r.audience === 'owner')?.public_token as string | undefined;
-  const priorTenant = priorTokens?.find((r: any) => r.audience === 'tenant')?.public_token as string | undefined;
-
-  await supabase.from('inspection_report_versions').update({ is_latest: false }).eq('inspection_id', inspection.id);
-
-  const ownerToken = priorOwner ?? crypto.randomUUID();
-  const tenantToken = priorTenant ?? crypto.randomUUID();
-  const { error } = await supabase.from('inspection_report_versions').insert([
-    { inspection_id: inspection.id, version_number: nextVersion, status: 'published',
-      audience: 'owner',  public_token: ownerToken,  normalized_payload: payload as any, is_latest: true,
-      published_by: profileId ?? null },
-    { inspection_id: inspection.id, version_number: nextVersion, status: 'published',
-      audience: 'tenant', public_token: tenantToken, normalized_payload: payload as any, is_latest: true,
-      published_by: profileId ?? null },
-  ]);
+  const { data: result, error } = await supabase.rpc('publish_quotation_version', {
+    p_inspection_id: inspection.id, p_payload: payload as any,
+  });
   if (error) throw error;
-
-  const now = new Date().toISOString();
-  await supabase.from('inspections').update({
-    status: 'published',
-    current_stage: 'share',
-    published_at: now,
-    owner_url_generated_at: now,
-    approved_at: now,
-    approved_by: profileId,
-    // Re-publishing resets the owner feedback loop for the new version.
-    owner_feedback_status: 'none',
-  } as any).eq('id', inspection.id);
+  const published = result as { version_number: number; owner_token: string; tenant_token: string };
 
   const origin = window.location.origin;
   return {
-    versionNumber: nextVersion,
-    ownerUrl: `${origin}/reportes/${inspection.property_id}/${ownerToken}`,
-    tenantUrl: `${origin}/reportes/${inspection.property_id}/${tenantToken}`,
+    versionNumber: published.version_number,
+    ownerUrl: `${origin}/reportes/${inspection.property_id}/${published.owner_token}`,
+    tenantUrl: `${origin}/reportes/${inspection.property_id}/${published.tenant_token}`,
   };
 }
 

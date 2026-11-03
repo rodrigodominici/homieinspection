@@ -1,3 +1,4 @@
+import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertTriangle, Tag, Pencil, Trash2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -5,6 +6,7 @@ import { fmtCurrency } from './helpers';
 import type { QuotationDiscountBreakdown, QuotationDiscountInput } from '@/lib/quotation-discount';
 
 interface QuotationViewProps {
+  inspectionId?: string;
   pendingQuoteCount?: number;
   budgetBreakdown: {
     ownerRequired: number; ownerOptional: number; ownerTotal: number;
@@ -34,7 +36,7 @@ interface QuotationViewProps {
 }
 
 export function QuotationView({
-  budgetBreakdown, discountBreakdown, activeDiscount, discountReason,
+  inspectionId, budgetBreakdown, discountBreakdown, activeDiscount, discountReason,
   onOpenDiscount, onRemoveDiscount, discountSaving,
   clientTotal, contractorTotal, utility,
   warrantyDeposit, depositDiff, hasRepairs,
@@ -189,6 +191,8 @@ export function QuotationView({
           </Button>
         </div>
       </div>
+
+      {inspectionId && <PublishedVersionsTimeline inspectionId={inspectionId} />}
 
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button variant="outline" onClick={onGoToRepairs}>Volver a Reparaciones</Button>

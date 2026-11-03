@@ -22,6 +22,7 @@ import { ensureInspectionStatusConsistency, isInspectorReadOnly } from '@/lib/in
 import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-completion';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
+import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import SignaturePad from '@/components/SignaturePad';
 import {
   AlertDialog,
@@ -835,6 +836,10 @@ export default function InspectorInspectionDetail() {
             );
           })}
         </div>
+
+        {readOnly && inspection.inspection_type !== 'check_in' && offline.online && (
+          <PublishedVersionsTimeline inspectionId={inspection.id} />
+        )}
 
         {/* Informe de entrega en PDF: solo check-in ya enviado */}
         {inspection.inspection_type === 'check_in' &&

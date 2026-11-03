@@ -1,193 +1,122 @@
-/**
- * Timeline of every published quotation (owner audience) for an inspection.
- *
- * Each entry shows the version number, publish date, executive author and a
- * "Ver snapshot" action that opens a read-only side sheet with the totals
- * and per-section repair list captured at publish time.
- *
- * Read-only by design: public sharing remains exclusive to the latest
- * version (`is_latest = true`), so this component never exposes
- * `public_token` for older versions.
- */
-import { useMemo, useState } from 'react';
-import { quotedAmount } from '@/lib/repair-pricing';
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, FileText, Loader2, CheckCircle2, UserCheck } from 'lucide-react';
+import { Eye, Download, Loader2, History, GitCompareArrows } from 'lucide-react';
 import { useReportVersionsHistory, type ReportVersionHistoryEntry } from '@/modules/review/api/useReportVersionsHistory';
+import { compareQuotations, snapshotRepairs, snapshotTotals, historicalAmount, decisionLabel } from '@/lib/quotation-history';
+import { downloadQuotationHistory } from '@/lib/quotation-history-download';
+import { useToast } from '@/hooks/use-toast';
 
-const fmtMoney = (n: number) =>
-  `$${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-
-const fmtDateTime = (iso: string) =>
-  new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+const date = (iso: string) => new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+const fieldLabels: Record<string, string> = { name: 'Nombre', description: 'Descripción', quantity: 'Cantidad', unit: 'Unidad', unit_price: 'Precio', payer_role: 'Responsable de pago', payment_nature: 'Tipo', is_pending_quote: 'Precio pendiente', section: 'Sección' };
+const valueLabel = (key: string, value: unknown): string => {
+  if (key === 'payer_role') return value === 'tenant' ? 'Inquilino' : 'Propietario';
+  if (key === 'payment_nature') return value === 'optional' ? 'Opcional' : 'Recomendada';
+  if (key === 'is_pending_quote') return value ? 'Por cotizar' : 'Cotizada';
+  return value == null ? '—' : String(value);
+};
 
 export function PublishedVersionsTimeline({ inspectionId }: { inspectionId: string }) {
-  const { data, isLoading } = useReportVersionsHistory(inspectionId);
-  const [selected, setSelected] = useState<ReportVersionHistoryEntry | null>(null);
-
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border bg-card p-4 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando historial de cotizaciones…
-      </div>
-    );
-  }
-
+  const { data, isLoading, error, refetch } = useReportVersionsHistory(inspectionId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [compare, setCompare] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const { toast } = useToast();
   const versions = data ?? [];
-  if (versions.length === 0) return null;
-
+  const selectedIndex = versions.findIndex(v => v.id === selectedId);
+  const selected = versions[selectedIndex];
+  const previous = versions[selectedIndex + 1];
+  const download = async (v: ReportVersionHistoryEntry) => {
+    setDownloading(v.id);
+    try { await downloadQuotationHistory(v); }
+    catch { toast({ title: 'No se pudo descargar la cotización', variant: 'destructive' }); }
+    finally { setDownloading(null); }
+  };
+  if (isLoading) return <p className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="h-4 w-4 animate-spin" /> Cargando historial…</p>;
+  if (error) return <div className="py-4 text-sm"><p>No se pudo cargar el historial.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Reintentar</Button></div>;
   return (
-    <>
-      <div className="rounded-lg border bg-card">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-            Historial de cotizaciones publicadas
-          </p>
-          <span className="text-[10px] text-muted-foreground">{versions.length} {versions.length === 1 ? 'versión' : 'versiones'}</span>
-        </div>
-        <ol className="divide-y divide-border/60">
-          {versions.map((v) => (
-            <li key={v.id} className="px-4 py-3 flex items-start gap-3">
-              <div className="mt-1 flex flex-col items-center">
-                <span className={`h-2 w-2 rounded-full ${v.is_latest ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
+    <section className="border-t border-border pt-4">
+      <h3 className="text-base font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Historial de cotizaciones</h3>
+      {versions.length === 0 ? <p className="text-sm text-muted-foreground py-4">Todavía no hay cotizaciones publicadas.</p> : (
+        <ol className="divide-y divide-border mt-2">
+          {versions.map((v, index) => (
+            <li key={v.id} className="py-3 flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-40">
+                <div className="flex items-center gap-2"><span className="text-sm font-semibold">v{v.version_number}</span>{v.is_latest && <Badge variant="secondary">Vigente</Badge>}</div>
+                <p className="text-xs text-muted-foreground mt-1">{date(v.created_at)} · {v.published_by_name ?? 'Responsable no registrado'}</p>
+                <p className="text-xs mt-1">{v.approval_kind === 'manual' ? `Cierre manual · ${v.approved_by_name ?? ''}` : v.approved_at ? `Aprobada · ${v.approved_by_name ?? ''}` : v.decisions.length ? `${v.decisions.filter(d => d.decision === 'rejected').length} rechazadas · ${v.decisions.filter(d => d.decision === 'observed').length} con observaciones` : 'Sin respuesta del inversionista'}</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium">v{v.version_number}</p>
-                  {v.is_latest && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Vigente</Badge>}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {fmtDateTime(v.created_at)}
-                  {v.published_by_name ? ` · ${v.published_by_name}` : ''}
-                </p>
-                {v.approved_at && (
-                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
-                    {v.approval_kind === 'manual'
-                      ? <UserCheck className="h-3 w-3" />
-                      : <CheckCircle2 className="h-3 w-3" />}
-                    <span>
-                      {v.approval_kind === 'manual' ? 'Cierre manual' : 'Aprobada por'}
-                      {v.approved_by_name ? ` ${v.approval_kind === 'manual' ? '·' : ''} ${v.approved_by_name}` : ''}
-                      {' · '}{fmtDateTime(v.approved_at)}
-                    </span>
-                  </div>
-                )}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => { setSelectedId(v.id); setCompare(false); }}><Eye className="h-3.5 w-3.5 mr-1.5" /> Ver versión</Button>
+                {index < versions.length - 1 && <Button size="sm" variant="outline" onClick={() => { setSelectedId(v.id); setCompare(true); }}><GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Ver cambios</Button>}
+                <Button size="sm" variant="outline" disabled={downloading === v.id} onClick={() => download(v)}>{downloading === v.id ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />} PDF</Button>
               </div>
-
-              <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => setSelected(v)}>
-                <Eye className="h-3.5 w-3.5" /> Ver snapshot
-              </Button>
             </li>
           ))}
         </ol>
-      </div>
-
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          {selected && <SnapshotView version={selected} />}
+      )}
+      <Sheet open={!!selected} onOpenChange={o => { if (!o) setSelectedId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+          {selected && <>
+            <SheetHeader>
+              <SheetTitle>{compare && previous ? `Cambios de v${previous.version_number} a v${selected.version_number}` : `Cotización v${selected.version_number}`}</SheetTitle>
+              <SheetDescription>{date(selected.created_at)} · {selected.published_by_name ?? 'Responsable no registrado'}</SheetDescription>
+            </SheetHeader>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button size="sm" variant={!compare ? 'secondary' : 'outline'} onClick={() => setCompare(false)}>Cotización</Button>
+              {previous && <Button size="sm" variant={compare ? 'secondary' : 'outline'} onClick={() => setCompare(true)}>Cambios</Button>}
+              <Button size="sm" variant="outline" disabled={downloading === selected.id} onClick={() => download(selected)}><Download className="h-4 w-4 mr-1.5" /> Descargar PDF</Button>
+            </div>
+            {compare && previous ? <Changes before={previous} after={selected} /> : <Snapshot version={selected} />}
+          </>}
         </SheetContent>
       </Sheet>
-    </>
+    </section>
   );
 }
 
-function SnapshotView({ version }: { version: ReportVersionHistoryEntry }) {
-  const payload = version.normalized_payload ?? {};
-  const property = payload.property ?? {};
-  const sections: any[] = Array.isArray(payload.sections) ? payload.sections : [];
-
-  const totals = useMemo(() => {
-    let repairs = 0;
-    let total = 0;
-    let ownerTotal = 0;
-    let tenantTotal = 0;
-    for (const s of sections) {
-      for (const r of s.repairs ?? []) {
-        const amount = quotedAmount(r);
-        repairs += 1;
-        total += amount;
-        if (r.payer_role === 'tenant') tenantTotal += amount;
-        else ownerTotal += amount;
-      }
-    }
-    return { repairs, total, ownerTotal, tenantTotal };
-  }, [sections]);
-
-  return (
-    <>
-      <SheetHeader>
-        <SheetTitle className="flex items-center gap-2">
-          <FileText className="h-4 w-4" /> Cotización v{version.version_number}
-          {version.is_latest && <Badge variant="secondary" className="text-[10px]">Vigente</Badge>}
-        </SheetTitle>
-        <SheetDescription>
-          Publicada el {fmtDateTime(version.created_at)}
-          {version.published_by_name ? ` por ${version.published_by_name}` : ''}.
-          {' '}Vista interna del snapshot exacto enviado al propietario.
-        </SheetDescription>
-      </SheetHeader>
-
-      <div className="mt-6 space-y-5">
-        <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-xs space-y-0.5">
-          <p className="font-medium text-foreground">{property.property_name || property.property_id || 'Propiedad'}</p>
-          {property.address && <p className="text-muted-foreground">{property.address}</p>}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <Stat label="Reparaciones" value={String(totals.repairs)} />
-          <Stat label="Total propietario" value={fmtMoney(totals.ownerTotal)} />
-          <Stat label="Total inquilino" value={fmtMoney(totals.tenantTotal)} />
-        </div>
-
-        <div className="space-y-3">
-          {sections.map((s) => {
-            const repairs = (s.repairs ?? []) as any[];
-            if (repairs.length === 0) return null;
-            const subtotal = repairs.reduce((acc, r) => acc + quotedAmount(r), 0);
-            return (
-              <div key={s.id} className="rounded-md border">
-                <div className="px-3 py-2 border-b flex items-center justify-between bg-muted/30">
-                  <p className="text-sm font-medium">{s.title}</p>
-                  <span className="text-xs font-mono tabular-nums text-muted-foreground">{fmtMoney(subtotal)}</span>
-                </div>
-                <ul className="divide-y divide-border/60">
-                  {repairs.map((r: any, i: number) => (
-                    <li key={r.id ?? i} className="px-3 py-2 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm leading-snug">{r.name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {Number(r.quantity || 0)} {r.unit ?? ''} · {r.is_pending_quote ? 'Por cotizar' : fmtMoney(Number(r.unit_price || 0))}
-                          {r.payer_role === 'tenant' ? ' · Inquilino' : ' · Propietario'}
-                          {r.payment_nature === 'optional' ? ' · Opcional' : ''}
-                        </p>
-                      </div>
-                      <span className="text-sm font-mono tabular-nums shrink-0">
-                        {r.is_pending_quote ? 'Por cotizar' : fmtMoney(quotedAmount(r))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center justify-between rounded-md border bg-primary/5 px-3 py-2.5">
-          <span className="text-sm font-medium">Total cotización</span>
-          <span className="text-base font-mono tabular-nums font-semibold">{fmtMoney(totals.total)}</span>
-        </div>
-      </div>
-    </>
-  );
+function moneyFor(v: ReportVersionHistoryEntry) {
+  const currency = v.normalized_payload.tax_config?.currency ?? (v.normalized_payload.property?.market === 'MX' ? 'MXN' : 'CLP');
+  return (n: number) => `${currency} ${Number(n).toLocaleString('es-CL', { maximumFractionDigits: 2 })}`;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-card px-2.5 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold mt-0.5 font-mono tabular-nums">{value}</p>
+function Snapshot({ version }: { version: ReportVersionHistoryEntry }) {
+  const p = version.normalized_payload ?? {};
+  const totals = snapshotTotals(p);
+  const money = moneyFor(version);
+  const decisions = new Map(version.decisions.map(d => [d.repair_item_id, d]));
+  return <div className="mt-5 space-y-5">
+    <div><h4 className="font-semibold">{p.property?.property_name ?? p.property?.property_id}</h4><p className="text-sm text-muted-foreground">{p.property?.address}</p></div>
+    <div className="space-y-3">
+      {snapshotRepairs(p).map(r => {
+        const d = r.id ? decisions.get(r.id) : undefined;
+        return <article key={r.key} className="border-b border-border pb-3">
+          <div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-xs text-muted-foreground">{r.section}</p><h5 className="text-sm font-semibold break-words">{r.name}</h5></div><span className="text-sm shrink-0">{r.is_pending_quote ? 'Por cotizar' : money(historicalAmount(r))}</span></div>
+          {r.description && <p className="text-sm mt-1">{r.description}</p>}
+          <p className="text-xs text-muted-foreground mt-1">{r.quantity} {r.unit} · {r.is_pending_quote ? 'Por cotizar' : money(Number(r.unit_price ?? 0))} · {r.payer_role === 'tenant' ? 'Inquilino' : 'Propietario'} · {r.payment_nature === 'optional' ? 'Opcional' : 'Recomendada'}</p>
+          <Badge variant={d?.decision === 'rejected' ? 'destructive' : 'outline'} className="mt-2">{r.is_pending_quote ? 'Pendiente de precio' : decisionLabel(d?.decision)}</Badge>
+          {d?.comment && <p className="text-sm mt-2 break-words">{d.comment}</p>}
+          {d && <p className="text-xs text-muted-foreground mt-1">{d.submitter_name ?? 'Inversionista'}{d.submitted_at ? ` · ${date(d.submitted_at)}` : ''}</p>}
+        </article>;
+      })}
     </div>
-  );
+    <dl className="space-y-2 text-sm">
+      {[['Subtotal propietario', totals.owner], ['Subtotal inquilino', totals.tenant], ['Descuento', -totals.discount], [p.tax_config?.label ?? 'Impuesto', totals.tax], ['Total cotización', totals.total]].map(([label, amount]) => <div key={String(label)} className="flex justify-between gap-3"><dt>{label}</dt><dd className="font-mono">{money(Number(amount))}</dd></div>)}
+    </dl>
+    {p.discount?.reason && <p className="text-sm text-muted-foreground">Descuento: {p.discount.reason}</p>}
+  </div>;
+}
+
+function Changes({ before, after }: { before: ReportVersionHistoryEntry; after: ReportVersionHistoryEntry }) {
+  const diff = compareQuotations(before.normalized_payload, after.normalized_payload);
+  const money = moneyFor(after);
+  return <div className="mt-5 space-y-4">
+    <div className="flex flex-wrap justify-between gap-3 border-b pb-3 text-sm"><span>v{before.version_number}: {money(diff.totalBefore)}</span><span>v{after.version_number}: {money(diff.totalAfter)}</span><strong>Diferencia: {money(diff.totalAfter - diff.totalBefore)}</strong></div>
+    {diff.legacy && <p className="text-sm text-muted-foreground">Esta versión antigua contiene partidas sin identificador; se muestran por separado.</p>}
+    {diff.changes.length === 0 && !diff.discountChanged && !diff.taxChanged && <p className="text-sm text-muted-foreground">Sin cambios en las partidas ni en los montos.</p>}
+    {diff.changes.map((c, i) => <article key={i} className="border-b pb-3"><div className="flex gap-2 items-center"><Badge variant="outline">{c.kind === 'added' ? 'Agregada' : c.kind === 'removed' ? 'Retirada' : 'Modificada'}</Badge><h5 className="text-sm font-medium break-words">{c.name}</h5></div>{c.fields.map(f => <p key={f} className="text-sm mt-2 break-words"><span className="text-muted-foreground">{fieldLabels[f]}: </span>{valueLabel(f, c.before?.[f as keyof NonNullable<typeof c.before>])} → {valueLabel(f, c.after?.[f as keyof NonNullable<typeof c.after>])}</p>)}{c.kind !== 'changed' && <p className="text-sm mt-2">{(c.after ?? c.before)?.is_pending_quote ? 'Por cotizar' : money(historicalAmount(c.after ?? c.before ?? {}))}</p>}</article>)}
+    {diff.discountChanged && <p className="text-sm">Descuento: {money(snapshotTotals(before.normalized_payload).discount)} → {money(snapshotTotals(after.normalized_payload).discount)}{after.normalized_payload.discount?.reason ? ` · ${after.normalized_payload.discount.reason}` : ''}</p>}
+    {diff.taxChanged && <p className="text-sm">Impuesto: {before.normalized_payload.tax_config?.percentage ?? 0}% → {after.normalized_payload.tax_config?.percentage ?? 0}%</p>}
+  </div>;
 }

@@ -12,6 +12,7 @@ import type {
   Profile,
 } from '@/lib/types';
 import ComercialLayout from './ComercialLayout';
+import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -518,6 +519,8 @@ export default function ComercialCheckOutDetail() {
             />
           ))}
         </div>
+
+        <div className="print:hidden"><PublishedVersionsTimeline inspectionId={inspection.id} /></div>
 
         {/* Signatures */}
         <Card className="p-5 space-y-4 print:break-inside-avoid">

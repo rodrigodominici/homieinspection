@@ -232,6 +232,7 @@ export function useReviewActions(args: UseReviewActionsArgs) {
       setPublishedUrls({ owner: result.ownerUrl, tenant: result.tenantUrl });
       setPublishDialogOpen(true);
       toast({ title: `Reporte v${result.versionNumber} publicado` });
+      await qc.invalidateQueries({ queryKey: ['report-versions', inspection.id] });
       await invalidateInspection();
 
       // Check-in: el informe de entrega en PDF se genera automáticamente.
