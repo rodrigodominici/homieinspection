@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 const { download } = vi.hoisted(() => ({ download: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { storage: { from: () => ({ download }) } } }));
