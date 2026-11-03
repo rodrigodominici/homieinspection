@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { notifyMarketingPhotos, notifyMarketingSection } from '@/lib/marketing-photo-notify';
 import { compressImage, PhotoUploadError } from '@/shared/lib/inspection-photos';
 
 /**
@@ -217,6 +218,8 @@ export function flushQueue(): Promise<void> {
         try {
           await runOp(op);
           await remove(op.id);
+          if (op.kind === 'photo' && op.sectionKey === 'marketing_photos') void notifyMarketingPhotos(op.inspectionId).catch(() => {});
+          if (op.kind === 'update' && op.table === 'inspection_sections' && op.patch.status === 'completed') void notifyMarketingSection(op.rowId).catch(() => {});
         } catch {
           break;
         }

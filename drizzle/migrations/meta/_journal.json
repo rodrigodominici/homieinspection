@@ -92,6 +92,13 @@
       "when": 1793736683642,
       "tag": "0012_advisor_marketing_storage_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793738112204,
+      "tag": "0013_marketing_photo_slack_delivery",
+      "breakpoints": true
     }
   ]
 }

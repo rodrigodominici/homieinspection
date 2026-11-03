@@ -1,4 +1,5 @@
 import { readSnapshot, isOffline } from '@/shared/lib/inspection-snapshot';
+import { notifyMarketingPhotos } from '@/lib/marketing-photo-notify';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -300,6 +301,7 @@ export default function InspectorSectionComplete() {
     } else {
       setSection((prev) => prev ? { ...prev, status: 'completed' } : prev);
       setAllSections((prev) => prev.map(s => s.id === sectionId ? { ...s, status: 'completed' } : s));
+      if (inspectionId && navigator.onLine && section?.section_key === 'marketing_photos') void notifyMarketingPhotos(inspectionId).catch(() => {});
       // Never block moving on: on weak signal this request can hang.
       if (inspectionId && navigator.onLine) void ensureInspectionStatusConsistency(inspectionId).catch(() => {});
       if (nextSection) {
