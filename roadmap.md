@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Add immutable quotation history, version comparison, owner decisions and downloads; verify with a test inspection.
 - [x] Implement first quotation stage: explicit pending-price items, totals, public decisions, downloads and OT exclusion. Verified authenticated creation/readback/pricing, real public mixed report, server exclusions and 7 tests; actual OT assignment and physical PDF printing remain untested.
 - [x] Verified Rent Manager includes location.unit (707, 217, 213); fixed and deployed lookup mapping, verified live results and 11 passing tests.
 - [x] Fix missing apartment numbers in Chilean HubSpot captación intake; deployed recovery from numero_de_departamento, corrected today's three units (707, 217, 213), verified real HubSpot lookup and authenticated HI display.
