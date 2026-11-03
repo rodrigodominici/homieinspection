@@ -709,6 +709,7 @@ export type Database = {
           id: string
           inspection_id: string
           inspection_section_id: string
+          is_archived: boolean
           is_pending_quote: boolean
           notes: string | null
           owner_friendly_name_snapshot: string | null
@@ -735,6 +736,7 @@ export type Database = {
           id?: string
           inspection_id: string
           inspection_section_id: string
+          is_archived?: boolean
           is_pending_quote?: boolean
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
@@ -761,6 +763,7 @@ export type Database = {
           id?: string
           inspection_id?: string
           inspection_section_id?: string
+          is_archived?: boolean
           is_pending_quote?: boolean
           notes?: string | null
           owner_friendly_name_snapshot?: string | null
@@ -1321,7 +1324,9 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
+          is_archived: boolean
           not_done_reason: string | null
+          quotation_paused: boolean
           repair_item_id: string
           status: string
           updated_at: string
@@ -1333,7 +1338,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           not_done_reason?: string | null
+          quotation_paused?: boolean
           repair_item_id: string
           status?: string
           updated_at?: string
@@ -1345,7 +1352,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           not_done_reason?: string | null
+          quotation_paused?: boolean
           repair_item_id?: string
           status?: string
           updated_at?: string
@@ -1778,6 +1787,127 @@ export type Database = {
           },
         ]
       }
+      quotation_work_order_changes: {
+        Row: {
+          after_json: Json | null
+          applied_at: string | null
+          before_json: Json | null
+          comment: string | null
+          decided_at: string | null
+          decision: string | null
+          id: string
+          kind: string
+          repair_item_id: string
+          revision_id: string
+        }
+        Insert: {
+          after_json?: Json | null
+          applied_at?: string | null
+          before_json?: Json | null
+          comment?: string | null
+          decided_at?: string | null
+          decision?: string | null
+          id?: string
+          kind: string
+          repair_item_id: string
+          revision_id: string
+        }
+        Update: {
+          after_json?: Json | null
+          applied_at?: string | null
+          before_json?: Json | null
+          comment?: string | null
+          decided_at?: string | null
+          decision?: string | null
+          id?: string
+          kind?: string
+          repair_item_id?: string
+          revision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_work_order_changes_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_work_order_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_work_order_revisions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          inspection_id: string
+          reason: string
+          report_version_id: string | null
+          resolved_at: string | null
+          status: string
+          submitted_at: string | null
+          submitter_name: string | null
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          inspection_id: string
+          reason?: string
+          report_version_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitter_name?: string | null
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          inspection_id?: string
+          reason?: string
+          report_version_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitter_name?: string | null
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_work_order_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_work_order_revisions_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_work_order_revisions_report_version_id_fkey"
+            columns: ["report_version_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_report_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_work_order_revisions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_catalog_categories: {
         Row: {
           created_at: string
@@ -2010,6 +2140,10 @@ export type Database = {
         Args: { p_contractor_id: string; p_inspection_id: string }
         Returns: string
       }
+      authorize_quotation_revision: {
+        Args: { p_inspection_id: string }
+        Returns: undefined
+      }
       contractor_reject_work_order: {
         Args: { p_reason: string; p_work_order_id: string }
         Returns: Json
@@ -2023,6 +2157,10 @@ export type Database = {
         }[]
       }
       current_contractor_id: { Args: never; Returns: string }
+      discard_quotation_revision: {
+        Args: { p_change_id?: string; p_revision_id: string }
+        Returns: undefined
+      }
       executive_force_close_owner_feedback: {
         Args: { p_inspection_id: string; p_note?: string; p_reason: string }
         Returns: Json
@@ -2140,6 +2278,10 @@ export type Database = {
         Args: { p_property_id: string; p_token: string }
         Returns: Json
       }
+      get_quotation_revision_public: {
+        Args: { p_property_id: string; p_token: string }
+        Returns: Json
+      }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_comercial: { Args: never; Returns: boolean }
@@ -2163,7 +2305,34 @@ export type Database = {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }
         Returns: Json
       }
+      save_quotation_revision_change: {
+        Args: {
+          p_kind: string
+          p_reason: string
+          p_repair_item_id: string
+          p_revision_id: string
+          p_values: Json
+        }
+        Returns: string
+      }
+      start_quotation_revision: {
+        Args: { p_inspection_id: string }
+        Returns: string
+      }
       submit_owner_feedback: {
+        Args: {
+          p_decisions: Json
+          p_property_id: string
+          p_submitter_name: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      submit_quotation_revision: {
+        Args: { p_reason: string; p_revision_id: string }
+        Returns: Json
+      }
+      submit_quotation_revision_decisions: {
         Args: {
           p_decisions: Json
           p_property_id: string
