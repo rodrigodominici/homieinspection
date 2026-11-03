@@ -2147,6 +2147,10 @@ export type Database = {
         Args: { _inspection_id: string }
         Returns: boolean
       }
+      publish_quotation_version: {
+        Args: { p_inspection_id: string; p_payload: Json }
+        Returns: Json
+      }
       reassign_work_order: {
         Args: { p_contractor_id: string; p_work_order_id: string }
         Returns: Json
