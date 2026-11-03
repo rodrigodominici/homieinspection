@@ -57,6 +57,27 @@
       "when": 1793731950439,
       "tag": "0007_quotation_revision_snapshot_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793732227758,
+      "tag": "0008_quotation_revision_effective_report",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793732329197,
+      "tag": "0009_quotation_revision_access_and_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793732405672,
+      "tag": "0010_quotation_completed_work_identity_guard",
+      "breakpoints": true
     }
   ]
 }

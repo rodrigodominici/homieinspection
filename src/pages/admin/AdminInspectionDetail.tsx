@@ -1,6 +1,7 @@
 import { quotedAmount, contractorAmount, repairUpdate } from '@/lib/repair-pricing';
 import { RepairCatalogSheet } from '@/modules/review/components/RepairCatalogSheet';
 import { addPendingRepair } from '@/modules/review/api/repairs.service';
+import { revisionError } from '@/lib/quotation-revision';
 import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { sameMarket } from '@/lib/markets';
@@ -441,6 +442,7 @@ export default function AdminInspectionDetail() {
       await supabase.from('hubspot_sync_log').delete().eq('inspection_id', inspection.id);
       await supabase.from('slack_notifications_log').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_reviews').delete().eq('inspection_id', inspection.id);
+      await supabase.from('inspection_work_orders').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_repair_items').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_report_versions').delete().eq('inspection_id', inspection.id);
       await supabase.from('inspection_audit_log').delete().eq('inspection_id', inspection.id);
@@ -535,7 +537,7 @@ export default function AdminInspectionDetail() {
   const addRepairFromCatalog = async (catalogItem: RepairCatalogItem) => {
     if (!catalogSectionId) return;
     const existingRepairs = repairsBySection[catalogSectionId] ?? [];
-    await supabase.from('inspection_repair_items').insert({
+    const { error } = await supabase.from('inspection_repair_items').insert({
       inspection_id: id!,
       inspection_section_id: catalogSectionId,
       repair_catalog_item_id: catalogItem.id,
@@ -553,18 +555,21 @@ export default function AdminInspectionDetail() {
       created_by: profile?.id,
       updated_by: profile?.id,
     });
+    if (error) { toast({ title: revisionError(error), variant: 'destructive' }); return; }
     setCatalogOpen(false);
     toast({ title: 'Reparación agregada' });
     await refreshRepairs();
   };
 
   const updateRepairItem = async (repairId: string, field: string, value: any) => {
-    await supabase.from('inspection_repair_items').update({ ...repairUpdate(field, value), updated_by: profile?.id } as any).eq('id', repairId);
+    const { error } = await supabase.from('inspection_repair_items').update({ ...repairUpdate(field, value), updated_by: profile?.id } as any).eq('id', repairId);
+    if (error) { toast({ title: revisionError(error), variant: 'destructive' }); return; }
     await refreshRepairs();
   };
 
   const deleteRepairItem = async (repairId: string) => {
-    await supabase.from('inspection_repair_items').delete().eq('id', repairId);
+    const { error } = await supabase.from('inspection_repair_items').delete().eq('id', repairId);
+    if (error) { toast({ title: revisionError(error), variant: 'destructive' }); return; }
     toast({ title: 'Reparación eliminada' });
     await refreshRepairs();
   };

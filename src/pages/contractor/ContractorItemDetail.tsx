@@ -82,7 +82,7 @@ export default function ContractorItemDetail() {
     setSaving(true);
     try {
       await updateWorkOrderItem(itemId, {
-        status,
+        ...(item?.status === 'done' ? {} : { status }),
         comment: comment.trim() || null,
         not_done_reason: status === 'not_done' ? notDoneReason.trim() : null,
       });
@@ -190,7 +190,7 @@ export default function ContractorItemDetail() {
                 <button
                   key={opt.value}
                   type="button"
-                  disabled={!editable}
+                  disabled={!editable || item?.status === 'done'}
                   onClick={() => setStatus(opt.value)}
                   className={cn(
                     'rounded-lg border px-2 py-2 text-xs font-medium transition-colors',

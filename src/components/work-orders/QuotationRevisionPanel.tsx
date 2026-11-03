@@ -61,9 +61,9 @@ export default function QuotationRevisionPanel({ inspectionId, detail, market, o
   const exportRevision = async (r: QuotationRevision) => {
     const payload = { property: { property_name: detail.inspection?.property_name ?? undefined, market }, sections: [{ title: `Cambios — ${r.reason}`, repairs: r.changes.map(c => {
       const v = c.after_json ?? c.before_json;
-      return { id: c.repair_item_id, name: `${c.kind === 'remove' ? 'Retirar: ' : c.kind === 'add' ? 'Agregar: ' : 'Modificar: '}${v?.title_snapshot}`, quantity: v?.quantity, unit: v?.unit, unit_price: v?.unit_price, payer_role: v?.payer_role };
+      return { id: c.repair_item_id, name: `${c.kind === 'remove' ? 'Retirar: ' : c.kind === 'add' ? 'Agregar: ' : 'Modificar: '}${v?.title_snapshot}`, description: `Anterior: ${c.before_json?.quantity ?? 0} × ${c.before_json?.unit_price ?? 0}; propuesto: ${c.after_json?.quantity ?? 0} × ${c.after_json?.unit_price ?? 0}; diferencia: ${revisionDifference(c)}.`, quantity: v?.quantity, unit: v?.unit, unit_price: v?.unit_price, payer_role: v?.payer_role };
     }) }] };
-    await downloadQuotationHistory({ version_number: 0, created_at: r.submitted_at ?? r.created_at, published_by_name: null, normalized_payload: payload, decisions: r.changes.filter(c => c.decision).map(c => ({ repair_item_id: c.repair_item_id, decision: c.decision ?? '', comment: c.comment, submitter_name: r.submitter_name })) });
+    await downloadQuotationHistory({ version_number: 0, document_title: 'Homie - Revisión de cotización con OT', file_name: `revision-ot-${r.id.slice(0, 8)}.pdf`, created_at: r.submitted_at ?? r.created_at, published_by_name: null, normalized_payload: payload, decisions: r.changes.filter(c => c.decision).map(c => ({ repair_item_id: c.repair_item_id, decision: c.decision ?? '', comment: c.comment, submitter_name: r.submitter_name })) });
   };
   return <section className="space-y-3 border-t pt-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Cambios de cotización con OT</h3><Button size="icon" variant="ghost" aria-label="Actualizar revisiones" title="Actualizar revisiones" onClick={() => void load()}><RefreshCw className="h-4 w-4" /></Button></div>
