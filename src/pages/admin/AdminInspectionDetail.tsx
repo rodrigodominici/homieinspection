@@ -119,6 +119,7 @@ interface AuditLogEntry {
 
 /* ─── Main component ─── */
 export default function AdminInspectionDetail() {
+  const historyQueryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
