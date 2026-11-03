@@ -78,6 +78,13 @@
       "when": 1793732405672,
       "tag": "0010_quotation_completed_work_identity_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793736645924,
+      "tag": "0011_advisor_assigned_property_marketing_photos",
+      "breakpoints": true
     }
   ]
 }
