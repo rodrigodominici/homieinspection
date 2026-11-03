@@ -1840,6 +1840,8 @@ export type Database = {
           created_by: string
           id: string
           inspection_id: string
+          original_feedback_status: string | null
+          original_inspection_status: string | null
           reason: string
           report_version_id: string | null
           resolved_at: string | null
@@ -1854,6 +1856,8 @@ export type Database = {
           created_by: string
           id?: string
           inspection_id: string
+          original_feedback_status?: string | null
+          original_inspection_status?: string | null
           reason?: string
           report_version_id?: string | null
           resolved_at?: string | null
@@ -1868,6 +1872,8 @@ export type Database = {
           created_by?: string
           id?: string
           inspection_id?: string
+          original_feedback_status?: string | null
+          original_inspection_status?: string | null
           reason?: string
           report_version_id?: string | null
           resolved_at?: string | null
@@ -2291,6 +2297,10 @@ export type Database = {
       }
       publish_quotation_version: {
         Args: { p_inspection_id: string; p_payload: Json }
+        Returns: Json
+      }
+      quotation_revision_effective_payload: {
+        Args: { p_payload: Json; p_revision_id: string }
         Returns: Json
       }
       reassign_work_order: {

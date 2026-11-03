@@ -57,6 +57,13 @@
       "when": 1793731950439,
       "tag": "0007_quotation_revision_snapshot_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793732227758,
+      "tag": "0008_quotation_revision_effective_report",
+      "breakpoints": true
     }
   ]
 }
