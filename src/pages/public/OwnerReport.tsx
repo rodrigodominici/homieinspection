@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { QUIEN_REPARA_LABELS } from '@/lib/quien-repara';
 import { logClientEvent } from '@/lib/client-log';
+import PublicQuotationRevision from '@/components/quotation/PublicQuotationRevision';
 
 /** Network-level fetch failures worth retrying (Safari: "Load failed"). */
 const NETWORK_ERROR_RE = /load failed|failed to fetch|network|networkerror|timeout|aborted|connection/i;
@@ -932,6 +933,7 @@ export default function OwnerReport() {
 
   return (
     <div className="min-h-screen bg-background">
+      {propertyId && token && <div className="max-w-3xl mx-auto px-4 sm:px-6"><PublicQuotationRevision propertyId={propertyId} token={token} onChanged={() => void loadReport()} /></div>}
       <style>{`
         @media print {
           .no-print { display: none !important; }

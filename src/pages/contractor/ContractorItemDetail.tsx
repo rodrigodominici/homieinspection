@@ -69,7 +69,7 @@ export default function ContractorItemDetail() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const editable = isWorkOrderEditable(orderStatus);
+  const editable = isWorkOrderEditable(orderStatus) && !item?.quotation_paused && !item?.is_archived;
   const before = useMemo(() => (item?.photos ?? []).filter((p) => p.photo_stage === 'before'), [item]);
   const after = useMemo(() => (item?.photos ?? []).filter((p) => p.photo_stage !== 'before'), [item]);
 
@@ -170,6 +170,7 @@ export default function ContractorItemDetail() {
     >
       <Card>
         <CardContent className="p-4 space-y-2 text-sm">
+          {item?.quotation_paused && <p className="text-sm font-medium text-muted-foreground">Partida pausada: cambios de cotización pendientes de aprobación.</p>}
           {item?.repair?.description_snapshot && (
             <p className="text-muted-foreground">{item.repair.description_snapshot}</p>
           )}

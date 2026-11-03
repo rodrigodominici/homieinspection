@@ -70,7 +70,7 @@ export default function ContractorWorkOrderDetail() {
   const pct = items.length > 0 ? Math.round((resolved.length / items.length) * 100) : 0;
   const editable = isWorkOrderEditable(detail?.order.status);
   const pendingAcceptance = isWorkOrderPendingAcceptance(detail?.order.status);
-  const allResolved = items.length > 0 && resolved.length === items.length;
+  const allResolved = items.length > 0 && resolved.length === items.length && !items.some(i => i.quotation_paused);
   const missingPhotos = items.filter(
     (i) => i.status === 'done' && !i.photos.some((p) => p.photo_stage === 'after'),
   );
@@ -221,6 +221,7 @@ export default function ContractorWorkOrderDetail() {
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-sm font-medium leading-snug">{item.repair?.title_snapshot ?? 'Reparación'}</p>
                   <div className="flex items-center gap-2 flex-wrap">
+                    {item.quotation_paused && <span className="text-xs text-muted-foreground">Pausada · aprobación pendiente</span>}
                     <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${workOrderItemToneClass(item.status)}`}>
                       {workOrderItemStatusLabel(item.status)}
                     </span>
