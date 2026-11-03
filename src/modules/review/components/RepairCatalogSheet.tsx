@@ -6,9 +6,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import type { RepairCatalogItem } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
-  onAddPending: (title: string, quantity: number) => Promise<void>;
+  onAddPending: (title: string, quantity: number, payer: 'owner' | 'tenant') => Promise<void>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   search: string;
@@ -21,11 +22,13 @@ export function RepairCatalogSheet({ open, onOpenChange, search, onSearchChange,
   const [pending, setPending] = useState(false);
   const [title, setTitle] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [payer, setPayer] = useState<'owner' | 'tenant' | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const savePending = async () => {
+    if (!payer) return;
     setSaving(true); setError('');
-    try { await onAddPending(title, quantity); setPending(false); setTitle(''); setQuantity(1); }
+    try { await onAddPending(title, quantity, payer); setPending(false); setTitle(''); setQuantity(1); setPayer(''); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar.'); }
     finally { setSaving(false); }
   };
@@ -44,8 +47,16 @@ export function RepairCatalogSheet({ open, onOpenChange, search, onSearchChange,
             <Input id="pending-title" value={title} onChange={e => setTitle(e.target.value)} />
             <Label htmlFor="pending-quantity">Cantidad</Label>
             <Input id="pending-quantity" type="number" min="0.01" step="any" value={quantity} onChange={e => setQuantity(Number(e.target.value))} />
+            <Label htmlFor="pending-payer">A cargo de</Label>
+            <Select value={payer} onValueChange={value => { if (value === 'owner' || value === 'tenant') setPayer(value); }}>
+              <SelectTrigger id="pending-payer"><SelectValue placeholder="Seleccionar responsable de pago" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="owner">Propietario</SelectItem>
+                <SelectItem value="tenant">Arrendatario</SelectItem>
+              </SelectContent>
+            </Select>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <Button disabled={saving || !title.trim() || quantity <= 0} onClick={savePending}>{saving ? 'Guardando…' : 'Guardar partida por cotizar'}</Button>
+            <Button disabled={saving || !title.trim() || !Number.isFinite(quantity) || quantity <= 0 || !payer} onClick={savePending}>{saving ? 'Guardando…' : 'Guardar partida por cotizar'}</Button>
           </div>}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

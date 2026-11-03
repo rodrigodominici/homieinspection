@@ -287,9 +287,9 @@ export function useReviewActions(args: UseReviewActionsArgs) {
   }, [inspection, id, invalidateInspection, toast]);
 
   return {
-    addPendingRepair: async (title: string, quantity: number) => {
+    addPendingRepair: async (title: string, quantity: number, payer: 'owner' | 'tenant') => {
       if (!id || !catalogSectionId) throw new Error('Selecciona una sección.');
-      await repairsService.addPendingRepair(id, catalogSectionId, title, quantity, profileId);
+      await repairsService.addPendingRepair(id, catalogSectionId, title, quantity, payer, profileId);
       await invalidateRepairs();
       setCatalogOpen(false);
       toast({ title: 'Partida por cotizar agregada' });

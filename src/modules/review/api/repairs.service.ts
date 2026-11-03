@@ -147,14 +147,15 @@ export async function rebindContractorPrices(
   return updatedCount;
 }
 
-export async function addPendingRepair(inspectionId: string, sectionId: string, title: string, quantity: number, profileId?: string) {
+export async function addPendingRepair(inspectionId: string, sectionId: string, title: string, quantity: number, payer: 'owner' | 'tenant', profileId?: string) {
   if (!title.trim() || !Number.isFinite(quantity) || quantity <= 0) throw new Error('Ingresa una descripción y cantidad válida.');
+  if (payer !== 'owner' && payer !== 'tenant') throw new Error('Selecciona quién paga la partida.');
   const { error } = await supabase.from('inspection_repair_items').insert({
     inspection_id: inspectionId, inspection_section_id: sectionId,
     title_snapshot: title.trim(), description_snapshot: title.trim(),
     unit: 'serv', pricing_type: 'fixed', quantity, unit_price: 0,
     contractor_unit_price: 0, is_pending_quote: true,
-    visible_to_owner: true, payer_role: 'owner', payment_nature: 'required',
+    visible_to_owner: true, payer_role: payer, payment_nature: 'required',
     created_by: profileId, updated_by: profileId,
   });
   if (error) throw error;
