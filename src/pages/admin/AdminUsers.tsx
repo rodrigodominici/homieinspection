@@ -80,7 +80,8 @@ export default function AdminUsers() {
     const roles = await supabase.from('user_roles').select('user_id').eq('role', 'hunter');
     if (pRes.error || roles.error) { toast({ title: 'No se pudieron cargar los usuarios', variant: 'destructive' }); setLoading(false); return; }
     const hunters = new Set((roles.data ?? []).map(r => r.user_id));
-    setProfiles((pRes.data ?? []).map(p => ({ ...p, role: hunters.has(p.id) ? 'hunter' : p.role })) as Profile[]);
+    const rows = (pRes.data ?? []) as unknown as Profile[];
+    setProfiles(rows.map(p => ({ ...p, role: hunters.has(p.id) ? 'hunter' : p.role })));
     setLoading(false);
   };
 
