@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Loader2, Images } from 'lucide-react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -9,7 +10,7 @@ import { buildMarketingZip, photoFilename, saveMarketingFile, type MarketingPhot
 interface SharedPhoto extends MarketingPhoto { signed_url: string }
 interface Gallery { property: string; expires_at: string; photos: SharedPhoto[] }
 export default function MarketingPhotoShare() {
-  const [token] = useState(() => window.location.hash.slice(1));
+  const token = useLocation().hash.slice(1);
   const [gallery, setGallery] = useState<Gallery | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,7 +25,10 @@ export default function MarketingPhotoShare() {
     setGallery(data as Gallery);
     return data as Gallery;
   }, [token]);
-  useEffect(() => { void load().catch(e => setError(e.message)); }, [load]);
+  useEffect(() => {
+    setGallery(null); setZip(null); setSelected(null); setError('');
+    void load().catch(e => setError(e.message));
+  }, [load]);
   const download = async (photo: SharedPhoto) => {
     const response = await fetch(photo.signed_url, { referrerPolicy: 'no-referrer' });
     if (!response.ok) throw new Error('No se pudo descargar la foto. Intentá nuevamente.');
