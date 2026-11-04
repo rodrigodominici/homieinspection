@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     if (dry_run === true) return json(200, { status: 'preview', text });
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     const slackKey = Deno.env.get('SLACK_API_KEY');
-    const channel = Deno.env.get('SLACK_NOTIFICATIONS_CHANNEL_ID');
+    const channel = Deno.env.get('SLACK_MARKETING_PHOTOS_CHANNEL_ID') ?? Deno.env.get('SLACK_NOTIFICATIONS_CHANNEL_ID');
     if (!apiKey || !slackKey || !channel) return json(503, { error: 'slack_not_configured' });
     const claim = await sb.rpc('claim_marketing_photo_notification', { p_inspection_id: inspection_id });
     if (claim.error) throw claim.error;
