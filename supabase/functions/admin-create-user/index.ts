@@ -14,7 +14,7 @@ interface CreateUserBody {
   email: string;
   password: string;
   full_name: string;
-  role: 'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor';
+  role: 'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor' | 'hunter';
   market: string;
   markets: string[];
   country_code: string;
@@ -49,7 +49,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'invalid_email' };
   if (password.length < 8) return { ok: false, error: 'weak_password' };
   if (!full_name || full_name.length > 120) return { ok: false, error: 'invalid_full_name' };
-  if (!['admin', 'inspector', 'property_advisor', 'executive', 'comercial', 'contractor'].includes(role ?? '')) return { ok: false, error: 'invalid_role' };
+  if (!role || !['admin', 'inspector', 'property_advisor', 'executive', 'comercial', 'contractor','hunter'].includes(role)) return { ok: false, error: 'invalid_role' };
   if (role === 'contractor' && !contractor_id) return { ok: false, error: 'missing_contractor' };
   if (!VALID_MARKETS.includes(market ?? '')) return { ok: false, error: 'invalid_market' };
   if (markets.length === 0) return { ok: false, error: 'invalid_market' };
@@ -59,7 +59,7 @@ function validate(body: Partial<CreateUserBody>): { ok: true; data: CreateUserBo
   return {
     ok: true,
     data: {
-      email, password, full_name, role: role!, market: market!, markets, country_code, phone, is_active,
+      email, password, full_name, role, market: market ?? 'CL', markets: role === 'hunter' ? ['CL','MX'] : markets, country_code, phone, is_active,
       contractor_id: role === 'contractor' ? contractor_id : null,
     },
   };
@@ -90,10 +90,10 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: callerProfile, error: callerErr } = await admin
     .from('profiles')
-    .select('role, is_active')
+    .select('role, is_active, approval_status')
     .eq('id', callerId)
     .single();
-  if (callerErr || !callerProfile || callerProfile.role !== 'admin' || !callerProfile.is_active) {
+  if (callerErr || !callerProfile || callerProfile.role !== 'admin' || !callerProfile.is_active || callerProfile.approval_status !== 'approved') {
     return jsonResponse({ error: 'forbidden' }, 403);
   }
 
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     email: body.email,
     password: body.password,
     email_confirm: true,
-    user_metadata: { full_name: body.full_name, role: body.role },
+    user_metadata: { full_name: body.full_name },
   });
   if (createErr || !created?.user) {
     const msg = (createErr?.message ?? '').toLowerCase();
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     .update({
       full_name: body.full_name,
       email: body.email,
-      role: body.role,
+      role: body.role === 'hunter' ? 'pending' : body.role,
       market: body.market,
       markets: body.markets,
       country_code: body.country_code,
@@ -144,6 +144,11 @@ Deno.serve(async (req) => {
     // Best-effort cleanup so we don't leave an orphan auth user.
     await admin.auth.admin.deleteUser(newUserId).catch(() => {});
     return jsonResponse({ error: 'profile_update_failed', detail: profileErr.message }, 500);
+  }
+
+  if (body.role === 'hunter') {
+    const { error } = await admin.from('user_roles').insert({ user_id: newUserId, role: 'hunter' });
+    if (error) { await admin.auth.admin.deleteUser(newUserId); return jsonResponse({ error: 'profile_update_failed', detail: error.message }, 500); }
   }
 
   return jsonResponse({ id: newUserId }, 200);

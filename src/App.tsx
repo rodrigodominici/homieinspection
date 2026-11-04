@@ -68,6 +68,7 @@ const ComercialCheckOutDetail = lazyWithRetry(() => import("./pages/comercial/Co
 // ── Lazy — Shared ─────────────────────────────────────────────────────────────
 const InspectionRoleRedirect = lazyWithRetry(() => import("./pages/InspectionRoleRedirect"), "InspectionRoleRedirect");
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"), "ResetPassword");
+const HunterGallery = lazyWithRetry(() => import("./pages/HunterGallery"), "HunterGallery");
 
 // ── QueryClient with sensible cache defaults ──────────────────────────────────
 const queryClient = new QueryClient({
@@ -176,7 +177,8 @@ const App = () => (
               <Route path="/comercial/check-out/:id" element={<ProtectedRoute allowedRoles={['comercial']}><ComercialCheckOutDetail /></ProtectedRoute>} />
 
               {/* Shared role-aware entry point (used by Slack links, etc.) */}
-              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','property_advisor','comercial']}><InspectionRoleRedirect /></ProtectedRoute>} />
+              <Route path="/hunter" element={<ProtectedRoute allowedRoles={['hunter']}><HunterGallery /></ProtectedRoute>} />
+              <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','property_advisor','comercial','hunter']}><InspectionRoleRedirect /></ProtectedRoute>} />
 
               {/* Public routes */}
               <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />

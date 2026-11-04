@@ -2171,6 +2171,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2292,6 +2318,14 @@ export type Database = {
               versions_per_report: number
             }[]
           }
+      get_hunter_captaciones: {
+        Args: { p_market?: string; p_offset?: number; p_search?: string }
+        Returns: Json
+      }
+      get_hunter_marketing_photos: {
+        Args: { p_captacion_id: string }
+        Returns: Json
+      }
       get_inspection_hubspot_deal_url: {
         Args: { p_inspection_id: string }
         Returns: string
@@ -2341,7 +2375,12 @@ export type Database = {
       }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      hunter_can_read_marketing_object: {
+        Args: { p_bucket: string; p_path: string }
+        Returns: boolean
+      }
       is_comercial: { Args: never; Returns: boolean }
+      is_hunter: { Args: never; Returns: boolean }
       is_visible_checkout_for_comercial: {
         Args: { _inspection_id: string }
         Returns: boolean
@@ -2375,6 +2414,10 @@ export type Database = {
           p_values: Json
         }
         Returns: string
+      }
+      set_internal_user_role: {
+        Args: { p_approve?: boolean; p_role: string; p_user_id: string }
+        Returns: undefined
       }
       start_quotation_revision: {
         Args: { p_inspection_id: string }

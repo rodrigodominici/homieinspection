@@ -35,6 +35,7 @@ export function receiverLabelForType(inspectionType: string | null | undefined):
 }
 
 export const ROLE_LABELS: Record<string, string> = {
+  hunter: 'Hunter',
   admin: 'Admin',
   inspector: 'Inspector',
   property_advisor: 'Property Advisor',

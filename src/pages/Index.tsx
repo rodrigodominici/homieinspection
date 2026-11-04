@@ -53,6 +53,8 @@ export default function Index() {
   }
 
   switch (profile.role) {
+    case 'hunter':
+      return <Navigate to="/hunter" replace />;
     case 'admin':
       return <Navigate to="/admin" replace />;
     case 'inspector':
