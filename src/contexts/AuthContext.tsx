@@ -80,7 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (failed) {
         try {
           const raw = localStorage.getItem(cacheKey);
-          if (raw) data = JSON.parse(raw) as Profile;
+          if (raw) {
+            const cached = JSON.parse(raw) as Profile;
+            if (cached.role !== 'hunter') data = cached;
+          }
         } catch { /* ignore */ }
       }
       setProfile(data);
