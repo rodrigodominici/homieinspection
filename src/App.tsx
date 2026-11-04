@@ -55,6 +55,7 @@ const ExecutiveRepairCatalog = lazyWithRetry(() => import("./pages/executive/Exe
 
 // ── Lazy — Public ─────────────────────────────────────────────────────────────
 const OwnerReport = lazyWithRetry(() => import("./pages/public/OwnerReport"), "OwnerReport");
+const MarketingPhotoShare = lazyWithRetry(() => import("./pages/public/MarketingPhotoShare"), "MarketingPhotoShare");
 
 // ── Lazy — Comercial (solo lectura) ───────────────────────────────────────────
 const ContractorDashboard = lazyWithRetry(() => import("./pages/contractor/ContractorDashboard"), "ContractorDashboard");
@@ -181,6 +182,7 @@ const App = () => (
               <Route path="/inspections/:id" element={<ProtectedRoute allowedRoles={['admin','executive','inspector','property_advisor','comercial','hunter']}><InspectionRoleRedirect /></ProtectedRoute>} />
 
               {/* Public routes */}
+              <Route path="/fotos-comercializacion" element={<MarketingPhotoShare />} />
               <Route path="/reportes/:propertyId/:token" element={<OwnerReport />} />
 
               <Route path="*" element={<NotFound />} />
