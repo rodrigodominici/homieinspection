@@ -59,7 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.error) {
             failed = true;
           } else if (res.data) {
-            data = res.data as Profile;
+            const hunterRole = await withTimeout(supabase.from('user_roles').select('role').eq('user_id', userId).eq('role', 'hunter').maybeSingle(), PROFILE_QUERY_TIMEOUT_MS);
+            if (hunterRole.error) throw hunterRole.error;
+            data = { ...res.data, role: hunterRole.data ? 'hunter' : res.data.role } as Profile;
             failed = false;
             break;
           } else {

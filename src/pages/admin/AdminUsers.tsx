@@ -28,6 +28,7 @@ import { ROLE_LABELS } from '@/lib/receiver-roles';
 
 
 const BUSINESS_ROLES: { value: string; label: string }[] = [
+  { value: 'hunter', label: 'Hunter' },
   { value: 'admin', label: 'Admin' },
   { value: 'inspector', label: 'Inspector' },
   { value: 'property_advisor', label: 'Property Advisor' },
@@ -64,7 +65,7 @@ export default function AdminUsers() {
   const [cuEmail, setCuEmail] = useState('');
   const [cuPassword, setCuPassword] = useState('');
   const [cuShowPassword, setCuShowPassword] = useState(false);
-  const [cuRole, setCuRole] = useState<'admin' | 'inspector' | 'property_advisor' | 'executive' | 'comercial' | 'contractor'>('inspector');
+  const [cuRole, setCuRole] = useState<Exclude<UserRole, 'pending'>>('inspector');
   const [cuContractorId, setCuContractorId] = useState<string>('');
   const [contractors, setContractors] = useState<ContractorOption[]>([]);
   const [cuMarket, setCuMarket] = useState<string>('CL');
@@ -76,7 +77,10 @@ export default function AdminUsers() {
 
   const fetchAll = async () => {
     const pRes = await supabase.from('profiles').select(PROFILE_LIST_COLUMNS).order('created_at', { ascending: false }).limit(500);
-    setProfiles((pRes.data ?? []) as unknown as Profile[]);
+    const roles = await supabase.from('user_roles').select('user_id').eq('role', 'hunter');
+    if (pRes.error || roles.error) { toast({ title: 'No se pudieron cargar los usuarios', variant: 'destructive' }); setLoading(false); return; }
+    const hunters = new Set((roles.data ?? []).map(r => r.user_id));
+    setProfiles((pRes.data ?? []).map(p => ({ ...p, role: hunters.has(p.id) ? 'hunter' : p.role })) as Profile[]);
     setLoading(false);
   };
 
@@ -117,9 +121,7 @@ export default function AdminUsers() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from('profiles').update({
-      role, is_active: true, approval_status: 'approved',
-    }).eq('id', p.id);
+    const { error } = await supabase.rpc('set_internal_user_role', { p_user_id: p.id, p_role: role, p_approve: true });
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, role, is_active: true, approval_status: 'approved' } : x));
@@ -169,7 +171,7 @@ export default function AdminUsers() {
   const handleEditSave = async () => {
     if (!editingProfile) return;
     const allMarkets = MARKET_OPTIONS.map((m) => m.value);
-    const effectiveMarkets = editRole === 'admin' ? allMarkets : editMarkets;
+    const effectiveMarkets = editRole === 'hunter' ? ['CL', 'MX'] : editRole === 'admin' ? allMarkets : editMarkets;
     if (effectiveMarkets.length === 0) {
       toast({ title: 'Selecciona al menos un país', variant: 'destructive' });
       return;
@@ -181,7 +183,6 @@ export default function AdminUsers() {
     const cleanPhone = normalizePhone(editPhone);
     setSaving(true);
     const updates = {
-      role: editRole,
       full_name: editName,
       market: effectiveMarkets.includes(editMarket) ? editMarket : effectiveMarkets[0],
       markets: effectiveMarkets,
@@ -191,6 +192,8 @@ export default function AdminUsers() {
       is_active: editIsActive,
       contractor_id: editRole === 'contractor' ? editContractorId : null,
     };
+    const roleResult = await supabase.rpc('set_internal_user_role', { p_user_id: editingProfile.id, p_role: editRole });
+    if (roleResult.error) { setSaving(false); toast({ title: 'Error', description: roleResult.error.message, variant: 'destructive' }); return; }
     const { error } = await supabase
       .from('profiles')
       .update(updates)
@@ -198,7 +201,7 @@ export default function AdminUsers() {
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     setProfiles(prev =>
-      prev.map(x => x.id === editingProfile.id ? { ...x, ...updates } : x)
+      prev.map(x => x.id === editingProfile.id ? { ...x, ...updates, role: editRole } : x)
     );
     setEditingProfile(null);
     toast({ title: 'Usuario actualizado' });
@@ -238,7 +241,7 @@ export default function AdminUsers() {
       toast({ title: 'Selecciona la empresa contratista', variant: 'destructive' }); return;
     }
     setCuSubmitting(true);
-    const cuEffectiveMarkets = cuRole === 'admin' ? MARKET_OPTIONS.map((m) => m.value) : cuMarkets;
+    const cuEffectiveMarkets = cuRole === 'hunter' ? ['CL', 'MX'] : cuRole === 'admin' ? MARKET_OPTIONS.map((m) => m.value) : cuMarkets;
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
         full_name: name,
@@ -495,7 +498,7 @@ export default function AdminUsers() {
                   </p>
                 </div>
               )}
-              {editRole === 'admin' ? (
+              {editRole === 'hunter' ? <div className="text-sm">Chile · México</div> : editRole === 'admin' ? (
                 <div className="space-y-2">
                   <Label>Países con acceso</Label>
                   <div className="rounded-md bg-muted/40 px-3 py-2 text-sm font-medium">Todos</div>
@@ -654,7 +657,7 @@ export default function AdminUsers() {
                 </p>
               </div>
             )}
-            {cuRole === 'admin' ? (
+            {cuRole === 'hunter' ? <div className="text-sm">Chile · México</div> : cuRole === 'admin' ? (
               <div className="space-y-2">
                 <Label>Países con acceso</Label>
                 <div className="rounded-md bg-muted/40 px-3 py-2 text-sm font-medium">Todos</div>
@@ -773,6 +776,7 @@ function PendingUserRow({ profile, onApprove, onReject }: {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="hunter">Hunter</SelectItem>
               <SelectItem value="inspector">Inspector</SelectItem>
               <SelectItem value="property_advisor">Property Advisor</SelectItem>
               <SelectItem value="executive">Executive</SelectItem>

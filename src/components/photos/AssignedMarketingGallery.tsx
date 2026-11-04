@@ -8,17 +8,20 @@ import { ZoomableImage } from './ZoomableImage';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import { buildMarketingZip, fetchMarketingPhoto, photoFilename, saveMarketingFile, type MarketingPhoto } from '@/lib/marketing-photo-download';
 
-export function AssignedMarketingGallery({ checkinId, propertyId }: { checkinId: string; propertyId: string }) {
+export function AssignedMarketingGallery({ checkinId, captacionId, propertyId }: { checkinId?: string; captacionId?: string; propertyId: string }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [ready, setReady] = useState<{ blob: Blob; name: string } | null>(null);
   const { data: photos = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['assigned-marketing', checkinId],
+    queryKey: ['assigned-marketing', checkinId, captacionId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_assigned_marketing_photos', { p_checkin_id: checkinId });
+      if (!captacionId && !checkinId) throw new Error('Inmueble no encontrado');
+      const { data, error } = captacionId
+        ? await supabase.rpc('get_hunter_marketing_photos', { p_captacion_id: captacionId })
+        : await supabase.rpc('get_assigned_marketing_photos', { p_checkin_id: checkinId ?? '' });
       if (error) throw error;
       return (data ?? []) as unknown as MarketingPhoto[];
     },

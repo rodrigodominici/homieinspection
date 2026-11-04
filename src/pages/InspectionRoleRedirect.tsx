@@ -19,6 +19,7 @@ export default function InspectionRoleRedirect() {
   }
 
   if (!id) return <Navigate to="/" replace />;
+  if (role === "hunter") return <Navigate to={`/hunter?captacion=${id}`} replace />;
 
   if (role === "admin") return <Navigate to={`/admin/inspections/${id}`} replace />;
   if (role === "executive") return <Navigate to={`/executive/inspection/${id}`} replace />;
