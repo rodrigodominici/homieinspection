@@ -43,6 +43,7 @@ const SENSITIVE_PATH_PATTERNS: RegExp[] = [
   /^\/comercial\/check-out\//,
   /^\/reportes\//,
   /^\/public\//,
+  /^\/fotos-comercializacion/,
 ];
 
 export function isSensitivePath(pathname: string): boolean {

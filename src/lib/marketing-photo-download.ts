@@ -39,13 +39,13 @@ export async function fetchMarketingPhoto(photo: MarketingPhoto): Promise<Blob> 
   return data;
 }
 
-export async function buildMarketingZip(photos: MarketingPhoto[]): Promise<Blob> {
+export async function buildMarketingZip(photos: MarketingPhoto[], download: (photo: MarketingPhoto) => Promise<Blob> = fetchMarketingPhoto): Promise<Blob> {
   if (!photos.length) throw new Error('No hay fotos para descargar.');
   const zip = new JSZip();
   // Small batches keep network and memory usage bounded while preserving originals.
   for (let start = 0; start < photos.length; start += 4) {
     await Promise.all(photos.slice(start, start + 4).map(async (photo, offset) => {
-      zip.file(photoFilename(photo, start + offset), await (await fetchMarketingPhoto(photo)).arrayBuffer());
+      zip.file(photoFilename(photo, start + offset), await (await download(photo)).arrayBuffer());
     }));
   }
   return zip.generateAsync({ type: 'blob', compression: 'STORE' });

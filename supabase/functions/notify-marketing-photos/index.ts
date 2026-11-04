@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { marketingPhotoMessage, marketingPhotosReady } from '../_shared/marketing-photo-message.ts';
+import { createMarketingLinkToken } from '../_shared/marketing-photo-link.ts';
 
 const json = (status: number, data: unknown) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 Deno.serve(async (req) => {
@@ -30,7 +31,10 @@ Deno.serve(async (req) => {
     if (!marketingPhotosReady(insp.inspection_type, section.status, count ?? 0)) return json(200, { status: 'noop', reason: 'not_ready' });
     const { data: receptor } = await sb.from('profiles').select('full_name').eq('id', insp.inspector_id).maybeSingle();
     const base = Deno.env.get('APP_BASE_URL') ?? 'https://app.inspection.homie.mx';
-    const text = marketingPhotoMessage(receptor?.full_name ?? 'Receptor', insp.property_name ?? insp.address ?? insp.property_id, count ?? 0, `${base}/inspections/${inspection_id}`);
+    const linkSecret = Deno.env.get('MARKETING_PHOTO_LINK_SECRET');
+    if (!linkSecret) return json(503, { error: 'link_not_configured' });
+    const link = await createMarketingLinkToken(inspection_id, linkSecret);
+    const text = marketingPhotoMessage(receptor?.full_name ?? 'Receptor', insp.property_name ?? insp.address ?? insp.property_id, count ?? 0, `${base}/fotos-comercializacion#${link.token}`);
     if (dry_run === true) return json(200, { status: 'preview', text });
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     const slackKey = Deno.env.get('SLACK_API_KEY');
