@@ -248,7 +248,11 @@ export const RepairsTableView = memo(function RepairsTableView({
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
                     {r.is_pending_quote ? <Input aria-label={`Definir precio de ${r.title_snapshot}`} placeholder="Por cotizar" type="number" min="0" step="any" className="h-8 text-xs" onBlur={e => {
                       if (e.target.value.trim() && Number(e.target.value) >= 0) onUpdateRepair(r.id, 'unit_price', Number(e.target.value));
-                    }} /> : `${r.quantity} × ${fmtCurrency(r.unit_price)}`}
+                    }} /> : <span className="inline-flex items-center justify-end gap-1">
+                      <Input key={`q-${r.id}-${r.quantity}`} aria-label={`Cantidad de ${r.title_snapshot}`} type="number" min="0" step="any" defaultValue={r.quantity} className="h-7 w-16 px-1 text-right text-xs"
+                        onBlur={e => { const v = Number(e.target.value); if (e.target.value.trim() && v >= 0 && v !== r.quantity) onUpdateRepair(r.id, 'quantity', v); }} />
+                      <span>× {fmtCurrency(r.unit_price)}</span>
+                    </span>}
                   </span>
                   <span className="text-right font-mono text-sm font-medium tabular-nums">
                     {r.is_pending_quote ? 'Por cotizar' : fmtCurrency(subtotal)}

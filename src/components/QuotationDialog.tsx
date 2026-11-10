@@ -1,3 +1,4 @@
+import { QUOTATION_PRINT_CSS, quotationFileTitle } from '@/lib/quotation-print';
 import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -132,37 +133,6 @@ export function QuotationDialog({
         </table>`;
     }).join('');
 
-    const PRINT_CSS = `
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: Inter, system-ui, sans-serif; font-size: 11px; color: #111; padding: 28px 36px; line-height: 1.5; }
-      .doc-title { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
-      .doc-subtitle { font-size: 11px; color: #555; margin-bottom: 2px; }
-      .doc-date { font-size: 10px; color: #777; margin-bottom: 18px; }
-      .section-header {
-        font-size: 11px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .07em; padding: 5px 10px;
-        border-left: 3px solid #525EA2; background: #EEF1F8;
-        color: #525EA2; margin-top: 16px; margin-bottom: 6px;
-      }
-      table.section-table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 5px 7px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
-      th { background: #f6f7fb; font-weight: 600; font-size: 10px; }
-      tfoot td { border-top: 1px solid #111; font-weight: 600; background: #fafafa; }
-      .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .repair-name { font-weight: 600; }
-      .repair-desc { font-size: 10px; color: #666; margin-top: 1px; }
-      .badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px; margin-top: 3px; font-weight: 600; }
-      .badge-required { background: #EEF1F8; color: #525EA2; border: 1px solid #c7cde6; }
-      .badge-optional { background: #fff; color: #666; border: 1px solid #d1d5db; }
-      .totals { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; }
-      .totals-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
-      .totals-row.optional { font-style: italic; color: #666; }
-      .totals-label { color: #555; }
-      .totals-value { font-variant-numeric: tabular-nums; font-weight: 600; }
-      .grand-line { border-top: 2px solid #111; margin-top: 6px; padding-top: 6px; }
-      .grand-line .totals-label, .grand-line .totals-value { font-weight: 700; font-size: 13px; }
-      @page { margin: 16mm 14mm; }
-    `;
     const win = window.open('', '_blank', 'width=900,height=1100');
     if (!win) return;
     const summary = `
@@ -176,7 +146,7 @@ export function QuotationDialog({
         ${vat.enabled ? `<div class="totals-row"><span class="totals-label">${esc(vat.label)} ${vat.percentage}%</span><span class="totals-value">${fmtCurrency(vat.vatAmount)}</span></div>` : ''}
         <div class="totals-row grand-line"><span class="totals-label">Total</span><span class="totals-value">${fmtCurrency(total)}</span></div>
       </div>`;
-    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${PRINT_CSS}</style></head><body>
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(quotationFileTitle(title, inspection.address, inspection.property_name))}</title><style>${QUOTATION_PRINT_CSS}</style></head><body>
       <div class="doc-title">${esc(title)}</div>
       <div class="doc-subtitle">${esc(inspection.property_name ?? inspection.property_id)}</div>
       ${inspection.address ? `<div class="doc-subtitle">${esc(inspection.address)}</div>` : ''}
