@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.rm_simulate_step(uuid, text, jsonb);
