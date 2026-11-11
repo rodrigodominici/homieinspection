@@ -204,6 +204,13 @@
       "when": 1794359852280,
       "tag": "0028_rent_manager_bounded_sql_wake",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794440636068,
+      "tag": "0029_rent_manager_test_simulator",
+      "breakpoints": true
     }
   ]
 }
