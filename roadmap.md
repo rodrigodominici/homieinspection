@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Remove the inspection-progress simulator panel, client helper, three simulator tests and rm_simulate_step through a new migration; preserve old migration and unrelated RM functionality. No publication.
+- [x] Removed inspection-progress simulator panel/client helper/three tests and rm_simulate_step through migration 0030; absence verified in hosted DB and source, visit/availability RPCs retained, 27 regression tests passed. No publication or dispatcher deployment.
 - [x] Final-photo delivery now refreshes the complete current gallery in stable order and preserves data.fotos links; 27 tests passed, including three persisted photos and three notifications in a rolled-back transaction without external delivery. Await user confirmation before publication/deployment.
 - [x] Confirmed all_test purge selects only is_test inspections and removes their referenced inspection-photos and inspection-reports files after atomic row deletion; no destructive test or unrelated change performed.
 - [x] Activate production Rent Manager enqueue dispatch and bounded minute retries: 37 tests passed; CL RM origin accepted, HubSpot/MX/check-out excluded; empty destination kept attempts=0. Production enqueue callback and minute callback at 2026-11-11 01:21 UTC returned 200. Disposable test removed and queue drained; full intake URL supplied.
