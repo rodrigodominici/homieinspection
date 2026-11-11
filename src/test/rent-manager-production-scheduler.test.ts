@@ -29,9 +29,12 @@ describe.skipIf(!enabled)('production Rent Manager scheduler isolation', () => {
       if (accepted) {
         const before = await api(`rent_manager_outbox?id=eq.${event}`);
         if (!url || !key) throw new Error('Missing backend binding');
-        const result = await fetch(`${url}/functions/v1/rent-manager-dispatch`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: '{}' });
+        const [wake] = await api('rent_manager_dispatch_wakes', {});
+        const result = await fetch(`${url}/functions/v1/rent-manager-dispatch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wake_id: wake.id }) });
         expect(result.status).toBe(200);
         expect(await result.json()).toMatchObject({ reason: 'not_configured', sent: 0 });
+        const replay = await fetch(`${url}/functions/v1/rent-manager-dispatch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wake_id: wake.id }) });
+        expect(replay.status).toBe(401);
         expect(await api(`rent_manager_outbox?id=eq.${event}`)).toEqual(before);
       }
     } finally {
