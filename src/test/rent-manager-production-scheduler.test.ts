@@ -21,7 +21,7 @@ describe.skipIf(!enabled)('production Rent Manager scheduler isolation', () => {
     ['CL', 'check_out', 'rent_manager', false],
   ] as const) it(`${market} ${type} ${provider}: enqueue=${accepted}`, async () => {
     const id = crypto.randomUUID();
-    await api('inspections', { id, property_id: `verify-${id}`, market, inspection_type: type, property_type: 'departamento', property_name: 'PRUEBA AUTOMÁTICA DESPACHO RM', address: 'PRUEBA AUTOMÁTICA DESPACHO RM', status: 'pending_assignment', is_test: true });
+    await api('inspections', { id, property_id: `verify-${id}`, market, inspection_type: type, property_type: 'departamento', property_name: 'PRUEBA AUTOMÁTICA DESPACHO RM', address: 'PRUEBA AUTOMÁTICA DESPACHO RM', property_snapshot_json: {}, status: 'pending_assignment', is_test: true });
     try {
       await api('inspection_external_references', { inspection_id: id, provider, external_object_type: 'captacion', external_object_id: `verify-${id}`, metadata: { rm_inspection_id: `verify-${id}` }, is_active: true });
       const event = await api('rpc/rm_enqueue', { p_inspection_id: id, p_event_type: 'inspection.status_changed' });
