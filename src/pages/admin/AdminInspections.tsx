@@ -33,6 +33,8 @@ import {
   type CanonicalInspectionType,
 } from '@/lib/inspection-type-labels';
 import AdminLayout from '@/components/AdminLayout';
+import PurgeTestInspectionsButton from '@/components/admin/PurgeTestInspectionsButton';
+import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -321,14 +323,18 @@ export default function AdminInspections() {
 
   // Ámbito de país global + tipo de inspección: todo lo que se cuenta y se lista respeta los filtros.
   const allInspections = adminData?.inspections ?? EMPTY_INSPECTIONS;
+  // Las inspecciones de prueba quedan fuera de contadores y listados salvo que se pidan.
+  const [showTests, setShowTests] = useState(false);
+  const testCount = useMemo(() => allInspections.filter((i) => (i as any).is_test).length, [allInspections]);
   const inspections = useMemo(
     () =>
       allInspections.filter((i) => {
+        if (!showTests && (i as any).is_test) return false;
         if (marketFilter !== 'all' && normalizeMarket(i.market) !== marketFilter) return false;
         if (types.length > 0 && !types.includes(normalizeInspectionType(i.inspection_type))) return false;
         return true;
       }),
-    [allInspections, marketFilter, types],
+    [allInspections, marketFilter, types, showTests],
   );
   const inspectors = adminData?.inspectors ?? EMPTY_PROFILES;
   const executives = adminData?.executives ?? EMPTY_PROFILES;
@@ -557,7 +563,15 @@ export default function AdminInspections() {
   return (
     <AdminLayout>
       <div className="p-6 max-w-7xl space-y-6">
-        <h1 className="text-h2">Inspecciones</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-h2">Inspecciones</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant={showTests ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowTests(v => !v)}>
+              {showTests ? 'Ocultar pruebas' : `Ver pruebas (${testCount})`}
+            </Button>
+            <PurgeTestInspectionsButton onDone={() => queryClient.invalidateQueries({ queryKey: ADMIN_INSPECTIONS_QUERY_KEY })} />
+          </div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })}>
           <TabsList>
@@ -823,7 +837,7 @@ export default function AdminInspections() {
                         return (
                           <TableRow key={insp.id} className="cursor-pointer [&>td]:py-3">
                             <TableCell className="max-w-[220px]">
-                              <div className="font-medium truncate">{insp.property_name ?? insp.property_id}</div>
+                              <div className="font-medium truncate">{insp.property_name ?? insp.property_id}{(insp as any).is_test && <Badge variant="outline" className="ml-2 align-middle text-[10px]">PRUEBA</Badge>}</div>
                               {insp.address && (
                                 <div className="text-tiny text-muted-foreground truncate">{insp.address}</div>
                               )}
@@ -911,7 +925,7 @@ export default function AdminInspections() {
                               })()}
                             </div>
 
-                            <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+                            <p className="font-medium truncate">{insp.property_name ?? insp.property_id}{(insp as any).is_test && <Badge variant="outline" className="ml-2 align-middle text-[10px]">PRUEBA</Badge>}</p>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <MapPin className="h-3 w-3 shrink-0" />
                               <span className="truncate">{insp.address ?? 'Sin dirección'}</span>
@@ -1027,7 +1041,7 @@ export default function AdminInspections() {
                             <InspectionStatusBadge status={insp.status} />
                             {insp.quien_repara && <QuienReparaChip value={insp.quien_repara} />}
                           </div>
-                          <p className="font-medium truncate">{insp.property_name ?? insp.property_id}</p>
+                          <p className="font-medium truncate">{insp.property_name ?? insp.property_id}{(insp as any).is_test && <Badge variant="outline" className="ml-2 align-middle text-[10px]">PRUEBA</Badge>}</p>
                           <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
                           <p className="text-tiny text-muted-foreground">
                             Inspector: {insp.inspectorName ?? '—'} · Ejecutivo: {insp.executiveName ?? '—'}

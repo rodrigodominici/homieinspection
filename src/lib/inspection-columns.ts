@@ -15,6 +15,7 @@
 export const INSPECTION_LIST_COLUMNS = [
   'id',
   'source_event_id',
+  'is_test',
   'template_id',
   'hubspot_property_id',
   'property_id',
@@ -57,7 +58,7 @@ export const INSPECTION_LIST_COLUMNS = [
  * Detail-view projection. Includes everything in the list projection plus the
  * `generated_structure_json` blob needed to render the inspection form.
  */
-export const INSPECTION_DETAIL_COLUMNS = `${INSPECTION_LIST_COLUMNS}, generated_structure_json`;
+export const INSPECTION_DETAIL_COLUMNS = `${INSPECTION_LIST_COLUMNS}, generated_structure_json, rm_availability_choice, rm_visit_date, rm_available_from, rm_rescheduled_to, rm_reschedule_reason`;
 
 /**
  * Projection for `profiles` lookups used by pickers, filters and user admin.

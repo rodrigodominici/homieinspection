@@ -1,3 +1,4 @@
+import '../_shared/sandbox-guard.ts';
 // Lookup de inmuebles en la API de Homie por reference-id (ej. RE0003927).
 // Se ejecuta server-side para no exponer el token de la API al navegador.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';

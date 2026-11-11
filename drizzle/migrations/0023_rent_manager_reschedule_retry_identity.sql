@@ -1,0 +1,5 @@
+CREATE OR REPLACE FUNCTION public.rm_require_actor(p_id uuid,p_kind text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE i public.inspections; BEGIN
+ SELECT * INTO i FROM public.inspections WHERE id=p_id;
+ IF i.id IS NULL OR i.market IS DISTINCT FROM 'CL' OR i.inspection_type IS DISTINCT FROM 'captacion' OR NOT EXISTS(SELECT 1 FROM public.inspection_external_references WHERE inspection_id=i.id AND provider='rent_manager' AND (is_active OR i.rm_rescheduled_to IS NOT NULL)) THEN RAISE EXCEPTION 'rent_manager_captacion_required'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=auth.uid() AND is_active AND approval_status='approved') OR NOT(public.has_role(auth.uid(),'admin') OR (p_kind='inspector' AND i.inspector_id=auth.uid() AND public.has_role(auth.uid(),'inspector')) OR (p_kind='executive' AND i.executive_id=auth.uid() AND public.has_role(auth.uid(),'executive'))) THEN RAISE EXCEPTION 'assigned_actor_required'; END IF;
+END $$;

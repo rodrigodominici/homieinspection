@@ -1,5 +1,6 @@
 // Envía al inquilino (solo Chile) el informe de entrega del check-in.
 // El destinatario se toma de la propia inspección (nunca del navegador).
+import { isTestInspection } from '../_shared/test-inspection.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts'
@@ -41,6 +42,8 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY)
+
+  if (await isTestInspection(admin, inspectionId)) return json({ ok: true, skipped: 'test_inspection' }, 200)
 
   const [{ data: profile }, { data: insp, error: inspErr }] = await Promise.all([
     admin.from('profiles').select('id, role, is_active').eq('id', userId).maybeSingle(),

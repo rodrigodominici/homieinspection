@@ -1,3 +1,5 @@
+import { readTestFlag } from '../_shared/test-inspection.ts';
+import '../_shared/sandbox-guard.ts';
 // HubSpot → Homie inspection intake webhook
 // - Validates X-Webhook-Secret
 // - Validates payload (zod-light: manual)
@@ -7,6 +9,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { generateSections, normalizeIncomingPayload } from '../_shared/inspection-generator.ts';
 import { enrichCaptacionUnit } from '../_shared/hubspot-unit.ts';
+import { applySourceDefaults, isAuthorizedForSource, upsertExternalReference, type IntakeSource } from '../_shared/intake-source.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,14 +19,10 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const INTAKE_SECRET = Deno.env.get('HUBSPOT_INTAKE_SECRET') ?? '';
-
-function timingSafeEqual(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return result === 0;
-}
+const SECRETS = {
+  hubspot: Deno.env.get('HUBSPOT_INTAKE_SECRET') ?? '',
+  rent_manager: Deno.env.get('RENT_MANAGER_INTAKE_SECRET') ?? '',
+};
 
 async function sha256Hex(input: string) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
@@ -32,7 +31,7 @@ async function sha256Hex(input: string) {
 
 function validateEnvelope(body: any): { ok: true; data: any } | { ok: false; error: string } {
   if (!body || typeof body !== 'object') return { ok: false, error: 'body_not_object' };
-  if (body.source !== 'hubspot') return { ok: false, error: 'invalid_source' };
+  if (body.source !== 'hubspot' && body.source !== 'rent_manager') return { ok: false, error: 'invalid_source' };
   if (typeof body.event_type !== 'string') return { ok: false, error: 'missing_event_type' };
   if (typeof body.payload_version !== 'string') return { ok: false, error: 'missing_payload_version' };
   if (!body.data || typeof body.data !== 'object') return { ok: false, error: 'missing_data' };
@@ -146,16 +145,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // 1. Auth
-  const provided = req.headers.get('x-webhook-secret') ?? '';
-  if (!INTAKE_SECRET || !timingSafeEqual(provided, INTAKE_SECRET)) {
-    console.warn('[intake] rejected: invalid secret');
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
   // 2. Parse body
   let body: any;
   try {
@@ -166,6 +155,17 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // 1. Auth — each source only accepts its own secret.
+  const provided = req.headers.get('x-webhook-secret') ?? '';
+  if (!isAuthorizedForSource(body?.source, provided, SECRETS)) {
+    console.warn('[intake] rejected: invalid secret');
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const source = body.source as IntakeSource;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const requestId = crypto.randomUUID();
@@ -181,12 +181,12 @@ Deno.serve(async (req: Request) => {
     const { data: failedRow } = await supabase
       .from('inspection_source_events')
       .insert({
-        source: 'hubspot',
+        source,
         event_type: body?.event_type ?? null,
         payload_version: body?.payload_version ?? null,
         external_event_id: null,
         external_object_id: body?.external_object_id ?? null,
-        hubspot_property_id: body?.external_object_id ?? null,
+        hubspot_property_id: source === 'hubspot' ? (body?.external_object_id ?? null) : null,
         payload_json: body ?? {},
         processing_status: 'failed',
         failure_reason: 'payload_validation',
@@ -207,18 +207,20 @@ Deno.serve(async (req: Request) => {
     const d = body.data;
     const truncated = new Date().toISOString().slice(0, 13); // hour bucket
     externalEventId = await sha256Hex(
-      `hubspot|${body.event_type}|${body.external_object_id ?? ''}|${body.payload_version}|${d.property_id}|${d.inspection_type}|${truncated}`,
+      `${source}|${body.event_type}|${body.external_object_id ?? ''}|${body.payload_version}|${d.property_id}|${d.inspection_type}|${truncated}`,
     );
   }
 
   // Preserve the original webhook for audit; enrich only normalized inspection data.
-  let intakeData = body.data;
+  let intakeData = applySourceDefaults(source, body.data);
   let unitRecoveryWarning: string | undefined;
-  try {
-    intakeData = await enrichCaptacionUnit(body.data, body.external_object_id, Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN'));
-  } catch (error) {
-    unitRecoveryWarning = (error as Error).message;
-    console.warn('[intake] apartment recovery failed:', unitRecoveryWarning);
+  if (source === 'hubspot') {
+    try {
+      intakeData = await enrichCaptacionUnit(body.data, body.external_object_id, Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN'));
+    } catch (error) {
+      unitRecoveryWarning = (error as Error).message;
+      console.warn('[intake] apartment recovery failed:', unitRecoveryWarning);
+    }
   }
 
   // 5. Generate full structure (Fix A: real generator, not placeholder)
@@ -232,12 +234,12 @@ Deno.serve(async (req: Request) => {
     const { data: failedRow } = await supabase
       .from('inspection_source_events')
       .insert({
-        source: 'hubspot',
+        source,
         event_type: body.event_type,
         payload_version: body.payload_version,
         external_event_id: null,
         external_object_id: body.external_object_id ?? null,
-        hubspot_property_id: body.external_object_id ?? null,
+        hubspot_property_id: source === 'hubspot' ? (body.external_object_id ?? null) : null,
         payload_json: body,
         processing_status: 'failed',
         failure_reason: 'structure_generation',
@@ -294,12 +296,12 @@ Deno.serve(async (req: Request) => {
   const { data: inserted, error: insertErr } = await supabase
     .from('inspection_source_events')
     .insert({
-      source: 'hubspot',
+      source,
       event_type: body.event_type,
       payload_version: body.payload_version,
       external_event_id: externalEventId,
       external_object_id: body.external_object_id ?? null,
-      hubspot_property_id: body.external_object_id ?? null,
+      hubspot_property_id: source === 'hubspot' ? (body.external_object_id ?? null) : null,
       payload_json: body,
       normalized_payload_json: normalized,
       processing_status: 'received',
@@ -313,7 +315,7 @@ Deno.serve(async (req: Request) => {
     const { data: original } = await supabase
       .from('inspection_source_events')
       .select('id, processing_status, duplicate_count, duplicate_attempts_json')
-      .eq('source', 'hubspot')
+      .eq('source', source)
       .eq('external_event_id', externalEventId)
       .maybeSingle();
 
@@ -379,78 +381,22 @@ Deno.serve(async (req: Request) => {
         const row = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
         if (row?.failure_reason) {
           console.warn('[intake] RPC reported failure', row);
-        } else if (row?.inspection_id && body.external_object_id) {
-          // Persist external reference (decoupled — inspections table stays HubSpot-agnostic)
+        } else {
+          if (row?.inspection_id && readTestFlag(source, body)) {
+            await supabase.from('inspections').update({ is_test: true }).eq('id', row.inspection_id);
+          }
+        }
+        if (!row?.failure_reason && row?.inspection_id && body.external_object_id) {
+          // Persist external reference (decoupled — inspections table stays source-agnostic)
           try {
-            const provider = 'hubspot';
-            // El tipo de objeto externo depende del tipo de inspección:
-            // check_out / check_in → Contrato Arriendo (custom 2-47492934)
-            // captacion → Deal estándar (0-3, pipeline Publicaciones CL)
-            // Captaciones MX: el tipo viene dentro de data, así que se lee de la inspección creada.
-            const { data: createdInsp } = await supabase
-              .from('inspections')
-              .select('inspection_type, market')
-              .eq('id', row.inspection_id as string)
-              .maybeSingle();
-            const isMxCaptacion = createdInsp?.inspection_type === 'captacion' && createdInsp?.market === 'MX';
-            const isCaptacion = body.inspection_type === 'captacion' || isMxCaptacion;
-            const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
-            const externalObjectTypeId = isCaptacion ? '0-3' : '2-47492934';
-            const objectIdStr = String(body.external_object_id);
-            const inspectionIdStr = row.inspection_id as string;
-
-            // A) Existing active reference for this exact pair on THIS inspection?
-            const { data: existingForThis } = await supabase
-              .from('inspection_external_references')
-              .select('id')
-              .eq('inspection_id', inspectionIdStr)
-              .eq('provider', provider)
-              .eq('external_object_type', externalObjectType)
-              .eq('external_object_id', objectIdStr)
-              .eq('is_active', true)
-              .maybeSingle();
-
-            if (existingForThis) {
-              await supabase
-                .from('inspection_external_references')
-                .update({
-                  metadata: {
-                    external_event_id: externalEventId,
-                    source_event_id: eventId,
-                    received_at: new Date().toISOString(),
-                  },
-                })
-                .eq('id', existingForThis.id);
-            } else {
-              // B) Deactivate any active reference for the same external object on a DIFFERENT inspection
-              await supabase
-                .from('inspection_external_references')
-                .update({ is_active: false })
-                .eq('provider', provider)
-                .eq('external_object_type', externalObjectType)
-                .eq('external_object_id', objectIdStr)
-                .eq('is_active', true);
-
-              // C) Insert the new active reference
-              const { error: refInsErr } = await supabase
-                .from('inspection_external_references')
-                .insert({
-                  inspection_id: inspectionIdStr,
-                  provider,
-                  external_object_type: externalObjectType,
-                  external_object_type_id: externalObjectTypeId,
-                  external_object_id: objectIdStr,
-                  is_active: true,
-                  metadata: {
-                    external_event_id: externalEventId,
-                    source_event_id: eventId,
-                    received_at: new Date().toISOString(),
-                  },
-                });
-              if (refInsErr) {
-                console.error('[intake] external_reference insert failed', refInsErr);
-              }
-            }
+            await upsertExternalReference(supabase, {
+              inspectionId: row.inspection_id as string,
+              source,
+              body,
+              externalObjectId: body.external_object_id,
+              externalEventId,
+              sourceEventId: eventId,
+            });
           } catch (refErr) {
             console.error('[intake] external_reference flow error', refErr);
           }

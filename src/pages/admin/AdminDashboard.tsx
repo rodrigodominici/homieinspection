@@ -68,6 +68,7 @@ async function fetchDashboardInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from('inspections')
     .select(DASHBOARD_COLS)
+    .eq('is_test', false)
     .order('updated_at', { ascending: false })
     .limit(300);
   if (error) throw error;

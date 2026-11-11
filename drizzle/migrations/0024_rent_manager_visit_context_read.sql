@@ -1,0 +1,3 @@
+CREATE OR REPLACE FUNCTION public.rm_visit_enabled(p_id uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT EXISTS(SELECT 1 FROM public.inspections i JOIN public.profiles p ON p.id=auth.uid() WHERE i.id=p_id AND i.market='CL' AND i.inspection_type='captacion' AND p.is_active AND p.approval_status='approved' AND (public.has_role(auth.uid(),'admin') OR i.inspector_id=auth.uid() OR i.executive_id=auth.uid()) AND EXISTS(SELECT 1 FROM public.inspection_external_references r WHERE r.inspection_id=i.id AND r.provider='rent_manager' AND (r.is_active OR i.rm_rescheduled_to IS NOT NULL))) $$;
+REVOKE ALL ON FUNCTION public.rm_visit_enabled(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.rm_visit_enabled(uuid) TO authenticated;

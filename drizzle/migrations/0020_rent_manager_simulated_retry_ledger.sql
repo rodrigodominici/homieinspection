@@ -1,0 +1,8 @@
+ALTER TABLE public.rent_manager_outbox ADD COLUMN simulated_status text NOT NULL DEFAULT 'pending' CHECK(simulated_status IN ('pending','sending','sent','error','skipped')), ADD COLUMN simulated_attempts integer NOT NULL DEFAULT 0, ADD COLUMN simulated_next_attempt_at timestamptz DEFAULT now(), ADD COLUMN simulated_sending_at timestamptz, ADD COLUMN simulated_claim_id uuid, ADD COLUMN simulated_last_error text, ADD COLUMN simulated_response_status integer;
+CREATE OR REPLACE FUNCTION public.rm_claim_simulated(p_limit integer DEFAULT 20) RETURNS SETOF public.rent_manager_outbox LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN
+ UPDATE public.rent_manager_outbox SET simulated_status='pending',simulated_next_attempt_at=now(),simulated_sending_at=NULL,simulated_claim_id=NULL WHERE simulated_status='sending' AND simulated_sending_at<now()-interval '5 minutes';
+ RETURN QUERY WITH heads AS (SELECT q.id FROM public.rent_manager_outbox q WHERE q.simulated_status IN ('pending','error') AND q.simulated_next_attempt_at<=now() AND NOT EXISTS(SELECT 1 FROM public.rent_manager_outbox h WHERE h.inspection_id=q.inspection_id AND h.simulated_status IN ('pending','sending','error') AND (h.created_at,h.id)<(q.created_at,q.id)) ORDER BY q.created_at,q.id LIMIT least(greatest(p_limit,1),100) FOR UPDATE SKIP LOCKED)
+ UPDATE public.rent_manager_outbox q SET simulated_status='sending',simulated_attempts=simulated_attempts+1,simulated_sending_at=now(),simulated_claim_id=gen_random_uuid() FROM heads WHERE heads.id=q.id RETURNING q.*;
+END $$;
+REVOKE ALL ON FUNCTION public.rm_claim_simulated(integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.rm_claim_simulated(integer) TO service_role;

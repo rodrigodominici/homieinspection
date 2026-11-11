@@ -1,3 +1,5 @@
+import { isTestInspection } from '../_shared/test-inspection.ts';
+import '../_shared/sandbox-guard.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { marketingPhotoMessage, marketingPhotosReady } from '../_shared/marketing-photo-message.ts';
@@ -21,6 +23,7 @@ Deno.serve(async (req) => {
     if (typeof inspection_id !== 'string' || !/^[0-9a-f-]{36}$/i.test(inspection_id)) return json(400, { error: 'invalid_inspection' });
     const { data: profile } = await sb.from('profiles').select('role,is_active,approval_status').eq('id', auth.user.id).single();
     const { data: insp } = await sb.from('inspections').select('id,inspection_type,property_name,address,property_id,market,inspector_id,executive_id').eq('id', inspection_id).single();
+    if ((insp as any) && await isTestInspection(sb, inspection_id)) return json(200, { skipped: 'test_inspection' });
     const { data: marketAllowed } = await sb.rpc('user_has_market', { _user_id: auth.user.id, _market: insp?.market ?? '' });
     if (!profile?.is_active || profile.approval_status !== 'approved' || !insp || !marketAllowed || !(profile.role === 'admin' || (profile.role === 'inspector' && insp.inspector_id === auth.user.id) || (profile.role === 'executive' && insp.executive_id === auth.user.id))) return json(403, { error: 'forbidden' });
     const { data: section, error: sectionError } = await sb.from('inspection_sections').select('id,status').eq('inspection_id', inspection_id).eq('section_key', 'marketing_photos').maybeSingle();

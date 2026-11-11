@@ -113,6 +113,90 @@
       "when": 1794148542310,
       "tag": "0015_publish_quotation_security_definer",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794148543310,
+      "tag": "0016_rent_manager_server_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794148544310,
+      "tag": "0017_rent_manager_trigger_wakeup",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794148545310,
+      "tag": "0018_rent_manager_report_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794148546310,
+      "tag": "0019_rent_manager_photo_readiness_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794148547310,
+      "tag": "0020_rent_manager_simulated_retry_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794148548310,
+      "tag": "0021_rent_manager_visit_availability",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794148549310,
+      "tag": "0022_rent_manager_reschedule_reference_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794148550310,
+      "tag": "0023_rent_manager_reschedule_retry_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794148551310,
+      "tag": "0024_rent_manager_visit_context_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794148552310,
+      "tag": "0025_test_inspections_and_purge",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794148553310,
+      "tag": "0026_purge_inspections_fix_event_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794148554310,
+      "tag": "0027_purge_inspections_fix_refs",
+      "breakpoints": true
     }
   ]
 }
