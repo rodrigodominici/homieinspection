@@ -2725,6 +2725,7 @@ export type Database = {
         Args: { p_choice: string; p_id: string; p_visit_date: string }
         Returns: undefined
       }
+      rm_sync_dispatch_schedule: { Args: never; Returns: undefined }
       rm_visit_enabled: { Args: { p_id: string }; Returns: boolean }
       rm_wake_dispatch: { Args: never; Returns: undefined }
       save_quotation_revision_change: {
