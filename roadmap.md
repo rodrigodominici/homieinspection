@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Activate production Rent Manager enqueue dispatch and bounded minute retries, verify no-destination behavior and origin isolation, and provide intake URL.
 - [x] Verify production activation state and fix RM internal/owner URLs: 22 unit tests pass; real simulated published report has distinct canonical-domain URLs and unchanged real delivery. rm_sync_dispatch_schedule is absent from draft database and migration journal; wake endpoint config empty. Hosted scheduler activation remains blocked below; no production writes.
 - [x] Rent Manager Part 2: server-triggered CL captacion outbox, ordered claims/dispatcher, explicit simulated receiver, admin event viewer and retry tests. URL empty; 31 tests passed and authenticated simulated event readback verified. Availability/rescheduling screens not included.
 - [x] Verify original Rent Manager intake: 202 accepted, pending_assignment, 2026-11-10, provider rent_manager, external_object_id rm-inm-ejemplo and rm_inspection_id rm-insp-ejemplo; second request 200 duplicate. Local credentials reconciled without production changes.
