@@ -88,7 +88,7 @@ export function RentManagerSimulatorPanel({ inspectionId, onDone }: { inspection
   );
 
   return (
-    <Card className="border-dashed border-warning">
+    <Card className="border-dashed border-primary">
       <CardHeader className="pb-2"><CardTitle className="text-base">Simular avance (solo pruebas)</CardTitle>
         <p className="text-xs text-muted-foreground">Los avisos salen por la misma cola y el mismo envío que una inspección real.</p></CardHeader>
       <CardContent className="space-y-3 text-sm">
