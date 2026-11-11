@@ -24,6 +24,10 @@ export function isOffline() {
 /** Download everything for the inspection and keep it on the phone. */
 export async function refreshSnapshot(inspectionId: string, inspection: Record<string, unknown>): Promise<boolean> {
   try {
+    if (inspection.market === 'CL' && inspection.inspection_type === 'captacion') {
+      const { data: enabled } = await supabase.rpc('rm_visit_enabled', { p_id: inspectionId });
+      inspection = { ...inspection, rm_visit_enabled: enabled === true };
+    }
     const [secs, fields, photos, sig] = await Promise.all([
       supabase.from('inspection_sections').select('*').eq('inspection_id', inspectionId).order('sort_order'),
       supabase.from('inspection_field_values').select('*').eq('inspection_id', inspectionId).order('sort_order'),
@@ -59,6 +63,9 @@ export async function readSnapshot(inspectionId: string): Promise<InspectionSnap
   if (!snap) return null;
   try {
     for (const op of await listQueue()) {
+      if (op.kind === 'visit_availability' && op.inspectionId === inspectionId) {
+        Object.assign(snap.inspection, { rm_availability_choice: op.choice, rm_visit_date: op.visitDate });
+      }
       if (op.kind !== 'update') continue;
       const list = op.table === 'inspection_sections' ? snap.sections : snap.fields;
       const row = list.find((r) => r.id === op.rowId);

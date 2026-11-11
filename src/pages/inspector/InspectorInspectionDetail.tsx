@@ -23,6 +23,7 @@ import { isSectionCompleted, canFinalizeInspection } from '@/lib/section-complet
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import { AssignedMarketingGallery } from '@/components/photos/AssignedMarketingGallery';
+import { RentManagerVisitControls } from '@/components/inspection/RentManagerVisitControls';
 import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import SignaturePad from '@/components/SignaturePad';
 import {
@@ -802,6 +803,7 @@ export default function InspectorInspectionDetail() {
           </Card>
         )}
 
+        <RentManagerVisitControls inspectionId={inspection.id} mode="inspector" readOnly={readOnly || offline.ops.length > 0} />
         <div className="space-y-3">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secciones · {workSections.length} pasos</h3>
           {workSections.map((section, idx) => {

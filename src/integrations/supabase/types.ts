@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.4"
-  }
   public: {
     Tables: {
       client_error_log: {
@@ -1501,6 +1496,7 @@ export type Database = {
           inspection_completed_at: string | null
           inspection_type: string
           inspector_id: string | null
+          is_test: boolean
           last_active_at: string | null
           last_active_section_id: string | null
           market: string
@@ -1515,6 +1511,11 @@ export type Database = {
           published_at: string | null
           quien_repara: string | null
           review_completed_at: string | null
+          rm_availability_choice: string | null
+          rm_available_from: string | null
+          rm_reschedule_reason: string | null
+          rm_rescheduled_to: string | null
+          rm_visit_date: string | null
           scheduled_at: string | null
           source_event_id: string | null
           started_at: string | null
@@ -1543,6 +1544,7 @@ export type Database = {
           inspection_completed_at?: string | null
           inspection_type: string
           inspector_id?: string | null
+          is_test?: boolean
           last_active_at?: string | null
           last_active_section_id?: string | null
           market: string
@@ -1557,6 +1559,11 @@ export type Database = {
           published_at?: string | null
           quien_repara?: string | null
           review_completed_at?: string | null
+          rm_availability_choice?: string | null
+          rm_available_from?: string | null
+          rm_reschedule_reason?: string | null
+          rm_rescheduled_to?: string | null
+          rm_visit_date?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null
           started_at?: string | null
@@ -1585,6 +1592,7 @@ export type Database = {
           inspection_completed_at?: string | null
           inspection_type?: string
           inspector_id?: string | null
+          is_test?: boolean
           last_active_at?: string | null
           last_active_section_id?: string | null
           market?: string
@@ -1599,6 +1607,11 @@ export type Database = {
           published_at?: string | null
           quien_repara?: string | null
           review_completed_at?: string | null
+          rm_availability_choice?: string | null
+          rm_available_from?: string | null
+          rm_reschedule_reason?: string | null
+          rm_rescheduled_to?: string | null
+          rm_visit_date?: string | null
           scheduled_at?: string | null
           source_event_id?: string | null
           started_at?: string | null
@@ -1649,6 +1662,13 @@ export type Database = {
             columns: ["inspector_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_rm_rescheduled_to_fkey"
+            columns: ["rm_rescheduled_to"]
+            isOneToOne: false
+            referencedRelation: "inspections"
             referencedColumns: ["id"]
           },
           {
@@ -1945,6 +1965,185 @@ export type Database = {
             columns: ["work_order_id"]
             isOneToOne: false
             referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rent_manager_availability_history: {
+        Row: {
+          available_from: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          inspection_id: string
+          previous_date: string | null
+          reason: string | null
+        }
+        Insert: {
+          available_from: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          inspection_id: string
+          previous_date?: string | null
+          reason?: string | null
+        }
+        Update: {
+          available_from?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          previous_date?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_manager_availability_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_manager_availability_history_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rent_manager_dispatch_config: {
+        Row: {
+          endpoint: string
+          id: boolean
+        }
+        Insert: {
+          endpoint: string
+          id?: boolean
+        }
+        Update: {
+          endpoint?: string
+          id?: boolean
+        }
+        Relationships: []
+      }
+      rent_manager_dispatch_wakes: {
+        Row: {
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          expires_at?: string
+          id?: string
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      rent_manager_outbox: {
+        Row: {
+          attempts: number
+          claim_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          external_object_id: string
+          id: string
+          inspection_id: string
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          photo_objects: Json
+          report_tokens: Json
+          response_body: Json | null
+          response_status: number | null
+          rm_inspection_id: string
+          sending_at: string | null
+          sent_at: string | null
+          simulated_at: string | null
+          simulated_attempts: number
+          simulated_claim_id: string | null
+          simulated_last_error: string | null
+          simulated_next_attempt_at: string | null
+          simulated_payload: Json | null
+          simulated_response: Json | null
+          simulated_response_status: number | null
+          simulated_sending_at: string | null
+          simulated_status: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claim_id?: string | null
+          created_at?: string
+          event_id?: string
+          event_type: string
+          external_object_id: string
+          id?: string
+          inspection_id: string
+          last_error?: string | null
+          next_attempt_at?: string | null
+          payload: Json
+          photo_objects?: Json
+          report_tokens?: Json
+          response_body?: Json | null
+          response_status?: number | null
+          rm_inspection_id: string
+          sending_at?: string | null
+          sent_at?: string | null
+          simulated_at?: string | null
+          simulated_attempts?: number
+          simulated_claim_id?: string | null
+          simulated_last_error?: string | null
+          simulated_next_attempt_at?: string | null
+          simulated_payload?: Json | null
+          simulated_response?: Json | null
+          simulated_response_status?: number | null
+          simulated_sending_at?: string | null
+          simulated_status?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claim_id?: string | null
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          external_object_id?: string
+          id?: string
+          inspection_id?: string
+          last_error?: string | null
+          next_attempt_at?: string | null
+          payload?: Json
+          photo_objects?: Json
+          report_tokens?: Json
+          response_body?: Json | null
+          response_status?: number | null
+          rm_inspection_id?: string
+          sending_at?: string | null
+          sent_at?: string | null
+          simulated_at?: string | null
+          simulated_attempts?: number
+          simulated_claim_id?: string | null
+          simulated_last_error?: string | null
+          simulated_next_attempt_at?: string | null
+          simulated_payload?: Json | null
+          simulated_response?: Json | null
+          simulated_response_status?: number | null
+          simulated_sending_at?: string | null
+          simulated_status?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_manager_outbox_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
             referencedColumns: ["id"]
           },
         ]
@@ -2389,6 +2588,7 @@ export type Database = {
         Args: { p_inspection_id: string; p_payload: Json }
         Returns: Json
       }
+      purge_inspections: { Args: { p_ids: string[] }; Returns: number }
       quotation_revision_effective_payload: {
         Args: { p_payload: Json; p_revision_id: string }
         Returns: Json
@@ -2405,6 +2605,123 @@ export type Database = {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }
         Returns: Json
       }
+      rm_claim_outbox: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          claim_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          external_object_id: string
+          id: string
+          inspection_id: string
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          photo_objects: Json
+          report_tokens: Json
+          response_body: Json | null
+          response_status: number | null
+          rm_inspection_id: string
+          sending_at: string | null
+          sent_at: string | null
+          simulated_at: string | null
+          simulated_attempts: number
+          simulated_claim_id: string | null
+          simulated_last_error: string | null
+          simulated_next_attempt_at: string | null
+          simulated_payload: Json | null
+          simulated_response: Json | null
+          simulated_response_status: number | null
+          simulated_sending_at: string | null
+          simulated_status: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rent_manager_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      rm_claim_simulated: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          claim_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          external_object_id: string
+          id: string
+          inspection_id: string
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          photo_objects: Json
+          report_tokens: Json
+          response_body: Json | null
+          response_status: number | null
+          rm_inspection_id: string
+          sending_at: string | null
+          sent_at: string | null
+          simulated_at: string | null
+          simulated_attempts: number
+          simulated_claim_id: string | null
+          simulated_last_error: string | null
+          simulated_next_attempt_at: string | null
+          simulated_payload: Json | null
+          simulated_response: Json | null
+          simulated_response_status: number | null
+          simulated_sending_at: string | null
+          simulated_status: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rent_manager_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      rm_commercial_ready: {
+        Args: { p_inspection_id: string }
+        Returns: undefined
+      }
+      rm_configure_dispatch: { Args: { p_url: string }; Returns: undefined }
+      rm_consume_wake: { Args: { p_id: string }; Returns: boolean }
+      rm_enqueue: {
+        Args: {
+          p_data?: Json
+          p_event_type: string
+          p_inspection_id: string
+          p_photos?: Json
+        }
+        Returns: string
+      }
+      rm_move_availability: {
+        Args: { p_date: string; p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      rm_require_actor: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
+      rm_reschedule_inspection: {
+        Args: { p_date: string; p_id: string; p_reason: string }
+        Returns: string
+      }
+      rm_retry_outbox: {
+        Args: { p_id?: string; p_stalled?: boolean }
+        Returns: number
+      }
+      rm_save_visit_availability: {
+        Args: { p_choice: string; p_id: string; p_visit_date: string }
+        Returns: undefined
+      }
+      rm_visit_enabled: { Args: { p_id: string }; Returns: boolean }
+      rm_wake_dispatch: { Args: never; Returns: undefined }
       save_quotation_revision_change: {
         Args: {
           p_kind: string
@@ -2597,3 +2914,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

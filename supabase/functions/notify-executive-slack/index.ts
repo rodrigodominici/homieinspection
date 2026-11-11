@@ -1,3 +1,5 @@
+import { isTestInspection } from '../_shared/test-inspection.ts';
+import '../_shared/sandbox-guard.ts';
 // Edge function: notify-executive-slack
 // Sends Slack notifications to the assigned executive (in a shared channel)
 // when an inspection is submitted for review or the owner sends feedback.
@@ -87,6 +89,8 @@ Deno.serve(async (req) => {
     }
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    if (await isTestInspection(sb, inspection_id)) return json(200, { skipped: 'test_inspection' });
 
     // Idempotency check — UNIQUE index on (inspection_id, event_type) WHERE status='sent'
     const { data: existing } = await sb

@@ -17,6 +17,10 @@ export default function AdminIntegrations() {
         </div>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">Rent Manager · Captación Chile</CardTitle></CardHeader>
+          <CardContent className="flex justify-end"><Button asChild variant="outline" size="sm"><Link to="/admin/integrations/rent-manager">Ver avisos<ArrowRight className="ml-2 h-4 w-4"/></Link></Button></CardContent>
+        </Card>
+        <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">

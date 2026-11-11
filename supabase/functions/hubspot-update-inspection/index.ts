@@ -1,3 +1,5 @@
+import { isTestInspection } from '../_shared/test-inspection.ts';
+import '../_shared/sandbox-guard.ts';
 // Outbound HubSpot sync for inspections.
 // Direct HubSpot REST API call using HUBSPOT_PRIVATE_APP_TOKEN (Path A).
 // External target resolved via inspection_external_references — inspections
@@ -163,6 +165,13 @@ Deno.serve(async (req: Request) => {
       inspection_id: inspectionId,
       triggered_by: triggeredBy,
       retried_from_log_id: triggeredRetryFrom,
+    });
+  }
+
+  if (await isTestInspection(admin, inspectionId)) {
+    return logAndRespond(200, { ok: true, skipped: 'test_inspection' }, {
+      status: 'skipped', error_message: 'test_inspection', action, inspection_id: inspectionId,
+      triggered_by: triggeredBy, retried_from_log_id: triggeredRetryFrom,
     });
   }
 

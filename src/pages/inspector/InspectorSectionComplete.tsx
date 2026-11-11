@@ -32,7 +32,10 @@ import { MARKETING_PHOTOS_MIN, canCompleteSection, isSectionCompleted, isMatrixF
 import SignaturePad from '@/components/SignaturePad';
 import { getSignedPhotoUrlMap } from '@/lib/photo-urls';
 import { uploadInspectionPhotos, photoUploadErrorLabel, PhotoUploadError } from '@/shared/lib/inspection-photos';
-import { saveOrQueueUpdate, queuePhotos, withTimeout, type PhotoOp } from '@/shared/lib/offline-queue';
+import { saveOrQueueUpdate, saveOrQueueVisitAvailability, queuePhotos, withTimeout, type PhotoOp } from '@/shared/lib/offline-queue';
+import { chileVisitDate } from '@/lib/rent-manager-visit';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useOfflineQueue } from '@/shared/hooks/useOfflineQueue';
 
 // ─── Group labels ────────────────────────────────────────────────────────
@@ -75,6 +78,31 @@ export default function InspectorSectionComplete() {
   }, [photos]);
   const [reviews, setReviews] = useState<InspectionReview[]>([]);
   const [inspectionStatus, setInspectionStatus] = useState<string | null>(null);
+  const [rmVisit, setRmVisit] = useState(false);
+  const [rmVisitReady, setRmVisitReady] = useState(false);
+  const [availability, setAvailability] = useState<'inmediata' | 'en_5_dias' | ''>('');
+  const [visitDate, setVisitDate] = useState<string | null>(null);
+  useEffect(() => {
+    if (!inspectionId) return;
+    const load = async () => {
+      if (!navigator.onLine) {
+        const snap = await readSnapshot(inspectionId);
+        setRmVisit(snap?.inspection.rm_visit_enabled === true);
+        const choice = snap?.inspection.rm_availability_choice;
+        if (choice === 'inmediata' || choice === 'en_5_dias') setAvailability(choice);
+        setVisitDate(typeof snap?.inspection.rm_visit_date === 'string' ? snap.inspection.rm_visit_date : null);
+        setRmVisitReady(true);
+        return;
+      }
+      const { data } = await supabase.from('inspections').select('market,inspection_type,rm_availability_choice,rm_visit_date').eq('id', inspectionId).maybeSingle();
+      const { data: enabled } = await supabase.rpc('rm_visit_enabled', { p_id: inspectionId });
+      setRmVisit(data?.market === 'CL' && data.inspection_type === 'captacion' && enabled === true);
+      if (data?.rm_availability_choice === 'inmediata' || data?.rm_availability_choice === 'en_5_dias') setAvailability(data.rm_availability_choice);
+      setVisitDate(data?.rm_visit_date ?? null);
+      setRmVisitReady(true);
+    };
+    void load();
+  }, [inspectionId]);
   const [persistedSignature, setPersistedSignature] = useState<{
     signature_data: string | null;
     signature_status: string;
@@ -274,6 +302,7 @@ export default function InspectorSectionComplete() {
   };
 
   const handleMarkComplete = async () => {
+    if (section?.section_key === 'marketing_photos' && !rmVisitReady) { setValidationError('Espera a que se cargue la disponibilidad.'); return; }
     const result = canCompleteSection(
       section?.section_type ?? '',
       fields,
@@ -294,6 +323,13 @@ export default function InspectorSectionComplete() {
     }
     setValidationError(null);
     setUnansweredFields(new Set());
+
+    if (rmVisit && section?.section_key === 'marketing_photos') {
+      if (!availability) { setValidationError('Selecciona la disponibilidad del inmueble.'); return; }
+      if (!inspectionId) return;
+      const saved = await saveOrQueueVisitAvailability(inspectionId, availability, visitDate ?? chileVisitDate());
+      if (saved === 'error') { setValidationError('No se pudo guardar la disponibilidad.'); return; }
+    }
 
     const error = (await saveOrQueueUpdate('inspection_sections', sectionId!, { status: 'completed' })) === 'error';
     if (error) {
@@ -823,6 +859,13 @@ export default function InspectorSectionComplete() {
         {sectionType === 'signature' && renderSignatureSection()}
         {sectionType === 'closing_operational' && renderClosingOperational()}
         {sectionType === 'marketing_photos' && !readOnly && <MarketingPhotoTips />}
+        {sectionType === 'marketing_photos' && rmVisit && <section className="space-y-3 py-3">
+          <p className="font-semibold text-sm">Disponibilidad del inmueble</p>
+          <RadioGroup value={availability} disabled={readOnly || isSectionCompleted(section.status)} onValueChange={value => { if (value === 'inmediata' || value === 'en_5_dias') setAvailability(value); }}>
+            <div className="flex items-center gap-3"><RadioGroupItem id="rm-immediate" value="inmediata" /><Label htmlFor="rm-immediate">Disponible de inmediato</Label></div>
+            <div className="flex items-center gap-3"><RadioGroupItem id="rm-five-days" value="en_5_dias" /><Label htmlFor="rm-five-days">Disponible en 5 días</Label></div>
+          </RadioGroup>
+        </section>}
         {(sectionType === 'space_standard' || sectionType === 'space_secondary' || sectionType === 'handover_meta' || sectionType === 'closing_summary') && renderStandardSection()}
 
         {/* Inline validation error */}

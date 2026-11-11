@@ -1,6 +1,7 @@
 // Retry a failed inspection_source_events row.
 // Admin-only. Refuses non-failed rows, deterministic failures, and rows over the retry cap.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { linkReferenceForEvent } from '../_shared/intake-source.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,6 +136,9 @@ Deno.serve(async (req) => {
 
   const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
   const outcome = rpcError || result?.failure_reason ? 'failed' : 'completed';
+  if (outcome === 'completed') {
+    try { await linkReferenceForEvent(admin, event_id, result?.inspection_id); } catch (e) { console.error('[retry] link reference failed', e); }
+  }
 
   attempts.push({
     attempted_at: new Date().toISOString(),

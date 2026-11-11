@@ -34,6 +34,7 @@ const AdminIntegrations = lazyWithRetry(() => import("./pages/admin/AdminIntegra
 const AdminIntegrationHubSpot = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpot"), "AdminIntegrationHubSpot");
 const AdminIntegrationHubSpotLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotLogs"), "AdminIntegrationHubSpotLogs");
 const AdminIntegrationHubSpotOutboundLogs = lazyWithRetry(() => import("./pages/admin/AdminIntegrationHubSpotOutboundLogs"), "AdminIntegrationHubSpotOutboundLogs");
+const AdminIntegrationRentManager = lazyWithRetry(() => import("./pages/admin/AdminIntegrationRentManager"), "AdminIntegrationRentManager");
 const PropertiesList = lazyWithRetry(() => import("./pages/properties/PropertiesList"), "PropertiesList");
 const PropertyDetail = lazyWithRetry(() => import("./pages/properties/PropertyDetail"), "PropertyDetail");
 const AdminMonitoring = lazyWithRetry(() => import("./pages/admin/AdminMonitoring"), "AdminMonitoring");
@@ -148,6 +149,7 @@ const App = () => (
               <Route path="/admin/integrations/hubspot" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpot /></ProtectedRoute>} />
               <Route path="/admin/integrations/hubspot/logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotLogs /></ProtectedRoute>} />
               <Route path="/admin/integrations/hubspot/outbound-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationHubSpotOutboundLogs /></ProtectedRoute>} />
+              <Route path="/admin/integrations/rent-manager" element={<ProtectedRoute allowedRoles={['admin']}><AdminIntegrationRentManager /></ProtectedRoute>} />
 
               {/* Inspector routes */}
               <Route path="/inspector" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorDashboard /></ProtectedRoute>} />

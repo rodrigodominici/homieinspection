@@ -30,7 +30,8 @@ export type PhotoOp = {
   createdAt: number;
 };
 
-export type QueueOp = UpdateOp | PhotoOp;
+export type VisitAvailabilityOp = { id: string; kind: 'visit_availability'; inspectionId: string; choice: 'inmediata' | 'en_5_dias'; visitDate: string; createdAt: number };
+export type QueueOp = UpdateOp | PhotoOp | VisitAvailabilityOp;
 
 const DB = 'homie-offline';
 const STORE = 'outbox';
@@ -176,7 +177,25 @@ export async function queuePhotos(opts: {
   return n;
 }
 
+export async function saveOrQueueVisitAvailability(inspectionId: string, choice: 'inmediata' | 'en_5_dias', visitDate: string): Promise<'saved' | 'queued' | 'error'> {
+  if (navigator.onLine) {
+    try {
+      const { error } = await withTimeout(supabase.rpc('rm_save_visit_availability', { p_id: inspectionId, p_choice: choice, p_visit_date: visitDate }), 8000);
+      if (!error) return 'saved';
+      if (!isNetworkError(error)) return 'error';
+    } catch (error) { if (!isNetworkError(error)) return 'error'; }
+  }
+  const existing = (await listQueue()).find(o => o.kind === 'visit_availability' && o.inspectionId === inspectionId);
+  await put({ id: existing?.id ?? crypto.randomUUID(), kind: 'visit_availability', inspectionId, choice, visitDate, createdAt: existing?.createdAt ?? Date.now() });
+  return 'queued';
+}
+
 async function runOp(op: QueueOp) {
+  if (op.kind === 'visit_availability') {
+    const { error } = await withTimeout(supabase.rpc('rm_save_visit_availability', { p_id: op.inspectionId, p_choice: op.choice, p_visit_date: op.visitDate }), 15000);
+    if (error) throw error;
+    return;
+  }
   if (op.kind === 'update') {
     const { error } = await withTimeout(supabase.from(op.table).update(op.patch as never).eq('id', op.rowId), 15000);
     if (error) throw error;

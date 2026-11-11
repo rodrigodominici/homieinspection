@@ -1,6 +1,7 @@
 // Recover events stuck in 'received' or 'processing' for more than 5 minutes.
 // Admin-only. Re-invokes the RPC for each, capped per run.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { linkReferenceForEvent } from '../_shared/intake-source.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -69,6 +70,9 @@ Deno.serve(async (req) => {
       p_event_id: row.id,
     });
     const r = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+    if (!rpcErr && !r?.failure_reason) {
+      try { await linkReferenceForEvent(admin, row.id, r?.inspection_id); } catch (e) { console.error('[recover] link reference failed', e); }
+    }
     results.push({
       event_id: row.id,
       outcome: rpcErr || r?.failure_reason ? 'failed' : 'completed',

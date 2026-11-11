@@ -1,3 +1,4 @@
+import '../_shared/sandbox-guard.ts';
 // Edge function: health-check
 // Public, unauthenticated health endpoint. Runs in the functions runtime, which
 // is independent from the database, so it still answers (with 503) when the

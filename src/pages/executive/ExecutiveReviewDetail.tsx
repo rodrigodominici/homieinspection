@@ -1,5 +1,6 @@
 import { quotedAmount, contractorAmount } from '@/lib/repair-pricing';
 import ExecutiveLayout from '@/components/ExecutiveLayout';
+import { RentManagerVisitControls } from '@/components/inspection/RentManagerVisitControls';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -429,6 +430,7 @@ export default function ExecutiveReviewDetail() {
       {mode === 'inspection' && (
         <PropertyContextBar inspection={inspection} signatureRecord={signatureRecord} />
       )}
+      <div className="px-4 lg:px-6"><RentManagerVisitControls inspectionId={inspection.id} mode="executive" /></div>
 
       {inspection.status === 'submitted' && (
         <SubmittedBanner submitting={submitting} onStartReview={actions.handleStartReview} />

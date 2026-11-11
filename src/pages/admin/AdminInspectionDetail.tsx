@@ -1,9 +1,11 @@
+import { purgeInspections } from '@/lib/purge-inspections';
 import { quotedAmount, contractorAmount, repairUpdate } from '@/lib/repair-pricing';
 import { RepairCatalogSheet } from '@/modules/review/components/RepairCatalogSheet';
 import { addPendingRepair } from '@/modules/review/api/repairs.service';
 import { revisionError } from '@/lib/quotation-revision';
 import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
+import { RentManagerVisitControls } from '@/components/inspection/RentManagerVisitControls';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -418,47 +420,8 @@ export default function AdminInspectionDetail() {
     if (!inspection) return;
     setDeleting(true);
     try {
-      // Delete related records in order (no FK cascades)
-      await supabase.from('inspection_field_values').delete().eq('inspection_id', inspection.id);
-
-      // Delete photos from storage first to avoid orphaned files
-      const { data: photoRows } = await supabase
-        .from('inspection_photos')
-        .select('storage_path')
-        .eq('inspection_id', inspection.id);
-      const storagePaths = (photoRows ?? [])
-        .map((p: { storage_path: string }) => p.storage_path)
-        .filter(Boolean);
-      if (storagePaths.length > 0) {
-        await supabase.storage.from('inspection-photos').remove(storagePaths);
-      }
-      await supabase.from('inspection_photos').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_owner_feedback').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_owner_feedback_submissions').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_quotation_discounts').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_signatures').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_external_references').delete().eq('inspection_id', inspection.id);
-      await supabase.from('communication_deliveries').delete().eq('inspection_id', inspection.id);
-      await supabase.from('hubspot_sync_log').delete().eq('inspection_id', inspection.id);
-      await supabase.from('slack_notifications_log').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_reviews').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_work_orders').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_repair_items').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_report_versions').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_audit_log').delete().eq('inspection_id', inspection.id);
-      await supabase.from('inspection_sections').delete().eq('inspection_id', inspection.id);
-
-      // Capture source_event_id BEFORE deleting the inspection so we can clean
-      // it up afterwards. Without this, the intake dedupes future HubSpot
-      // webhooks against an orphan event and refuses to recreate the inspection.
-      const sourceEventId = inspection.source_event_id ?? null;
-
-      const { error } = await supabase.from('inspections').delete().eq('id', inspection.id);
-      if (error) throw error;
-
-      if (sourceEventId) {
-        await supabase.from('inspection_source_events').delete().eq('id', sourceEventId);
-      }
+      // Borrado completo del lado del servidor (todo o nada, incluye archivos y Rent Manager).
+      await purgeInspections({ inspection_id: inspection.id });
 
       toast({ title: 'Inspección eliminada' });
       navigate('/admin/inspections');
@@ -858,6 +821,7 @@ export default function AdminInspectionDetail() {
           <InspectionStatusBadge status={inspection.status} />
         </div>
         <HubSpotDealLink inspectionId={inspection.id} />
+        <RentManagerVisitControls inspectionId={inspection.id} mode="executive" />
 
         {/* ─── Top Summary Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -1008,7 +972,9 @@ export default function AdminInspectionDetail() {
               })()}
               {(() => {
                 const snap = getEffectiveSnapshot(inspection);
-                const terminoContrato = (snap?.fecha_de_termino_real_de_contrato as string) ?? null;
+                const terminoContrato = inspection.inspection_type === 'captacion'
+                  ? ((snap?.fecha_tentativa_recepcion as string) ?? (snap?.fecha_de_termino_real_de_contrato as string) ?? null)
+                  : ((snap?.fecha_de_termino_real_de_contrato as string) ?? null);
                 return <SummaryItem label={`${getContractDateShortLabel(inspection.inspection_type)} (ref.)`} value={terminoContrato ?? 'No disponible'} muted={!terminoContrato} />;
               })()}
             </div>
@@ -1272,9 +1238,9 @@ export default function AdminInspectionDetail() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Eliminar esta inspección?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción es irreversible. Se eliminarán permanentemente todas las secciones,
-                      campos, fotos, reparaciones, revisiones, versiones de reporte y registros de auditoría
-                      asociados a esta inspección.
+                      Esta acción es irreversible. Se eliminan por completo secciones, fotos, PDF,
+                      reparaciones, informes y sus enlaces, avisos a Rent Manager, eventos de entrada,
+                      referencias y registros asociados a esta inspección.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
