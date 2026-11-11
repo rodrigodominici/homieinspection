@@ -6,6 +6,7 @@ import { z } from 'npm:zod@3';
 import { configured, deliveryResult, simulatedReceiver } from '../_shared/rent-manager-delivery.ts';
 import { timingSafeEqual } from '../_shared/intake-source.ts';
 import { publicAppOrigin, reportLinks, publicPhotoUrl } from '../_shared/rent-manager-links.ts';
+import { preparePhotoPayload } from '../_shared/rent-manager-photos.ts';
 
 const Body = z.object({ simulate: z.boolean().default(false), simulation_status: z.union([z.literal(200), z.literal(400), z.literal(401), z.literal(404), z.literal(500), z.literal(503), z.literal('network')]).default(200), origin: z.string().url().optional(), wake_id: z.string().uuid().optional() }).strict();
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -37,16 +38,17 @@ Deno.serve(async req => {
   if (!simulation && (!configured(target, secret) || isSandboxBackend())) return reply({ status: 'pending', reason: isSandboxBackend() ? 'draft_external_delivery_disabled' : 'not_configured', sent: 0 });
   try {
     async function prepare(row: any) {
-      const payload = structuredClone(row.payload) as Record<string, any>;
-      if (Array.isArray(row.photo_objects) && row.photo_objects.length) {
-        payload.data.fotos = [];
-        for (const photo of row.photo_objects) {
-          if (photo.bucket !== 'inspection-photos') throw new Error('invalid_photo_bucket');
+      const payload = await preparePhotoPayload(row, async inspectionId => {
+        const { data, error } = await admin.from('inspection_photos')
+          .select('storage_bucket,storage_path').eq('inspection_id', inspectionId).eq('photo_stage', 'after')
+          .order('sort_order').order('created_at').order('id');
+        if (error) throw error;
+        return (data ?? []).map(photo => ({ bucket: photo.storage_bucket, path: photo.storage_path }));
+      }, async photo => {
           const { data, error } = await admin.storage.from(photo.bucket).createSignedUrl(photo.path, 7 * 24 * 60 * 60);
           if (error || !data?.signedUrl) throw error ?? new Error('photo_signing_failed');
-          payload.data.fotos.push(publicPhotoUrl(data.signedUrl, simulation));
-        }
-      }
+          return publicPhotoUrl(data.signedUrl, simulation);
+      });
       if (row.event_type === 'inspection.report_published') {
         const { data: i, error } = await admin.from('inspections').select('property_id').eq('id', row.inspection_id).single();
         if (error || !i?.property_id) throw error ?? new Error('missing_report_property');
