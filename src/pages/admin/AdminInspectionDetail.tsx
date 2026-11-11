@@ -6,7 +6,6 @@ import { revisionError } from '@/lib/quotation-revision';
 import { PublishedVersionsTimeline } from '@/pages/executive/review-detail/PublishedVersionsTimeline';
 import { HubSpotDealLink } from '@/components/inspection/HubSpotDealLink';
 import { RentManagerVisitControls } from '@/components/inspection/RentManagerVisitControls';
-import { RentManagerSimulatorPanel } from '@/components/admin/RentManagerSimulatorPanel';
 import { sameMarket } from '@/lib/markets';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -823,7 +822,6 @@ export default function AdminInspectionDetail() {
         </div>
         <HubSpotDealLink inspectionId={inspection.id} />
         <RentManagerVisitControls inspectionId={inspection.id} mode="executive" />
-        <RentManagerSimulatorPanel inspectionId={inspection.id} />
 
         {/* ─── Top Summary Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
