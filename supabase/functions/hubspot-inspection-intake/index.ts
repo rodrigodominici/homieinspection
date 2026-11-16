@@ -401,6 +401,13 @@ Deno.serve(async (req: Request) => {
             console.error('[intake] external_reference flow error', refErr);
           }
         }
+        if (!row?.failure_reason && row?.inspection_id && source === 'hubspot' && body.external_object_id) {
+          try {
+            await syncMxFormReceivedDate(supabase, row.inspection_id as string, String(body.external_object_id));
+          } catch (e) {
+            console.error('[intake] form received date sync failed', e);
+          }
+        }
       }
     } catch (err) {
       console.error('[intake] background error', err);
@@ -427,3 +434,31 @@ Deno.serve(async (req: Request) => {
     { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 });
+
+
+// Captación MX: la fecha de creación en HI completa «Fecha de recepción de form» del negocio.
+async function syncMxFormReceivedDate(supabase: any, inspectionId: string, dealId: string) {
+  const token = Deno.env.get('HUBSPOT_PRIVATE_APP_TOKEN');
+  if (!token) return;
+  const { data: insp } = await supabase.from('inspections')
+    .select('inspection_type, market, created_at, is_test').eq('id', inspectionId).maybeSingle();
+  if (!insp || insp.is_test || insp.inspection_type !== 'captacion' || !String(insp.market).toUpperCase().startsWith('MX')) return;
+  const numericId = dealId.replace(/\D/g, '');
+  if (!numericId) return;
+  const date = new Date(insp.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+  const payload = { properties: { fecha_de_recepcion_de_form: date } };
+  const res = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${numericId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let parsed: unknown = text;
+  try { parsed = text ? JSON.parse(text) : null; } catch { /* keep text */ }
+  await supabase.from('hubspot_sync_log').insert({
+    inspection_id: inspectionId, action: 'form_received_date', hubspot_object_type_id: '0-3',
+    hubspot_object_id: numericId, request_payload: payload, response_status: res.status, response_body: parsed,
+    status: res.ok ? 'success' : 'error', error_message: res.ok ? null : `hubspot_patch_failed_${res.status}`,
+    event_time: insp.created_at,
+  });
+}
