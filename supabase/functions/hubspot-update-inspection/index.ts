@@ -1,16 +1,12 @@
 import { isTestInspection } from '../_shared/test-inspection.ts';
+import { resolveHubSpotProperty, type HubSpotAction } from './property-map.ts';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import '../_shared/sandbox-guard.ts';
 // Outbound HubSpot sync for inspections.
 // Direct HubSpot REST API call using HUBSPOT_PRIVATE_APP_TOKEN (Path A).
 // External target resolved via inspection_external_references — inspections
 // stay decoupled from HubSpot. Every exit path writes to hubspot_sync_log.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -21,13 +17,7 @@ const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const DEFAULT_OBJECT_TYPE_ID = '2-47492934'; // Contrato de Locación (check_out)
 const DEAL_OBJECT_TYPE_ID = '0-3';            // Deal estándar (captacion → pipeline Publicaciones CL)
 
-type Action = 'key_collection_date' | 'checkout_received' | 'checkin_completed';
-
-const HUBSPOT_PROPERTY_MAP = {
-  key_collection_date: 'fecha_de_recoleccion_de_llaves',
-  checkout_received: 'fecha_de_recepcion_del_checkout',
-  checkin_completed: 'checkin_hi_completo',
-} as const;
+type Action = HubSpotAction;
 type LogStatus = 'success' | 'error' | 'skipped';
 
 function jsonResponse(body: unknown, status = 200) {
@@ -327,11 +317,8 @@ Deno.serve(async (req: Request) => {
   // ── PATCH HubSpot directly ──
   // captacion → endpoint /deals/{id} (URL-friendly alias para object type 0-3);
   // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
-  // Captaciones MX: la fecha de recolección de llaves va a "Fecha de visita técnica".
-  const propertyName =
-    action === 'key_collection_date' && isCaptacion && inspection.market === 'MX'
-      ? 'fecha_de_visita_tecnica'
-      : HUBSPOT_PROPERTY_MAP[action];
+  // Captaciones use country-specific deal fields; check-outs keep the contract field.
+  const propertyName = resolveHubSpotProperty(action, inspection.inspection_type, inspection.market);
   const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
   const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
