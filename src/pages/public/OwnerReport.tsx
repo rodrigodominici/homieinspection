@@ -872,7 +872,9 @@ export default function OwnerReport() {
   const { property, published_at, fecha_recoleccion_llaves } = report;
 
   // Decide if the owner can interact with the form (computed early so totals can use it).
-  const interactive = isOwnerAudience && !locked && decidableRepairs.length > 0;
+  // México (captación): aprueba Homie, el propietario solo visualiza.
+  const homieApproved = !!(report as any).homie_approved;
+  const interactive = isOwnerAudience && !locked && !homieApproved && decidableRepairs.length > 0;
   const showLockedBanner = isOwnerAudience && locked;
   const acceptedFinal = report.owner_feedback_status === 'accepted';
 
