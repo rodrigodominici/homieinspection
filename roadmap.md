@@ -31,7 +31,7 @@
 ## Mejoras MX (16/11/2026)
 - [x] Error al finalizar captación MX (renta continua sin OT)
 - [x] Sin aprobación del propietario en MX
-- [ ] Link solo Informe de hallazgos
+- [x] Link solo Informe de hallazgos
 - [ ] Fecha de creación → «Fecha de recepción de form» HubSpot
 - [ ] Filtro/orden por fecha en listas
 - [ ] Terminología Inspector → Receptor
