@@ -8,7 +8,7 @@ import { requiresQuotation } from '@/lib/inspection-type-labels';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection, isReviewVisibleSection } from '@/lib/inspection-utils';
 import { requiresFinalObservation } from '@/lib/section-completion';
 import { useSignedPhotoUrls } from '@/lib/photo-urls';
 import type { InspectionPhoto } from '@/lib/types';
@@ -204,6 +204,11 @@ export default function ExecutiveReviewDetail() {
 
   const operationalSections = useMemo(
     () => sections.filter(isRepairableSection),
+    [sections]
+  );
+
+  const reviewSections = useMemo(
+    () => sections.filter(isReviewVisibleSection),
     [sections]
   );
 
@@ -461,7 +466,7 @@ export default function ExecutiveReviewDetail() {
         return (
           <div className={`hidden lg:grid ${gridCols} h-[calc(100vh-7rem)]`}>
             <SectionSidebar
-              operationalSections={operationalSections}
+              operationalSections={reviewSections}
               activeSectionId={activeSectionId}
               onSelectSection={setActiveSectionId}
               repairsBySection={repairsBySection}
@@ -600,7 +605,7 @@ export default function ExecutiveReviewDetail() {
 
       <MobileReviewView
         inspection={inspection}
-        operationalSections={operationalSections}
+        operationalSections={reviewSections}
         fieldsBySection={fieldsBySection}
         photosBySection={photosBySection}
         repairsBySection={repairsBySection}

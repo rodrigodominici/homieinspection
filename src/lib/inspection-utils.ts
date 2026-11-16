@@ -64,3 +64,13 @@ export function getEffectiveSnapshot(inspection: Inspection): Record<string, unk
   const overrides = inspection.property_overrides_json as Record<string, unknown> | null;
   return overrides ? { ...snapshot, ...overrides } : snapshot;
 }
+
+/** Non-repairable sections that executives/admins must still be able to read in review. */
+const REVIEW_READONLY_TYPES = new Set(['closing_operational', 'marketing_photos']);
+
+/** Sections shown in review navigation: physical spaces plus read-only operational sections. */
+export function isReviewVisibleSection(
+  section: Pick<InspectionSection, 'section_type'> | null | undefined,
+): boolean {
+  return isRepairableSection(section) || REVIEW_READONLY_TYPES.has(section?.section_type ?? '');
+}
