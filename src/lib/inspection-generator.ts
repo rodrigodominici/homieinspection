@@ -529,6 +529,19 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
     });
   }
 
+  // ── Fotos de comercialización opcionales (check-in Chile, sin mínimo) ──
+  if (payload.inspection_type === 'check_in' && payload.market === 'CL') {
+    sections.push({
+      section_key: 'marketing_photos_checkin',
+      section_title: 'Fotos de comercialización (opcional)',
+      section_type: 'marketing_photos',
+      sort_order: order++,
+      fields: [
+        { field_key: 'marketing_photos', field_label: 'Fotos de comercialización', field_type: 'photo_upload', group_key: 'photo', sort_order: 0, required: false },
+      ],
+    });
+  }
+
   // ── 15. Firma de inquilino (always, final) ─────────────────────────────
   sections.push({
     section_key: 'tenant_signature',
