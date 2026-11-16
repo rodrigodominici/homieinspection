@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { applyDateFilter, useDateFilter } from '@/shared/lib/date-range-filter';
+import { DateRangeFilter } from '@/shared/ui/DateRangeFilter';
 import { useMarket } from '@/contexts/MarketContext';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Link } from 'react-router-dom';
@@ -142,7 +144,8 @@ export default function ExecutiveReviewQueue() {
     return map;
   }, [inspections, inspectorProfiles]);
 
-  const filtered = useMemo(() => inspections.filter(i => {
+  const [dateFilter, setDateFilter] = useDateFilter('executive-queue');
+  const filtered = useMemo(() => applyDateFilter(inspections, dateFilter).filter(i => {
     if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', search)) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
@@ -156,14 +159,15 @@ export default function ExecutiveReviewQueue() {
       if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
     }
     return true;
-  }), [inspections, haystackByInsp, search, statusFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
+  }), [dateFilter, inspections, haystackByInsp, search, statusFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const hasActiveFilter =
     search.trim() !== '' ||
     statusFilter !== 'all' ||
     inspectorFilter !== 'all' ||
     publishedFilter !== 'all' ||
-    ownerFeedbackFilter !== 'all';
+    ownerFeedbackFilter !== 'all' ||
+    dateFilter.range !== 'all';
 
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
@@ -250,6 +254,7 @@ export default function ExecutiveReviewQueue() {
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
+              <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
