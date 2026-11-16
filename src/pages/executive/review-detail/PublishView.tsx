@@ -199,7 +199,13 @@ export function PublishView(props: PublishViewProps) {
       )}
 
       {/* Owner feedback panel — no aplica en check-in (sin cotización) */}
-      {isPublished && withQuotation && (
+      {isPublished && withQuotation && homieApproves && (
+        <div className="rounded-lg border bg-card p-4 text-sm">
+          <p className="font-semibold">Aprobado por Homie</p>
+          <p className="text-muted-foreground">En México la captación no requiere aprobación del propietario.</p>
+        </div>
+      )}
+      {isPublished && withQuotation && !homieApproves && (
         <OwnerFeedbackPanel
           inspectionId={inspection.id}
           ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
