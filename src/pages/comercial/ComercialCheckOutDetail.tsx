@@ -492,7 +492,7 @@ export default function ComercialCheckOutDetail() {
             <MetaCell label="Bodega" value={storageNumber ?? (snap.has_storage ? 'Sí' : '—')} />
             <MetaCell label="Inquilino" value={tenantName ?? '—'} />
             <MetaCell label="Ejecutivo" value={executive?.full_name ?? '—'} />
-            <MetaCell label="Inspector" value={inspector?.full_name ?? '—'} />
+            <MetaCell label="Receptor" value={inspector?.full_name ?? '—'} />
             <MetaCell label="Inspección" value={formatDateTime(inspection.inspection_completed_at ?? inspection.completed_at)} />
             <MetaCell label="Enviada" value={formatDateTime(inspection.completed_at)} />
             <MetaCell label="Aprobada" value={formatDateTime(inspection.approved_at)} />
@@ -529,7 +529,7 @@ export default function ComercialCheckOutDetail() {
             <h2 className="text-h3 font-semibold">Firmas</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SignatureBlock label="Inspector" signature={inspectorSignature} />
+            <SignatureBlock label="Receptor" signature={inspectorSignature} />
             <SignatureBlock label="Inquilino" signature={tenantSignature} />
           </div>
         </Card>

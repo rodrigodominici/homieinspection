@@ -829,7 +829,7 @@ export default function AdminInspectionDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <SummaryItem label="Property ID" value={inspection.property_id} />
               <SummaryItem label="Mercado" value={inspection.market} />
-              <SummaryItem label="Inspector" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
+              <SummaryItem label="Receptor" value={inspectorName ?? 'Sin asignar'} muted={!inspectorName} />
               {!isCheckInInspection && (
                 <SummaryItem label="Ejecutivo" value={executiveName ?? 'Sin asignar'} muted={!executiveName} />
               )}
@@ -1161,7 +1161,7 @@ export default function AdminInspectionDetail() {
           <CardContent className="p-4 pt-0 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Inspector</Label>
+                <Label>Receptor</Label>
                 <Select value={editInspector} onValueChange={setEditInspector}>
                   <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
                   <SelectContent>

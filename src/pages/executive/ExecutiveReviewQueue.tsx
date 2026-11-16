@@ -248,7 +248,7 @@ export default function ExecutiveReviewQueue() {
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Dirección, unidad, inspector, propietario…"
+                  placeholder="Dirección, unidad, receptor, propietario…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="pl-9 h-9 rounded-lg bg-card"
@@ -270,7 +270,7 @@ export default function ExecutiveReviewQueue() {
               </Select>
               {inspectors.length > 0 && (
                 <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                  <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                  <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Receptor" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los inspectores</SelectItem>
                     {inspectors.map(ins => <SelectItem key={ins.id} value={ins.id}>{ins.name}</SelectItem>)}

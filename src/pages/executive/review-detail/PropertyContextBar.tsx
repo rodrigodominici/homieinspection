@@ -75,7 +75,7 @@ export function PropertyContextBar({ inspection, signatureRecord }: PropertyCont
     >
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-6 gap-y-3">
         <Item icon={MapPin} label="Dirección" value={address} />
-        <Item icon={User} label="Inspector" value={inspector} />
+        <Item icon={User} label="Receptor" value={inspector} />
         <Item icon={Calendar} label="Fecha inspección" value={scheduled} />
         <Item icon={KeyRound} label="Entrega de llaves" value={keyLine} />
         <Item
