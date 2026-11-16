@@ -15,3 +15,14 @@ describe('HubSpot key collection date destination', () => {
     expect(resolveHubSpotProperty('key_collection_date', 'check_out', 'MX')).toBe('fecha_de_recoleccion_de_llaves');
   });
 });
+import { resolveAssigneeProperties } from '../../supabase/functions/hubspot-update-inspection/property-map';
+describe('assignees to HubSpot', () => {
+  it('Chile check-out sends receptor and ejecutivo_de_operaciones', () => {
+    expect(resolveAssigneeProperties('check_out', 'CL', { receptor: '1', executive: '2' }))
+      .toEqual({ receptor: '1', ejecutivo_de_operaciones: '2' });
+  });
+  it('does not send for captación or Mexico', () => {
+    expect(resolveAssigneeProperties('captacion', 'CL', { receptor: '1', executive: '2' })).toEqual({});
+    expect(resolveAssigneeProperties('check_out', 'MX', { receptor: '1', executive: '2' })).toEqual({});
+  });
+});
