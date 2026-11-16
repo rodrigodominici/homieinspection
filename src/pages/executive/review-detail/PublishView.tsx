@@ -51,6 +51,7 @@ export function PublishView(props: PublishViewProps) {
 
   // El check-in registra el estado de entrega: sin reparaciones ni cotización.
   const withQuotation = requiresQuotation(inspection.inspection_type);
+  const homieApproves = inspection.inspection_type === 'captacion' && String(inspection.market ?? '').toUpperCase().startsWith('MX');
 
   const checks: ChecklistRow[] = [
     missingSections.length === 0
