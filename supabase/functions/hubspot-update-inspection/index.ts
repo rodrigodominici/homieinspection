@@ -1,5 +1,5 @@
 import { isTestInspection } from '../_shared/test-inspection.ts';
-import { resolveHubSpotProperty, type HubSpotAction } from './property-map.ts';
+import { resolveHubSpotProperty, resolveAssigneeProperties, type HubSpotAction } from './property-map.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import '../_shared/sandbox-guard.ts';
 // Outbound HubSpot sync for inspections.
