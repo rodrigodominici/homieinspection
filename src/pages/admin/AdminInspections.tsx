@@ -701,7 +701,7 @@ export default function AdminInspections() {
               <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
                 <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Receptor" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los inspectores</SelectItem>
+                  <SelectItem value="all">Todos los receptores</SelectItem>
                   {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
