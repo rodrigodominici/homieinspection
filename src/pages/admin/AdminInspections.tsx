@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
+import { applyDateFilter, useDateFilter } from '@/shared/lib/date-range-filter';
+import { DateRangeFilter } from '@/shared/ui/DateRangeFilter';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -487,9 +489,10 @@ export default function AdminInspections() {
     return map;
   }, [inspections, inspectors, executives]);
 
+  const [dateFilter, setDateFilter] = useDateFilter('admin-inspections');
   // Apply all filters + sorting
   const filteredInspections = useMemo(() => {
-    const result = inspections.filter((i) => {
+    const result = applyDateFilter(inspections as any[], dateFilter).filter((i: any) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
       if (quienReparaFilter !== 'all') {
         const qr = i.quien_repara ?? 'undefined';
@@ -541,7 +544,7 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
+  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy, dateFilter]);
 
   // Client-side pagination over filtered results.
   const totalResults = filteredInspections.length;
@@ -680,6 +683,7 @@ export default function AdminInspections() {
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
+              <DateRangeFilter value={dateFilter} onChange={setDateFilter} hideOrder />
               <Select value={statusFilter} onValueChange={applyStatusFilter}>
                 <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>

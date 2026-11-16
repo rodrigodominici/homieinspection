@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import type { DateFilterState, DateField, DateRange } from '@/shared/lib/date-range-filter';
 
-export function DateRangeFilter({ value, onChange }: { value: DateFilterState; onChange: (v: DateFilterState) => void }) {
+export function DateRangeFilter({ value, onChange, hideOrder }: { value: DateFilterState; onChange: (v: DateFilterState) => void; hideOrder?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={value.field} onValueChange={(v) => onChange({ ...value, field: v as DateField })}>
@@ -31,11 +31,11 @@ export function DateRangeFilter({ value, onChange }: { value: DateFilterState; o
           <Input type="date" className="h-9 w-[150px]" value={value.to ?? ''} onChange={(e) => onChange({ ...value, to: e.target.value || undefined })} aria-label="Hasta" />
         </>
       )}
-      <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5"
+      {!hideOrder && <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5"
         onClick={() => onChange({ ...value, order: value.order === 'asc' ? 'desc' : 'asc' })}>
         {value.order === 'asc' ? <ArrowUpNarrowWide className="h-4 w-4" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
         {value.order === 'asc' ? 'Más antiguas' : 'Más recientes'}
-      </Button>
+      </Button>}
     </div>
   );
 }

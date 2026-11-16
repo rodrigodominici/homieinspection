@@ -254,7 +254,7 @@ export default function ExecutiveReviewQueue() {
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
-              <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+              <DateRangeFilter value={dateFilter} onChange={setDateFilter} hideOrder />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
