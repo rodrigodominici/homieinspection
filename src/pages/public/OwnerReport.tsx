@@ -1031,6 +1031,7 @@ export default function OwnerReport() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6 pb-32">
         {propertyId && token && <PublicQuotationRevision propertyId={propertyId} token={token} onChanged={() => void loadReport()} />}
         <Tabs defaultValue="report" className="space-y-5">
+          {!homieApproved && (
           <TabsList className="w-full grid grid-cols-2 sticky top-0 z-10">
             <TabsTrigger value="report" className="gap-1.5">
               <FileText className="h-4 w-4" /> Reporte
@@ -1039,6 +1040,7 @@ export default function OwnerReport() {
               <DollarSign className="h-4 w-4" /> Presupuesto
             </TabsTrigger>
           </TabsList>
+          )}
 
           {/* ── Report Tab ── */}
           <TabsContent value="report" className="space-y-4">
