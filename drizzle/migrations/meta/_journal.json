@@ -225,6 +225,13 @@
       "when": 1794843050347,
       "tag": "0031_mx_captacion_finalize_without_work",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794843216385,
+      "tag": "0032_mx_captacion_homie_approves",
+      "breakpoints": true
     }
   ]
 }
