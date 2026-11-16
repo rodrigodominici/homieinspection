@@ -232,6 +232,13 @@
       "when": 1794843216385,
       "tag": "0032_mx_captacion_homie_approves",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794845483667,
+      "tag": "0033_optional_marketing_photo_moments",
+      "breakpoints": true
     }
   ]
 }

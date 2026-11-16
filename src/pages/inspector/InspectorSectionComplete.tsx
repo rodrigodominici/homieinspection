@@ -961,6 +961,9 @@ export default function InspectorSectionComplete() {
           // Single-bucket section — unchanged behavior, just contextual title
           if (sectionType === 'marketing_photos') {
             const total = photos.length + pendingPhotos.length;
+            if (section.section_key !== 'marketing_photos') {
+              return renderPhotoCard(`Fotos de comercialización (opcional) · ${total}`, photos, 'marketing_photos');
+            }
             return renderPhotoCard(
               `Fotos de comercialización · ${total} de ${MARKETING_PHOTOS_MIN}${total < MARKETING_PHOTOS_MIN ? ' mínimo' : ' ✓'}`,
               photos,

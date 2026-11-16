@@ -37,7 +37,8 @@ import { eligibleReceivers } from '@/lib/receiver-roles';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
-import { calculateProgress, getEffectiveSnapshot, isRepairableSection } from '@/lib/inspection-utils';
+import ParkingStorageEditor from '@/components/admin/ParkingStorageEditor';
+import { calculateProgress, getEffectiveSnapshot, isRepairableSection, isReviewVisibleSection } from '@/lib/inspection-utils';
 import { getContractDateShortLabel, isCheckIn, getKeyEventLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
 import { isAcceptedByOwner } from '@/lib/inspection-combined-status';
@@ -584,6 +585,7 @@ export default function AdminInspectionDetail() {
   const executiveName = allProfiles.find(p => p.id === inspection?.executive_id)?.full_name ?? null;
   const ownerUrl = getOwnerUrl();
   const operationalSections = useMemo(() => sections.filter(isRepairableSection), [sections]);
+  const reviewSections = useMemo(() => sections.filter(isReviewVisibleSection), [sections]);
   const budgetTotal = repairItems.reduce((sum, r) => sum + quotedAmount(r), 0);
   const isPublished = inspection?.status === 'published';
   const currentStage = (inspection?.current_stage ?? 'inspection') as WorkflowStage;
@@ -822,6 +824,12 @@ export default function AdminInspectionDetail() {
         </div>
         <HubSpotDealLink inspectionId={inspection.id} />
         <RentManagerVisitControls inspectionId={inspection.id} mode="executive" />
+        <ParkingStorageEditor
+          inspectionId={inspection.id}
+          snapshot={getEffectiveSnapshot(inspection) as Record<string, unknown>}
+          overrides={(inspection.property_overrides_json as Record<string, unknown>) ?? null}
+          onSaved={(o) => setInspection({ ...inspection, property_overrides_json: o as never })}
+        />
 
         {/* ─── Top Summary Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
@@ -1348,11 +1356,11 @@ export default function AdminInspectionDetail() {
           <TabsContent value="inspection">
             <Card className="border-0 ring-1 ring-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base">Secciones ({operationalSections.length})</CardTitle>
+                <CardTitle className="text-base">Secciones ({reviewSections.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
-                {operationalSections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
-                {operationalSections.map((sec, idx) => {
+                {reviewSections.length === 0 && <p className="text-sm text-muted-foreground">No hay secciones generadas.</p>}
+                {reviewSections.map((sec, idx) => {
                   const secFields = fieldsBySection[sec.id] ?? [];
                   const secPhotos = (photosBySection[sec.id] ?? []);
                   const completed = isSectionCompleted(sec.status);
@@ -1538,7 +1546,7 @@ export default function AdminInspectionDetail() {
                   <CardContent className="p-4"><p className="text-sm text-muted-foreground">No hay secciones.</p></CardContent>
                 </Card>
               )}
-              {operationalSections.map(section => {
+              {reviewSections.map(section => {
                 const sFields = fieldsBySection[section.id] ?? [];
                 const sPhotos = photosBySection[section.id] ?? [];
                 const sReviews = reviewsBySection[section.id] ?? [];

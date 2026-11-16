@@ -1,5 +1,5 @@
 import { isTestInspection } from '../_shared/test-inspection.ts';
-import { resolveHubSpotProperty, type HubSpotAction } from './property-map.ts';
+import { resolveHubSpotProperty, resolveAssigneeProperties, type HubSpotAction } from './property-map.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import '../_shared/sandbox-guard.ts';
 // Outbound HubSpot sync for inspections.
@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
   // ── Load inspection ──
   const { data: inspection, error: inspErr } = await admin
     .from('inspections')
-    .select('id, inspection_type, market, property_overrides_json, property_snapshot_json, inspection_completed_at, status')
+    .select('id, inspection_type, market, property_overrides_json, property_snapshot_json, inspection_completed_at, status, inspector_id, executive_id')
     .eq('id', inspectionId)
     .maybeSingle();
   if (inspErr || !inspection) {
@@ -319,7 +319,8 @@ Deno.serve(async (req: Request) => {
   // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
   // Captaciones use country-specific deal fields; check-outs keep the contract field.
   const propertyName = resolveHubSpotProperty(action, inspection.inspection_type, inspection.market);
-  const requestPayload = { properties: { [propertyName]: hubspotDateValue } };
+  const assigneeProps = await loadAssigneeProperties(admin, inspection);
+  const requestPayload = { properties: { [propertyName]: hubspotDateValue, ...assigneeProps } };
   const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
 
@@ -379,3 +380,32 @@ Deno.serve(async (req: Request) => {
     },
   );
 });
+
+
+/** Resolves HI receptor/executive emails to HubSpot owner IDs (Chile check-out only). */
+async function loadAssigneeProperties(
+  admin: any,
+  inspection: { inspection_type: string; market: string; inspector_id: string | null; executive_id: string | null },
+): Promise<Record<string, string>> {
+  if (inspection.inspection_type !== 'check_out' || inspection.market !== 'CL') return {};
+  const ids = [inspection.inspector_id, inspection.executive_id].filter(Boolean) as string[];
+  if (ids.length === 0) return {};
+  const { data: profiles } = await admin.from('profiles').select('id,email').in('id', ids);
+  const emailOf = (id: string | null) => (profiles ?? []).find((p: any) => p.id === id)?.email ?? null;
+  const ownerFor = async (email: string | null): Promise<string | null> => {
+    if (!email) return null;
+    try {
+      const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners?email=${encodeURIComponent(email)}&limit=1`, {
+        headers: { Authorization: `Bearer ${HUBSPOT_PRIVATE_APP_TOKEN}` },
+      });
+      if (!res.ok) return null;
+      const body = await res.json();
+      return body?.results?.[0]?.id ? String(body.results[0].id) : null;
+    } catch { return null; }
+  };
+  const [receptor, executive] = await Promise.all([
+    ownerFor(emailOf(inspection.inspector_id)),
+    ownerFor(emailOf(inspection.executive_id)),
+  ]);
+  return resolveAssigneeProperties(inspection.inspection_type, inspection.market, { receptor, executive });
+}

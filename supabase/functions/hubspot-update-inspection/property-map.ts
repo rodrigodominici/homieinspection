@@ -13,3 +13,18 @@ export function resolveHubSpotProperty(action: HubSpotAction, inspectionType: st
   }
   return defaultProperties[action];
 }
+/**
+ * Owner properties sent alongside Chilean check-out updates so HubSpot shows who
+ * received and who executes operations. Only resolved HubSpot owner IDs are sent.
+ */
+export function resolveAssigneeProperties(
+  inspectionType: string,
+  market: string,
+  owners: { receptor?: string | null; executive?: string | null },
+): Record<string, string> {
+  if (inspectionType !== 'check_out' || market !== 'CL') return {};
+  const out: Record<string, string> = {};
+  if (owners.receptor) out.receptor = owners.receptor;
+  if (owners.executive) out.ejecutivo_de_operaciones = owners.executive;
+  return out;
+}

@@ -14,6 +14,7 @@ import SignedPhotoImg from '@/components/SignedPhotoImg';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { supabase } from '@/integrations/supabase/client';
 import QuotationRevisionPanel from './QuotationRevisionPanel';
+import WorkMarketingPhotos from './WorkMarketingPhotos';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -357,6 +358,10 @@ export default function WorkOrderPanel({
                   </Button>
                 </div>
               </div>
+            )}
+
+            {market === 'CL' && ['in_review', 'approved'].includes(detail.order.status) && (
+              <WorkMarketingPhotos inspectionId={inspectionId} />
             )}
 
             {detail.order.status === 'rejected' && detail.order.review_note && (
