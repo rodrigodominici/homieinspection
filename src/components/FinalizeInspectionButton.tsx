@@ -101,6 +101,10 @@ export function FinalizeInspectionButton({
         title: 'No se pudo finalizar',
         description: msg.includes('not_authorized')
           ? 'No tienes permisos para finalizar esta inspección.'
+          : msg.includes('work_not_done')
+            ? 'La orden de trabajo todavía no está terminada y aprobada.'
+          : msg.includes('quien_repara_required')
+            ? 'Indica quién repara antes de finalizar.'
           : msg.includes('invalid_status')
             ? 'La inspección debe estar aprobada para finalizarse.'
             : msg || 'Error inesperado.',
