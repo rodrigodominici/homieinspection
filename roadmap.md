@@ -27,3 +27,11 @@
 - [x] Fix missing apartment numbers in Chilean HubSpot captación intake; deployed recovery from numero_de_departamento, corrected today's three units (707, 217, 213), verified real HubSpot lookup and authenticated HI display.
 - [x] Identify what sent key collection and checkout receipt dates for HubSpot contract 61527264411: historical check-in sends on September 12; current server lacks inspection-type restrictions for these actions.
 - [x] Explain the least-privilege HubSpot key permissions for inspection integration and read-only investigation.- [x] Test inspections (es_prueba from Rent Manager): Slack/email/HubSpot skipped, excluded from admin metrics/list, admin-only full deletion and "Borrar todas las de prueba" with count confirmation. Verified end-to-end in draft. Not published.
+
+## Mejoras MX (16/11/2026)
+- [x] Error al finalizar captación MX (renta continua sin OT)
+- [ ] Sin aprobación del propietario en MX
+- [ ] Link solo Informe de hallazgos
+- [ ] Fecha de creación → «Fecha de recepción de form» HubSpot
+- [ ] Filtro/orden por fecha en listas
+- [ ] Terminología Inspector → Receptor
