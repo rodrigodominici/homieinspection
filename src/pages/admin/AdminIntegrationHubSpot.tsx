@@ -258,28 +258,28 @@ export default function AdminIntegrationHubSpot() {
                 <tbody className="divide-y">
                   <tr>
                     <td className="px-3 py-2"><code>check_out</code></td>
-                    <td className="px-3 py-2">Inspector guarda fecha recolección</td>
+                    <td className="px-3 py-2">Receptor guarda fecha recolección</td>
                     <td className="px-3 py-2"><code>fecha_de_recoleccion_de_llaves</code></td>
                     <td className="px-3 py-2">Contrato Arriendo (<code>2-47492934</code>)</td>
                     <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2"><code>check_out</code></td>
-                    <td className="px-3 py-2">Inspector envía inspección</td>
+                    <td className="px-3 py-2">Receptor envía inspección</td>
                     <td className="px-3 py-2"><code>fecha_de_recepcion_del_checkout</code></td>
                     <td className="px-3 py-2">Contrato Arriendo (<code>2-47492934</code>)</td>
                     <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2"><code>captacion</code></td>
-                    <td className="px-3 py-2">Inspector guarda fecha recolección</td>
+                    <td className="px-3 py-2">Receptor guarda fecha recolección</td>
                     <td className="px-3 py-2"><code>fecha_de_recoleccion_de_llaves</code></td>
                     <td className="px-3 py-2">Deal — Publicaciones CL (<code>648473866</code>)</td>
                     <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2"><code>captacion</code></td>
-                    <td className="px-3 py-2">Inspector envía inspección</td>
+                    <td className="px-3 py-2">Receptor envía inspección</td>
                     <td className="px-3 py-2"><code>fecha_de_recepcion_del_checkout</code></td>
                     <td className="px-3 py-2">Deal — Publicaciones CL (<code>648473866</code>)</td>
                     <td className="px-3 py-2"><span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium">Activo</span></td>

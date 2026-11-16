@@ -1578,7 +1578,7 @@ export default function AdminInspectionDetail() {
                       {/* Inspector observation */}
                       {inspectorObs && (
                         <div className="bg-muted/30 rounded-lg p-3 space-y-1">
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Observación del Inspector</p>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Observación del Receptor</p>
                           <p className="text-xs">{inspectorObs}</p>
                         </div>
                       )}

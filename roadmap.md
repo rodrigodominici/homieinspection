@@ -32,6 +32,6 @@
 - [x] Error al finalizar captación MX (renta continua sin OT)
 - [x] Sin aprobación del propietario en MX
 - [x] Link solo Informe de hallazgos
-- [ ] Fecha de creación → «Fecha de recepción de form» HubSpot
-- [ ] Filtro/orden por fecha en listas
-- [ ] Terminología Inspector → Receptor
+- [x] Fecha de creación → HubSpot
+- [x] Filtro por fecha
+- [x] Terminología Receptor

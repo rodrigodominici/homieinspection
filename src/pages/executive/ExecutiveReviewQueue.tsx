@@ -129,7 +129,7 @@ export default function ExecutiveReviewQueue() {
     const ids = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))] as string[];
     return ids.map(id => ({
       id,
-      name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Inspector sin nombre',
+      name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Receptor sin nombre',
     }));
   }, [inspections, inspectorProfiles]);
 
