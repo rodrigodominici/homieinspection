@@ -37,6 +37,7 @@ import { eligibleReceivers } from '@/lib/receiver-roles';
 import AdminLayout from '@/components/AdminLayout';
 import PropertyBriefingCard from '@/components/PropertyBriefingCard';
 import { isSectionCompleted, requiresFinalObservation } from '@/lib/section-completion';
+import ParkingStorageEditor from '@/components/admin/ParkingStorageEditor';
 import { calculateProgress, getEffectiveSnapshot, isRepairableSection, isReviewVisibleSection } from '@/lib/inspection-utils';
 import { getContractDateShortLabel, isCheckIn, getKeyEventLabel, getKeyEventNoun } from '@/lib/inspection-type-labels';
 import { ReportPdfCard } from '@/pages/executive/review-detail/ReportPdfCard';
@@ -823,6 +824,12 @@ export default function AdminInspectionDetail() {
         </div>
         <HubSpotDealLink inspectionId={inspection.id} />
         <RentManagerVisitControls inspectionId={inspection.id} mode="executive" />
+        <ParkingStorageEditor
+          inspectionId={inspection.id}
+          snapshot={getEffectiveSnapshot(inspection) as Record<string, unknown>}
+          overrides={(inspection.property_overrides_json as Record<string, unknown>) ?? null}
+          onSaved={(o) => setInspection({ ...inspection, property_overrides_json: o as never })}
+        />
 
         {/* ─── Top Summary Bar ─── */}
         <Card className="border-0 ring-1 ring-border shadow-sm">
