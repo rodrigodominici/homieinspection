@@ -51,6 +51,7 @@ export function PublishView(props: PublishViewProps) {
 
   // El check-in registra el estado de entrega: sin reparaciones ni cotización.
   const withQuotation = requiresQuotation(inspection.inspection_type);
+  const homieApproves = inspection.inspection_type === 'captacion' && String(inspection.market ?? '').toUpperCase().startsWith('MX');
 
   const checks: ChecklistRow[] = [
     missingSections.length === 0
@@ -199,7 +200,13 @@ export function PublishView(props: PublishViewProps) {
       )}
 
       {/* Owner feedback panel — no aplica en check-in (sin cotización) */}
-      {isPublished && withQuotation && (
+      {isPublished && withQuotation && homieApproves && (
+        <div className="rounded-lg border bg-card p-4 text-sm">
+          <p className="font-semibold">Aprobado por Homie</p>
+          <p className="text-muted-foreground">En México la captación no requiere aprobación del propietario.</p>
+        </div>
+      )}
+      {isPublished && withQuotation && !homieApproves && (
         <OwnerFeedbackPanel
           inspectionId={inspection.id}
           ownerFeedbackStatus={(inspection as any).owner_feedback_status as any}
