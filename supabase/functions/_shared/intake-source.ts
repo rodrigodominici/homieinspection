@@ -54,9 +54,10 @@ export function buildReferenceSpec(
       extraMetadata: { rm_inspection_id: body?.data?.rm_inspection_id ?? null },
     };
   }
-  // Unchanged HubSpot rule: top-level captacion, or MX captación detected on the created inspection.
+  // Captación (any market) or a deal-prefixed id is a HubSpot deal; otherwise a lease contract.
   const isCaptacion = body?.inspection_type === 'captacion'
-    || (inspection?.inspection_type === 'captacion' && inspection?.market === 'MX');
+    || inspection?.inspection_type === 'captacion'
+    || /^hs_deal_/i.test(id);
   return {
     provider: 'hubspot',
     external_object_type: isCaptacion ? 'deal' : 'lease_contract',

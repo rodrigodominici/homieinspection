@@ -57,3 +57,16 @@ describe('es_prueba flag', () => {
     expect(readTestFlag('hubspot', { es_prueba: true })).toBe(false);
   });
 });
+
+import { buildReferenceSpec as buildSpecCl } from '../../supabase/functions/_shared/intake-source';
+describe('Chilean HubSpot captación reference', () => {
+  it('stores CL captación deals as HubSpot deals, not lease contracts', () => {
+    const spec = buildSpecCl('hubspot' as never, 'hs_deal_67549718610', {}, { inspection_type: 'captacion', market: 'CL' });
+    expect(spec?.external_object_type).toBe('deal');
+    expect(spec?.external_object_type_id).toBe('0-3');
+  });
+  it('keeps check-out contracts as lease contracts', () => {
+    const spec = buildSpecCl('hubspot' as never, 'hs_contrato_123', {}, { inspection_type: 'check_out', market: 'CL' });
+    expect(spec?.external_object_type).toBe('lease_contract');
+  });
+});
