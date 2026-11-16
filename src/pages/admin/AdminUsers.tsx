@@ -30,7 +30,7 @@ import { ROLE_LABELS } from '@/lib/receiver-roles';
 const BUSINESS_ROLES: { value: string; label: string }[] = [
   { value: 'hunter', label: 'Hunter' },
   { value: 'admin', label: 'Admin' },
-  { value: 'inspector', label: 'Inspector' },
+  { value: 'inspector', label: 'Receptor' },
   { value: 'property_advisor', label: 'Property Advisor' },
   { value: 'executive', label: 'Executive' },
   { value: 'comercial', label: 'Comercial' },
@@ -778,7 +778,7 @@ function PendingUserRow({ profile, onApprove, onReject }: {
             <SelectContent>
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="hunter">Hunter</SelectItem>
-              <SelectItem value="inspector">Inspector</SelectItem>
+              <SelectItem value="inspector">Receptor</SelectItem>
               <SelectItem value="property_advisor">Property Advisor</SelectItem>
               <SelectItem value="executive">Executive</SelectItem>
             </SelectContent>

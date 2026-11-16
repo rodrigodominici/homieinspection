@@ -104,7 +104,7 @@ export const SectionWorkspace = memo(function SectionWorkspace({
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border bg-card shadow-sm p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Observación del Inspector</p>
+            <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Observación del Receptor</p>
           </div>
           <p className="text-caption text-foreground whitespace-pre-wrap">{inspectorObs || <span className="text-muted-foreground italic">Sin observación</span>}</p>
         </div>

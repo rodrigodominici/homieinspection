@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
+import { applyDateFilter, useDateFilter } from '@/shared/lib/date-range-filter';
+import { DateRangeFilter } from '@/shared/ui/DateRangeFilter';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -487,9 +489,10 @@ export default function AdminInspections() {
     return map;
   }, [inspections, inspectors, executives]);
 
+  const [dateFilter, setDateFilter] = useDateFilter('admin-inspections');
   // Apply all filters + sorting
   const filteredInspections = useMemo(() => {
-    const result = inspections.filter((i) => {
+    const result = applyDateFilter(inspections as any[], dateFilter).filter((i: any) => {
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
       if (quienReparaFilter !== 'all') {
         const qr = i.quien_repara ?? 'undefined';
@@ -541,7 +544,7 @@ export default function AdminInspections() {
         break;
     }
     return sorted;
-  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy]);
+  }, [inspections, haystackByInsp, bucketByInsp, statusFilter, inspectorFilter, executiveFilter, marketFilter, publishedFilter, bucketFilter, quienReparaFilter, searchQuery, sortBy, dateFilter]);
 
   // Client-side pagination over filtered results.
   const totalResults = filteredInspections.length;
@@ -674,12 +677,13 @@ export default function AdminInspections() {
               <div className="relative flex-1 min-w-[220px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Dirección, unidad, inspector, propietario…"
+                  placeholder="Dirección, unidad, receptor, propietario…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
+              <DateRangeFilter value={dateFilter} onChange={setDateFilter} hideOrder />
               <Select value={statusFilter} onValueChange={applyStatusFilter}>
                 <SelectTrigger className="w-[180px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
@@ -695,7 +699,7 @@ export default function AdminInspections() {
                 </SelectContent>
               </Select>
               <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Receptor" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los inspectores</SelectItem>
                   {inspectors.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
@@ -819,7 +823,7 @@ export default function AdminInspections() {
                         <TableHead>ID</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>Asignación</TableHead>
-                        <TableHead>Inspector</TableHead>
+                        <TableHead>Receptor</TableHead>
                         <TableHead>Ejecutivo</TableHead>
                         {showMarketTag && <TableHead>Mercado</TableHead>}
                         <TableHead>Tipo</TableHead>
@@ -1044,7 +1048,7 @@ export default function AdminInspections() {
                           <p className="font-medium truncate">{insp.property_name ?? insp.property_id}{(insp as any).is_test && <Badge variant="outline" className="ml-2 align-middle text-[10px]">PRUEBA</Badge>}</p>
                           <p className="text-caption text-muted-foreground truncate">{insp.address}</p>
                           <p className="text-tiny text-muted-foreground">
-                            Inspector: {insp.inspectorName ?? '—'} · Ejecutivo: {insp.executiveName ?? '—'}
+                            Receptor: {insp.inspectorName ?? '—'} · Ejecutivo: {insp.executiveName ?? '—'}
                           </p>
                         </div>
                         <Button
@@ -1063,7 +1067,7 @@ export default function AdminInspections() {
                         <div className="pt-3 border-t space-y-3">
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <label className="text-caption font-medium text-muted-foreground">Inspector</label>
+                              <label className="text-caption font-medium text-muted-foreground">Receptor</label>
                               <Select value={assignInspector} onValueChange={setAssignInspector}>
                                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                 <SelectContent>

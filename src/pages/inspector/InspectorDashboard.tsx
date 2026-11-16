@@ -160,7 +160,7 @@ export default function InspectorDashboard() {
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
         <p className="text-muted-foreground text-sm">{greeting},</p>
-        <h1 className="text-xl font-bold text-foreground">{profile?.full_name ?? 'Inspector'}</h1>
+        <h1 className="text-xl font-bold text-foreground">{profile?.full_name ?? 'Receptor'}</h1>
         <p className="text-xs text-muted-foreground mt-0.5 capitalize">{dateLabel}</p>
       </header>
 

@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
+import { applyDateFilter, useDateFilter } from '@/shared/lib/date-range-filter';
+import { DateRangeFilter } from '@/shared/ui/DateRangeFilter';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import InspectorStatusBadge from '@/components/InspectorStatusBadge';
@@ -84,6 +86,7 @@ export default function InspectorAllInspections() {
     setSearchParams(params, { replace: true });
   };
 
+  const [dateFilter, setDateFilter] = useDateFilter('receiver-inspections');
   const filtered = useMemo(() => {
     let items = inspections
       .filter((i) => (filter === 'active' ? ACTIVE_STATUSES.has(i.status) : PAST_STATUSES.has(i.status)))
@@ -102,8 +105,9 @@ export default function InspectorAllInspections() {
       });
     }
 
+    if (dateFilter.range !== 'all') items = applyDateFilter(items as any[], dateFilter) as typeof items;
     return items;
-  }, [inspections, filter, stateFilter, scopeFilter]);
+  }, [inspections, filter, stateFilter, scopeFilter, dateFilter]);
 
   const isUncoordinated = (insp: InspectionWithProgress) =>
     !insp.scheduleDatetime && !!insp.contractEndDate && ACTIVE_STATUSES.has(insp.status);
@@ -136,6 +140,7 @@ export default function InspectorAllInspections() {
             Pasadas
           </button>
         </div>
+        <div className="mt-3"><DateRangeFilter value={dateFilter} onChange={setDateFilter} /></div>
       </div>
 
       <main className="px-4 space-y-3">

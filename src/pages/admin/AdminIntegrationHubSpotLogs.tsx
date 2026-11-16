@@ -495,7 +495,7 @@ function AssignmentPanel({ assignment }: { assignment: { inspector?: SlotResolut
         El intake inyecta los ids resueltos en el payload normalizado. El status final (<code>assigned</code> /
         <code>pending_assignment</code>) lo decide la RPC en función de qué ids estén presentes.
       </p>
-      <SlotBlock title="Inspector" slot={assignment.inspector} />
+      <SlotBlock title="Receptor" slot={assignment.inspector} />
       <SlotBlock title="Executive" slot={assignment.executive} />
     </div>
   );

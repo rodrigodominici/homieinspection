@@ -445,6 +445,10 @@ async function syncMxFormReceivedDate(supabase: any, inspectionId: string, dealI
   if (!insp || insp.is_test || insp.inspection_type !== 'captacion' || !String(insp.market).toUpperCase().startsWith('MX')) return;
   const numericId = dealId.replace(/\D/g, '');
   if (!numericId) return;
+  const current = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${numericId}?properties=fecha_de_recepcion_de_form`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (current.ok && (await current.json())?.properties?.fecha_de_recepcion_de_form) return; // no sobrescribir
   const date = new Date(insp.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
   const payload = { properties: { fecha_de_recepcion_de_form: date } };
   const res = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${numericId}`, {

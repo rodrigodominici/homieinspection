@@ -137,7 +137,7 @@ export function MobileReviewView({
                 })}
                 {inspectorObs && (
                   <div className="bg-accent/30 rounded-lg p-3">
-                    <p className="text-tiny font-medium text-muted-foreground mb-1">Inspector</p>
+                    <p className="text-tiny font-medium text-muted-foreground mb-1">Receptor</p>
                     <p className="text-caption">{inspectorObs}</p>
                   </div>
                 )}

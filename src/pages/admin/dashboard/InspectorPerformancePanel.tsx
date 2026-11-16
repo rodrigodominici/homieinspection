@@ -119,7 +119,7 @@ export default function InspectorPerformancePanel({
   rpc = 'get_inspector_performance',
   title = 'Desempeño por inspector',
   description = 'Volumen asignado, tiempo activo en terreno, latencia de cierre y evidencia capturada.',
-  personLabel = 'Inspector',
+  personLabel = 'Receptor',
   emptyText = 'Aún no hay inspecciones asignadas a inspectores.',
   errorText = 'No se pudieron cargar las métricas de inspectores.',
 }: PerformancePanelProps = {}) {

@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { applyDateFilter, useDateFilter } from '@/shared/lib/date-range-filter';
+import { DateRangeFilter } from '@/shared/ui/DateRangeFilter';
 import { useMarket } from '@/contexts/MarketContext';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Link } from 'react-router-dom';
@@ -127,7 +129,7 @@ export default function ExecutiveReviewQueue() {
     const ids = [...new Set(inspections.map(i => i.inspector_id).filter(Boolean))] as string[];
     return ids.map(id => ({
       id,
-      name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Inspector sin nombre',
+      name: inspectorProfiles[id]?.full_name ?? inspectorProfiles[id]?.email ?? 'Receptor sin nombre',
     }));
   }, [inspections, inspectorProfiles]);
 
@@ -142,7 +144,8 @@ export default function ExecutiveReviewQueue() {
     return map;
   }, [inspections, inspectorProfiles]);
 
-  const filtered = useMemo(() => inspections.filter(i => {
+  const [dateFilter, setDateFilter] = useDateFilter('executive-queue');
+  const filtered = useMemo(() => applyDateFilter(inspections, dateFilter).filter(i => {
     if (!matchesInspectionQuery(haystackByInsp.get(i.id) ?? '', search)) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
     if (inspectorFilter !== 'all' && i.inspector_id !== inspectorFilter) return false;
@@ -156,14 +159,15 @@ export default function ExecutiveReviewQueue() {
       if (ownerFeedbackFilter === 'accepted' && fb !== 'accepted') return false;
     }
     return true;
-  }), [inspections, haystackByInsp, search, statusFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
+  }), [dateFilter, inspections, haystackByInsp, search, statusFilter, inspectorFilter, publishedFilter, ownerFeedbackFilter]);
 
   const hasActiveFilter =
     search.trim() !== '' ||
     statusFilter !== 'all' ||
     inspectorFilter !== 'all' ||
     publishedFilter !== 'all' ||
-    ownerFeedbackFilter !== 'all';
+    ownerFeedbackFilter !== 'all' ||
+    dateFilter.range !== 'all';
 
   const kpis = useMemo(() => ({
     ownerFeedback:inspections.filter(i =>
@@ -244,12 +248,13 @@ export default function ExecutiveReviewQueue() {
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Dirección, unidad, inspector, propietario…"
+                  placeholder="Dirección, unidad, receptor, propietario…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="pl-9 h-9 rounded-lg bg-card"
                 />
               </div>
+              <DateRangeFilter value={dateFilter} onChange={setDateFilter} hideOrder />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
@@ -265,7 +270,7 @@ export default function ExecutiveReviewQueue() {
               </Select>
               {inspectors.length > 0 && (
                 <Select value={inspectorFilter} onValueChange={setInspectorFilter}>
-                  <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Inspector" /></SelectTrigger>
+                  <SelectTrigger className="w-[170px] h-9 text-caption rounded-lg bg-card"><SelectValue placeholder="Receptor" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los inspectores</SelectItem>
                     {inspectors.map(ins => <SelectItem key={ins.id} value={ins.id}>{ins.name}</SelectItem>)}

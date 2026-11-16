@@ -192,7 +192,7 @@ export default function ComercialCheckOutList() {
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Inspección</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Ejecutivo</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Inspector</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Receptor</th>
                     <th aria-hidden />
                   </tr>
                 </thead>
