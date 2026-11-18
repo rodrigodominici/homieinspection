@@ -39,11 +39,13 @@ function deriveNumericId(raw: string | null | undefined, inspectionType: string 
   return stripped;
 }
 
-function toIsoDate(value: string | null | undefined): string | null {
+function toIsoDate(value: string | null | undefined, tz = 'UTC'): string | null {
+  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  // Día calendario local del mercado: un envío nocturno no debe caer en el día siguiente (UTC).
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 Deno.serve(async (req: Request) => {
@@ -246,7 +248,7 @@ Deno.serve(async (req: Request) => {
   } else {
     const candidate = body.event_time ?? inspection.inspection_completed_at ?? new Date().toISOString();
     eventTimeIso = candidate;
-    hubspotDateValue = toIsoDate(candidate);
+    hubspotDateValue = toIsoDate(candidate, inspection.market === 'MX' ? 'America/Mexico_City' : 'America/Santiago');
     if (!hubspotDateValue) {
       return logAndRespond(400, { ok: false, error: 'invalid_event_time' }, {
         status: 'error',

@@ -141,6 +141,15 @@ export default function ContractorWorkOrderDetail() {
     );
   }
 
+  const approvedTotal = items.reduce((sum, it) => {
+    const r = it.repair;
+    if (!r || r.is_pending_quote) return sum;
+    return sum + Number(r.contractor_unit_price ?? 0) * Number(r.quantity ?? 0);
+  }, 0);
+  const currency = detail?.inspection?.market === 'MX' ? 'MXN' : 'CLP';
+  const formatTotal = (n: number) =>
+    new Intl.NumberFormat(currency === 'MXN' ? 'es-MX' : 'es-CL', { style: 'currency', currency, maximumFractionDigits: currency === 'CLP' ? 0 : 2 }).format(n);
+
   return (
     <ContractorLayout title={propertyName} subtitle={detail?.inspection?.property_id ?? undefined} backTo="/contratista">
       <Card>
@@ -213,8 +222,22 @@ export default function ContractorWorkOrderDetail() {
         </Card>
       )}
 
+      {approvedTotal > 0 && (
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Monto aprobado (sin IVA)</span>
+            <span className="text-base font-semibold">{formatTotal(approvedTotal)}</span>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-2">
-        {items.map((item) => {
+        {items.map((item, idx) => {
+          const area = item.repair?.section?.section_title ?? 'Otros';
+          const prevArea = idx > 0 ? (items[idx - 1].repair?.section?.section_title ?? 'Otros') : null;
+          const header = area !== prevArea ? (
+            <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{area}</p>
+          ) : null;
           const card = (
             <Card className={pendingAcceptance ? 'opacity-70' : 'active:scale-[0.99] transition-transform'}>
               <CardContent className="p-4 flex items-center gap-3">
@@ -235,9 +258,9 @@ export default function ContractorWorkOrderDetail() {
             </Card>
           );
           return pendingAcceptance ? (
-            <div key={item.id}>{card}</div>
+            <div key={item.id}>{header}{card}</div>
           ) : (
-            <Link key={item.id} to={`/contratista/orden/${id}/reparacion/${item.id}`}>{card}</Link>
+            <div key={item.id}>{header}<Link to={`/contratista/orden/${id}/reparacion/${item.id}`}>{card}</Link></div>
           );
         })}
       </div>

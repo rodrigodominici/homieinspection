@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 const STATUS_OPTIONS: { value: WorkOrderItemStatus; label: string }[] = [
   { value: 'in_progress', label: 'En curso' },
   { value: 'done', label: 'Terminada' },
-  { value: 'not_done', label: 'No realizada' },
+  { value: 'not_done', label: 'Por ejecutar' },
 ];
 
 export default function ContractorItemDetail() {

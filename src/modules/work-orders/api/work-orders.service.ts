@@ -49,6 +49,10 @@ export interface WorkOrderItemDetail extends InspectionWorkOrderItem {
   repair: {
     id: string;
     inspection_section_id: string;
+    contractor_unit_price?: number | null;
+    payment_nature?: string | null;
+    is_pending_quote?: boolean | null;
+    section?: { section_title: string; sort_order: number } | null;
     title_snapshot: string;
     owner_friendly_name_snapshot: string | null;
     description_snapshot: string | null;
@@ -81,7 +85,7 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
        inspection:inspections(id,property_id,property_name,address,market,inspection_type),
        items:inspection_work_order_items(
          id,work_order_id,repair_item_id,status,not_done_reason,comment,actual_cost,completed_at,created_at,updated_at,is_archived,quotation_paused,
-         repair:inspection_repair_items(id,inspection_section_id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes)
+         repair:inspection_repair_items(id,inspection_section_id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes,contractor_unit_price,payment_nature,is_pending_quote,section:inspection_sections(section_title,sort_order))
        )`,
     )
     .eq('id', workOrderId)
@@ -109,7 +113,9 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
       ...item,
       photos: photos.filter((p) => p.work_order_item_id === item.id),
     }))
-    .sort((a, b) => (a.repair?.title_snapshot ?? '').localeCompare(b.repair?.title_snapshot ?? ''));
+    .sort((a, b) =>
+      (a.repair?.section?.sort_order ?? 9999) - (b.repair?.section?.sort_order ?? 9999) ||
+      (a.repair?.title_snapshot ?? '').localeCompare(b.repair?.title_snapshot ?? ''));
 
   return {
     order: data as unknown as InspectionWorkOrder,

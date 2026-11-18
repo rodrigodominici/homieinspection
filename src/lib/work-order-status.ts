@@ -51,7 +51,7 @@ export const WORK_ORDER_ITEM_STATUS_LABELS: Record<WorkOrderItemStatus, string> 
   pending: 'Pendiente',
   in_progress: 'En curso',
   done: 'Terminada',
-  not_done: 'No realizada',
+  not_done: 'Por ejecutar',
 };
 
 export function workStatusLabel(v: string | null | undefined): string {
