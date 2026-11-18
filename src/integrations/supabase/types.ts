@@ -1850,6 +1850,76 @@ export type Database = {
           },
         ]
       }
+      quotation_final_settlements: {
+        Row: {
+          approved_subtotal: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          final_subtotal: number
+          final_total: number
+          id: string
+          inspection_id: string
+          lines_json: Json
+          note: string | null
+          vat_percentage: number
+          version_number: number
+          work_order_id: string
+        }
+        Insert: {
+          approved_subtotal: number
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          final_subtotal: number
+          final_total: number
+          id?: string
+          inspection_id: string
+          lines_json: Json
+          note?: string | null
+          vat_percentage?: number
+          version_number: number
+          work_order_id: string
+        }
+        Update: {
+          approved_subtotal?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          final_subtotal?: number
+          final_total?: number
+          id?: string
+          inspection_id?: string
+          lines_json?: Json
+          note?: string | null
+          vat_percentage?: number
+          version_number?: number
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_final_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_final_settlements_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_final_settlements_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotation_work_order_changes: {
         Row: {
           after_json: Json | null
@@ -2444,6 +2514,10 @@ export type Database = {
       contractor_reject_work_order: {
         Args: { p_reason: string; p_work_order_id: string }
         Returns: Json
+      }
+      create_final_settlement: {
+        Args: { p_lines: Json; p_note?: string; p_work_order_id: string }
+        Returns: string
       }
       create_inspection_from_event: {
         Args: { p_event_id: string }

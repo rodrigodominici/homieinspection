@@ -246,6 +246,13 @@
       "when": 1795007015356,
       "tag": "0034_contractor_hide_tenant_data",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795007405836,
+      "tag": "0035_quotation_final_settlement",
+      "breakpoints": true
     }
   ]
 }

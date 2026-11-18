@@ -15,6 +15,7 @@ import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { supabase } from '@/integrations/supabase/client';
 import QuotationRevisionPanel from './QuotationRevisionPanel';
 import WorkMarketingPhotos from './WorkMarketingPhotos';
+import FinalSettlementPanel from './FinalSettlementPanel';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -368,6 +369,9 @@ export default function WorkOrderPanel({
               </AccordionItem>
             </Accordion>
 
+            {(detail.order.status === 'in_review' || detail.order.status === 'approved') && (
+              <FinalSettlementPanel detail={detail} title={detail.inspection?.address || detail.inspection?.property_id || ''} />
+            )}
             {detail.order.status === 'in_review' && (
               <div className="space-y-2 border-t pt-3">
                 <Label>Observaciones (obligatorio al devolver)</Label>
