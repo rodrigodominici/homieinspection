@@ -35,3 +35,8 @@
 - [x] Fecha de creación → HubSpot
 - [x] Filtro por fecha
 - [x] Terminología Receptor
+
+## Check-out México (18/11/2026)
+- [x] Check-outs MX enlazados al negocio (Renta Continua); 8 existentes corregidos; coordinación → fecha_de_devolucion_de_llaves (probado OK).
+- [ ] Fecha de recepción del checkout MX — no existe campo en negocios; esperando nombre del campo.
+- [ ] Creación desde Finalizaciones + Asesor de Mantenimiento — lo dispara el workflow de HubSpot; esperando confirmación.

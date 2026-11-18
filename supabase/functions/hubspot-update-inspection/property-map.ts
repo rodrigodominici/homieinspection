@@ -6,7 +6,17 @@ const defaultProperties = {
   checkin_completed: 'checkin_hi_completo',
 } as const;
 
-export function resolveHubSpotProperty(action: HubSpotAction, inspectionType: string, market: string): string {
+/** Mexican check-outs live on deals (Renta Continua) instead of lease contracts. */
+export function usesDealObject(inspectionType: string, market: string): boolean {
+  return inspectionType === 'captacion' || (inspectionType === 'check_out' && market === 'MX');
+}
+
+/** Returns null when the market has no HubSpot field defined for the action yet. */
+export function resolveHubSpotProperty(action: HubSpotAction, inspectionType: string, market: string): string | null {
+  if (inspectionType === 'check_out' && market === 'MX') {
+    if (action === 'key_collection_date') return 'fecha_de_devolucion_de_llaves';
+    if (action === 'checkout_received') return null;
+  }
   if (action === 'key_collection_date' && inspectionType === 'captacion') {
     if (market === 'CL') return 'fecha_recoleccion_llaves';
     if (market === 'MX') return 'fecha_de_visita_tecnica';

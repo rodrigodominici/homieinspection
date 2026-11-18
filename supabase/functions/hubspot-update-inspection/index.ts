@@ -1,5 +1,5 @@
 import { isTestInspection } from '../_shared/test-inspection.ts';
-import { resolveHubSpotProperty, resolveAssigneeProperties, type HubSpotAction } from './property-map.ts';
+import { resolveHubSpotProperty, usesDealObject, resolveAssigneeProperties, type HubSpotAction } from './property-map.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import '../_shared/sandbox-guard.ts';
 // Outbound HubSpot sync for inspections.
@@ -33,7 +33,7 @@ function jsonResponse(body: unknown, status = 200) {
  */
 function deriveNumericId(raw: string | null | undefined, inspectionType: string | null | undefined): string | null {
   if (!raw) return null;
-  const prefix = inspectionType === 'captacion' ? /^hs_deal_/i : /^hs_contrato_/i;
+  const prefix = inspectionType === 'captacion' || inspectionType === 'check_out' && /^hs_deal_/i.test(raw) ? /^hs_deal_/i : /^hs_contrato_/i;
   const stripped = raw.replace(prefix, '');
   if (!/^\d+$/.test(stripped)) return null;
   return stripped;
@@ -262,7 +262,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Resolve external reference (tipo depende de la inspección) ──
-  const isCaptacion = inspection.inspection_type === 'captacion';
+  const isCaptacion = usesDealObject(inspection.inspection_type, inspection.market);
   const externalObjectType = isCaptacion ? 'deal' : 'lease_contract';
 
   const { data: ref, error: refErr } = await admin
@@ -321,6 +321,14 @@ Deno.serve(async (req: Request) => {
   // check_out → endpoint /{objectTypeId}/{id} con el custom object type.
   // Captaciones use country-specific deal fields; check-outs keep the contract field.
   const propertyName = resolveHubSpotProperty(action, inspection.inspection_type, inspection.market);
+  if (!propertyName) {
+    return logAndRespond(200, { ok: true, skipped: true, reason: 'property_not_defined' }, {
+      status: 'skipped', action, inspection_id: inspectionId, external_reference_id: ref.id,
+      triggered_by: triggeredBy, event_time: eventTimeIso,
+      error_message: `property_not_defined:${inspection.inspection_type}:${inspection.market}`,
+      retried_from_log_id: triggeredRetryFrom,
+    });
+  }
   const assigneeProps = await loadAssigneeProperties(admin, inspection);
   const requestPayload = { properties: { [propertyName]: hubspotDateValue, ...assigneeProps } };
   const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);

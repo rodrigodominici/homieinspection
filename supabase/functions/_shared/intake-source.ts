@@ -55,8 +55,13 @@ export function buildReferenceSpec(
     };
   }
   // Captación (any market) or a deal-prefixed id is a HubSpot deal; otherwise a lease contract.
+  const type = inspection?.inspection_type ?? body?.inspection_type;
+  const market = String(inspection?.market ?? body?.market ?? '').trim().toLowerCase();
+  // Mexican check-outs come from Renta Continua deals, not lease contracts.
+  const isMxCheckout = type === 'check_out' && ['mx', 'mexico', 'méxico'].includes(market);
   const isCaptacion = body?.inspection_type === 'captacion'
     || inspection?.inspection_type === 'captacion'
+    || isMxCheckout
     || /^hs_deal_/i.test(id);
   return {
     provider: 'hubspot',

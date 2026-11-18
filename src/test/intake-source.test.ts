@@ -70,3 +70,14 @@ describe('Chilean HubSpot captación reference', () => {
     expect(spec?.external_object_type).toBe('lease_contract');
   });
 });
+
+describe('Mexican check-out reference', () => {
+  it('stores MX check-outs as HubSpot deals', () => {
+    const spec = buildReferenceSpec('hubspot', '65839851779', { inspection_type: 'check_out', market: 'mexico' }, null);
+    expect(spec?.external_object_type_id).toBe('0-3');
+  });
+  it('keeps CL check-outs as lease contracts', () => {
+    const spec = buildReferenceSpec('hubspot', '123', { inspection_type: 'check_out', market: 'chile' }, null);
+    expect(spec?.external_object_type_id).toBe('2-47492934');
+  });
+});
