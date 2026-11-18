@@ -530,7 +530,7 @@ export function generateSections(rawPayload: PropertyPayload): GeneratedSection[
   }
 
   // ── Fotos de comercialización opcionales (check-in Chile, sin mínimo) ──
-  if (payload.inspection_type === 'check_in' && payload.market === 'CL') {
+  if ((payload.inspection_type === 'check_in' || payload.inspection_type === 'check_out') && payload.market === 'CL') {
     sections.push({
       section_key: 'marketing_photos_checkin',
       section_title: 'Fotos de comercialización (opcional)',

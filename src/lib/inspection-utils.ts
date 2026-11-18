@@ -23,7 +23,7 @@ const NON_OPERATIONAL_TYPES = new Set(['property_meta', 'reception_meta', 'intro
 export function isRepairableSection(
   section: Pick<InspectionSection, 'section_type'> | null | undefined,
 ): boolean {
-  return !!section?.section_type?.startsWith('space_');
+  return !!section?.section_type?.startsWith('space_') || section?.section_type === 'closing_operational';
 }
 
 export interface ProgressResult {
@@ -66,7 +66,7 @@ export function getEffectiveSnapshot(inspection: Inspection): Record<string, unk
 }
 
 /** Non-repairable sections that executives/admins must still be able to read in review. */
-const REVIEW_READONLY_TYPES = new Set(['closing_operational', 'marketing_photos']);
+const REVIEW_READONLY_TYPES = new Set(['marketing_photos']);
 
 /** Sections shown in review navigation: physical spaces plus read-only operational sections. */
 export function isReviewVisibleSection(
