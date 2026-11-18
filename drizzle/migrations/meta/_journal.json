@@ -239,6 +239,13 @@
       "when": 1794845483667,
       "tag": "0033_optional_marketing_photo_moments",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795007015356,
+      "tag": "0034_contractor_hide_tenant_data",
+      "breakpoints": true
     }
   ]
 }

@@ -21,22 +21,34 @@ export interface WorkOrderListRow extends InspectionWorkOrder {
 }
 
 const ORDER_COLUMNS =
-  'id,inspection_id,contractor_id,status,assigned_at,accepted_at,accepted_by,rejected_at,contractor_rejection_reason,keys_status,keys_lock_number,keys_lock_code,submitted_at,reviewed_at,review_note,contractor_signature_name,contractor_signature_data,contractor_signed_at,created_at,updated_at';
+  'id,inspection_id,contractor_id,status,assigned_at,accepted_at,accepted_by,rejected_at,contractor_rejection_reason,keys_status,keys_lock_number,keys_lock_code,submitted_at,reviewed_at,review_note,contractor_signature_name,contractor_signature_data,contractor_signed_at,created_at,updated_at,contractor_message';
+
+type InspectionSummary = NonNullable<WorkOrderListRow['inspection']>;
+
+/** Datos mínimos del inmueble vía RPC protegida: el contratista no lee la inspección completa (inquilino, contactos). */
+async function fetchInspectionSummaries(ids: string[]): Promise<Map<string, InspectionSummary>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const { data, error } = await supabase.rpc('contractor_inspection_summaries', { p_ids: unique });
+  if (error) throw error;
+  return new Map(((data ?? []) as InspectionSummary[]).map((r) => [r.id, r]));
+}
 
 export async function fetchMyWorkOrders(): Promise<WorkOrderListRow[]> {
   const { data, error } = await supabase
     .from('inspection_work_orders')
     .select(
-      `${ORDER_COLUMNS}, inspection:inspections(id,property_id,property_name,address,market,inspection_type), items:inspection_work_order_items(id,status,is_archived)`,
+      `${ORDER_COLUMNS}, items:inspection_work_order_items(id,status,is_archived)`,
     )
     .order('assigned_at', { ascending: false });
   if (error) throw error;
+  const summaries = await fetchInspectionSummaries((data ?? []).map((r) => (r as { inspection_id: string }).inspection_id));
 
   return (data ?? []).map((row) => {
     const items = ((row as { items?: { status: string; is_archived?: boolean }[] }).items ?? []).filter(item => !item.is_archived);
     return {
       ...(row as unknown as InspectionWorkOrder),
-      inspection: (row as { inspection?: WorkOrderListRow['inspection'] }).inspection ?? null,
+      inspection: summaries.get((row as { inspection_id: string }).inspection_id) ?? null,
       total_items: items.length,
       done_items: items.filter((i) => i.status === 'done' || i.status === 'not_done').length,
     } as WorkOrderListRow;
@@ -82,7 +94,6 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
     .from('inspection_work_orders')
     .select(
       `${ORDER_COLUMNS},
-       inspection:inspections(id,property_id,property_name,address,market,inspection_type),
        items:inspection_work_order_items(
          id,work_order_id,repair_item_id,status,not_done_reason,comment,actual_cost,completed_at,created_at,updated_at,is_archived,quotation_paused,
          repair:inspection_repair_items(id,inspection_section_id,title_snapshot,owner_friendly_name_snapshot,description_snapshot,category_snapshot,unit,quantity,notes,contractor_unit_price,payment_nature,is_pending_quote,section:inspection_sections(section_title,sort_order))
@@ -119,7 +130,7 @@ export async function fetchWorkOrderDetail(workOrderId: string): Promise<WorkOrd
 
   return {
     order: data as unknown as InspectionWorkOrder,
-    inspection: (data as { inspection?: WorkOrderDetail['inspection'] }).inspection ?? null,
+    inspection: (await fetchInspectionSummaries([(data as { inspection_id: string }).inspection_id])).get((data as { inspection_id: string }).inspection_id) ?? null,
     items,
   };
 }
@@ -318,5 +329,11 @@ export async function reviewWorkOrder(
     p_approve: approve,
     p_note: note ?? null,
   });
+  if (error) throw error;
+}
+
+/** Mensaje que la ejecutiva deja al contratista (p. ej. contacto del inquilino solo cuando hace falta). */
+export async function setWorkOrderMessage(workOrderId: string, message: string): Promise<void> {
+  const { error } = await supabase.rpc('set_work_order_message', { p_work_order_id: workOrderId, p_message: message });
   if (error) throw error;
 }

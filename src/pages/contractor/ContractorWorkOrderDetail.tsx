@@ -178,6 +178,11 @@ export default function ContractorWorkOrderDetail() {
           {detail?.order.status === 'in_review' && (
             <p className="text-xs text-muted-foreground">Enviado a revisión. Homie va a revisar tu registro.</p>
           )}
+          {detail?.order.contractor_message && (
+            <div className="rounded-md bg-muted p-2 text-xs whitespace-pre-wrap">
+              <span className="font-medium">Mensaje de Homie: </span>{detail.order.contractor_message}
+            </div>
+          )}
           {detail?.order.keys_status && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <KeyRound className="h-3 w-3" /> Llaves: {keysStatusLabel(detail.order.keys_status)}

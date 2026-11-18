@@ -1384,6 +1384,7 @@ export type Database = {
           assigned_at: string
           assigned_by: string | null
           contractor_id: string
+          contractor_message: string | null
           contractor_rejection_reason: string | null
           contractor_signature_data: string | null
           contractor_signature_name: string | null
@@ -1408,6 +1409,7 @@ export type Database = {
           assigned_at?: string
           assigned_by?: string | null
           contractor_id: string
+          contractor_message?: string | null
           contractor_rejection_reason?: string | null
           contractor_signature_data?: string | null
           contractor_signature_name?: string | null
@@ -1432,6 +1434,7 @@ export type Database = {
           assigned_at?: string
           assigned_by?: string | null
           contractor_id?: string
+          contractor_message?: string | null
           contractor_rejection_reason?: string | null
           contractor_signature_data?: string | null
           contractor_signature_name?: string | null
@@ -2427,6 +2430,17 @@ export type Database = {
         Args: { p_inspection_id: string }
         Returns: boolean
       }
+      contractor_inspection_summaries: {
+        Args: { p_ids: string[] }
+        Returns: {
+          address: string
+          id: string
+          inspection_type: string
+          market: string
+          property_id: string
+          property_name: string
+        }[]
+      }
       contractor_reject_work_order: {
         Args: { p_reason: string; p_work_order_id: string }
         Returns: Json
@@ -2740,6 +2754,10 @@ export type Database = {
       }
       set_internal_user_role: {
         Args: { p_approve?: boolean; p_role: string; p_user_id: string }
+        Returns: undefined
+      }
+      set_work_order_message: {
+        Args: { p_message: string; p_work_order_id: string }
         Returns: undefined
       }
       start_quotation_revision: {

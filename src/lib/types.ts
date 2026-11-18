@@ -210,6 +210,7 @@ export interface InspectionWorkOrder {
   contractor_signature_name: string | null;
   contractor_signature_data: string | null;
   contractor_signed_at: string | null;
+  contractor_message?: string | null;
   created_at: string;
   updated_at: string;
 }

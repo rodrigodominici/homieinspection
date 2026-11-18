@@ -20,6 +20,7 @@ import {
   fetchFindingsReport,
   fetchWorkOrderByInspection,
   reassignWorkOrder,
+  setWorkOrderMessage,
   reviewWorkOrder,
   type FindingsReport,
   type WorkOrderDetail,
@@ -71,6 +72,8 @@ export default function WorkOrderPanel({
   const [reassignTo, setReassignTo] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [message, setMessage] = useState('');
+  useEffect(() => { setMessage(detail?.order.contractor_message ?? ''); }, [detail?.order.contractor_message]);
   const [findings, setFindings] = useState<FindingsReport | null>(null);
   const [quoted, setQuoted] = useState<QuotedRepair[]>([]);
 
@@ -155,6 +158,20 @@ export default function WorkOrderPanel({
     }
   };
 
+  const handleSaveMessage = async () => {
+    if (!detail) return;
+    setBusy(true);
+    try {
+      await setWorkOrderMessage(detail.order.id, message);
+      toast.success('Mensaje para el contratista guardado');
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el mensaje');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleReview = async (approve: boolean) => {
     if (!detail) return;
     if (!approve && !note.trim()) { toast.error('Indica qué debe corregir el contratista'); return; }
@@ -213,6 +230,12 @@ export default function WorkOrderPanel({
           </div>
         ) : (
           <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Mensaje para el contratista</Label>
+              <p className="text-[11px] text-muted-foreground">El contratista no ve los datos del inquilino. Escribí acá solo lo que necesite (por ejemplo, un contacto para coordinar).</p>
+              <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} maxLength={2000} />
+              <Button size="sm" variant="outline" onClick={handleSaveMessage} disabled={busy || message === (detail.order.contractor_message ?? '')}>Guardar mensaje</Button>
+            </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>
