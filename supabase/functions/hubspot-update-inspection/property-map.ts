@@ -15,7 +15,7 @@ export function usesDealObject(inspectionType: string, market: string): boolean 
 export function resolveHubSpotProperty(action: HubSpotAction, inspectionType: string, market: string): string | null {
   if (inspectionType === 'check_out' && market === 'MX') {
     if (action === 'key_collection_date') return 'fecha_de_devolucion_de_llaves';
-    if (action === 'checkout_received') return null;
+    if (action === 'checkout_received') return 'fecha_de_recepcion_del_checkout_cl';
   }
   if (action === 'key_collection_date' && inspectionType === 'captacion') {
     if (market === 'CL') return 'fecha_recoleccion_llaves';

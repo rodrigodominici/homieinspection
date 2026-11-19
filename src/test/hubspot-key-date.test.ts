@@ -14,8 +14,8 @@ describe('HubSpot key collection date destination', () => {
   it('sends Mexican check-out coordination to Fecha de Devolución de Llaves', () => {
     expect(resolveHubSpotProperty('key_collection_date', 'check_out', 'MX')).toBe('fecha_de_devolucion_de_llaves');
   });
-  it('holds the Mexican check-out received date until its field is defined', () => {
-    expect(resolveHubSpotProperty('checkout_received', 'check_out', 'MX')).toBeNull();
+  it('sends the Mexican check-out received date to the deal field', () => {
+    expect(resolveHubSpotProperty('checkout_received', 'check_out', 'MX')).toBe('fecha_de_recepcion_del_checkout_cl');
   });
 });
 import { resolveAssigneeProperties } from '../../supabase/functions/hubspot-update-inspection/property-map';
