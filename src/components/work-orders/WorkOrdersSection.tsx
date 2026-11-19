@@ -39,7 +39,11 @@ export default function WorkOrdersSection(props: PanelProps) {
       supabase.from('inspection_work_order_items').select('repair_item_id').in('work_order_id', list).eq('is_archived', false),
     ]);
     const taken = new Set((assigned ?? []).map((r) => (r as { repair_item_id: string }).repair_item_id));
-    setFree(((repairs ?? []) as FreeItem[]).filter((r) => !taken.has(r.id)));
+    const candidates = ((repairs ?? []) as FreeItem[]).filter((r) => !taken.has(r.id));
+    const ready = await Promise.all(candidates.map((r) =>
+      (supabase.rpc as unknown as (f: string, a: object) => Promise<{ data: boolean | null }>)('repair_item_ready_for_work', { p_repair_item_id: r.id })
+        .then((res) => res.data !== false)));
+    setFree(candidates.filter((_, i) => ready[i]));
   }, [inspectionId]);
 
   useEffect(() => { void load(); }, [load, version]);

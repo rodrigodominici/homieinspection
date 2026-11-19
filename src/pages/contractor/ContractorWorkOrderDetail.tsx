@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ContractorLayout from './ContractorLayout';
+import WorkOrderProposals from '@/components/work-orders/WorkOrderProposals';
 import SignaturePad from '@/components/SignaturePad';
 import {
   fetchWorkOrderDetail,
@@ -193,6 +194,13 @@ export default function ContractorWorkOrderDetail() {
           )}
         </CardContent>
       </Card>
+
+      {detail && id && (
+        <Card><CardContent className="p-4">
+          <WorkOrderProposals workOrderId={id} inspectionId={detail.order.inspection_id} market={detail.inspection?.market ?? 'CL'}
+            mode="contractor" canPropose={['open', 'in_progress', 'rejected'].includes(detail.order.status)} />
+        </CardContent></Card>
+      )}
 
       <Link to={`/contratista/orden/${id}/informe`}>
         <Card className="active:scale-[0.99] transition-transform">

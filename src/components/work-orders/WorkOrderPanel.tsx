@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import QuotationRevisionPanel from './QuotationRevisionPanel';
 import WorkMarketingPhotos from './WorkMarketingPhotos';
 import FinalSettlementPanel from './FinalSettlementPanel';
+import WorkOrderProposals from './WorkOrderProposals';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -420,6 +421,7 @@ export default function WorkOrderPanel({
                 </Button>
               </div>
             )}
+            <WorkOrderProposals workOrderId={detail.order.id} inspectionId={inspectionId} market={market} mode="staff" onChanged={onChanged} />
             <QuotationRevisionPanel inspectionId={inspectionId} detail={detail} market={market} onChanged={() => { void load(); onChanged?.(); }} />
           </>
         )}

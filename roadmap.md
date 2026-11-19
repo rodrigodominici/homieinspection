@@ -43,6 +43,6 @@
 
 ## Pendientes Chile (19/11/2026)
 - [x] Etapa 1: varias OT/proveedores por inspección y OT adicional con partidas sin asignar.
-- [ ] Etapa 2: propuestas del contratista (foto, comentario, costo).
+- [x] Etapa 2: propuestas del contratista (foto, comentario, costo).
 - [ ] Etapa 3: informe de ejecución descargable por versiones.
-- [ ] Etapa 4: inspección final cumple/no cumple + tipos de vacancia (espera definición de los 3 tipos).
+- [ ] Etapa 4: inspección final cumple/no cumple + tipos de vacancia (tipos: aprobados inicial, aprobados por nuevo interesado, aseo post reparaciones).

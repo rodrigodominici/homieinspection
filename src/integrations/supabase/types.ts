@@ -2474,6 +2474,89 @@ export type Database = {
           },
         ]
       }
+      work_order_proposals: {
+        Row: {
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          inspection_id: string
+          inspection_section_id: string | null
+          photo_path: string | null
+          proposed_cost: number
+          repair_item_id: string | null
+          status: string
+          title: string
+          work_order_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          inspection_id: string
+          inspection_section_id?: string | null
+          photo_path?: string | null
+          proposed_cost?: number
+          repair_item_id?: string | null
+          status?: string
+          title: string
+          work_order_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          inspection_id?: string
+          inspection_section_id?: string | null
+          photo_path?: string | null
+          proposed_cost?: number
+          repair_item_id?: string | null
+          status?: string
+          title?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_proposals_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_proposals_inspection_section_id_fkey"
+            columns: ["inspection_section_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_proposals_repair_item_id_fkey"
+            columns: ["repair_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_repair_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_proposals_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2536,6 +2619,15 @@ export type Database = {
         }[]
       }
       current_contractor_id: { Args: never; Returns: string }
+      decide_work_order_proposal: {
+        Args: {
+          p_approve: boolean
+          p_note?: string
+          p_owner_price?: number
+          p_proposal_id: string
+        }
+        Returns: string
+      }
       discard_quotation_revision: {
         Args: { p_change_id?: string; p_revision_id: string }
         Returns: undefined
@@ -2705,6 +2797,10 @@ export type Database = {
       recompute_inspection_work_status: {
         Args: { p_inspection_id: string }
         Returns: string
+      }
+      repair_item_ready_for_work: {
+        Args: { p_repair_item_id: string }
+        Returns: boolean
       }
       review_work_order: {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }
