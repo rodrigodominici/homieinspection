@@ -253,6 +253,13 @@
       "when": 1795007405836,
       "tag": "0035_quotation_final_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795120542660,
+      "tag": "0036_multiple_work_orders_per_inspection",
+      "breakpoints": true
     }
   ]
 }

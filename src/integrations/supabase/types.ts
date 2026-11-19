@@ -1471,7 +1471,7 @@ export type Database = {
           {
             foreignKeyName: "inspection_work_orders_inspection_id_fkey"
             columns: ["inspection_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "inspections"
             referencedColumns: ["id"]
           },
@@ -2488,6 +2488,14 @@ export type Database = {
         Args: { p_inspection_id: string }
         Returns: boolean
       }
+      assign_additional_work_order: {
+        Args: {
+          p_contractor_id: string
+          p_inspection_id: string
+          p_repair_item_ids: string[]
+        }
+        Returns: string
+      }
       assign_work_order: {
         Args: { p_contractor_id: string; p_inspection_id: string }
         Returns: string
@@ -2693,6 +2701,10 @@ export type Database = {
       receiver_type_allowed: {
         Args: { _inspection_type: string }
         Returns: boolean
+      }
+      recompute_inspection_work_status: {
+        Args: { p_inspection_id: string }
+        Returns: string
       }
       review_work_order: {
         Args: { p_approve: boolean; p_note?: string; p_work_order_id: string }

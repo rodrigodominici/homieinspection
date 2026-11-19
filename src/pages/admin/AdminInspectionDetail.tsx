@@ -68,7 +68,7 @@ import { applyQuotationDiscount, type QuotationDiscountInput } from '@/lib/quota
 import { fetchTaxConfig, type MarketTaxSettings } from '@/lib/tax';
 import QuienReparaChip from '@/components/QuienReparaChip';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
-import WorkOrderPanel from '@/components/work-orders/WorkOrderPanel';
+import WorkOrderPanel from '@/components/work-orders/WorkOrdersSection';
 import * as inspectionActionsService from '@/modules/review/api/inspection-actions.service';
 import {
   PendingDecisionsBanner,

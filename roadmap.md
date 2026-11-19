@@ -40,3 +40,9 @@
 - [x] Check-outs MX enlazados al negocio (Renta Continua); 8 existentes corregidos; coordinación → fecha_de_devolucion_de_llaves (probado OK).
 - [ ] Fecha de recepción del checkout MX — no existe campo en negocios; esperando nombre del campo.
 - [ ] Creación desde Finalizaciones + Asesor de Mantenimiento — lo dispara el workflow de HubSpot; esperando confirmación.
+
+## Pendientes Chile (19/11/2026)
+- [x] Etapa 1: varias OT/proveedores por inspección y OT adicional con partidas sin asignar.
+- [ ] Etapa 2: propuestas del contratista (foto, comentario, costo).
+- [ ] Etapa 3: informe de ejecución descargable por versiones.
+- [ ] Etapa 4: inspección final cumple/no cumple + tipos de vacancia (espera definición de los 3 tipos).

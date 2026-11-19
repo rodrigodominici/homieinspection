@@ -6,7 +6,7 @@ import { OwnerFeedbackPanel } from './OwnerFeedbackPanel';
 import { FinalizeInspectionButton } from '@/components/FinalizeInspectionButton';
 import { PublishedVersionsTimeline } from './PublishedVersionsTimeline';
 import { ReportPdfCard } from './ReportPdfCard';
-import WorkOrderPanel from '@/components/work-orders/WorkOrderPanel';
+import WorkOrderPanel from '@/components/work-orders/WorkOrdersSection';
 import type { Inspection, InspectionSection } from '@/lib/types';
 import { isCheckIn, requiresQuotation } from '@/lib/inspection-type-labels';
 

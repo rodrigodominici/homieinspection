@@ -20,6 +20,7 @@ import {
   assignWorkOrder,
   fetchFindingsReport,
   fetchWorkOrderByInspection,
+  fetchWorkOrderDetail,
   reassignWorkOrder,
   setWorkOrderMessage,
   reviewWorkOrder,
@@ -44,6 +45,10 @@ interface Props {
   /** Etapa de obra guardada en la inspección. */
   workStatus?: string | null;
   onChanged?: () => void;
+  /** OT específica cuando la inspección tiene varias. */
+  workOrderId?: string;
+  /** Título cuando hay varias OT. */
+  title?: string;
 }
 
 interface ContractorOption { id: string; name: string; country: string }
@@ -65,6 +70,8 @@ export default function WorkOrderPanel({
   market,
   workStatus,
   onChanged,
+  workOrderId,
+  title,
 }: Props) {
   const [detail, setDetail] = useState<WorkOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,13 +87,13 @@ export default function WorkOrderPanel({
 
   const load = useCallback(async () => {
     try {
-      setDetail(await fetchWorkOrderByInspection(inspectionId));
+      setDetail(workOrderId ? await fetchWorkOrderDetail(workOrderId) : await fetchWorkOrderByInspection(inspectionId));
     } catch {
       setDetail(null);
     } finally {
       setLoading(false);
     }
-  }, [inspectionId]);
+  }, [inspectionId, workOrderId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -199,7 +206,7 @@ export default function WorkOrderPanel({
     <Card className="border-0 ring-1 ring-border shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Hammer className="h-4 w-4" /> Obra del contratista
+          <Hammer className="h-4 w-4" /> {title ?? 'Obra del contratista'}
           {detail && (
             <span className={`ml-auto whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${workOrderStatusToneClass(detail.order.status)}`}>
               {workOrderStatusLabel(detail.order.status)}
@@ -292,11 +299,11 @@ export default function WorkOrderPanel({
               <AccordionItem value="cotizacion">
                 <AccordionTrigger className="text-sm">2. Cotización aprobada</AccordionTrigger>
                 <AccordionContent>
-                  {quoted.length === 0 ? (
+                  {(workOrderId ? quoted.filter((r) => items.some((i) => i.repair_item_id === r.id)) : quoted).length === 0 ? (
                     <p className="text-xs text-muted-foreground">Sin reparaciones cotizadas.</p>
                   ) : (
                     <div className="space-y-2">
-                      {quoted.map((r) => (
+                      {(workOrderId ? quoted.filter((r) => items.some((i) => i.repair_item_id === r.id)) : quoted).map((r) => (
                         <div key={r.id} className="flex items-center justify-between gap-2 text-xs border-b pb-1">
                           <span className="min-w-0 truncate">{r.title_snapshot}</span>
                           <span className="shrink-0 text-muted-foreground">

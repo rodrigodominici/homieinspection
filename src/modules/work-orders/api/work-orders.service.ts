@@ -140,10 +140,34 @@ export async function fetchWorkOrderByInspection(inspectionId: string): Promise<
     .from('inspection_work_orders')
     .select('id')
     .eq('inspection_id', inspectionId)
+    .order('assigned_at', { ascending: true })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return fetchWorkOrderDetail((data as { id: string }).id);
+}
+
+/** Todas las OT de la inspección (una por proveedor), de la más antigua a la más nueva. */
+export async function fetchWorkOrderIdsByInspection(inspectionId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('inspection_work_orders')
+    .select('id')
+    .eq('inspection_id', inspectionId)
+    .order('assigned_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => (r as { id: string }).id);
+}
+
+/** Crea otra OT para otro proveedor con partidas aprobadas que todavía no están en ninguna OT. */
+export async function assignAdditionalWorkOrder(inspectionId: string, contractorId: string, repairItemIds: string[]): Promise<string> {
+  const { data, error } = await supabase.rpc('assign_additional_work_order', {
+    p_inspection_id: inspectionId,
+    p_contractor_id: contractorId,
+    p_repair_item_ids: repairItemIds,
+  });
+  if (error) throw error;
+  return data as unknown as string;
 }
 
 export async function updateWorkOrderItem(
