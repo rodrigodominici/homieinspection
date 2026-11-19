@@ -2474,6 +2474,64 @@ export type Database = {
           },
         ]
       }
+      work_order_execution_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          inspection_id: string
+          note: string | null
+          payload_json: Json
+          version_number: number
+          work_order_id: string
+          work_order_status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id: string
+          note?: string | null
+          payload_json: Json
+          version_number: number
+          work_order_id: string
+          work_order_status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id?: string
+          note?: string | null
+          payload_json?: Json
+          version_number?: number
+          work_order_id?: string
+          work_order_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_execution_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_execution_reports_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_execution_reports_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_order_proposals: {
         Row: {
           comment: string | null
@@ -2605,6 +2663,10 @@ export type Database = {
       contractor_reject_work_order: {
         Args: { p_reason: string; p_work_order_id: string }
         Returns: Json
+      }
+      create_execution_report_version: {
+        Args: { p_note?: string; p_work_order_id: string }
+        Returns: string
       }
       create_final_settlement: {
         Args: { p_lines: Json; p_note?: string; p_work_order_id: string }

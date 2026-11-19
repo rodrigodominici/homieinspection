@@ -17,6 +17,7 @@ import QuotationRevisionPanel from './QuotationRevisionPanel';
 import WorkMarketingPhotos from './WorkMarketingPhotos';
 import FinalSettlementPanel from './FinalSettlementPanel';
 import WorkOrderProposals from './WorkOrderProposals';
+import ExecutionReportVersions from './ExecutionReportVersions';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -373,6 +374,7 @@ export default function WorkOrderPanel({
                       Conformidad firmada por {detail.order.contractor_signature_name}
                     </p>
                   )}
+                  <ExecutionReportVersions workOrderId={detail.order.id} title={detail.inspection?.address || detail.inspection?.property_id || ''} />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
