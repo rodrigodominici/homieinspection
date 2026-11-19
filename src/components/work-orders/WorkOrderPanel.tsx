@@ -18,6 +18,7 @@ import WorkMarketingPhotos from './WorkMarketingPhotos';
 import FinalSettlementPanel from './FinalSettlementPanel';
 import WorkOrderProposals from './WorkOrderProposals';
 import ExecutionReportVersions from './ExecutionReportVersions';
+import FinalInspectionPanel from './FinalInspectionPanel';
 import {
   assignWorkOrder,
   fetchFindingsReport,
@@ -375,6 +376,13 @@ export default function WorkOrderPanel({
                     </p>
                   )}
                   <ExecutionReportVersions workOrderId={detail.order.id} title={detail.inspection?.address || detail.inspection?.property_id || ''} />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="revision-final">
+                <AccordionTrigger className="text-sm">4. Revisión final (cumple / no cumple)</AccordionTrigger>
+                <AccordionContent>
+                  <FinalInspectionPanel workOrderId={detail.order.id} market={market} status={detail.order.status} onChanged={onChanged} />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

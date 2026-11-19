@@ -1330,6 +1330,7 @@ export type Database = {
           repair_item_id: string
           status: string
           updated_at: string
+          vacancy_type: string | null
           work_order_id: string
         }
         Insert: {
@@ -1344,6 +1345,7 @@ export type Database = {
           repair_item_id: string
           status?: string
           updated_at?: string
+          vacancy_type?: string | null
           work_order_id: string
         }
         Update: {
@@ -1358,6 +1360,7 @@ export type Database = {
           repair_item_id?: string
           status?: string
           updated_at?: string
+          vacancy_type?: string | null
           work_order_id?: string
         }
         Relationships: [
@@ -1390,6 +1393,7 @@ export type Database = {
           contractor_signature_name: string | null
           contractor_signed_at: string | null
           created_at: string
+          final_inspector_id: string | null
           id: string
           inspection_id: string
           keys_lock_code: string | null
@@ -1415,6 +1419,7 @@ export type Database = {
           contractor_signature_name?: string | null
           contractor_signed_at?: string | null
           created_at?: string
+          final_inspector_id?: string | null
           id?: string
           inspection_id: string
           keys_lock_code?: string | null
@@ -1440,6 +1445,7 @@ export type Database = {
           contractor_signature_name?: string | null
           contractor_signed_at?: string | null
           created_at?: string
+          final_inspector_id?: string | null
           id?: string
           inspection_id?: string
           keys_lock_code?: string | null
@@ -1466,6 +1472,13 @@ export type Database = {
             columns: ["contractor_id"]
             isOneToOne: false
             referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_work_orders_final_inspector_id_fkey"
+            columns: ["final_inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2532,6 +2545,61 @@ export type Database = {
           },
         ]
       }
+      work_order_final_checks: {
+        Row: {
+          checked_by: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          inspection_id: string
+          result: string
+          work_order_id: string
+          work_order_item_id: string
+        }
+        Insert: {
+          checked_by?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          inspection_id: string
+          result: string
+          work_order_id: string
+          work_order_item_id: string
+        }
+        Update: {
+          checked_by?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          result?: string
+          work_order_id?: string
+          work_order_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_final_checks_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_final_checks_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_final_checks_work_order_item_id_fkey"
+            columns: ["work_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_work_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_order_proposals: {
         Row: {
           comment: string | null
@@ -2860,6 +2928,10 @@ export type Database = {
         Args: { p_inspection_id: string }
         Returns: string
       }
+      record_final_check: {
+        Args: { p_comment: string; p_complies: boolean; p_item_id: string }
+        Returns: Json
+      }
       repair_item_ready_for_work: {
         Args: { p_repair_item_id: string }
         Returns: boolean
@@ -2998,6 +3070,14 @@ export type Database = {
       }
       set_internal_user_role: {
         Args: { p_approve?: boolean; p_role: string; p_user_id: string }
+        Returns: undefined
+      }
+      set_work_item_vacancy_type: {
+        Args: { p_item_id: string; p_type: string }
+        Returns: undefined
+      }
+      set_work_order_final_inspector: {
+        Args: { p_profile_id: string; p_work_order_id: string }
         Returns: undefined
       }
       set_work_order_message: {
