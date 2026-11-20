@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { captureError } from '@/lib/monitoring';
 import { logClientEvent } from '@/lib/client-log';
 import { isChunkLoadError, recoverFromStaleBuild } from '@/lib/lazy-with-retry';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   children: ReactNode;
@@ -54,18 +55,18 @@ export default class RouteErrorBoundary extends Component<Props, State> {
             El resto de la aplicación sigue funcionando. Puedes reintentar o volver al inicio.
           </p>
           <div className="flex justify-center gap-2">
-            <button
-              onClick={() => this.setState({ hasError: false, message: undefined })}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            <Button
+              onClick={() => this.state.message && isChunkLoadError(this.state.message)
+                ? window.location.reload()
+                : this.setState({ hasError: false, message: undefined })}
             >
               Reintentar
-            </button>
-            <button
+            </Button>
+            <Button variant="outline"
               onClick={() => window.location.reload()}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-5 text-sm font-medium transition-colors hover:bg-muted"
             >
               Recargar
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 # Tasks
+- [x] Fix stale HTML navigation precedence, bounded chunk recovery, targeted shell cleanup and automatic translation opt-out; 7 tests passed, authenticated property/comparison and previously failing inspection opened without errors or forced refresh. Not published; Yaniree/Claude reproduction remains to confirm on their devices.
 - [x] Removed inspection-progress simulator panel/client helper/three tests and rm_simulate_step through migration 0030; absence verified in hosted DB and source, visit/availability RPCs retained, 27 regression tests passed. No publication or dispatcher deployment.
 - [x] Final-photo delivery now refreshes the complete current gallery in stable order and preserves data.fotos links; 27 tests passed, including three persisted photos and three notifications in a rolled-back transaction without external delivery. Await user confirmation before publication/deployment.
 - [x] Confirmed all_test purge selects only is_test inspections and removes their referenced inspection-photos and inspection-reports files after atomic row deletion; no destructive test or unrelated change performed.

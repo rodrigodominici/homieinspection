@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { APP_VERSION } from '@/lib/app-version';
+import { refreshAppDocument } from '@/lib/app-shell-refresh';
+import { Button } from '@/components/ui/button';
 
 /**
- * Stale-build guard (no app-shell service worker anymore).
+ * Stale-build guard for long-lived tabs and the installed offline app.
  * Compares the bundle version with `/version.json`. "Actualizar" drops any
- * leftover service worker + caches and reloads with a cache-bust. A per-version
+ * app-shell service worker + shell caches and reloads with a cache-bust. A per-version
  * flag in sessionStorage stops the pill from looping if the reload still
  * lands on the same old build.
  */
@@ -24,22 +26,11 @@ async function fetchDeployedVersion(): Promise<string | null> {
 }
 
 async function hardRefresh(target: string) {
+  if (navigator.onLine === false) return;
   try {
     sessionStorage.setItem(FLAG, `${APP_VERSION}->${target}`);
   } catch { /* ignore */ }
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch { /* best effort */ }
-  const url = new URL(window.location.href);
-  url.searchParams.set('v', target || String(Date.now()));
-  window.location.replace(url.toString());
+  await refreshAppDocument(target || String(Date.now()));
 }
 
 export default function NewVersionPrompt() {
@@ -72,12 +63,12 @@ export default function NewVersionPrompt() {
 
   return (
     <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
-      <button
+      <Button
         onClick={() => void hardRefresh(deployed)}
         className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg"
       >
         <RefreshCw className="h-4 w-4" /> Hay una versión nueva — Actualizar
-      </button>
+      </Button>
     </div>
   );
 }

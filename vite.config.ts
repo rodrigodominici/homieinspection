@@ -56,8 +56,9 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/version\.json/],
+        // Workbox's precache navigation fallback runs BEFORE runtime routes;
+        // enabling it silently bypasses NetworkFirst and keeps serving old HTML.
+        navigateFallback: null,
         runtimeCaching: [
           {
             // Any screen file loaded with signal stays on the phone, even if the
@@ -72,7 +73,8 @@ export default defineConfig(({ mode }) => ({
           },
           {
             // HTML always from network first so online users get the new build.
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url, sameOrigin }) => sameOrigin && request.mode === "navigate" &&
+              !url.pathname.startsWith('/~oauth') && url.pathname !== '/version.json',
             handler: "NetworkFirst",
             options: { cacheName: "homie-pages", networkTimeoutSeconds: 4 },
           },

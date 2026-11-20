@@ -10,4 +10,9 @@ initGlobalErrorHandlers();
 startOfflineSync();
 void registerAppServiceWorker();
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Browser translation replaces React-owned text nodes and causes the recorded
+// removeChild/insertBefore crashes. Include portals mounted outside #root.
+document.documentElement.setAttribute('translate', 'no');
+document.documentElement.classList.add('notranslate');
+const root = document.getElementById('root');
+if (root) createRoot(root).render(<App />);

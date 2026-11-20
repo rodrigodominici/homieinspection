@@ -9,16 +9,18 @@
  *
  * `lazyWithRetry` turns that into a transparent recovery:
  *   1. retry the import once (covers flaky mobile networks),
- *   2. if it still fails, unregister service workers + clear caches and
+ *   2. if it still fails, unregister the app worker + clear shell caches and
  *      hard-reload once per session (guarded by sessionStorage so we can
  *      never end up in a reload loop),
  *   3. only if the reload already happened do we surface the error.
  */
 import { lazy, type ComponentType } from 'react';
 import { logClientEvent } from '@/lib/client-log';
+import { refreshAppDocument } from '@/lib/app-shell-refresh';
 
 const RELOAD_FLAG = 'homie_chunk_reload_at';
 const RELOAD_COOLDOWN_MS = 60_000;
+let lastReloadAt = 0;
 
 const CHUNK_ERROR_RE =
   /(dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk)/i;
@@ -38,6 +40,7 @@ export function isChunkLoadError(err: unknown): boolean {
 
 /** True when a recovery reload already happened recently (avoids loops). */
 function reloadedRecently(): boolean {
+  if (lastReloadAt && Date.now() - lastReloadAt < RELOAD_COOLDOWN_MS) return true;
   try {
     const raw = sessionStorage.getItem(RELOAD_FLAG);
     if (!raw) return false;
@@ -48,6 +51,7 @@ function reloadedRecently(): boolean {
 }
 
 function markReloaded(): void {
+  lastReloadAt = Date.now();
   try {
     sessionStorage.setItem(RELOAD_FLAG, String(Date.now()));
   } catch {
@@ -55,35 +59,19 @@ function markReloaded(): void {
   }
 }
 
-/** Drops the service worker + its caches so the reload fetches the new build. */
-async function clearStaleCaches(): Promise<void> {
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch {
-    /* best effort */
-  }
-}
-
 /** Recovers from a stale build by clearing caches and reloading once. */
-export async function recoverFromStaleBuild(reason: string): Promise<void> {
+export async function recoverFromStaleBuild(reason: string): Promise<boolean> {
   // Without signal a failed load is not a stale build: clearing the offline
   // copy and reloading would leave the receptor on a blank screen.
   if (isOfflineNow()) {
     logClientEvent({ kind: 'chunk_load_failed', message: reason, context: { action: 'offline_skip_reload' } });
-    return;
+    return false;
   }
-  if (reloadedRecently()) return;
+  if (reloadedRecently()) return false;
   markReloaded();
   logClientEvent({ kind: 'chunk_load_failed', message: reason, context: { action: 'reload' } });
-  await clearStaleCaches();
-  window.location.reload();
+  await refreshAppDocument(String(Date.now()));
+  return true;
 }
 
 export function lazyWithRetry<T extends ComponentType<unknown>>(
@@ -106,10 +94,10 @@ export function lazyWithRetry<T extends ComponentType<unknown>>(
           return await factory();
         }
         if (isChunkLoadError(err)) {
-          await recoverFromStaleBuild(`${name}: ${String((err as Error)?.message ?? err)}`);
+          const refreshing = await recoverFromStaleBuild(`${name}: ${String((err as Error)?.message ?? err)}`);
           // Keep the promise pending while the page reloads, so React does not
           // flash an error screen during navigation away.
-          if (!reloadedRecently()) throw err;
+          if (!refreshing) throw err;
           return await new Promise<{ default: T }>(() => {});
         }
         logClientEvent({

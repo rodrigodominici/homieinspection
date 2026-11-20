@@ -122,7 +122,9 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <Suspense fallback={null}><BackendStatusBanner /></Suspense>
+        <ErrorBoundary fallback={<></>}>
+          <Suspense fallback={null}><BackendStatusBanner /></Suspense>
+        </ErrorBoundary>
         <BrowserRouter>
           <SessionRecordingGate />
           <NewVersionPrompt />
