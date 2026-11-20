@@ -98,6 +98,12 @@ export default function ExecutiveReviewDetail() {
   // Which repair row inside the drawer is expanded for editing (accordion).
   const [expandedRepairId, setExpandedRepairId] = useState<string | null>(null);
 
+  // A section change must not leave another section's repair panel open.
+  useEffect(() => {
+    setRepairsDrawerSectionId(null);
+    setExpandedRepairId(null);
+  }, [activeSectionId]);
+
   // Track desktop (>= lg / 1024) so the repairs panel renders inline on
   // desktop and as a Sheet on mobile/tablet — not both at once.
   const [isDesktop, setIsDesktop] = useState<boolean>(
@@ -444,7 +450,7 @@ export default function ExecutiveReviewDetail() {
 
       {/* ── DESKTOP per-mode rendering ─────────────────── */}
       {mode === 'inspection' && (() => {
-        const drawerSection = sections.find(s => s.id === repairsDrawerSectionId) ?? null;
+        const drawerSection = sections.find(s => s.id === repairsDrawerSectionId && s.id === activeSectionId) ?? null;
         const inlineRepairsOpen = !!drawerSection;
         const gridCols = inlineRepairsOpen
           ? 'lg:grid-cols-[240px_minmax(0,1fr)_minmax(400px,42%)]'

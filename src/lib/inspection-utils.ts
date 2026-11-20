@@ -15,10 +15,9 @@ const NON_OPERATIONAL_TYPES = new Set(['property_meta', 'reception_meta', 'intro
 
 /**
  * A section is "repairable" (can hold repair items, generate quotations and
- * appear as a physical area of the property) only when its `section_type`
- * starts with `space_`. Everything else — `introduction`, `property_meta`,
- * `reception_meta`, `handover_meta`, `closing_operational`, `signature`, … —
- * is administrative metadata and must never expose repair surfaces.
+ * appear in budgeting) when its type starts with `space_` or is
+ * `closing_operational` (Otros Generales: cleaning, belongings, fumigation).
+ * Contextual metadata and marketing galleries do not hold repair items.
  */
 export function isRepairableSection(
   section: Pick<InspectionSection, 'section_type'> | null | undefined,
