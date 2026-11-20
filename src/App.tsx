@@ -46,6 +46,7 @@ const InspectorAllInspections = lazyWithRetry(() => import("./pages/inspector/In
 const InspectorProfile = lazyWithRetry(() => import("./pages/inspector/InspectorProfile"), "InspectorProfile");
 const InspectorInspectionDetail = lazyWithRetry(() => import("./pages/inspector/InspectorInspectionDetail"), "InspectorInspectionDetail");
 const InspectorSectionComplete = lazyWithRetry(() => import("./pages/inspector/InspectorSectionComplete"), "InspectorSectionComplete");
+const InspectorFinalChecks = lazyWithRetry(() => import("./pages/inspector/InspectorFinalChecks"), "InspectorFinalChecks");
 const InspectorCalendar = lazyWithRetry(() => import("./pages/inspector/InspectorCalendar"), "InspectorCalendar");
 
 // ── Lazy — Executive ──────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ const App = () => (
               <Route path="/inspector/calendar" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorCalendar /></ProtectedRoute>} />
               <Route path="/inspector/past" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorPastInspections /></ProtectedRoute>} />
               <Route path="/inspector/all" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorAllInspections /></ProtectedRoute>} />
+              <Route path="/inspector/final-checks" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorFinalChecks /></ProtectedRoute>} />
               <Route path="/inspector/profile" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorProfile /></ProtectedRoute>} />
               <Route path="/inspector/inspection/:id" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorInspectionDetail /></ProtectedRoute>} />
               <Route path="/inspector/inspection/:id/section/:sectionId" element={<ProtectedRoute allowedRoles={['inspector','property_advisor']}><InspectorSectionComplete /></ProtectedRoute>} />

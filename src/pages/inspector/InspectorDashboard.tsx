@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -165,6 +165,7 @@ export default function InspectorDashboard() {
       </header>
 
       <main className="px-4 space-y-7">
+        <FinalChecksShortcut />
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-44 rounded-3xl" />
@@ -426,6 +427,24 @@ function MiniCard({ inspection: insp }: { inspection: InspectionWithProgress }) 
           </div>
         </CardContent>
       </Card>
+    </Link>
+  );
+}
+
+/** Shows a shortcut when the receptor has final work reviews assigned. */
+function FinalChecksShortcut() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    void supabase.rpc('my_final_check_assignments').then(({ data }) => {
+      const rows = (data ?? []) as { status: string }[];
+      setCount(rows.filter((r) => r.status === 'in_review' || r.status === 'approved').length);
+    });
+  }, []);
+  if (count === 0) return null;
+  return (
+    <Link to="/inspector/final-checks" className="flex items-center justify-between rounded-xl border bg-card p-4">
+      <span className="text-sm font-medium">Revisión final de trabajos ({count})</span>
+      <ArrowRight className="h-4 w-4" />
     </Link>
   );
 }

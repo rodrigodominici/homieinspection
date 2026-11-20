@@ -150,7 +150,7 @@ Deno.serve(async (req: Request) => {
       retried_from_log_id: triggeredRetryFrom,
     });
   }
-  if (action !== 'key_collection_date' && action !== 'checkout_received' && action !== 'checkin_completed') {
+  if (action !== 'key_collection_date' && action !== 'checkout_received' && action !== 'checkin_completed' && action !== 'final_inspector') {
     return logAndRespond(400, { ok: false, error: 'invalid_action' }, {
       status: 'error',
       error_message: `invalid_action:${String(action)}`,
@@ -229,6 +229,21 @@ Deno.serve(async (req: Request) => {
         triggered_by: triggeredBy,
         error_message: 'missing_key_date',
         retried_from_log_id: triggeredRetryFrom,
+      });
+    }
+  } else if (action === 'final_inspector') {
+    const { data: wo } = await admin.from('inspection_work_orders').select('final_inspector_id')
+      .eq('inspection_id', inspectionId).not('final_inspector_id', 'is', null)
+      .order('assigned_at', { ascending: false }).limit(1).maybeSingle();
+    const { data: prof } = wo?.final_inspector_id
+      ? await admin.from('profiles').select('email').eq('id', wo.final_inspector_id).maybeSingle()
+      : { data: null };
+    hubspotDateValue = await resolveOwnerIdByEmail(prof?.email ?? null);
+    eventTimeIso = new Date().toISOString();
+    if (!hubspotDateValue) {
+      return logAndRespond(200, { ok: true, skipped: true, reason: 'final_inspector_owner_not_found' }, {
+        status: 'skipped', action, inspection_id: inspectionId, triggered_by: triggeredBy,
+        error_message: 'final_inspector_owner_not_found', retried_from_log_id: triggeredRetryFrom,
       });
     }
   } else if (action === 'checkin_completed') {
@@ -329,7 +344,7 @@ Deno.serve(async (req: Request) => {
       retried_from_log_id: triggeredRetryFrom,
     });
   }
-  const assigneeProps = await loadAssigneeProperties(admin, inspection);
+  const assigneeProps = action === 'final_inspector' ? {} : await loadAssigneeProperties(admin, inspection);
   const requestPayload = { properties: { [propertyName]: hubspotDateValue, ...assigneeProps } };
   const objectPathSegment = isCaptacion ? 'deals' : encodeURIComponent(objectTypeId);
   const url = `${HUBSPOT_API_BASE}/crm/v3/objects/${objectPathSegment}/${encodeURIComponent(numericId)}`;
@@ -418,4 +433,16 @@ async function loadAssigneeProperties(
     ownerFor(emailOf(inspection.executive_id)),
   ]);
   return resolveAssigneeProperties(inspection.inspection_type, inspection.market, { receptor, executive });
+}
+
+async function resolveOwnerIdByEmail(email: string | null): Promise<string | null> {
+  if (!email) return null;
+  try {
+    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners?email=${encodeURIComponent(email)}&limit=1`, {
+      headers: { Authorization: `Bearer ${HUBSPOT_PRIVATE_APP_TOKEN}` },
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body?.results?.[0]?.id ? String(body.results[0].id) : null;
+  } catch { return null; }
 }

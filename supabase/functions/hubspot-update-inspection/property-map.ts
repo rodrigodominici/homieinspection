@@ -1,9 +1,10 @@
-export type HubSpotAction = 'key_collection_date' | 'checkout_received' | 'checkin_completed';
+export type HubSpotAction = 'key_collection_date' | 'checkout_received' | 'checkin_completed' | 'final_inspector';
 
 const defaultProperties = {
   key_collection_date: 'fecha_de_recoleccion_de_llaves',
   checkout_received: 'fecha_de_recepcion_del_checkout',
   checkin_completed: 'checkin_hi_completo',
+  final_inspector: 'inspector_operaciones_trabajos_finales_cl',
 } as const;
 
 /** Mexican check-outs live on deals (Renta Continua) instead of lease contracts. */
@@ -13,6 +14,7 @@ export function usesDealObject(inspectionType: string, market: string): boolean 
 
 /** Returns null when the market has no HubSpot field defined for the action yet. */
 export function resolveHubSpotProperty(action: HubSpotAction, inspectionType: string, market: string): string | null {
+  if (action === 'final_inspector' && !(inspectionType === 'check_out' && market === 'CL')) return null;
   if (inspectionType === 'check_out' && market === 'MX') {
     if (action === 'key_collection_date') return 'fecha_de_devolucion_de_llaves';
     if (action === 'checkout_received') return 'fecha_de_recepcion_del_checkout_cl';

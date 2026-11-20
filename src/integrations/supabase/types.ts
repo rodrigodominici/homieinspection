@@ -2552,6 +2552,7 @@ export type Database = {
           created_at: string
           id: string
           inspection_id: string
+          photo_path: string | null
           result: string
           work_order_id: string
           work_order_item_id: string
@@ -2562,6 +2563,7 @@ export type Database = {
           created_at?: string
           id?: string
           inspection_id: string
+          photo_path?: string | null
           result: string
           work_order_id: string
           work_order_item_id: string
@@ -2572,6 +2574,7 @@ export type Database = {
           created_at?: string
           id?: string
           inspection_id?: string
+          photo_path?: string | null
           result?: string
           work_order_id?: string
           work_order_item_id?: string
@@ -2907,6 +2910,7 @@ export type Database = {
         Args: { _inspection_id: string }
         Returns: boolean
       }
+      my_final_check_assignments: { Args: never; Returns: Json }
       publish_quotation_version: {
         Args: { p_inspection_id: string; p_payload: Json }
         Returns: Json
@@ -2928,10 +2932,20 @@ export type Database = {
         Args: { p_inspection_id: string }
         Returns: string
       }
-      record_final_check: {
-        Args: { p_comment: string; p_complies: boolean; p_item_id: string }
-        Returns: Json
-      }
+      record_final_check:
+        | {
+            Args: { p_comment: string; p_complies: boolean; p_item_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_comment: string
+              p_complies: boolean
+              p_item_id: string
+              p_photo_path: string
+            }
+            Returns: Json
+          }
       repair_item_ready_for_work: {
         Args: { p_repair_item_id: string }
         Returns: boolean

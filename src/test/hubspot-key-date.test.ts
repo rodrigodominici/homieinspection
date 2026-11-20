@@ -29,3 +29,13 @@ describe('assignees to HubSpot', () => {
     expect(resolveAssigneeProperties('check_out', 'MX', { receptor: '1', executive: '2' })).toEqual({});
   });
 });
+
+describe('final inspector HubSpot field', () => {
+  it('Chile check-out sends to Inspector - Trabajos finales', () => {
+    expect(resolveHubSpotProperty('final_inspector', 'check_out', 'CL')).toBe('inspector_operaciones_trabajos_finales_cl');
+  });
+  it('other markets/types send nothing', () => {
+    expect(resolveHubSpotProperty('final_inspector', 'check_out', 'MX')).toBeNull();
+    expect(resolveHubSpotProperty('final_inspector', 'captacion', 'CL')).toBeNull();
+  });
+});

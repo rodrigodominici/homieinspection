@@ -46,3 +46,4 @@
 - [x] Etapa 2: propuestas del contratista (foto, comentario, costo).
 - [x] Etapa 3: informe de ejecución descargable por versiones.
 - [x] Etapa 4: inspección final cumple/no cumple + tipos de vacancia (tipos: aprobados inicial, aprobados por nuevo interesado, aseo post reparaciones).
+- [x] Etapa 4b: revisión final en el celular del receptor, foto opcional y receptor final a HubSpot (inspector_operaciones_trabajos_finales_cl).

@@ -33,6 +33,11 @@ export function triggerCheckinCompletedSync(inspectionId: string): Promise<SyncR
   return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'checkin_completed' });
 }
 
+/** Sends the receptor assigned to the final work review to HubSpot (Chile check-out). */
+export function triggerFinalInspectorSync(inspectionId: string): Promise<SyncResult> {
+  return invoke('hubspot-update-inspection', { inspection_id: inspectionId, action: 'final_inspector' });
+}
+
 /**
  * Manual retry of a previously failed outbound sync log row.
  * Admin-only on the server side. Returns the new log id on success.

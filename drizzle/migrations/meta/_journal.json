@@ -281,6 +281,13 @@
       "when": 1795123064600,
       "tag": "0039_work_order_final_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795179071242,
+      "tag": "0040_final_check_receptor_photo",
+      "breakpoints": true
     }
   ]
 }
