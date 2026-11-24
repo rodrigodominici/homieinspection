@@ -288,6 +288,13 @@
       "when": 1795179071242,
       "tag": "0040_final_check_receptor_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795536939097,
+      "tag": "0041_admin_force_finalize_mx",
+      "breakpoints": true
     }
   ]
 }

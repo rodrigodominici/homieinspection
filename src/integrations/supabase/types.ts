@@ -2770,7 +2770,7 @@ export type Database = {
         Returns: Json
       }
       finalize_inspection: {
-        Args: { p_inspection_id: string; p_note?: string }
+        Args: { p_force?: boolean; p_inspection_id: string; p_note?: string }
         Returns: Json
       }
       get_advisor_performance: {

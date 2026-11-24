@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { QUIEN_REPARA_LABELS, QUIEN_REPARA_VALUES, type QuienRepara } from '@/lib/quien-repara';
 import { toast } from '@/hooks/use-toast';
 import { triggerCheckinCompletedSync } from '@/lib/hubspot-sync';
@@ -46,6 +47,8 @@ export function FinalizeInspectionButton({
   const [note, setNote] = useState('');
   const [flag, setFlag] = useState<QuienRepara | null>(quienRepara ?? null);
   const [submitting, setSubmitting] = useState(false);
+  const { role } = useAuth();
+  const [forceMode, setForceMode] = useState(false);
 
   // Check-in: se finaliza directo tras la inspección, sin revisión ni cotización.
   const finalizable = !!status && (
@@ -56,7 +59,7 @@ export function FinalizeInspectionButton({
   );
   if (!finalizable) return null;
 
-  const canSubmit = !submitting && (!needsQuienRepara || !!flag);
+  const canSubmit = !submitting && (!needsQuienRepara || !!flag) && (!forceMode || !!note.trim());
 
   const handleSubmit = async () => {
     if (needsQuienRepara && !flag) return;
@@ -72,6 +75,7 @@ export function FinalizeInspectionButton({
       const { data, error } = await supabase.rpc('finalize_inspection' as any, {
         p_inspection_id: inspectionId,
         p_note: note.trim() || null,
+        p_force: forceMode,
       });
       if (error) throw error;
       const result = (data as any)?.status;
@@ -93,9 +97,15 @@ export function FinalizeInspectionButton({
       });
       setOpen(false);
       setNote('');
+      setForceMode(false);
       onFinalized?.();
     } catch (e: any) {
       const msg = String(e?.message ?? '');
+      if (msg.includes('work_not_done') && role === 'admin' && !forceMode) {
+        setForceMode(true);
+        toast({ variant: 'destructive', title: 'Orden de trabajo abierta', description: 'Si es México, podés forzar el cierre escribiendo el motivo en la nota y confirmando de nuevo.' });
+        return;
+      }
       toast({
         variant: 'destructive',
         title: 'No se pudo finalizar',
@@ -103,6 +113,8 @@ export function FinalizeInspectionButton({
           ? 'No tienes permisos para finalizar esta inspección.'
           : msg.includes('work_not_done')
             ? 'La orden de trabajo todavía no está terminada y aprobada.'
+          : msg.includes('force_note_required')
+            ? 'Escribí el motivo del cierre forzado.'
           : msg.includes('quien_repara_required')
             ? 'Indica quién repara antes de finalizar.'
           : msg.includes('invalid_status')
@@ -151,7 +163,12 @@ export function FinalizeInspectionButton({
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="finalize-note">Nota (opcional)</Label>
+              {forceMode && (
+                <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
+                  Cierre forzado: la orden de trabajo sigue abierta. Solo se permite en México y queda registrado en el historial.
+                </p>
+              )}
+              <Label htmlFor="finalize-note">{forceMode ? 'Motivo del cierre forzado (obligatorio)' : 'Nota (opcional)'}</Label>
               <Textarea
                 id="finalize-note"
                 value={note}
@@ -167,7 +184,7 @@ export function FinalizeInspectionButton({
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={!canSubmit}>
-              {submitting ? 'Finalizando...' : 'Confirmar'}
+              {submitting ? 'Finalizando...' : forceMode ? 'Forzar cierre' : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>
