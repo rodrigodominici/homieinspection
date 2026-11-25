@@ -295,6 +295,13 @@
       "when": 1795536939097,
       "tag": "0041_admin_force_finalize_mx",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795600642791,
+      "tag": "0042_customer_success_assignee",
+      "breakpoints": true
     }
   ]
 }

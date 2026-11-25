@@ -408,6 +408,17 @@ Deno.serve(async (req: Request) => {
             console.error('[intake] form received date sync failed', e);
           }
         }
+        if (!row?.failure_reason && row?.inspection_id && source === 'hubspot') {
+          try {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/customer-success-sync`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ inspection_id: row.inspection_id }),
+            });
+          } catch (e) {
+            console.error('[intake] customer success sync failed', e);
+          }
+        }
       }
     } catch (err) {
       console.error('[intake] background error', err);

@@ -1508,6 +1508,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_stage: string
+          customer_success_email: string | null
+          customer_success_name: string | null
+          customer_success_profile_id: string | null
+          customer_success_synced_at: string | null
           executive_id: string | null
           fecha_devolucion_llave: string | null
           fecha_devolucion_llave_sync_status: string
@@ -1556,6 +1560,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_stage?: string
+          customer_success_email?: string | null
+          customer_success_name?: string | null
+          customer_success_profile_id?: string | null
+          customer_success_synced_at?: string | null
           executive_id?: string | null
           fecha_devolucion_llave?: string | null
           fecha_devolucion_llave_sync_status?: string
@@ -1604,6 +1612,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_stage?: string
+          customer_success_email?: string | null
+          customer_success_name?: string | null
+          customer_success_profile_id?: string | null
+          customer_success_synced_at?: string | null
           executive_id?: string | null
           fecha_devolucion_llave?: string | null
           fecha_devolucion_llave_sync_status?: string
@@ -1667,6 +1679,13 @@ export type Database = {
           {
             foreignKeyName: "inspections_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_customer_success_profile_id_fkey"
+            columns: ["customer_success_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

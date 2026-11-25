@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { INSPECTION_LIST_COLUMNS } from '@/lib/inspection-columns';
 import type { Inspection, Profile } from '@/lib/types';
 import { useMarket } from '@/contexts/MarketContext';
+import { useAuth } from '@/contexts/AuthContext';
 import ComercialLayout from './ComercialLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -101,7 +102,24 @@ export default function ComercialCheckOutList() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [type, setType] = useState<string>('all');
+  const [cs, setCsState] = useState<string>(() => sessionStorage.getItem('comercial.cs') ?? 'all');
+  const setCs = (v: string) => { setCsState(v); sessionStorage.setItem('comercial.cs', v); };
   const { matchesMarket } = useMarket();
+  const { user } = useAuth();
+  const csKey = (i: Inspection) => {
+    const x = i as Inspection & { customer_success_email?: string | null; customer_success_name?: string | null };
+    return (x.customer_success_email || x.customer_success_name || '').toLowerCase();
+  };
+  const csOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    (inspections ?? []).forEach((i) => {
+      if (!matchesMarket(i.market)) return;
+      const x = i as Inspection & { customer_success_name?: string | null; customer_success_email?: string | null };
+      const k = csKey(i);
+      if (k) m.set(k, x.customer_success_name || x.customer_success_email || k);
+    });
+    return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [inspections, matchesMarket]);
 
   const rows = useMemo(() => {
     const list = inspections ?? [];
@@ -109,6 +127,12 @@ export default function ComercialCheckOutList() {
       if (!matchesMarket(i.market)) return false;
       if (status !== 'all' && i.status !== status) return false;
       if (type !== 'all' && i.inspection_type !== type) return false;
+      if (cs === 'mine') {
+        const x = i as Inspection & { customer_success_profile_id?: string | null };
+        if (x.customer_success_profile_id !== user?.id && csKey(i) !== (user?.email ?? '').toLowerCase()) return false;
+      } else if (cs === 'none') {
+        if (csKey(i)) return false;
+      } else if (cs !== 'all' && csKey(i) !== cs) return false;
       if (query.trim()) {
         const inspectorName = i.inspector_id ? profileMap.get(i.inspector_id)?.full_name ?? null : null;
         const executiveName = i.executive_id ? profileMap.get(i.executive_id)?.full_name ?? null : null;
@@ -117,7 +141,7 @@ export default function ComercialCheckOutList() {
       }
       return true;
     });
-  }, [inspections, status, type, query, profileMap, matchesMarket]);
+  }, [inspections, status, type, query, profileMap, matchesMarket, cs, user]);
 
   return (
     <ComercialLayout>
@@ -148,6 +172,17 @@ export default function ComercialCheckOutList() {
               {TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={cs} onValueChange={setCs}>
+            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Customer Success"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las Customer Success</SelectItem>
+              <SelectItem value="mine">Mis inspecciones</SelectItem>
+              {csOptions.map(([k, label]) => (
+                <SelectItem key={k} value={k}>{label}</SelectItem>
+              ))}
+              <SelectItem value="none">Sin Customer Success</SelectItem>
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>

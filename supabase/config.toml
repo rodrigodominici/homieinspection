@@ -21,3 +21,5 @@ project_id = "qlbprsnnjbzfixjrvfuh"
     verify_jwt = false
   [functions.send-checkin-report-email]
     verify_jwt = false
+  [functions.customer-success-sync]
+    verify_jwt = false
