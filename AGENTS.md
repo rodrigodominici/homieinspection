@@ -28,4 +28,4 @@
 - Review screens list sections via `isReviewVisibleSection` (spaces plus read-only closing_operational/marketing_photos). Why: filtering to repairable spaces hid Otros Generales from executives and admins.
 - Chilean check-out HubSpot updates also send receptor/ejecutivo_de_operaciones owner IDs resolved by profile email; unresolved owners are omitted. Why: avoids double manual entry without overwriting with wrong owners.
 - HubSpot intake stores any captación, any MX check-out (or hs_deal_ id) as a deal reference (0-3); only CL check-outs use lease_contract. Why: CL captaciones and MX Renta Continua check-outs live on deals, and lease-contract refs returned 404. Why: CL captaciones arrive via HubSpot without top-level inspection_type and were saved as contracts, blocking deal updates.
-- Customer Success comes from customer-success-sync (HubSpot labels resolved at runtime). Why: internal names differ from labels.
+- Customer Success: customer-success-sync resolves HubSpot labels at runtime.
