@@ -302,6 +302,13 @@
       "when": 1795600642791,
       "tag": "0042_customer_success_assignee",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795612363792,
+      "tag": "0043_restrict_market_tax_settings_read",
+      "breakpoints": true
     }
   ]
 }
